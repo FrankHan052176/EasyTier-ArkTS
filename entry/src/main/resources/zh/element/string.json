@@ -1,0 +1,200 @@
+{
+  "string": [
+    {
+      "name": "darkmode",
+      "value": "暗黑模式"
+    },
+    {
+      "name": "darkmode_auto",
+      "value": "跟随系统"
+    },
+    {
+      "name": "darkmode_off",
+      "value": "停用"
+    },
+    {
+      "name": "darkmode_on",
+      "value": "启用"
+    },
+    {
+      "name": "toolbar_plus",
+      "value": "添加网络实例"
+    },
+    {
+      "name": "toolbar_Setting",
+      "value": "设置"
+    },
+    {
+      "name": "toolbar_Info",
+      "value": "信息"
+    },
+    {
+      "name": "index_instances",
+      "value": "网络实例"
+    },
+    {
+      "name": "index_total",
+      "value": "共"
+    },
+    {
+      "name": "index_total_suffix",
+      "value": "个"
+    },
+    {
+      "name": "index_not_running",
+      "value": "未运行"
+    },
+    {
+      "name": "index_menu_run",
+      "value": "启动"
+    },
+    {
+      "name": "index_menu_edit",
+      "value": "编辑"
+    },
+    {
+      "name": "index_menu_delete",
+      "value": "删除"
+    },
+    {
+      "name": "index_menu_stop",
+      "value": "停止"
+    },
+    {
+      "name": "edit_basic_setting",
+      "value": "基础设置"
+    },
+    {
+      "name": "edit_network_profile",
+      "value": "网络名称与密码"
+    },
+    {
+      "name": "edit_hostname",
+      "value": "主机名"
+    },
+    {
+      "name": "edit_peers",
+      "value": "Peer 列表"
+    },
+    {
+      "name": "edit_latency_first",
+      "value": "开启延迟优先模式"
+    },
+    {
+      "name": "edit_user_space_stack",
+      "value": "使用用户态协议栈"
+    },
+    {
+      "name": "edit_kcp",
+      "value": "启用 KCP 代理"
+    },
+    {
+      "name": "edit_p2p",
+      "value": "禁用 P2P"
+    },
+    {
+      "name": "edit_no_tun",
+      "value": "无 TUN 模式"
+    },
+    {
+      "name": "edit_rpc",
+      "value": "转发 RPC 包"
+    },
+    {
+      "name": "edit_encryption",
+      "value": "启用加密"
+    },
+    {
+      "name": "edit_udp_hole",
+      "value": "禁用 UDP 打洞"
+    },
+    {
+      "name": "edit_magic_dns",
+      "value": "启用 Magic DNS"
+    },
+    {
+      "name": "edit_proxy_cidr",
+      "value": "子网代理 CIDR"
+    },
+    {
+      "name": "edit_route",
+      "value": "自定义路由"
+    },
+    {
+      "name": "edit_networks_whitelist",
+      "value": "网络白名单"
+    },
+    {
+      "name": "edit_exit_nodes",
+      "value": "出口节点"
+    },
+    {
+      "name": "edit_advanced_setting",
+      "value": "高级设置"
+    },
+    {
+      "name": "edit_edit",
+      "value": "编辑"
+    },
+    {
+      "name": "edit_add",
+      "value": "添加"
+    },
+    {
+      "name": "edit_kcp_input",
+      "value": "禁止 KCP 输入"
+    },
+    {
+      "name": "edit_quic",
+      "value": "启用 QUIC 代理"
+    },
+    {
+      "name": "edit_quic_input",
+      "value": "禁止 QUIC 输入"
+    },
+    {
+      "name": "edit_private_mode",
+      "value": "启用私有模式"
+    },
+    {
+      "name": "first_edit_1",
+      "value": "双击启停"
+    },
+    {
+      "name": "first_edit_2",
+      "value": "长按呼出菜单"
+    },
+    {
+      "name": "edit_exit_node",
+      "value": "启用出口节点"
+    },
+    {
+      "name": "index_menu_rename",
+      "value": "重命名"
+    },
+    {
+      "name": "index_import_from_other",
+      "value": "从其他设备导入"
+    },
+    {
+      "name": "cant_import",
+      "value": "无法导入该实例(UUID已存在)"
+    },
+    {
+      "name": "index_menu_reset_uuid",
+      "value": "重置 UUID"
+    },
+    {
+      "name": "index_menu_share",
+      "value": "复制到剪切板"
+    },
+    {
+      "name": "data_reason",
+      "value": "与其他设备共享配置"
+    },
+    {
+      "name": "location_reason",
+      "value": "当App在后台时进行进程保活"
+    }
+  ]
+}

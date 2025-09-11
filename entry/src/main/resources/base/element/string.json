@@ -1,0 +1,212 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "main moudle"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "A good SD-WAN app"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "HomoTier"
+    },
+    {
+      "name": "location_reason",
+      "value": "Keep instance alive when app is background"
+    },
+    {
+      "name": "data_reason",
+      "value": "Share configs with other devices"
+    },
+    {
+      "name": "darkmode",
+      "value": "Dark Mode"
+    },
+    {
+      "name": "darkmode_auto",
+      "value": "Auto"
+    },
+    {
+      "name": "darkmode_off",
+      "value": "Off"
+    },
+    {
+      "name": "darkmode_on",
+      "value": "On"
+    },
+    {
+      "name": "toolbar_plus",
+      "value": "Add Network"
+    },
+    {
+      "name": "toolbar_Setting",
+      "value": "Setting"
+    },
+    {
+      "name": "toolbar_Info",
+      "value": "Network Info"
+    },
+    {
+      "name": "index_instances",
+      "value": "Network Instances"
+    },
+    {
+      "name": "index_total",
+      "value": "Total "
+    },
+    {
+      "name": "index_total_suffix",
+      "value": ""
+    },
+    {
+      "name": "index_not_running",
+      "value": "Not Running"
+    },
+    {
+      "name": "index_menu_run",
+      "value": "Start"
+    },
+    {
+      "name": "index_menu_edit",
+      "value": "Edit"
+    },
+    {
+      "name": "index_menu_delete",
+      "value": "Delete"
+    },
+    {
+      "name": "index_menu_stop",
+      "value": "Stop"
+    },
+    {
+      "name": "edit_basic_setting",
+      "value": "Basic Setting"
+    },
+    {
+      "name": "edit_network_profile",
+      "value": "Network Name and Secret"
+    },
+    {
+      "name": "edit_hostname",
+      "value": "Host name"
+    },
+    {
+      "name": "edit_peers",
+      "value": "Peer List"
+    },
+    {
+      "name": "edit_latency_first",
+      "value": "Enable Latency-First Mode"
+    },
+    {
+      "name": "edit_user_space_stack",
+      "value": "Use User-Space Protocol Stack"
+    },
+    {
+      "name": "edit_kcp",
+      "value": "Enable KCP Proxy"
+    },
+    {
+      "name": "edit_kcp_input",
+      "value": "Disable KCP Input"
+    },
+    {
+      "name": "edit_quic",
+      "value": "Enable QUIC Proxy"
+    },
+    {
+      "name": "edit_quic_input",
+      "value": "Disable QUIC Input"
+    },
+    {
+      "name": "edit_private_mode",
+      "value": "Enable Private Mode"
+    },
+    {
+      "name": "edit_p2p",
+      "value": "Disable P2P"
+    },
+    {
+      "name": "edit_exit_node",
+      "value": "Enable Exit Node"
+    },
+    {
+      "name": "edit_no_tun",
+      "value": "No TUN Mode"
+    },
+    {
+      "name": "edit_rpc",
+      "value": "Relay RPC Packets"
+    },
+    {
+      "name": "edit_udp_hole",
+      "value": "Disable UDP hole punching"
+    },
+    {
+      "name": "edit_encryption",
+      "value": "Disable Encryption"
+    },
+    {
+      "name": "edit_magic_dns",
+      "value": "Enable Magic DNS"
+    },
+    {
+      "name": "edit_proxy_cidr",
+      "value": "Subnet Proxy CIDRs"
+    },
+    {
+      "name": "edit_route",
+      "value": "Manual Route"
+    },
+    {
+      "name": "edit_networks_whitelist",
+      "value": "Network Whitelist"
+    },
+    {
+      "name": "edit_exit_nodes",
+      "value": "Exit Nodes"
+    },
+    {
+      "name": "edit_advanced_setting",
+      "value": "Advanced Setting"
+    },
+    {
+      "name": "edit_edit",
+      "value": "Edit"
+    },
+    {
+      "name": "edit_add",
+      "value": "Add"
+    },
+    {
+      "name": "first_edit_1",
+      "value": "Double-click to start and stop"
+    },
+    {
+      "name": "first_edit_2",
+      "value": "Hold to call out the menu"
+    },
+    {
+      "name": "index_menu_rename",
+      "value": "Rename"
+    },
+    {
+      "name": "index_import_from_other",
+      "value": "Import From Other Device"
+    },
+    {
+      "name": "cant_import",
+      "value": "Cant Import This Instance With Existed UUID"
+    },
+    {
+      "name": "index_menu_reset_uuid",
+      "value": "Reset UUID"
+    },
+    {
+      "name": "index_menu_share",
+      "value": "Copy to clipboard"
+    }
+  ]
+}
