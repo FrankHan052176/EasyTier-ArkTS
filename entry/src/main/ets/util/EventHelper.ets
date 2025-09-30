@@ -1,7 +1,7 @@
 import { BusinessError, commonEventManager, emitter } from "@kit.BasicServicesKit";
 import Logger from "./Logger";
 
-export class EventHelper {
+class EventHelper {
   private bundleName = "top.frankhan.et4hm"
   public commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void) {
     let subscribeInfo: commonEventManager.CommonEventSubscribeInfo = {

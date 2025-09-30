@@ -1,0 +1,186 @@
+import Manager from "../../Manager"
+import { Config, vpn_portal_config } from "../../util/config/ETConfig"
+
+@Extend(TextInput) function fancyTextInput(width: number = 30, length: number = 3) {
+  .padding(0)
+  .fontSize(16)
+  .width(width)
+  .maxLength(length)
+  .borderRadius(0)
+  .type(InputType.Number)
+  .backgroundColor(Color.Transparent)
+  .selectedBackgroundColor(Color.Transparent)
+  .textAlign(TextAlign.Center)
+}
+@Extend(Text) function fancyText() {
+  .padding(0)
+  .fontSize(16)
+  .borderRadius(0)
+  .backgroundColor(Color.Transparent)
+}
+
+const minWidth = 350
+
+@ComponentV2
+export struct WGPortal {
+  @Param @Require config:Config
+  @Local ip1: string = "10"
+  @Local ip2: string = "0"
+  @Local ip3: string = "0"
+  @Local ip4: string = "1"
+  @Local port: string = "23333"
+
+  @Computed
+  get comp_width() {
+    return Manager.width>=Manager.height*0.625?minWidth:Manager.width-20
+  }
+
+  updateCIDR() {
+    this.config.vpn_portal_config!.client_cidr = this.ip1+"."+this.ip2+"."+this.ip3+"."+this.ip4+"/24"
+  }
+
+  updateListener() {
+    this.config.vpn_portal_config!.wireguard_listen = "0.0.0.0:"+this.port
+  }
+
+  readCIDR() {
+    if (this.config.vpn_portal_config !== null) {
+      let split = this.config.vpn_portal_config.client_cidr.substring(0, this.config.vpn_portal_config.client_cidr.length-3).split(".")
+      this.ip1 = split[0]
+      this.ip2 = split[1]
+      this.ip3 = split[2]
+      this.ip4 = split[3]
+      this.port = this.config.vpn_portal_config.wireguard_listen.substring(8)
+    }
+  }
+
+  aboutToAppear(): void {
+    this.readCIDR()
+  }
+
+  @Builder
+  WrappedInput() {
+    Row() {
+      Row() {
+        TextInput({text: $$this.ip1})
+          .fancyTextInput()
+          .onChange((value) => {
+            this.ip1 = value
+            this.updateCIDR()
+          })
+        Text(".")
+          .fancyText()
+        TextInput({text: $$this.ip2})
+          .fancyTextInput()
+          .onChange((value) => {
+            this.ip2 = value
+            this.updateCIDR()
+          })
+        Text(".")
+          .fancyText()
+        TextInput({text: $$this.ip3})
+          .fancyTextInput()
+          .onChange((value) => {
+            this.ip3 = value
+            this.updateCIDR()
+          })
+        Text(".")
+          .fancyText()
+        TextInput({text: $$this.ip4})
+          .fancyTextInput()
+          .onChange((value) => {
+            this.ip4 = value
+            this.updateCIDR()
+          })
+        Text("/24")
+          .fancyText()
+      }
+      .borderRadius(10)
+      .padding({top: 5, bottom: 5, right: 5})
+      .backgroundColor($r("sys.color.interactive_hover"))
+      Row() {
+        TextInput({text: $$this.port})
+          .fancyTextInput(60, 5)
+          .onChange((value) => {
+            this.port = value
+            this.updateListener()
+          })
+      }
+      .borderRadius(10)
+      .padding({top: 5, bottom: 5})
+      .backgroundColor($r("sys.color.interactive_hover"))
+      .margin({left: 10})
+    }
+    .width('100%')
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.Start)
+    .transition(TransitionEffect.move(TransitionEdge.BOTTOM))
+    .animation({
+      curve: Curve.LinearOutSlowIn,
+      duration: 300,
+      expectedFrameRateRange: {
+        min: 30,
+        max: 120,
+        expected: 120
+      }
+    })
+  }
+
+  build() {
+    Column() {
+      Row() {
+        Text("VPN Portal")
+          .fontSize(17)
+          .fontColor($r("sys.color.font_primary"))
+        Button('启用', {
+          type: ButtonType.Normal,
+          buttonStyle: this.config.vpn_portal_config!==null?ButtonStyleMode.EMPHASIZED:ButtonStyleMode.NORMAL,
+          role: ButtonRole.NORMAL
+        })
+          .height(34)
+          .borderRadius(13)
+          .fontSize(16)
+          .clickEffect({
+            level: ClickEffectLevel.LIGHT,
+            scale: 0.9
+          })
+          .onClick(() => {
+            animateToImmediately({
+              curve: Curve.EaseIn,
+              duration: 300,
+              expectedFrameRateRange: {
+                min: 30,
+                max: 120,
+                expected: 120
+              }
+            }, () => {
+              if (this.config.vpn_portal_config === null) {
+                this.config.initPortal()
+                this.readCIDR()
+              }else {
+                this.config.vpn_portal_config = null
+              }
+            })
+          })
+      }
+      .padding({left: 5})
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      if (this.config.vpn_portal_config !== null) {
+        Column() {
+          this.WrappedInput()
+        }
+        .clip(true)
+        .width('100%')
+        .padding({top: 5})
+        .alignItems(HorizontalAlign.Center)
+      }
+    }
+    .width(this.comp_width)
+    .padding({left: 10, right: 6, top: 6, bottom: 6})
+    .borderRadius(18)
+    .backgroundColor($r("sys.color.comp_background_primary"))
+    .alignItems(HorizontalAlign.Center)
+  }
+}

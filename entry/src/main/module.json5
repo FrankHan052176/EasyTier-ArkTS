@@ -18,10 +18,10 @@
         "name": "EntryAbility",
         "srcEntry": "./ets/entryability/EntryAbility.ets",
         "description": "$string:EntryAbility_desc",
-        "icon": "$media:layered_image_r",
+        "icon": "$media:layered_image",
         "orientation": "auto_rotation_restricted",
         "label": "$string:EntryAbility_label",
-        "startWindowIcon": "$media:homoTierR",
+        "startWindowIcon": "$media:easytier_256",
         "backgroundModes": ["dataTransfer", "location"],
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
@@ -49,6 +49,18 @@
               }
             ],
             "domainVerify": true
+          },
+          {
+            "actions": [
+              "ohos.want.action.sendData"
+            ],
+            "uris": [
+              {
+                "scheme": "file",
+                "utd": "general.hyperlink",
+                "maxFileSupported": 1
+              }
+            ]
           }
         ]
       }
@@ -64,11 +76,11 @@
             "name": "ohos.extension.backup",
             "resource": "$profile:backup_config"
           }
-        ],
+        ]
       },
       {
-        "name": "MyVpnExtAbility",
-        "srcEntry": "./ets/entryability/VpnAbility.ets",
+        "name": "EasyTierAbility",
+        "srcEntry": "./ets/entryability/EasyTierAbility.ets",
         "type": "vpn"
       }
     ],
@@ -117,6 +129,9 @@
           ],
           "when": "inuse"
         }
+      },
+      {
+        "name": "ohos.permission.VIBRATE",
       }
     ]
   }

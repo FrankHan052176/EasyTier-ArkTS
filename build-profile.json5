@@ -1,28 +1,16 @@
 {
   "app": {
     "signingConfigs": [
-      {
-        "name": "default",
-        "type": "HarmonyOS",
-        "material": {
-          "certpath": "C:\\Users\\FrankHan\\.ohos\\config\\default_et4hm_VQaAptvKxPOIYE846vzKSHMX7QYX2bsyoac4zm9btYE=.cer",
-          "keyAlias": "debugKey",
-          "keyPassword": "0000001B07BA423C225351DD71C53E2E1B1342E75E66D4B9CD28C9AA722B374E1730D20A0CB7A85D3EA1D7",
-          "profile": "C:\\Users\\FrankHan\\.ohos\\config\\default_et4hm_VQaAptvKxPOIYE846vzKSHMX7QYX2bsyoac4zm9btYE=.p7b",
-          "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\FrankHan\\.ohos\\config\\default_et4hm_VQaAptvKxPOIYE846vzKSHMX7QYX2bsyoac4zm9btYE=.p12",
-          "storePassword": "0000001BC24972065BB7D1F5FD5C91DDDA6C565EB54F47EB6F51006871690C12FABC3BCC373EC669E1F167"
-        }
-      }
     ],
     "products": [
       {
         "name": "default",
-        "signingConfig": "default",
+        "signingConfig": "publish",
         "targetSdkVersion": "5.0.5(17)",
         "compatibleSdkVersion": "5.0.5(17)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
+          "nativeCompiler": "BiSheng",
           "strictMode": {
             "caseSensitiveCheck": true,
             "useNormalizedOHMUrl": true

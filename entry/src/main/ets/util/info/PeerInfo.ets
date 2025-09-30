@@ -8,6 +8,22 @@ export interface NetworkInstanceRunningInfo {
   running: boolean
   error_msg?: string
 }
+export interface NetworkInstanceRunningInfoWithUnwrappedEvents {
+  dev_name: string
+  my_node_info: NodeInfo
+  events: Array<Event>,
+  routes: Route[]
+  peers: PeerInfo[]
+  peer_route_pairs: PeerRoutePair[]
+  running: boolean
+  error_msg?: string
+}
+
+export interface Event {
+  time: string
+  type: string
+  msg: string
+}
 
 export interface Ipv4Addr {
   addr: number
@@ -68,7 +84,7 @@ export interface StunInfo {
 
 export interface Route {
   peer_id: number
-  ipv4_addr: Ipv4Inet | string | null
+  ipv4_addr: Ipv4Inet | null
   next_hop_peer_id: number
   cost: number
   proxy_cidrs: string[]

@@ -1,0 +1,58 @@
+import Manager from "../../Manager"
+import { Config } from "../../util/config/ETConfig"
+import { isGetDistributePerm, requestDistributePerm } from "../../util/Permission"
+
+const minWidth = 350
+
+@ComponentV2
+export struct Hostname {
+  @Param @Require config:Config
+  @Computed
+  get comp_width() {
+    return Manager.width>=Manager.height*0.625?minWidth:Manager.width-20
+  }
+
+  build() {
+    Column() {
+      Row(){
+        Text("主机名")
+          .fontSize(18)
+          .fontColor($r("sys.color.font_primary"))
+        Row() {
+          Text("使用设备名")
+            .fontSize(16)
+            .fontColor($r("sys.color.font_primary"))
+          SymbolGlyph($r("sys.symbol.square_and_arrow_down"))
+            .fontSize(18)
+            .fontColor([$r("sys.color.font_primary")])
+            .effectStrategy(SymbolEffectStrategy.HIERARCHICAL)
+        }
+        .onClick(() => {
+          requestDistributePerm(this.getUIContext().getHostContext()!).then((value) => {
+            this.config.hostname = value?Manager.deviceManager.getLocalDeviceName():"HarmonyOS"
+          })
+        })
+        .clickEffect({
+          level: ClickEffectLevel.LIGHT
+        })
+      }
+      .padding({left: 5, bottom: 5})
+      .width('100%')
+      .justifyContent(FlexAlign.SpaceBetween)
+      .alignItems(VerticalAlign.Center)
+      TextInput({text: this.config.hostname})
+        .contentType(ContentType.NICKNAME)
+        .fontSize(16)
+        .padding(8)
+        .borderRadius(10)
+        .onChange((newText: string) => {
+          this.config.hostname = newText
+        })
+    }
+    .width(this.comp_width)
+    .alignItems(HorizontalAlign.Start)
+    .borderRadius(18)
+    .backgroundColor($r("sys.color.comp_background_primary"))
+    .padding(10)
+  }
+}

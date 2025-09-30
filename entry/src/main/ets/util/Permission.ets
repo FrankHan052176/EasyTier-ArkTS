@@ -1,11 +1,11 @@
 import { abilityAccessCtrl, bundleManager, common, Permissions } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { vpnExtension } from '@kit.NetworkKit';
+import Manager from '../Manager';
 import Logger from './Logger';
 
 const permissions: Array<Permissions> =
   ['ohos.permission.APPROXIMATELY_LOCATION', 'ohos.permission.DISTRIBUTED_DATASYNC'];
-let permResult: abilityAccessCtrl.GrantStatus[] = [abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED, abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED]
 
 async function checkPermissionGrant(permission: Permissions): Promise<abilityAccessCtrl.GrantStatus> {
   let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
@@ -29,36 +29,63 @@ async function checkPermissionGrant(permission: Permissions): Promise<abilityAcc
   return grantStatus;
 }
 
-export async function checkPerm(context: common.UIAbilityContext) {
-  let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
+export async function updatePermStatus(): Promise<void> {
   let status = await checkPermissionGrant(permissions[0])
   let status1 = await checkPermissionGrant(permissions[1])
-  if (status !== abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED ||
-    status1 !== abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
-    atManager.requestPermissionsFromUser(context, permissions).then((result) => {
-      permResult = result.authResults
-    })
+  Manager.updateLocPerm(status)
+  Manager.updateDistributePerm(status1)
+}
+
+export async function requestLocPerm(context: Context): Promise<boolean> {
+  let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
+  let status = await checkPermissionGrant(permissions[0])
+  if (status == abilityAccessCtrl.GrantStatus.PERMISSION_DENIED) {
+    let result = await atManager.requestPermissionsFromUser(context, ['ohos.permission.APPROXIMATELY_LOCATION'])
+    if (!result.dialogShownResults![0]) {
+      return requestLocPermFromSetting(context)
+    }else {
+      Manager.updateLocPerm(result.authResults[0])
+      return Promise.resolve(result.authResults[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+    }
+  }else {
+    return Promise.resolve(true)
   }
 }
 
-export async function checkLocPerm(context: common.UIAbilityContext): Promise<boolean> {
-  if (permResult[0] != abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
-    Logger.debug("0 未授权")
+export async function requestDistributePerm(context: Context, again: boolean = true): Promise<boolean> {
+  let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
+  let status = await checkPermissionGrant(permissions[1])
+  if (status !== abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
+    let result = await atManager.requestPermissionsFromUser(context, ['ohos.permission.DISTRIBUTED_DATASYNC'])
+    if (!result.dialogShownResults![0] && again) {
+      return requestDistributePermFromSetting(context)
+    }else {
+      Manager.updateDistributePerm(result.authResults[0])
+      return Promise.resolve(result.authResults[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+    }
+  }else {
+    return Promise.resolve(true)
+  }
+}
+
+export async function requestLocPermFromSetting(context: Context): Promise<boolean> {
+  if (Manager.locPerm != abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
+    Logger.debug("[Permission] LocPerm request again")
     let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
     let rst = await atManager.requestPermissionOnSetting(context, ["ohos.permission.APPROXIMATELY_LOCATION"])
-    permResult[0] = rst[0]
+    Manager.updateLocPerm(rst[0])
     return Promise.resolve(rst[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
   }else {
     return Promise.resolve(true)
   }
 }
 
-export async function checkDistributePerm(context: common.UIAbilityContext): Promise<boolean> {
-  if (permResult[1] != abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
-    Logger.debug("1 未授权")
+export async function requestDistributePermFromSetting(context: Context): Promise<boolean> {
+  if (Manager.distributePerm != abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
+    Logger.debug("[Permission] DistributePerm request again")
     let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
     let rst = await atManager.requestPermissionOnSetting(context, ["ohos.permission.DISTRIBUTED_DATASYNC"])
-    permResult[1] = rst[0]
+    Manager.updateDistributePerm(rst[0])
     return Promise.resolve(rst[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
   }else {
     return Promise.resolve(true)
@@ -66,21 +93,26 @@ export async function checkDistributePerm(context: common.UIAbilityContext): Pro
 }
 
 export function isGetDistributePerm(): boolean {
-  return permResult[1] == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
+  return Manager.distributePerm == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
 }
 
-export function requestVpnPerm(callback: () => void) {
+export function isGetLocPerm(): boolean {
+  return Manager.locPerm == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
+}
+
+export function requestVpnPerm(callback: () => void, finallyCallback: () => void = () => {}) {
   vpnExtension.startVpnExtensionAbility({
     deviceId: '',
-    bundleName: 'top.frankhan.et4hm',
-    abilityName: 'VpnAbility',
+    bundleName: 'top.frankhan.easytier',
+    abilityName: 'EasyTierAbility',
   }).then(() => {
+    Logger.debug("[Permission] startVpnExtensionAbility")
     vpnExtension.stopVpnExtensionAbility({
       deviceId: '',
-      bundleName: 'top.frankhan.et4hm',
-      abilityName: 'VpnAbility',
+      bundleName: 'top.frankhan.easytier',
+      abilityName: 'EasyTierAbility',
     }).then(callback)
   }).finally(() => {
-    //TODO 检测tun是否成功启动，否则发出警告
+    finallyCallback()
   })
 }

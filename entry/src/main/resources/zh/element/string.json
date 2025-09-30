@@ -17,54 +17,6 @@
       "value": "启用"
     },
     {
-      "name": "toolbar_plus",
-      "value": "添加网络实例"
-    },
-    {
-      "name": "toolbar_Setting",
-      "value": "设置"
-    },
-    {
-      "name": "toolbar_Info",
-      "value": "信息"
-    },
-    {
-      "name": "index_instances",
-      "value": "网络实例"
-    },
-    {
-      "name": "index_total",
-      "value": "共"
-    },
-    {
-      "name": "index_total_suffix",
-      "value": "个"
-    },
-    {
-      "name": "index_not_running",
-      "value": "未运行"
-    },
-    {
-      "name": "index_menu_run",
-      "value": "启动"
-    },
-    {
-      "name": "index_menu_edit",
-      "value": "编辑"
-    },
-    {
-      "name": "index_menu_delete",
-      "value": "删除"
-    },
-    {
-      "name": "index_menu_stop",
-      "value": "停止"
-    },
-    {
-      "name": "edit_basic_setting",
-      "value": "基础设置"
-    },
-    {
       "name": "edit_network_profile",
       "value": "网络名称与密码"
     },
@@ -77,39 +29,43 @@
       "value": "Peer 列表"
     },
     {
-      "name": "edit_latency_first",
+      "name": "latency_first",
       "value": "开启延迟优先模式"
     },
     {
-      "name": "edit_user_space_stack",
+      "name": "use_smoltcp",
       "value": "使用用户态协议栈"
     },
     {
-      "name": "edit_kcp",
+      "name": "enable_kcp_proxy",
       "value": "启用 KCP 代理"
     },
     {
-      "name": "edit_p2p",
+      "name": "disable_p2p",
       "value": "禁用 P2P"
     },
     {
-      "name": "edit_no_tun",
+      "name": "no_tun",
       "value": "无 TUN 模式"
     },
     {
-      "name": "edit_rpc",
+      "name": "relay_all_peer_rpc",
       "value": "转发 RPC 包"
     },
     {
-      "name": "edit_encryption",
+      "name": "enable_encryption",
       "value": "启用加密"
     },
     {
-      "name": "edit_udp_hole",
+      "name": "disable_udp_hole_punching",
       "value": "禁用 UDP 打洞"
     },
     {
-      "name": "edit_magic_dns",
+      "name": "disable_sym_hole_punching",
+      "value": "禁用对称 NAT 打洞"
+    },
+    {
+      "name": "accept_dns",
       "value": "启用 Magic DNS"
     },
     {
@@ -121,7 +77,7 @@
       "value": "自定义路由"
     },
     {
-      "name": "edit_networks_whitelist",
+      "name": "relay_network_whitelist",
       "value": "网络白名单"
     },
     {
@@ -141,19 +97,23 @@
       "value": "添加"
     },
     {
-      "name": "edit_kcp_input",
+      "name": "disable_kcp_input",
       "value": "禁止 KCP 输入"
     },
     {
-      "name": "edit_quic",
+      "name": "enable_quic_proxy",
       "value": "启用 QUIC 代理"
     },
     {
-      "name": "edit_quic_input",
+      "name": "disable_quic_input",
       "value": "禁止 QUIC 输入"
     },
     {
-      "name": "edit_private_mode",
+      "name": "enable_ipv6",
+      "value": "启用 IPv6"
+    },
+    {
+      "name": "private_mode",
       "value": "启用私有模式"
     },
     {
@@ -165,7 +125,7 @@
       "value": "长按呼出菜单"
     },
     {
-      "name": "edit_exit_node",
+      "name": "enable_exit_node",
       "value": "启用出口节点"
     },
     {
@@ -190,11 +150,15 @@
     },
     {
       "name": "data_reason",
-      "value": "与其他设备共享配置"
+      "value": "获取设备名并与其他设备共享配置"
     },
     {
       "name": "location_reason",
       "value": "当App在后台时进行进程保活"
+    },
+    {
+      "name": "pasteboard_reason",
+      "value": "从剪切板导入配置"
     }
   ]
 }

@@ -5,28 +5,8 @@
       "value": "#000000"
     },
     {
-      "name": "2rd_color",
-      "value": "#B3B3B3"
-    },
-    {
-      "name": "disabled_color",
-      "value": "#AAAAAA"
-    },
-    {
-      "name": "button_bg_color",
-      "value": "#1A1A1A"
-    },
-    {
-      "name": "item_bg_color",
-      "value": "#1A1A1A"
-    },
-    {
-      "name": "font_color",
-      "value": "#FFFFFF"
-    },
-    {
-      "name": "bg_color",
-      "value": "#000000"
+      "name": "blurBG",
+      "value": "#E0202224"
     }
   ]
 }

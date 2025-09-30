@@ -5,48 +5,8 @@
       "value": "#FFFFFF"
     },
     {
-      "name": "basic_color",
-      "value": "#3ebe89"
-    },
-    {
-      "name": "advanced_color",
-      "value": "#e8a352"
-    },
-    {
-      "name": "2rd_color",
-      "value": "#767676"
-    },
-    {
-      "name": "disabled_color",
-      "value": "#6B6B6B"
-    },
-    {
-      "name": "border_color",
-      "value": "#ccd6e1"
-    },
-    {
-      "name": "error_color",
-      "value": "#db0030"
-    },
-    {
-      "name": "list_item_bg_color",
-      "value": "#f1f5f9"
-    },
-    {
-      "name": "button_bg_color",
-      "value": "#E7E8EA"
-    },
-    {
-      "name": "item_bg_color",
-      "value": "#FFFFFF"
-    },
-    {
-      "name": "font_color",
-      "value": "#000000"
-    },
-    {
-      "name": "bg_color",
-      "value": "#F2F3F5"
+      "name": "blurBG",
+      "value": "#E0FFFFFF"
     }
   ]
 }
