@@ -1,12 +1,9 @@
 {
   "apiType": "stageMode",
   "buildOption": {
-    "cangjieOptions": {
-      "path": "./src/main/cangjie/cjpm.toml"
-    },
-    "nativeLib": {
-      "filter": {
-        "enableOverride": true
+    "resOptions": {
+      "copyCodeResource": {
+        "enable": false
       }
     },
     "externalNativeOptions": {
@@ -16,6 +13,11 @@
       "abiFilters": [
         "arm64-v8a"
       ]
+    },
+    "arkOptions": {
+      "buildProfileFields": {
+        "build_time": "2025:0:0"
+      }
     }
   },
   "buildOptionSet": [

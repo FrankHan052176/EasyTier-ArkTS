@@ -208,6 +208,9 @@ export struct Listeners {
               },
               menuDeleteCallback: () => {
                 Manager.listeners.delete(value)
+                Manager.configs.forEach((config) => {
+                  config.listeners.delete(value)
+                })
               },
               sheetConfirmCallback: () => {
                 Manager.configs.forEach((value) => {

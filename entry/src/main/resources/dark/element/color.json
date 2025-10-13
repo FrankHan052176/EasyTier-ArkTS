@@ -6,7 +6,87 @@
     },
     {
       "name": "blurBG",
-      "value": "#E0202224"
+      "value": "#99000000"
+    },
+    {
+      "name": "selected_background",
+      "value": "#280a59f7"
+    },
+    {
+      "name": "selected_border",
+      "value": "#FF0a59f7"
+    },
+    {
+      "name": "selected_shadow",
+      "value": "#500a59f7"
+    },
+    {
+      "name": "selected_highlight_1",
+      "value": "#503B82F6"
+    },
+    {
+      "name": "selected_highlight_2",
+      "value": "#483B82F6"
+    },
+    {
+      "name": "selected_highlight_3",
+      "value": "#3E3B82F6"
+    },
+    {
+      "name": "selected_highlight_4",
+      "value": "#343B82F6"
+    },
+    {
+      "name": "selected_highlight_5",
+      "value": "#2E3B82F6"
+    },
+    {
+      "name": "selected_highlight_6",
+      "value": "#2A3B82F6"
+    },
+    {
+      "name": "selected_highlight_7",
+      "value": "#223B82F6"
+    },
+    {
+      "name": "normal_background",
+      "value": "#0DFFFFFF"
+    },
+    {
+      "name": "normal_border",
+      "value": "#1AFFFFFF"
+    },
+    {
+      "name": "normal_shadow",
+      "value": "#28FFFFFF"
+    },
+    {
+      "name": "normal_highlight_1",
+      "value": "#35FFFFFF"
+    },
+    {
+      "name": "normal_highlight_2",
+      "value": "#2BFFFFFF"
+    },
+    {
+      "name": "normal_highlight_3",
+      "value": "#1DFFFFFF"
+    },
+    {
+      "name": "normal_highlight_4",
+      "value": "#0FFFFFFF"
+    },
+    {
+      "name": "normal_highlight_5",
+      "value": "#08FFFFFF"
+    },
+    {
+      "name": "normal_highlight_6",
+      "value": "#04FFFFFF"
+    },
+    {
+      "name": "normal_highlight_7",
+      "value": "#03FFFFFF"
     }
   ]
 }

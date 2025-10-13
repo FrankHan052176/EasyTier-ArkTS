@@ -12,18 +12,19 @@ import { Config,
   route,
   exit_node} from "./config/ETConfig"
 import { SafeSet } from "./SafeSet"
-import { CustomLib } from "libark_interop_api.so"
-import { requireCJLib } from "libark_interop_loader.so"
 import { NetworkInstanceRunningInfo, NetworkInstanceRunningInfoWithUnwrappedEvents } from "./info/PeerInfo"
 import { Event } from "../util/info/PeerInfo"
 import Logger from "./Logger"
 import EventHelper from "./EventHelper"
-
-const cjLib: CustomLib = requireCJLib("libohos_app_cangjie_entry.so") as CustomLib
+import { toml2json } from "libentry.so"
 
 export function tomlToConfig(toml: string): Config | undefined {
-  let json = cjLib.toml2json(toml)
-  return flattenConfig(JSON.parse(json) as object)
+  try {
+    let json = toml2json(toml)
+    return flattenConfig(JSON.parse(json) as object)
+  }catch (e) {
+    return undefined
+  }
 }
 
 export function trafficBytes(bytes: number): string {
@@ -120,9 +121,13 @@ export function hashToColor(hash: number): string {
 
 export function safePassword(pwd: string): string {
   if (pwd.length > 4) {
-    return pwd.substring(0,2)+"*".repeat(pwd.length-2)
+    return pwd.substring(0,2)+"·".repeat(pwd.length-2)
   }else {
-    return "*".repeat(pwd.length)
+    if (pwd.length == 0) {
+      return " "
+    }else {
+      return "·".repeat(pwd.length)
+    }
   }
 }
 
@@ -192,8 +197,6 @@ export function formatDate(date: Date): string {
   const hours = date.getHours().toString().padStart(2, '0');
   const minutes = date.getMinutes().toString().padStart(2, '0');
   const seconds = date.getSeconds().toString().padStart(2, '0');
-
-  // 获取完整的毫秒数 (000-999)，然后取前两位（百位和十位）
   const fullMilliseconds = date.getMilliseconds().toString().padStart(3, '0');
   const hundredAndTenMilliseconds = fullMilliseconds.slice(0, 2);
 
@@ -264,7 +267,6 @@ export function flattenConfig(obj: object): Config {
   config.instance_id = obj["instance_id"]
   config.instance_name = obj["instance_name"] as string
   // dhcp
-  config.dhcp = new dhcp()
   config.dhcp.enable = obj["dhcp"] as boolean
   if (!config.dhcp.enable) {
     let ipv4 = (obj["ipv4"] as string).split("/")
@@ -334,24 +336,26 @@ export function flattenConfig(obj: object): Config {
   // }
   // flags
   let flagsObj: object = obj["flags"]
-  let whitelist = flagsObj["relay_network_whitelist"]?String(flagsObj["relay_network_whitelist"]):""
-  config.flags.accept_dns = Boolean(flagsObj["accept_dns"]);
-  config.flags.disable_kcp_input = Boolean(flagsObj["disable_kcp_input"]);
-  config.flags.disable_p2p = Boolean(flagsObj["disable_p2p"]);
-  config.flags.disable_quic_input = Boolean(flagsObj["disable_quic_input"]);
-  config.flags.disable_sym_hole_punching = Boolean(flagsObj["disable_sym_hole_punching"]);
-  config.flags.disable_udp_hole_punching = Boolean(flagsObj["disable_udp_hole_punching"]);
-  config.flags.enable_encryption = flagsObj["enable_encryption"]?flagsObj["enable_encryption"]:true;
-  config.flags.enable_exit_node = Boolean(flagsObj["enable_exit_node"]);
-  config.flags.enable_ipv6 = flagsObj["enable_ipv6"]?flagsObj["enable_encryption"]:true;
-  config.flags.enable_kcp_proxy = Boolean(flagsObj["enable_kcp_proxy"]);
-  config.flags.enable_quic_proxy = Boolean(flagsObj["enable_quic_proxy"]);
-  config.flags.latency_first = Boolean(flagsObj["latency_first"]);
-  config.flags.no_tun = Boolean(flagsObj["no_tun"]);
-  config.flags.private_mode = Boolean(flagsObj["private_mode"]);
-  config.flags.relay_all_peer_rpc = Boolean(flagsObj["relay_all_peer_rpc"]);
-  config.flags.relay_network_whitelist.fromString(whitelist)
-  config.flags.use_smoltcp = Boolean(flagsObj["use_smoltcp"]);
+  if (flagsObj) {
+    let whitelist = flagsObj["relay_network_whitelist"]?String(flagsObj["relay_network_whitelist"]):""
+    config.flags.accept_dns = Boolean(flagsObj["accept_dns"]);
+    config.flags.disable_kcp_input = Boolean(flagsObj["disable_kcp_input"]);
+    config.flags.disable_p2p = Boolean(flagsObj["disable_p2p"]);
+    config.flags.disable_quic_input = Boolean(flagsObj["disable_quic_input"]);
+    config.flags.disable_sym_hole_punching = Boolean(flagsObj["disable_sym_hole_punching"]);
+    config.flags.disable_udp_hole_punching = Boolean(flagsObj["disable_udp_hole_punching"]);
+    config.flags.enable_encryption = flagsObj["enable_encryption"]?flagsObj["enable_encryption"]:true;
+    config.flags.enable_exit_node = Boolean(flagsObj["enable_exit_node"]);
+    config.flags.enable_ipv6 = flagsObj["enable_ipv6"]?flagsObj["enable_encryption"]:true;
+    config.flags.enable_kcp_proxy = Boolean(flagsObj["enable_kcp_proxy"]);
+    config.flags.enable_quic_proxy = Boolean(flagsObj["enable_quic_proxy"]);
+    config.flags.latency_first = Boolean(flagsObj["latency_first"]);
+    config.flags.no_tun = Boolean(flagsObj["no_tun"]);
+    config.flags.private_mode = Boolean(flagsObj["private_mode"]);
+    config.flags.relay_all_peer_rpc = Boolean(flagsObj["relay_all_peer_rpc"]);
+    config.flags.relay_network_whitelist.fromString(whitelist)
+    config.flags.use_smoltcp = Boolean(flagsObj["use_smoltcp"]);
+  }
   config._disableUpdate = false
   return config
 }

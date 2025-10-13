@@ -1,7 +1,10 @@
 #include "napi/native_api.h"
+#include <iostream>
 #include <vector>
 #include <string>
 #include "hilog/log.h"
+#include <toml++/toml.hpp>
+#include <nlohmann/json.hpp>
 std::vector<std::string> errorMsgs;
 
 void MyHiLog(const LogType type, const LogLevel level, const unsigned int domain, const char *tag, const char *msg)
@@ -34,13 +37,32 @@ static napi_value getErrorMsg(napi_env env, napi_callback_info info)
     }
     return output_array;
 }
+static napi_value toml2json(napi_env env, napi_callback_info info)
+{
+    size_t argc = 1;
+    napi_value args[1] = {nullptr};
+    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+    size_t length = 0;
+    napi_get_value_string_utf8(env, args[0], nullptr, 0, &length);
+    char* buf = new char[length + 1];
+    std::memset(buf, 0, length + 1);
+    napi_get_value_string_utf8(env, args[0], buf, length + 1, &length);
+    // 转换配置
+    napi_value result = nullptr;
+    auto table = toml::parse(buf);
+    std::ostringstream oss;
+    oss << toml::json_formatter{ table };
+    napi_create_string_utf8(env, oss.str().c_str(), NAPI_AUTO_LENGTH, &result);
+    return result;
+}
 
 EXTERN_C_START
 static napi_value Init(napi_env env, napi_value exports)
 {
     napi_property_descriptor desc[] = {
         { "getErrorMsg", nullptr, getErrorMsg, nullptr, nullptr, nullptr, napi_default, nullptr },
-        { "hilogInit", nullptr, hilogInit, nullptr, nullptr, nullptr, napi_default, nullptr }
+        { "hilogInit", nullptr, hilogInit, nullptr, nullptr, nullptr, napi_default, nullptr },
+        { "toml2json", nullptr, toml2json, nullptr, nullptr, nullptr, napi_default, nullptr }
     };
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
     return exports;

@@ -7,9 +7,6 @@
   "license": "",
   "dependencies": {
     "libeasytier_ohrs.so": "file:./libs",
-    "libark_interop_loader.so": "file:./src/main/cangjie/loader",
-    "cjhyapiregister": "file:./har/CJHyAPIRegister-v1.0.1.har",
-    "libark_interop_api.so": "file:./src/main/cangjie/ark_interop_api",
     "libentry.so": "file:./src/main/cpp/types/libentry"
   }
 }

@@ -164,12 +164,12 @@ export struct Profiles {
               },
               clickCallback: () => {
                 if (this.config.network_identity.toString() != value.toString()) {
-                  this.config.network_identity = value
+                  this.config.network_identity.from(value)
                 }
               },
               changeCallback: (isOn) => {
                 if (isOn) {
-                  this.config.network_identity = value
+                  this.config.network_identity.from(value)
                 }
               },
               isSelected: () => {
@@ -196,7 +196,7 @@ export struct Profiles {
                 return "编辑凭证"
               }
             })
-          }, (value:network_identity, index) => {return this.config.instance_id+"profile"+value.toString()})
+          }, (value:network_identity) => {return this.config.instance_id+"_profile_"+value.toString()})
           FancyItem({
             item_width: this.item_width,
             item_height: this.item_height,

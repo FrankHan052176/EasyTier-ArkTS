@@ -187,14 +187,14 @@ export struct ProxyCIDRs {
                 })
               },
               sheetConfirmCallback: () => {
+                Manager.cidrs.delete(this.old!)
+                Manager.cidrs.add(this.edit!)
                 Manager.configs.forEach((value) => {
                   if (value.proxy_network.delete(this.old!)) {
                     value.proxy_network.add(new cidr().from(this.edit!))
                     this.old.reset()
                   }
                 })
-                Manager.cidrs.delete(this.old!)
-                Manager.cidrs.add(this.edit!)
               },
               sheetTitleFunc: () => {
                 return "编辑CIDR"

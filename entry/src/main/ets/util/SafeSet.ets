@@ -1,5 +1,5 @@
 import Manager from "../Manager"
-import { Config, peer } from "./config/ETConfig"
+import { Config } from "./config/ETConfig"
 
 @ObservedV2
 export class SafeSet<T> implements Iterable<T> {

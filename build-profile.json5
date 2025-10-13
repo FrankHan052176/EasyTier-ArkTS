@@ -5,8 +5,8 @@
     "products": [
       {
         "name": "default",
-        "signingConfig": "publish",
-        "targetSdkVersion": "5.0.5(17)",
+        "signingConfig": "default",
+        "targetSdkVersion": "6.0.0(20)",
         "compatibleSdkVersion": "5.0.5(17)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
