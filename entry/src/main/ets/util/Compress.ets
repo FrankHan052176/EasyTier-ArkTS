@@ -16,6 +16,7 @@ import { buffer } from "@kit.ArkTS";
 import { BusinessError, zlib } from "@kit.BasicServicesKit";
 import { objectToHomoTOML, safeFieldName } from "./Conversion";
 import Manager from "../Manager";
+import { SafeLightWeightSet } from "./SafeLightWeightSet";
 
 const key_mapping: Record<string, string> = {
   "hostname": "a",
@@ -95,9 +96,9 @@ export function uncompressedIP(input:string):string {
   return result
 }
 
-type setType = SafeSet<cidr> | SafeSet<peer> | SafeSet<string> | SafeSet<route> | SafeSet<exit_node> | SafeSet<listener>
+type setType = SafeLightWeightSet<cidr> | SafeLightWeightSet<peer> | SafeLightWeightSet<string> | SafeLightWeightSet<route> | SafeLightWeightSet<exit_node> | SafeLightWeightSet<listener>
 type elementType = cidr | peer | string | route | exit_node | listener
-export type valueType = dhcp | socks5_proxy | flags | vpn_portal_config_with_config | cidr | peer | network_identity | string | number | boolean | listener | route | exit_node | SafeSet<cidr> | SafeSet<peer> | SafeSet<string> | null
+export type valueType = dhcp | socks5_proxy | flags | vpn_portal_config_with_config | cidr | peer | network_identity | string | number | boolean | listener | route | exit_node | SafeLightWeightSet<cidr> | SafeLightWeightSet<peer> | SafeLightWeightSet<string> | null
 type compressedValueType = string | number
 
 export function compressedMask(mask:number):string {

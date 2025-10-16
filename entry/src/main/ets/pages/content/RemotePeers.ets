@@ -1,12 +1,9 @@
 import Manager from "../../Manager"
 import { Config, peer, Protocol, protocolColor } from "../../util/config/ETConfig"
-import { FancyItem } from "../Components"
-import { LengthMetrics } from "@kit.ArkUI"
-import { NetworkInstanceRunningInfo, PeerInfo, PeerRoutePair } from "../../util/info/PeerInfo"
+import { PeerRoutePair } from "../../util/info/PeerInfo"
 import Logger from "../../util/Logger"
 import { convertAddrToIp } from "../../util/Conversion"
-
-let protocols = [Protocol.TCP, Protocol.UDP, Protocol.QUIC, Protocol.WS, Protocol.WSS, Protocol.WG]
+import { FancyItem } from "../../deleted/Components"
 
 @ComponentV2
 export struct RemotePeers {
@@ -79,6 +76,7 @@ export struct RemotePeers {
             .backgroundColor(protocolColor(item))
             .padding({top: 3, bottom: 3, right: 5, left: 5})
             .textAlign(TextAlign.Center)
+            .margin({left: 5})
         })
       }
       .alignItems(VerticalAlign.Center)

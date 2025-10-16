@@ -17,6 +17,7 @@ import { Event } from "../util/info/PeerInfo"
 import Logger from "./Logger"
 import EventHelper from "./EventHelper"
 import { toml2json } from "libentry.so"
+import { SafeLightWeightSet } from "./SafeLightWeightSet"
 
 export function tomlToConfig(toml: string): Config | undefined {
   try {
@@ -131,9 +132,9 @@ export function safePassword(pwd: string): string {
   }
 }
 
-type tomlType = Config | flags | port_forward | vpn_portal_config | cidr | peer | network_identity | string | number | boolean | null
-type arrayType = SafeSet<port_forward> | SafeSet<cidr> | SafeSet<peer> | SafeSet<string>
-type elementType = port_forward | cidr | peer | string
+type tomlType = Config | flags | port_forward | vpn_portal_config | cidr | peer | network_identity | listener | exit_node | string | number | boolean | null
+type arrayType = SafeSet<port_forward> | SafeSet<cidr> | SafeSet<peer> | SafeSet<string> | SafeSet<listener> | SafeSet<exit_node>
+type elementType = port_forward | cidr | peer | string | listener | exit_node
 
 export function safeFieldName(key: string): string {
   if (key.startsWith("__ob_")) {
@@ -154,10 +155,10 @@ export function objectToHomoTOML(obj: tomlType): string {
       let set = value as arrayType
       if (set.size > 0) {
         if (
-          set.values().next().value instanceof String ||
-            set.values().next().value instanceof listener ||
-            set.values().next().value instanceof route ||
-            set.values().next().value instanceof exit_node
+          set.map.values().next().value instanceof String ||
+            set.map.values().next().value instanceof listener ||
+            set.map.values().next().value instanceof route ||
+            set.map.values().next().value instanceof exit_node
         ) {
           tomlString += `${key} = [\n`;
           set.forEach((item: elementType) => {
@@ -280,13 +281,13 @@ export function flattenConfig(obj: object): Config {
       config.listeners.add(new listener().fromString(value), false)
     })
   }
-  // mapped_listener
-  if (obj["mapped_listeners"]) {
-    let mapped_listeners = obj["mapped_listeners"] as Array<string>
-    mapped_listeners.forEach((value) => {
-      config.mapped_listeners.add(new listener().fromString(value), false)
-    })
-  }
+  // // mapped_listener
+  // if (obj["mapped_listeners"]) {
+  //   let mapped_listeners = obj["mapped_listeners"] as Array<string>
+  //   mapped_listeners.forEach((value) => {
+  //     config.mapped_listeners.add(new listener().fromString(value), false)
+  //   })
+  // }
   // exit_node
   if (obj["exit_nodes"]) {
     let exit_nodes = obj["exit_nodes"] as Array<string>

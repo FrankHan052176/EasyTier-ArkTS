@@ -52,7 +52,7 @@ function getLoadColor(percentage: number): string {
 export function SharedPeersSheet() {
   List({space: 10}) {
     if (Manager.sharedPeers.size > 0) {
-      ForEach(Array.from(Manager.sharedPeers.values()), (value: SharedPeer) => {
+      ForEach(Array.from(Manager.sharedPeers.values()).splice(0,20), (value: SharedPeer) => {
         ListItem() {
           Stack({alignContent: Alignment.TopStart}) {
             Row() {
@@ -272,6 +272,7 @@ export function settingSheet(context: Context) {
       Button('重置', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.ERROR})
         .borderRadius(13)
         .onClick(() => {
+          Manager.clearDB()
           Manager.configs.clear()
           Manager.peers.clear()
           Manager.network_identities.clear()
@@ -279,6 +280,7 @@ export function settingSheet(context: Context) {
           Manager.routes.clear()
           Manager.cidrs.clear()
           Manager.exit_nodes.clear()
+          Manager.whitelist.clear()
         })
     }
     .height(49)
@@ -309,8 +311,16 @@ export function settingSheet(context: Context) {
         .selectedColor($r('sys.color.brand'))
         .switchPointColor($r('sys.color.comp_background_list_card'))
         .onChange((isOn: boolean) => {
-          Manager.Preferences!.putSync("show_log", isOn)
-          Manager.Preferences!.flushSync()
+          try {
+            Manager.Preferences!.putSync("show_log", isOn)
+          } catch (e) {
+            Logger.error(`[Components] An unexpected error occurred. Code:${e.code},message:${e.message}`);
+          }
+          try {
+            Manager.Preferences!.flushSync()
+          } catch (e) {
+            Logger.error(`[Components] An unexpected error occurred. Code:${e.code},message:${e.message}`);
+          }
         })
         .height(29)
         .width(52)
@@ -422,19 +432,21 @@ export function settingSheet(context: Context) {
 @ComponentV2
 export struct ToolButton {
   @Param @Require symbol: Resource
+  @Param buttonSize: number = 40
+  @Param symbolScale: number = 0.6
   @Param bgColor: ResourceColor = $r("sys.color.comp_background_tertiary")
   @Param symbolColor: Array<ResourceColor> = [$r("sys.color.font_primary")]
   build() {
     Button({ type: ButtonType.Circle }) {
       SymbolGlyph(this.symbol)
         .fontColor(this.symbolColor)
-        .fontSize(24)
+        .fontSize(this.buttonSize*this.symbolScale)
         .animation({
           curve: Curve.EaseIn,
           duration: 300
         })
     }
-    .width(40).height(40)
+    .width(this.buttonSize).height(this.buttonSize)
     .buttonStyle(ButtonStyleMode.NORMAL)
     .backgroundColor(this.bgColor)
     .clickEffect({
@@ -506,141 +518,3 @@ export struct ToolButtonWithPaste {
       })
   }
 }
-
-@Extend(Column) function ItemColumn() {
-  .height('100%')
-  .width('100%')
-  .borderRadius(10)
-  .backgroundColor($r("sys.color.interactive_hover"))
-  .alignItems(HorizontalAlign.Center)
-  .justifyContent(FlexAlign.Start)
-  .zIndex(1)
-}
-
-@ComponentV2
-export struct FancyItem {
-  @Param @Require item_width: number
-  @Param @Require item_height: number
-  @Param needCheckbox: boolean = true
-  @Param needMenu: boolean = true
-  @Param isSingle: boolean = false
-  @Local sheet: boolean = false
-  @Param editable: boolean = true
-  @Param clickCallback: () => void = ()=>{}
-  @Param changeCallback: (status:boolean) => void = ()=>{}
-  @Param isSelected: () => boolean = ()=>{return false}
-  @Param menuEditCallback: () => void = ()=>{}
-  @Param menuDeleteCallback: () => void = ()=>{}
-  @Param sheetDisappearCallback: () => void = ()=>{}
-  @Param sheetConfirmCallback: () => void = ()=>{}
-  @Param sheetTitleFunc: () => string = ()=>{return ""}
-  @BuilderParam contentBuilder: () => void
-  @BuilderParam sheetBuilder: () => void
-
-  @Builder
-  ItemMenu() {
-    Menu() {
-      if (this.editable) {
-        MenuItem({ symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.pencil_and_card')).fontSize('24vp'), content: "编辑" })
-          .onClick(() => {
-            animateToImmediately({ curve: Curve.EaseIn, duration: 150 }, () => {
-              this.menuEditCallback()
-              this.sheet = true
-            })
-          })
-      }
-      MenuItem({ symbolStartIcon: new SymbolGlyphModifier($r('sys.symbol.trash')).fontColor([$r("sys.color.warning")]).fontSize('24vp'), content: "删除" })
-        .onClick(() => {
-          animateToImmediately({ curve: Curve.EaseIn, duration: 150 }, () => {
-            this.menuDeleteCallback()
-          })
-        })
-    }
-  }
-
-  @Builder
-  SheetTitle() {
-    Row() {
-      Text(this.sheetTitleFunc())
-        .fontColor($r("sys.color.font_primary"))
-        .fontSize(20)
-      ToolButton({
-        symbol: $r("sys.symbol.checkmark"),
-        bgColor: $r("sys.color.comp_background_emphasize"),
-        symbolColor: [$r("sys.color.font_on_primary")]
-      })
-        .onClick(() => {
-          this.sheetConfirmCallback()
-          this.sheet = false
-        })
-    }
-    .alignItems(VerticalAlign.Center)
-    .justifyContent(FlexAlign.SpaceBetween)
-    .width('100%')
-  }
-
-  build() {
-    Stack({alignContent: Alignment.TopStart}) {
-      if (this.needCheckbox) {
-        Checkbox()
-          .select(this.isSelected())
-          .selectedColor($r("sys.color.comp_background_emphasize"))
-          .shape(CheckBoxShape.CIRCLE)
-          .onChange((value: boolean) => {
-            this.changeCallback(value)
-          })
-          .zIndex(2)
-          .onTouchIntercept(() => {
-            if (this.isSelected() && this.isSingle) {
-              return HitTestMode.None;
-            }else {
-              return HitTestMode.Default;
-            }
-          })
-          .animation({
-            curve: Curve.EaseIn,
-            duration: 300,
-            expectedFrameRateRange: {
-              min: 30,
-              max: 120,
-              expected: 120
-            }
-          })
-      }
-      if (this.needMenu) {
-        Column() {
-          this.contentBuilder()
-        }
-        .ItemColumn()
-        .bindContextMenu(this.ItemMenu(), ResponseType.RightClick)
-        .bindContextMenu(this.ItemMenu(), ResponseType.LongPress)
-        .onClick(() => {
-          this.clickCallback()
-        })
-      }else {
-        Column() {
-          this.contentBuilder()
-        }
-        .ItemColumn()
-        .onClick(() => {
-          this.sheet = true
-        })
-      }
-    }
-    .height(this.item_height)
-    .width(this.item_width)
-    .clickEffect({
-      level: ClickEffectLevel.LIGHT
-    })
-    .bindSheet($$this.sheet, this.sheetBuilder, {
-      height: SheetSize.FIT_CONTENT,
-      preferType: SheetType.BOTTOM,
-      showClose: false,
-      dragBar: false,
-      blurStyle: BlurStyle.Thin,
-      title: this.SheetTitle(),
-      onDisappear: this.sheetDisappearCallback
-    })
-  }
-}
-

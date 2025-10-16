@@ -10,6 +10,7 @@ import {
   uncompressedIP, uncompressedMask,
   uncompressedProtocol,
   valueType } from "../Compress";
+import { SafeLightWeightSet } from "../SafeLightWeightSet";
 
 @ObservedV2
 export class network_identity {
@@ -38,8 +39,8 @@ export class network_identity {
     return this
   }
   from(profile: network_identity): network_identity {
-    this.network_name = profile.network_name
-    this.network_secret = profile.network_secret
+    this.network_name = ""+profile.network_name
+    this.network_secret = ""+profile.network_secret
     return this
   }
   fromString(input: string): network_identity {
@@ -281,22 +282,22 @@ export class port_forward {
 @ObservedV2
 export class network_whitelist {
   config: Config
-  @Trace whitelist: SafeSet<string>;
+  @Trace whitelist: SafeSet<WrappedString>;
   constructor(config: Config) {
     this.config = config
     this.whitelist = new SafeSet(config)
   }
   fromString(string: string): network_whitelist {
     if (string.length > 0) string.split(" ").forEach((value) => {
-      this.whitelist.add(value, !this.config._disableUpdate)
+      this.whitelist.add(new WrappedString(value), !this.config._disableUpdate)
     })
     return this
   }
   toRawString(): string {
     let str = ""
     let index = 0
-    this.whitelist.forEach((value:string) => {
-      str += value
+    this.whitelist.forEach((value:WrappedString) => {
+      str += value.value
       if (index < this.whitelist.size - 1) {
         str += " "
       }
@@ -307,14 +308,33 @@ export class network_whitelist {
   toString(): string {
     let str = ""
     let index = 0
-    this.whitelist.forEach((value:string) => {
-      str += value
+    this.whitelist.forEach((value:WrappedString) => {
+      str += value.value
       if (index < this.whitelist.size - 1) {
         str += " "
       }
       index++
     })
     return '"'+str+'"'
+  }
+}
+@ObservedV2
+export class WrappedString {
+  @Trace value: string = ""
+  constructor(val: string = "") {
+    this.value = val
+  }
+  from(val: WrappedString | string): WrappedString {
+    if (val instanceof WrappedString) {
+      this.value = val.value
+      return this
+    }else {
+      this.value = val
+      return this
+    }
+  }
+  toString(): string {
+    return this.value
   }
 }
 @ObservedV2
@@ -506,7 +526,7 @@ export class Config {
   @Trace instance_name: string = this.instance_id.substring(0, 8);
   @Trace dhcp: dhcp = new dhcp();
   @Trace listeners = new SafeSet<listener>(this);
-  @Trace mapped_listeners = new SafeSet<listener>(this);
+  // @Trace mapped_listeners = new SafeLightWeightSet<listener>(this, () => {return new listener()});
   @Trace exit_nodes = new SafeSet<exit_node>(this);
   @Trace rpc_portal: string = "0.0.0.0:0";
   @Trace routes = new SafeSet<route>(this);

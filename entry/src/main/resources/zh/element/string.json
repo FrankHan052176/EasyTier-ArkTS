@@ -1,34 +1,6 @@
 {
   "string": [
     {
-      "name": "darkmode",
-      "value": "暗黑模式"
-    },
-    {
-      "name": "darkmode_auto",
-      "value": "跟随系统"
-    },
-    {
-      "name": "darkmode_off",
-      "value": "停用"
-    },
-    {
-      "name": "darkmode_on",
-      "value": "启用"
-    },
-    {
-      "name": "edit_network_profile",
-      "value": "网络名称与密码"
-    },
-    {
-      "name": "edit_hostname",
-      "value": "主机名"
-    },
-    {
-      "name": "edit_peers",
-      "value": "Peer 列表"
-    },
-    {
       "name": "latency_first",
       "value": "开启延迟优先模式"
     },
@@ -85,18 +57,6 @@
       "value": "出口节点"
     },
     {
-      "name": "edit_advanced_setting",
-      "value": "高级设置"
-    },
-    {
-      "name": "edit_edit",
-      "value": "编辑"
-    },
-    {
-      "name": "edit_add",
-      "value": "添加"
-    },
-    {
       "name": "disable_kcp_input",
       "value": "禁止 KCP 输入"
     },
@@ -117,36 +77,8 @@
       "value": "启用私有模式"
     },
     {
-      "name": "first_edit_1",
-      "value": "双击启停"
-    },
-    {
-      "name": "first_edit_2",
-      "value": "长按呼出菜单"
-    },
-    {
       "name": "enable_exit_node",
       "value": "启用出口节点"
-    },
-    {
-      "name": "index_menu_rename",
-      "value": "重命名"
-    },
-    {
-      "name": "index_import_from_other",
-      "value": "从其他设备导入"
-    },
-    {
-      "name": "cant_import",
-      "value": "无法导入该实例(UUID已存在)"
-    },
-    {
-      "name": "index_menu_reset_uuid",
-      "value": "重置 UUID"
-    },
-    {
-      "name": "index_menu_share",
-      "value": "复制到剪切板"
     },
     {
       "name": "data_reason",
@@ -157,8 +89,40 @@
       "value": "当App在后台时进行进程保活"
     },
     {
-      "name": "pasteboard_reason",
-      "value": "从剪切板导入配置"
+      "name": "i18_add",
+      "value": "新增 "
+    },
+    {
+      "name": "i18_type_peer",
+      "value": "对端(Peer)"
+    },
+    {
+      "name": "i18_type_profile",
+      "value": "凭证"
+    },
+    {
+      "name": "i18_type_cidr",
+      "value": "子网代理"
+    },
+    {
+      "name": "i18_type_listener",
+      "value": "监听地址"
+    },
+    {
+      "name": "i18_type_whitelist",
+      "value": "网络白名单"
+    },
+    {
+      "name": "i18_type_route",
+      "value": "自定义路由"
+    },
+    {
+      "name": "i18_type_exit_node",
+      "value": "出口节点"
+    },
+    {
+      "name": "i18_edit",
+      "value": "编辑 "
     }
   ]
 }

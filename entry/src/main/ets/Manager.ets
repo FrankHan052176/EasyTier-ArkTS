@@ -2,13 +2,18 @@ import { distributedDeviceManager } from "@kit.DistributedServiceKit";
 import { abilityAccessCtrl } from "@kit.AbilityKit";
 import Logger from "./util/Logger";
 import EventHelper from "./util/EventHelper";
-import { cidr, Config, exit_node, listener, network_identity, peer, route, SharedPeer } from "./util/config/ETConfig";
-import { SafeSet } from "./util/SafeSet";
+import { cidr, Config, exit_node, listener, network_identity, peer, route, SharedPeer,
+  WrappedString } from "./util/config/ETConfig";
 import { distributedKVStore, preferences } from "@kit.ArkData";
 import { objectToHomoTOML, tomlToConfig } from "./util/Conversion";
 import { NetworkInstanceRunningInfoWithUnwrappedEvents } from "./util/info/PeerInfo";
 import { rcp } from "@kit.RemoteCommunicationKit";
 import { JSON } from "@kit.ArkTS";
+import { SafeLightWeightSet } from "./util/SafeLightWeightSet";
+
+export enum UIType {
+  Column_1, Column_2, Column_3
+}
 
 @ObservedV2
 class Manager {
@@ -18,38 +23,72 @@ class Manager {
   @Trace qqgroups: string[] = []
   @Trace sharedPeers: Map<string,SharedPeer> = new Map
   @Trace configs = new Map<string, Config>()
-  @Trace peers = new SafeSet<peer>(undefined, (value) => {
-    this.KVStore?.put("peer_"+value.toString(), value.toString())
+  @Trace peers = new SafeLightWeightSet<peer>(undefined, () => {return new peer()}, (value) => {
+    this.KVStore?.put("peer_"+value.toString(), value.toShortString()).catch(() => {
+      Logger.error(`[Manager] peers::put::An unexpected error occurred.`);
+    })
   }, (value) => {
-    this.KVStore?.delete("peer_"+value.toString())
+    this.KVStore?.delete("peer_"+value.toString()).catch(() => {
+      Logger.error(`[Manager] peers::delete::An unexpected error occurred.`);
+    })
   })
-  @Trace network_identities = new SafeSet<network_identity>(undefined, (value) => {
-    this.KVStore?.put("network_identity_"+value.toString(), value.toString())
+  @Trace network_identities = new SafeLightWeightSet<network_identity>(undefined, () => {return new network_identity()}, (value) => {
+    this.KVStore?.put("network_identity_"+value.toString(), value.toString()).catch(() => {
+      Logger.error(`[Manager] network_identities::put::An unexpected error occurred.`);
+    })
   }, (value) => {
-    this.KVStore?.delete("network_identity_"+value.toString())
+    this.KVStore?.delete("network_identity_"+value.toString()).catch(() => {
+      Logger.error(`[Manager] network_identities::delete::An unexpected error occurred.`);
+    })
   })
-  @Trace listeners = new SafeSet<listener>(undefined, (value) => {
-    this.KVStore?.put("listener_"+value.toString(), value.toString())
+  @Trace listeners = new SafeLightWeightSet<listener>(undefined, () => {return new listener()}, (value) => {
+    this.KVStore?.put("listener_"+value.toString(), value.toString()).catch(() => {
+      Logger.error(`[Manager] listeners::put::An unexpected error occurred.`);
+    })
   }, (value) => {
-    this.KVStore?.delete("listener_"+value.toString())
+    this.KVStore?.delete("listener_"+value.toString()).catch(() => {
+      Logger.error(`[Manager] listeners::delete::An unexpected error occurred.`);
+    })
   })
-  @Trace routes = new SafeSet<route>(undefined, (value) => {
-    this.KVStore?.put("route_"+value.toString(), value.toString())
+  @Trace routes = new SafeLightWeightSet<route>(undefined, () => {return new route()}, (value) => {
+    this.KVStore?.put("route_"+value.toString(), value.toString()).catch(() => {
+      Logger.error(`[Manager] routes::put::An unexpected error occurred.`);
+    })
   }, (value) => {
-    this.KVStore?.delete("route_"+value.toString())
+    this.KVStore?.delete("route_"+value.toString()).catch(() => {
+      Logger.error(`[Manager] routes::delete::An unexpected error occurred.`);
+    })
   })
-  @Trace cidrs = new SafeSet<cidr>(undefined, (value) => {
-    this.KVStore?.put("cidr_"+value.toRawString(), value.toRawString())
+  @Trace cidrs = new SafeLightWeightSet<cidr>(undefined, () => {return new cidr()}, (value) => {
+    this.KVStore?.put("cidr_"+value.toRawString(), value.toRawString()).catch(() => {
+      Logger.error(`[Manager] cidrs::put::An unexpected error occurred.`);
+    })
   }, (value) => {
-    this.KVStore?.delete("cidr_"+value.toRawString())
+    this.KVStore?.delete("cidr_"+value.toRawString()).catch(() => {
+      Logger.error(`[Manager] cidrs::delete::An unexpected error occurred.`);
+    })
   })
-  @Trace exit_nodes = new SafeSet<exit_node>(undefined, (value) => {
-    this.KVStore?.put("exit_node_"+value.toString(), value.toString())
+  @Trace exit_nodes = new SafeLightWeightSet<exit_node>(undefined, () => {return new exit_node()}, (value) => {
+    this.KVStore?.put("exit_node_"+value.toString(), value.toString()).catch(() => {
+      Logger.error(`[Manager] exit_nodes::put::An unexpected error occurred.`);
+    })
   }, (value) => {
-    this.KVStore?.delete("exit_node_"+value.toString())
+    this.KVStore?.delete("exit_node_"+value.toString()).catch(() => {
+      Logger.error(`[Manager] exit_nodes::delete::An unexpected error occurred.`);
+    })
+  })
+  @Trace whitelist = new SafeLightWeightSet<WrappedString>(undefined, () => {return new WrappedString()}, (value) => {
+    this.KVStore?.put("wl_"+value.toString(), value.toString()).catch(() => {
+      Logger.error(`[Manager] whitelist::put::An unexpected error occurred.`);
+    })
+  }, (value) => {
+    this.KVStore?.delete("wl_"+value.toString()).catch(() => {
+      Logger.error(`[Manager] whitelist::delete::An unexpected error occurred.`);
+    })
   })
   @Trace width: number = 0
   @Trace height: number = 0
+  @Trace uiType: UIType = UIType.Column_1
   KVManager: distributedKVStore.KVManager | undefined
   KVStore: distributedKVStore.DeviceKVStore | undefined
   Preferences: preferences.Preferences | undefined
@@ -82,58 +121,69 @@ class Manager {
 
   async updateSharedPeers(page: number = 1): Promise<void> {
     const request = new rcp.Request("https://uptime.easytier.cn/api/nodes?per_page=50&page="+page, 'GET');
-    const session = rcp.createSession();
-    session.fetch(request).then((rep: rcp.Response) => {
-      let obj = rep.toJSON()
-      if (!obj) return;
-      let success: boolean = obj["success"]
-      if (!success) return;
-      let data: object = obj["data"]
-      let total: number = data["total"]
-      let total_pages: number = data["total_pages"]
-      let items: Array<object> = data["items"]
-      Logger.info("[Manager] sharedPeers total peers:"+total)
-      items.forEach((item: object) => {
-        let peer = new SharedPeer(item)
-        this.sharedPeers.set(peer.peer.toString(), peer)
-      })
-      if (total_pages > 1 && page == 1) {
-        Logger.info("[Manager] sharedPeers total pages:"+total_pages)
-        for (let index = 2; index <= total_pages; index++) {
-          Logger.info("[Manager] read page "+index)
-          this.updateSharedPeers(index)
+    try {
+      const session = rcp.createSession();
+      session.fetch(request).then((rep: rcp.Response) => {
+        let obj = rep.toJSON()
+        if (!obj) return;
+        let success: boolean = obj["success"]
+        if (!success) return;
+        let data: object = obj["data"]
+        let total: number = data["total"]
+        let total_pages: number = data["total_pages"]
+        let items: Array<object> = data["items"]
+        Logger.info("[Manager] sharedPeers total peers:"+total)
+        items.forEach((item: object) => {
+          let peer = new SharedPeer(item)
+          this.sharedPeers.set(peer.peer.toString(), peer)
+        })
+        if (total_pages > 1 && page == 1) {
+          Logger.info("[Manager] sharedPeers total pages:"+total_pages)
+          for (let index = 2; index <= total_pages; index++) {
+            Logger.info("[Manager] read page "+index)
+            this.updateSharedPeers(index)
+          }
         }
-      }
-    })
+      }).catch(() => {
+        Logger.error(`[Manager] updateSharedPeers()::An unexpected error occurred.`);
+      })
+    } catch (e) {
+      Logger.error(`[Manager] An unexpected error occurred. Code:${e.code},message:${e.message}`);
+    }
     return Promise.resolve()
   }
 
   async updateQQGroups(): Promise<void> {
     const request = new rcp.Request("https://easytier.cn/", 'GET');
-    const session = rcp.createSession();
-    session.fetch(request).then((rep: rcp.Response) => {
-      const pattern: RegExp = /<a\s+href="[^"]*"\s+target="_blank"\s+rel="noreferrer">([^<]*)<\/a>/gi;
-      const texts: string[] = [];
+    try {
+      const session = rcp.createSession();
+      session.fetch(request).then((rep: rcp.Response) => {
+        const pattern: RegExp = /<a\s+href="[^"]*"\s+target="_blank"\s+rel="noreferrer">([^<]*)<\/a>/gi;
+        const texts: string[] = [];
 
-      let match: RegExpExecArray | null;
-      while ((match = pattern.exec(rep.toString()!)) !== null) {
-        if (match[1]) {
-          let text = match[1].trim()
-          if (!Number.isNaN(parseInt(text))) {
-            texts.push(text);
-          }else {
-            // TODO discord && tg 跳转
+        let match: RegExpExecArray | null;
+        while ((match = pattern.exec(rep.toString()!)) !== null) {
+          if (match[1]) {
+            let text = match[1].trim()
+            if (!Number.isNaN(parseInt(text))) {
+              texts.push(text);
+            }else {
+              // TODO discord && tg 跳转
+            }
           }
         }
-      }
-      this.qqgroups = texts;
-      Logger.info("[Manager] Update QQ Groups:"+JSON.stringify(this.qqgroups))
-    })
+        this.qqgroups = texts;
+        Logger.info("[Manager] Update QQ Groups:"+JSON.stringify(this.qqgroups))
+      }).catch(() => {
+        Logger.error(`[Manager] updateQQGroups()::An unexpected error occurred.`);
+      })
+    } catch (e) {
+      Logger.error(`[Manager] An unexpected error occurred. Code:${e.code},message:${e.message}`);
+    }
     return Promise.resolve()
   }
 
-  async readDB(kvm:distributedKVStore.KVManager) {
-    this.KVManager = kvm
+  async readDB() {
     const options: distributedKVStore.Options = {
       createIfMissing: true,
       encrypt: false,
@@ -143,7 +193,7 @@ class Manager {
       securityLevel: distributedKVStore.SecurityLevel.S2
     };
     try {
-      kvm.getKVStore<distributedKVStore.DeviceKVStore>('configs', options, (err, store: distributedKVStore.DeviceKVStore) => {
+      this.KVManager!.getKVStore<distributedKVStore.DeviceKVStore>('configs', options, (err, store: distributedKVStore.DeviceKVStore) => {
         if (err) {
           Logger.error(`[Manager] Failed to get KVStore: Code:${err.code},message:${err.message}`);
           return;
@@ -165,6 +215,7 @@ class Manager {
               this.listeners.addSet(config.listeners, false)
               this.routes.addSet(config.routes, false)
               this.exit_nodes.addSet(config.exit_nodes, false)
+              this.whitelist.addSet(config.flags.relay_network_whitelist.whitelist, false)
             }
           })
         })
@@ -228,10 +279,28 @@ class Manager {
             this.exit_nodes.add(new exit_node().fromString(entry.value.value.toString()), false)
           })
         })
+        store.getEntries("wl_", (err, entries) => {
+          if (err) {
+            Logger.error(`[Manager] Failed to getEntries KVStore: Code:${err.code},message:${err.message}`);
+            return;
+          }
+          entries.forEach((entry) => {
+            Logger.info("[Manager] find whitelist "+entry.key)
+            this.whitelist.add(new WrappedString(entry.value.value.toString()), false)
+          })
+        })
       })
     } catch (e) {
       Logger.error(`[Manager] An unexpected error occurred. Code:${e.code},message:${e.message}`);
     }
+  }
+
+  clearDB() {
+    this.configs.forEach((value) => {
+      this.KVStore?.delete("config_"+value.instance_id).catch(() => {
+        Logger.error(`[Manager] clearDB()::delete()::An unexpected error occurred.`);
+      })
+    })
   }
 
   addConfig(config: Config) {
@@ -241,12 +310,11 @@ class Manager {
     this.listeners.addSet(config.listeners)
     this.routes.addSet(config.routes)
     this.exit_nodes.addSet(config.exit_nodes)
+    this.whitelist.addSet(config.flags.relay_network_whitelist.whitelist)
     let str = objectToHomoTOML(config)
     this.KVStore?.put("config_"+config.instance_id, str, (err) => {
       if (err) {
         Logger.error("[Manager] kvstore delete "+err.code)
-      }else {
-        this.KVStore?.commit()
       }
     })
   }
@@ -256,8 +324,6 @@ class Manager {
     this.KVStore?.delete("config_"+config.instance_id, (err) => {
       if (err) {
         Logger.error("[Manager] kvstore delete "+err.code)
-      }else {
-        this.KVStore?.commit()
       }
     })
   }
@@ -267,8 +333,6 @@ class Manager {
     this.KVStore?.put("config_"+config.instance_id, objectToHomoTOML(config), (err) => {
       if (err) {
         Logger.error("[Manager] kvstore delete "+err.code)
-      }else {
-        this.KVStore?.commit()
       }
     })
   }
@@ -317,10 +381,6 @@ class Manager {
     }else {
       return this.runningInstances[0] == config.instance_id
     }
-  }
-
-  getPeers(): SafeSet<peer> {
-    return this.peers
   }
 
   getConfigs(): Config[] {

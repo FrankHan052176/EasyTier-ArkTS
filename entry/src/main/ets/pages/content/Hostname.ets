@@ -2,15 +2,10 @@ import Manager from "../../Manager"
 import { Config } from "../../util/config/ETConfig"
 import { isGetDistributePerm, requestDistributePerm } from "../../util/Permission"
 
-const minWidth = 350
-
 @ComponentV2
 export struct Hostname {
   @Param @Require config:Config
-  @Computed
-  get comp_width() {
-    return Manager.width>=Manager.height*0.625?minWidth:Manager.width-20
-  }
+  @Param @Require comp_width: number
 
   build() {
     Column() {
@@ -53,6 +48,6 @@ export struct Hostname {
     .alignItems(HorizontalAlign.Start)
     .borderRadius(18)
     .backgroundColor($r("sys.color.comp_background_primary"))
-    .padding(10)
+    .padding({top: 15, left: 10, bottom: 10, right: 10})
   }
 }

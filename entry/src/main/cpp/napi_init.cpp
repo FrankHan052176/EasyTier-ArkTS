@@ -9,7 +9,7 @@ std::vector<std::string> errorMsgs;
 
 void MyHiLog(const LogType type, const LogLevel level, const unsigned int domain, const char *tag, const char *msg)
 {
-    if ((level >= LOG_INFO && strcmp(tag, "fhl") == 0) || (level >= LOG_WARN && strcmp(tag, "NETMANAGER_EXT") == 0)) {
+    if ((level >= LOG_INFO && strcmp(tag, "fhl") == 0) || (level >= LOG_WARN && strcmp(tag, "NETMANAGER_EXT") == 0) || level == LOG_ERROR) {
         std::string safeMsg;
         if (strcmp(tag, "NETMANAGER_EXT") == 0) {
             safeMsg = std::string("[NETMANAGER_EXT] ") + msg;

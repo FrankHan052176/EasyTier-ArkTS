@@ -3,8 +3,8 @@ import { hvigor, getNode, HvigorNode, HvigorPlugin } from '@ohos/hvigor';
 import { appTasks, OhosHapContext, OhosAppContext, OhosPluginId, Target } from '@ohos/hvigor-ohos-plugin';
 import fs from 'fs';
 import path from 'path';
-const targetDir = "src/main/resources/base/element"
-const fileName = "build_time.json"
+const targetDir = "src/main/ets/util/info"
+const fileName = "BuildTime.ets"
 function loadSigningConfigs() {
     const path = 'signingConfigs.json';
     try {
@@ -31,14 +31,7 @@ function updateBuildTime(dir: string) {
         }
 
         // 写入构建时间文件
-        fs.writeFileSync(filePath, `{
-  "string": [
-    {
-      "name": "build_time",
-      "value": "${buildTimeString}"
-    }
-  ]
-}`);
+        fs.writeFileSync(filePath, `export const BUILD_TIME:string = "${buildTimeString}"`);
         console.log(`> hvigor Build time updated : ${buildTimeString}`);
     } catch (error) {
         console.error(`> hvigor Failed to update build_time.json: ${error}`);

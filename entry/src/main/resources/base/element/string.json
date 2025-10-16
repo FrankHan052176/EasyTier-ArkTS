@@ -21,38 +21,6 @@
       "value": "Share configs with other devices and get the device name"
     },
     {
-      "name": "pasteboard_reason",
-      "value": "Import config from pasteboard"
-    },
-    {
-      "name": "darkmode",
-      "value": "Dark Mode"
-    },
-    {
-      "name": "darkmode_auto",
-      "value": "Auto"
-    },
-    {
-      "name": "darkmode_off",
-      "value": "Off"
-    },
-    {
-      "name": "darkmode_on",
-      "value": "On"
-    },
-    {
-      "name": "edit_network_profile",
-      "value": "Network Profile"
-    },
-    {
-      "name": "edit_hostname",
-      "value": "Hostname"
-    },
-    {
-      "name": "edit_peers",
-      "value": "Peers"
-    },
-    {
       "name": "latency_first",
       "value": "Enable Latency-First Mode"
     },
@@ -133,44 +101,40 @@
       "value": "Exit Nodes"
     },
     {
-      "name": "edit_advanced_setting",
-      "value": "Advanced Setting"
+      "name": "i18_add",
+      "value": "Add "
     },
     {
-      "name": "edit_edit",
-      "value": "Edit"
+      "name": "i18_type_peer",
+      "value": "Peer"
     },
     {
-      "name": "edit_add",
-      "value": "Add"
+      "name": "i18_type_profile",
+      "value": "Credentials"
     },
     {
-      "name": "first_edit_1",
-      "value": "Double-click to start and stop"
+      "name": "i18_type_cidr",
+      "value": "Proxy CIDR"
     },
     {
-      "name": "first_edit_2",
-      "value": "Hold to call out the menu"
+      "name": "i18_type_listener",
+      "value": "Listener URL"
     },
     {
-      "name": "index_menu_rename",
-      "value": "Rename"
+      "name": "i18_type_whitelist",
+      "value": "Network Whitelist"
     },
     {
-      "name": "index_import_from_other",
-      "value": "Import From Other Device"
+      "name": "i18_type_route",
+      "value": "Manual Route"
     },
     {
-      "name": "cant_import",
-      "value": "Cant Import This Instance With Existed UUID"
+      "name": "i18_type_exit_node",
+      "value": "Exit Node"
     },
     {
-      "name": "index_menu_reset_uuid",
-      "value": "Reset UUID"
-    },
-    {
-      "name": "index_menu_share",
-      "value": "Copy to clipboard"
+      "name": "i18_edit",
+      "value": "Edit "
     }
   ]
 }

@@ -13,17 +13,11 @@ import { Config, socks5_proxy } from "../../util/config/ETConfig"
   .textAlign(TextAlign.Center)
 }
 
-const minWidth = 350
-
 @ComponentV2
 export struct Socks5 {
   @Param @Require config:Config
   @Local port: string = "1080"
-
-  @Computed
-  get comp_width() {
-    return Manager.width>=Manager.height*0.625?minWidth:Manager.width-20
-  }
+  @Param @Require comp_width: number
 
   aboutToAppear(): void {
     this.readPort()
@@ -41,7 +35,9 @@ export struct Socks5 {
       TextInput({text: $$this.port})
         .fancyText(60, 5)
         .onChange(() => {
-          this.config.socks5_proxy!.port = this.port
+          if (this.config.socks5_proxy !== null) {
+            this.config.socks5_proxy.port = this.port
+          }
         })
     }
     .animation({

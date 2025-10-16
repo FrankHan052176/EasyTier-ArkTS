@@ -1,6 +1,8 @@
 import Manager from "../Manager"
 import { Config } from "./config/ETConfig"
 import { LightWeightMap } from "@kit.ArkTS"
+import { SafeSet } from "./SafeSet"
+import Logger from "./Logger"
 
 @ObservedV2
 export class SafeLightWeightSet<T> implements IDataSource {
@@ -9,14 +11,17 @@ export class SafeLightWeightSet<T> implements IDataSource {
   globalDeleteCallback: (value: T) => void
   @Trace map = new LightWeightMap<String, T>
   private listeners: DataChangeListener[] = [];
+  typeConstructor: () => T
   constructor(
     config: Config | undefined = undefined,
+    constructorFunc: () => T,
     addCallback: (value: T) => void = () => {},
-    deleteCallback: (value: T) => void = () => {}
+    deleteCallback: (value: T) => void = () => {},
   ) {
     this.config = config
     this.globalAddCallback = addCallback
     this.globalDeleteCallback = deleteCallback
+    this.typeConstructor = constructorFunc
   }
 
   totalCount(): number {
@@ -68,7 +73,7 @@ export class SafeLightWeightSet<T> implements IDataSource {
       this.globalAddCallback(value)
     }
   }
-  addSet(set: SafeLightWeightSet<T>, update: boolean = true) {
+  addSet(set: SafeSet<T>, update: boolean = true) {
     set.forEach((value) => {
       this.add(value, update)
     })
@@ -98,6 +103,14 @@ export class SafeLightWeightSet<T> implements IDataSource {
     })
   }
   clear() {
+    this.forEach((value) => {
+      if (!this.config) {
+        this.globalDeleteCallback(value)
+      }
+    })
     this.map.clear()
+  }
+  toIterator(): IterableIterator<T> {
+    return this.map.values()
   }
 }

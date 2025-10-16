@@ -1,34 +1,98 @@
 import Manager from "../Manager";
-import { ItemSize, itemType } from "../pages/content/FlexItems";
-import { cidr, exit_node, listener, network_identity, peer, protocolColor, route } from "./config/ETConfig";
+import { ToolButton } from "../pages/Components";
+import { itemType } from "../pages/content/FlexItems";
+import { cidr,
+  Config,
+  exit_node, listener, network_identity, peer, protocolColor, route,
+  WrappedString } from "./config/ETConfig";
 import { safePassword } from "./Conversion";
+import Logger from "./Logger";
+import { requestLocPerm } from "./Permission";
 
 @ComponentV2
 export struct ItemBuilder {
   @Param @Require item: itemType
-  @Param @Require itemSize: ItemSize
   @Param @Require isSelected: boolean
-  @Param @Require itemWidth: number
+  @Param @Require itemWidth: Length
+  @Param itemHeight: number = 80
+  @Param switchHighlight: boolean = true
+  @Param shadowRadius: number = 30
   @Local isHighlight: boolean = false
   @Local highlightPos: [number, number] = [-999, -999]
+  @Local realWidth: number = 0
 
   build() {
     Stack({alignContent: Alignment.Center}) {
       Column() {
         if (this.item instanceof peer) {
-          PeerBuilder({item: this.item, itemSize: this.itemSize})
+          PeerBuilder({item: this.item})
         }else if (this.item instanceof network_identity) {
-          ProfileBuilder({item: this.item, itemSize: this.itemSize})
+          ProfileBuilder({item: this.item})
         }else if (this.item instanceof cidr) {
-          CidrBuilder({item: this.item, itemSize: this.itemSize})
+          CidrBuilder({item: this.item})
         }else if (this.item instanceof listener) {
-          ListenerBuilder({item: this.item, itemSize: this.itemSize})
-        }else if (typeof this.item == "string") {
-          WhiteListBuilder({item: this.item, itemSize: this.itemSize})
+          ListenerBuilder({item: this.item})
+        }else if (this.item instanceof WrappedString) {
+          WhiteListBuilder({item: this.item})
         }else if (this.item instanceof route) {
-          RouteBuilder({item: this.item, itemSize: this.itemSize})
+          RouteBuilder({item: this.item})
         }else if (this.item instanceof exit_node) {
-          ExitNodeBuilder({item: this.item, itemSize: this.itemSize})
+          ExitNodeBuilder({item: this.item})
+        }else if (this.item instanceof Config) {
+          Row() {
+            Column() {
+              Text(this.item.instance_name)
+                .fontSize(18)
+                .fontColor($r("sys.color.font_primary"))
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .height(18)
+              Text(this.item.instance_id)
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.Ellipsis })
+                .width('30%')
+                .fontSize(10)
+                .fontColor($r("sys.color.font_secondary"))
+                .height(14)
+                .align(Alignment.Bottom)
+            }
+            .alignItems(HorizontalAlign.Start)
+            .justifyContent(FlexAlign.Center)
+            ToolButton({
+              symbol: Manager.infos.has(this.item.instance_id)?$r("sys.symbol.pause"):$r("sys.symbol.play_fill"),
+              symbolColor: [$r("sys.color.font_primary")]
+            })
+              .onClick(() => {
+                if (Manager.infos.has((this.item as Config).instance_id)) {
+                  if (!Manager.stopInstance(this.item as Config)) {
+                    Logger.error("关闭网络失败")
+                  }
+                }else {
+                  if (Manager.infos.size > 0) {
+                    this.getUIContext().getPromptAction().showToast({
+                      message: "请先关闭正在运行的网络"
+                    })
+                  }else {
+                    requestLocPerm(this.getUIContext().getHostContext()!).then((value) => {
+                      if (!value) {
+                        this.getUIContext().getPromptAction().showToast({
+                          message: "拒绝授权定位权限将无法进行后台保活"
+                        })
+                      }
+                      Manager.startInstance(this.item as Config)
+                    })
+                  }
+                }
+              })
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+          .justifyContent(FlexAlign.SpaceBetween)
+          .padding({top: 8, bottom: 8, left: 12, right: 12})
+        }else {
+          Text(this.item)
+            .fontSize(12)
+            .textOverflow({ overflow: TextOverflow.MARQUEE })
+            .fontColor($r("sys.color.font_primary"))
         }
       }
       .zIndex(3)
@@ -38,6 +102,9 @@ export struct ItemBuilder {
       .alignItems(HorizontalAlign.Center)
       .justifyContent(FlexAlign.Center)
       .onMouse((event) => {
+        if (!this.switchHighlight) {
+          return;
+        }
         if (event.action == MouseAction.Press) {
           this.highlightPos = [event.x, event.y]
           this.isHighlight = true
@@ -47,6 +114,9 @@ export struct ItemBuilder {
         }
       })
       .onTouch((event) => {
+        if (!this.switchHighlight) {
+          return;
+        }
         if (event.type == TouchType.Down) {
           this.highlightPos = [event.changedTouches[0].x, event.changedTouches[0].y]
           this.isHighlight = true
@@ -64,7 +134,7 @@ export struct ItemBuilder {
           .backgroundColor(Color.Transparent)
           .radialGradient({
             center: this.highlightPos,
-            radius: this.itemWidth/3,
+            radius: this.realWidth/3,
             colors: [
               [this.isSelected ? $r("app.color.selected_highlight_1") : $r("app.color.normal_highlight_1"), 0],
               [this.isSelected ? $r("app.color.selected_highlight_2") : $r("app.color.normal_highlight_2"), 0.15],
@@ -91,18 +161,21 @@ export struct ItemBuilder {
           }))
       }
     }
+    .onAreaChange((a,b) => {
+      this.realWidth = b.width as number
+    })
     .width(this.itemWidth)
-    .height(80)
+    .height(this.itemHeight)
     .border({
       width: 1,
-      color: this.isSelected?$r("app.color.selected_border"):$r("app.color.normal_border"),
+      color: this.isSelected?$r("app.color.selected_border"):$r("sys.color.background_fourth"),
       radius: 12
     })
     .shadow(this.isSelected?{
-      radius: 30,
+      radius: this.shadowRadius,
       color: $r("app.color.selected_shadow")
     }:{
-      radius: 30,
+      radius: this.shadowRadius,
       color: $r("app.color.normal_shadow")
     })
     .clip(true)
@@ -120,7 +193,6 @@ export struct ItemBuilder {
 @ComponentV2
 export struct ProfileBuilder {
   @Param @Require item: network_identity
-  @Param @Require itemSize: ItemSize
 
   build() {
     Column() {
@@ -160,6 +232,7 @@ export struct ProfileBuilder {
       .padding({left: 13, right: 13})
 
     }
+    .padding({top: 15, bottom: 15})
     .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.SpaceBetween)
     .width('100%')
@@ -170,7 +243,6 @@ export struct ProfileBuilder {
 @ComponentV2
 export struct PeerBuilder {
   @Param @Require item: peer
-  @Param @Require itemSize: ItemSize
 
   isSharedPeer(value: peer): boolean {
     return Manager.sharedPeers.has(value.toString())
@@ -262,7 +334,6 @@ export struct PeerBuilder {
 @ComponentV2
 export struct CidrBuilder {
   @Param @Require item: cidr
-  @Param @Require itemSize: ItemSize
 
   build() {
     Row() {
@@ -288,7 +359,6 @@ export struct CidrBuilder {
 @ComponentV2
 export struct ListenerBuilder {
   @Param @Require item: listener
-  @Param @Require itemSize: ItemSize
 
   build() {
     Stack({alignContent: Alignment.TopStart}) {
@@ -349,8 +419,7 @@ export struct ListenerBuilder {
 
 @ComponentV2
 export struct WhiteListBuilder {
-  @Param @Require item: string
-  @Param @Require itemSize: ItemSize
+  @Param @Require item: WrappedString
 
   build() {
     Row() {
@@ -359,7 +428,7 @@ export struct WhiteListBuilder {
           .fontColor([$r("sys.color.font_primary")])
       }
       .margin({right: 5})
-      Text(this.item)
+      Text(this.item.value)
         .maxLines(1)
         .fontColor($r("sys.color.font_primary"))
         .textOverflow({ overflow: TextOverflow.Ellipsis })
@@ -376,8 +445,6 @@ export struct WhiteListBuilder {
 @ComponentV2
 export struct RouteBuilder {
   @Param @Require item: route
-  @Param @Require itemSize: ItemSize
-
   build() {
     Row() {
       Text() {
@@ -402,7 +469,6 @@ export struct RouteBuilder {
 @ComponentV2
 export struct ExitNodeBuilder {
   @Param @Require item: exit_node
-  @Param @Require itemSize: ItemSize
 
   build() {
     Row() {

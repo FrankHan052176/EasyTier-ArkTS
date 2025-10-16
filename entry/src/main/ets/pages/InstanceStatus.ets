@@ -1,4 +1,4 @@
-import Manager from "../Manager";
+import Manager, { UIType } from "../Manager";
 import { Config } from "../util/config/ETConfig";
 import { EventRow } from "./content/EventRow";
 import { LengthUnit } from "@kit.ArkUI";
@@ -15,8 +15,8 @@ export struct InstanceStatus {
         Text("对端")
           .fontSize(12)
           .fontColor($r("sys.color.font_secondary"))
-          .margin({left: 10, bottom: 5, top: 66})
-        RemotePeers({config: this.config, comp_width: Manager.width-20})
+          .margin({left: 10, bottom: 5})
+        RemotePeers({config: this.config, comp_width: (Manager.width-20)*(Manager.uiType == UIType.Column_3?0.8:1)})
           .margin({bottom: 10})
         Text("事件")
           .fontSize(12)

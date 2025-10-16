@@ -10,7 +10,10 @@ export struct InstanceCard {
   @Param bgColor: ResourceColor = $r("sys.color.comp_background_primary")
   @Param fontColor: ResourceColor = $r("sys.color.font_primary")
   @Param secondaryColor: ResourceColor = $r("sys.color.font_secondary")
-  @Param blurRadius: number = 0
+  @Param itemHeight: number = 80
+  @Param switchHighlight: boolean = true
+  @Local isHighlight: boolean = false
+  @Local highlightPos: [number, number] = [-999, -999]
   build() {
     Row() {
       Column() {
@@ -66,7 +69,5 @@ export struct InstanceCard {
     .clickEffect({
       level: ClickEffectLevel.LIGHT
     })
-    .zIndex(2)
-    .backdropBlur(this.blurRadius)
   }
 }
