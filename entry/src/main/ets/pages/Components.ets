@@ -1,11 +1,14 @@
 import { SymbolGlyphModifier } from "@kit.ArkUI"
 import { BusinessError, pasteboard } from "@kit.BasicServicesKit"
-import Manager from "../Manager"
+import Manager, { UIType } from "../Manager"
 import { protocolColor, SharedPeer } from "../util/config/ETConfig"
 import Logger from "../util/Logger"
 import {
   requestDistributePerm, requestLocPerm } from "../util/Permission"
 import { abilityAccessCtrl, Context } from "@kit.AbilityKit"
+import { laneWidth, laneHeight } from "../util/Conversion"
+import EventHelper from "../util/EventHelper"
+import { CompSize } from "./nodes/AutoSortContainer"
 
 interface color {
   r: number
@@ -52,16 +55,16 @@ function getLoadColor(percentage: number): string {
 export function SharedPeersSheet() {
   List({space: 10}) {
     if (Manager.sharedPeers.size > 0) {
-      ForEach(Array.from(Manager.sharedPeers.values()).splice(0,20), (value: SharedPeer) => {
+      LazyForEach(Manager.sharedPeers, (value: SharedPeer) => {
         ListItem() {
           Stack({alignContent: Alignment.TopStart}) {
             Row() {
-              Text(value.peer._protocol.toUpperCase())
+              Text(value._protocol.toUpperCase())
                 .fontColor($r("sys.color.font_on_primary"))
                 .fontSize(12)
                 .borderRadius(6)
                 .width(40)
-                .backgroundColor(protocolColor(value.peer._protocol))
+                .backgroundColor(protocolColor(value._protocol))
                 .padding({top: 3, bottom: 3, right: 5, left: 5})
                 .textAlign(TextAlign.Center)
             }
@@ -119,16 +122,16 @@ export function SharedPeersSheet() {
                   .width(68)
                   .textAlign(TextAlign.End)
                 Checkbox()
-                  .select(Manager.peers.has(value.peer))
+                  .select(Manager.peers.has(value))
                   .selectedColor($r("sys.color.comp_background_emphasize"))
                   .shape(CheckBoxShape.CIRCLE)
                   .onChange((isOn: boolean) => {
                     if (isOn) {
-                      Manager.peers.add(value.peer)
+                      Manager.peers.add(value)
                     }else {
-                      Manager.peers.delete(value.peer)
+                      Manager.peers.delete(value)
                       Manager.configs.forEach((cfg) => {
-                        cfg.peer.delete(value.peer)
+                        cfg.peer.delete(value)
                       })
                     }
                   })
@@ -257,7 +260,7 @@ export function AddSheetTitle(confirmCallback: ()=>void) {
 }
 
 @Builder
-export function settingSheet(context: Context) {
+export function settingSheet() {
   Column() {
     Row() {
       Row() {
@@ -352,7 +355,7 @@ export function settingSheet(context: Context) {
         Button('授权', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL})
           .borderRadius(13)
           .onClick(() => {
-            requestLocPerm(context)
+            requestLocPerm(Manager.uiContext!.getHostContext()!)
           })
       }
     }
@@ -383,7 +386,7 @@ export function settingSheet(context: Context) {
         Button('授权', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL})
           .borderRadius(13)
           .onClick(() => {
-            requestDistributePerm(context)
+            requestDistributePerm(Manager.uiContext!.getHostContext()!)
           })
       }
     }
@@ -395,38 +398,15 @@ export function settingSheet(context: Context) {
     .backgroundColor($r("sys.color.background_secondary"))
     .padding({left: 10, right: 5, top: 5, bottom: 5})
     .margin({bottom: 10})
-    List() {
-      if (Manager.errorMsgs.length > 0) {
-        ForEach(Manager.errorMsgs, (msg: string) => {
-          ListItem() {
-            Text(msg.substring(1))
-              .fontSize(14)
-              .width("100%")
-              .fontColor(Number.parseInt(msg.charAt(0))>4?$r("sys.color.warning"):$r("sys.color.font_primary"))
-          }
-        })
-        ListItem()
-          .height(100)
-          .width('100%')
-      }else {
-        ListItem() {
-          Text("无日志")
-            .fontSize(14)
-            .width("100%")
-        }
-      }
-    }
-    .scrollBar(BarState.Off)
-    .alignListItem(ListItemAlign.Start)
-    .padding({left: 10, right: 10})
-    .clip(true)
-    .borderRadius(18)
-    .width("100%")
-    .layoutWeight(100)
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.START, SafeAreaEdge.BOTTOM])
   }
   .width('100%')
   .padding({left: 10, right: 10})
+}
+
+export function MenuButton(value: string | Resource, symbol: Resource, callback: () => void): NavigationMenuItem {
+  return {'value': value, 'symbolIcon': new SymbolGlyphModifier(symbol), 'action': ()=> {
+    callback()
+  }}
 }
 
 @ComponentV2
@@ -516,5 +496,252 @@ export struct ToolButtonWithPaste {
           Logger.debug("failed get perm")
         }
       })
+  }
+}
+
+const animationParm: AnimateParam = {
+  duration: 200,
+  curve: Curve.Friction
+}
+
+@ComponentV2
+struct ResizeBall {
+  @Param @Require addDirection: PanDirection
+  @Param @Require isResize: boolean
+  @Param @Require isAddable: () => boolean
+  @Param @Require isDeletable: () => boolean
+  @Param @Require lane: number
+  @Param @Require length: number
+  @Event $lane: (val: number) => void = (val: number) => {}
+  @Param @Require extra: number
+  @Event $extra: (val: number) => void = (val: number) => {}
+  @Local fingerOffset: number = 0
+  @Local disable_a: boolean = false
+  @Local disable_d: boolean = false
+  @BuilderParam content: ()=>void
+
+  @Computed
+  get isHorizontal() {
+    return this.addDirection == PanDirection.Left || this.addDirection == PanDirection.Right
+  }
+
+  getFixScale(): number {
+    return (this.addDirection == PanDirection.Left || this.addDirection == PanDirection.Up)?-1:1
+  }
+
+  getOffset(event: GestureEvent): number {
+    if (this.isHorizontal) {
+      return (event.offsetX - this.fingerOffset)*this.getFixScale()
+    }else {
+      return (event.offsetY - this.fingerOffset)*this.getFixScale()
+    }
+  }
+
+  getRawOffset(event: GestureEvent): number {
+    return this.isHorizontal?event.offsetX:event.offsetY
+  }
+
+  getLane(lane: number = this.lane): number {
+    if (this.isHorizontal) {
+      return laneWidth(lane)
+    }else {
+      return laneHeight(lane)
+    }
+  }
+
+  canExtra(offset: number): boolean {
+    return offset>0?this.isAddable() && this.getNextLane() > this.lane:this.isDeletable() && this.getPreLane() < this.lane
+  }
+
+  extraLane(offset: number) {
+    if (offset>0) {
+      this.$lane(this.getNextLane())
+    }else {
+      this.$lane(this.getPreLane())
+    }
+  }
+
+  getNextLane(): number {
+    if (this.isHorizontal) {
+      switch (Manager.uiType) {
+        case UIType.Column_1: {
+          return Math.min(2, this.lane+1)
+        }
+        case UIType.Column_2: {
+          return Math.min(4, this.lane+1)
+        }
+        case UIType.Column_3: {
+          return Math.min(6, this.lane+1)
+        }
+      }
+    }else {
+      return Math.min(4, this.lane+1)
+    }
+  }
+
+  getPreLane(): number {
+    return Math.max(1, this.lane-1)
+  }
+
+  build() {
+    Row() {
+      Stack() {
+        Circle({ width: 18, height: 18 })
+          .fill("#3A0a59f7")
+        Circle({ width: 8, height: 8 })
+          .fill($r("sys.color.brand"))
+      }
+    }
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.Center)
+    .width(!this.isHorizontal?this.length-36:18)
+    .height(this.isHorizontal?this.length-36:18)
+    .gesture(PanGesture({ direction: this.isHorizontal?PanDirection.Horizontal:PanDirection.Vertical, fingers: 1 })
+      .onActionUpdate((event) => {
+        animateToImmediately(animationParm, () => {
+          let offset = this.getOffset(event)
+          if ((!this.disable_a && offset >= 0) || (!this.disable_d && offset < 0)) {
+            this.disable_a = false
+            this.disable_d = false
+            if (Math.abs(offset) >= 30 && !this.canExtra(offset)) {
+              this.$extra(0)
+              if (offset < 0) {
+                this.disable_d = true
+              }else {
+                this.disable_a = true
+              }
+            }else if (this.canExtra(offset) && (offset-10 >= this.getLane(1)*0.7 || offset+10 <= this.getLane(1)*-0.5)) {
+              this.fingerOffset = this.getRawOffset(event)
+              this.extraLane(offset)
+            }else {
+              this.$extra(offset)
+            }
+          }else {
+            this.fingerOffset = this.getRawOffset(event)
+          }
+        })
+      })
+      .onActionEnd(() => {
+        animateToImmediately(animationParm, () => {
+          this.$extra(0)
+          this.fingerOffset = 0
+          this.disable_a = false
+          this.disable_d = false
+        })
+      }))
+    .hitTestBehavior(this.isResize ? HitTestMode.Block : HitTestMode.Default)
+  }
+}
+
+@ComponentV2
+export struct ResizableComponent {
+  @Param @Require comp_type: string
+  @Local comp_size: CompSize = Manager.comp_size.get(this.comp_type)!
+  @Local lane_w: number = 1
+  @Local lane_h: number = 1
+  @Local offset_l: number = 0
+  @Local offset_r: number = 0
+  @Local offset_u: number = 0
+  @Local offset_d: number = 0
+  @Local isResize: boolean = false
+  @BuilderParam content: ()=>void
+
+  @Computed
+  get offset_w() {
+    return this.comp_size.offset_l + this.comp_size.offset_r
+  }
+  @Computed
+  get offset_h() {
+    return this.comp_size.offset_u + this.comp_size.offset_d
+  }
+
+  aboutToAppear(): void {
+    EventHelper.emitterListener("resize_off", () => {
+      animateToImmediately(animationParm, () => {
+        this.isResize = false
+      })
+    })
+  }
+
+  build() {
+    Stack({alignContent: Alignment.Center}) {
+      this.content()
+      if (this.isResize) {
+        ResizeBall({
+          addDirection: PanDirection.Left,
+          extra: this.comp_size.offset_l!!,
+          isAddable: ()=>{return false},
+          isDeletable: ()=>{return true},
+          isResize: this.isResize,
+          lane: this.comp_size.lane_h!!,
+          length: laneHeight(this.comp_size.lane_h) + this.offset_h
+        })
+          .position({
+            x: -8,
+            y: 18
+          })
+        ResizeBall({
+          addDirection: PanDirection.Up,
+          extra: this.comp_size.offset_u!!,
+          isAddable: ()=>{return false},
+          isDeletable: ()=>{return true},
+          isResize: this.isResize,
+          lane: this.comp_size.lane_h!!,
+          length: laneWidth(this.comp_size.lane_w) + this.offset_w
+        })
+          .position({
+            x: 18,
+            y: -8
+          })
+        ResizeBall({
+          addDirection: PanDirection.Down,
+          extra: this.comp_size.offset_d!!,
+          isAddable: ()=>{return true},
+          isDeletable: ()=>{return true},
+          isResize: this.isResize,
+          lane: this.comp_size.lane_h!!,
+          length: laneWidth(this.comp_size.lane_w) + this.offset_w
+        })
+          .position({
+            x: 18,
+            y: laneHeight(this.comp_size.lane_h) + this.comp_size.offset_d + this.comp_size.offset_u -10
+          })
+        ResizeBall({
+          addDirection: PanDirection.Right,
+          extra: this.comp_size.offset_r!!,
+          isAddable: ()=>{return true},
+          isDeletable: ()=>{return true},
+          isResize: this.isResize,
+          lane: this.comp_size.lane_w!!,
+          length: laneHeight(this.comp_size.lane_h) + this.offset_h
+        })
+          .position({
+            x: laneWidth(this.comp_size.lane_w) + this.comp_size.offset_r + this.comp_size.offset_l -10,
+            y: 18
+          })
+      }
+    }
+    .gesture(LongPressGesture({ repeat: false, fingers: 1 })
+      .onAction((event: GestureEvent|undefined) => {
+        if(event && !this.isResize) animateToImmediately(animationParm, () => {
+          this.isResize = true
+        })
+      })
+    )
+    .onTouch((event)=> {
+      if (this.isResize) {
+        event.stopPropagation()
+      }
+    })
+    .backgroundColor($r("sys.color.comp_background_primary"))
+    .borderWidth(this.isResize?2:0)
+    .borderColor($r("sys.color.brand"))
+    .borderRadius(34)
+    .width(laneWidth(this.lane_w) + this.offset_w)
+    .height(laneHeight(this.lane_h) + this.offset_h)
+    .position({
+      x: -this.offset_l,
+      y: -this.offset_u
+    })
   }
 }

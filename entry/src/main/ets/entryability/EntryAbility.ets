@@ -6,15 +6,13 @@ import EventHelper from "../util/EventHelper";
 import Logger from "../util/Logger";
 import { BusinessError } from "@kit.BasicServicesKit";
 import { distributedKVStore, preferences } from "@kit.ArkData";
-import easytier, { KeyValuePair } from "libeasytier_ohrs.so"
+import easytier from "libeasytier_ohrs.so"
 import { vpnExtension } from "@kit.NetworkKit";
 import { isGetLocPerm, requestVpnPerm } from "../util/Permission";
 import Manager, { UIType } from "../Manager";
-import { objectToHomoTOML, unwrappedEvents } from "../util/Conversion";
+import { objectToHomoTOML } from "../util/Conversion";
 import { readConfig } from "../util/Compress";
 import { url } from "@kit.ArkTS";
-import { hiAppEvent } from "@kit.PerformanceAnalysisKit";
-import { NetworkInstanceRunningInfo } from "../util/info/PeerInfo";
 import entry from 'libentry.so'
 import { BUILD_TIME } from "../util/info/BuildTime";
 import { SpiderMan } from "@simplepeng/spider-man";
@@ -185,25 +183,6 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
-    setInterval(() => {
-      let infos = easytier.collectNetworkInfos()
-      if (infos.length > 0) {
-        let keys = new Set<string>
-        infos.forEach((value: KeyValuePair) => {
-          let info = JSON.parse(value.value) as NetworkInstanceRunningInfo
-          Manager.infos.set(value.key, unwrappedEvents(info, value.key))
-          keys.add(value.key)
-        })
-        for (const key of Manager.infos.keys()) {
-          if (!keys.has(key)) {
-            Manager.infos.delete(key);
-          }
-        }
-      }else if (Manager.infos.size > 0) {
-        Manager.infos.clear()
-      }
-      Manager.errorMsgs = entry.getErrorMsg()
-    }, 100)
     SpiderMan.init();
     let kvManager: distributedKVStore.KVManager | undefined = undefined;
     let context = this.context;
@@ -218,33 +197,38 @@ export default class EntryAbility extends UIAbility {
       let error = e as BusinessError;
       Logger.info(`[EntryAbi] Failed to create KVManager. Code:${error.code},message:${error.message}`);
     }
-    let options: preferences.Options = { name: 'EasyTierPreferences' };
-    Manager.Preferences = preferences.getPreferencesSync(this.context, options);
+    Manager.Preferences = preferences.getPreferencesSync(this.context, { name: 'EasyTierPreferences' });
     if (Manager.Preferences.getSync("show_log", false)) {
       easytier.hilogGlobalOptions(0, "fhl")
       easytier.initTracingSubscriber()
       Manager.show_log = true
     }
     windowStage.getMainWindowSync().on('windowSizeChange', (data) => {
-      if (Manager.width == 0) {
+      if (Manager.uiContext) {
+        Manager.width = Manager.uiContext.px2vp(data.width)
+        Manager.height = Manager.uiContext.px2vp(data.height)
+      }else {
         Manager.width = px2vp(data.width)
         Manager.height = px2vp(data.height)
-        if (Manager.height > Manager.width && Manager.width < 720) {
-          Manager.uiType = UIType.Column_1
-        }else if (Manager.width >= 1080) {
-          Manager.uiType = UIType.Column_3
-        }else {
-          Manager.uiType = UIType.Column_2
-        }
       }
-      EventHelper.emitterPublish("windowSizeChange",{
-        data: {
-          width: data.width,
-          height: data.height
-        }
-      })
+      if (Manager.width < 720) {
+        Manager.uiType = UIType.Column_1
+      }else if (Manager.width >= 1080) {
+        Manager.uiType = UIType.Column_3
+      }else {
+        Manager.uiType = UIType.Column_2
+      }
     });
-    windowStage.loadContent('pages/Index', (err) => {
+    windowStage.getMainWindowSync().on('avoidAreaChange', (data) => {
+      if (data.type == window.AvoidAreaType.TYPE_SYSTEM) {
+        let topRectHeight = data.area.topRect.height;
+        Manager.statusBarHeight = Manager.uiContext?Manager.uiContext.px2vp(topRectHeight):px2vp(topRectHeight)
+      } else if (data.type == window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) {
+        let bottomRectHeight = data.area.bottomRect.height;
+        Manager.navigationBarHeight = Manager.uiContext?Manager.uiContext.px2vp(bottomRectHeight):px2vp(bottomRectHeight)
+      }
+    })
+    windowStage.loadContent('pages/NavIndex', (err) => {
       if (err.code) {
         Logger.info('[EntryAbi] Failed to load the content. Cause: '+JSON.stringify(err));
         return;

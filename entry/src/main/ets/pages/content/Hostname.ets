@@ -10,7 +10,7 @@ export struct Hostname {
   build() {
     Column() {
       Row(){
-        Text("主机名")
+        Text($r("app.string.hostname"))
           .fontSize(18)
           .fontColor($r("sys.color.font_primary"))
         Row() {
@@ -35,7 +35,7 @@ export struct Hostname {
       .width('100%')
       .justifyContent(FlexAlign.SpaceBetween)
       .alignItems(VerticalAlign.Center)
-      TextInput({text: this.config.hostname})
+      TextInput({text: this.config.hostname, placeholder: $r("app.string.hostname_placeholder")})
         .contentType(ContentType.NICKNAME)
         .fontSize(16)
         .padding(8)

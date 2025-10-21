@@ -1,16 +1,16 @@
 import { cidr, Config,
   exit_node,
-  listener, network_identity, peer, route, WrappedString } from "../util/config/ETConfig"
-import { Hostname } from "./content/Hostname"
-import { IPv4 } from "./content/IPv4"
+  listener, network_identity, peer, route, WrappedString } from "../../util/config/ETConfig"
+import { Hostname } from "../content/Hostname"
+import { IPv4 } from "../content/IPv4"
 import { LengthUnit } from "@kit.ArkUI"
-import Manager, { UIType } from "../Manager"
-import { Flags } from "./content/Flags"
-import { WGPortal } from "./content/WGPortal"
-import { Socks5 } from "./content/Socks5"
-import { FlexItems, ItemSize, itemType } from "./content/FlexItems"
-import { SafeLightWeightSet } from "../util/SafeLightWeightSet"
-import Logger from "../util/Logger"
+import Manager, { UIType } from "../../Manager"
+import { Flags } from "../content/Flags"
+import { WGPortal } from "../content/WGPortal"
+import { Socks5 } from "../content/Socks5"
+import { FlexItems, ItemSize, itemType } from "../content/FlexItems"
+import { SafeLightWeightSet } from "../../util/SafeLightWeightSet"
+import Logger from "../../util/Logger"
 
 const space: FlexSpaceOptions = {
   main: {
@@ -26,6 +26,7 @@ const space: FlexSpaceOptions = {
 @ComponentV2
 export struct InstanceContent {
   @Param @Require config:Config
+  @Param comp_height: Length = Manager.height-95
   @Local realWidth: number = 0
 
   get betterComponentWidth() {
@@ -308,7 +309,7 @@ export struct InstanceContent {
     }
     .scrollBar(BarState.Off)
     .width('100%')
-    .height(Manager.height-95)
+    .height(this.comp_height)
     .align(Alignment.Top)
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.START, SafeAreaEdge.BOTTOM])
     .edgeEffect(EdgeEffect.Spring)

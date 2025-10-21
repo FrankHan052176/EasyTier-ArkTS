@@ -5,11 +5,18 @@ import EventHelper from "./util/EventHelper";
 import { cidr, Config, exit_node, listener, network_identity, peer, route, SharedPeer,
   WrappedString } from "./util/config/ETConfig";
 import { distributedKVStore, preferences } from "@kit.ArkData";
-import { objectToHomoTOML, tomlToConfig } from "./util/Conversion";
-import { NetworkInstanceRunningInfoWithUnwrappedEvents } from "./util/info/PeerInfo";
+import { handleNewInfo, objectToHomoTOML, tomlToConfig } from "./util/Conversion";
+import { NetworkInstanceRunningInfo, NetworkInstanceRunningInfoWithUnwrappedEvents } from "./util/info/PeerInfo";
 import { rcp } from "@kit.RemoteCommunicationKit";
 import { JSON } from "@kit.ArkTS";
+import { requestLocPerm, updatePermStatus } from "./util/Permission";
+import { deferredLink } from "@kit.AppLinkingKit";
+import { readConfig } from "./util/Compress";
+import easytier from "libeasytier_ohrs.so"
+import entry from 'libentry.so'
+import { SafeSet } from "./util/SafeSet";
 import { SafeLightWeightSet } from "./util/SafeLightWeightSet";
+import { CompSize } from "./pages/nodes/AutoSortContainer";
 
 export enum UIType {
   Column_1, Column_2, Column_3
@@ -21,83 +28,143 @@ class Manager {
   @Trace distributePerm: abilityAccessCtrl.GrantStatus = abilityAccessCtrl.GrantStatus.PERMISSION_DENIED
   @Trace locPerm: abilityAccessCtrl.GrantStatus = abilityAccessCtrl.GrantStatus.PERMISSION_DENIED
   @Trace qqgroups: string[] = []
-  @Trace sharedPeers: Map<string,SharedPeer> = new Map
+  @Trace sharedPeers = new SafeLightWeightSet<SharedPeer>().doDisableUpdate()
   @Trace configs = new Map<string, Config>()
-  @Trace peers = new SafeLightWeightSet<peer>(undefined, () => {return new peer()}, (value) => {
-    this.KVStore?.put("peer_"+value.toString(), value.toShortString()).catch(() => {
-      Logger.error(`[Manager] peers::put::An unexpected error occurred.`);
-    })
-  }, (value) => {
-    this.KVStore?.delete("peer_"+value.toString()).catch(() => {
-      Logger.error(`[Manager] peers::delete::An unexpected error occurred.`);
-    })
-  })
-  @Trace network_identities = new SafeLightWeightSet<network_identity>(undefined, () => {return new network_identity()}, (value) => {
-    this.KVStore?.put("network_identity_"+value.toString(), value.toString()).catch(() => {
-      Logger.error(`[Manager] network_identities::put::An unexpected error occurred.`);
-    })
-  }, (value) => {
-    this.KVStore?.delete("network_identity_"+value.toString()).catch(() => {
-      Logger.error(`[Manager] network_identities::delete::An unexpected error occurred.`);
-    })
-  })
-  @Trace listeners = new SafeLightWeightSet<listener>(undefined, () => {return new listener()}, (value) => {
-    this.KVStore?.put("listener_"+value.toString(), value.toString()).catch(() => {
-      Logger.error(`[Manager] listeners::put::An unexpected error occurred.`);
-    })
-  }, (value) => {
-    this.KVStore?.delete("listener_"+value.toString()).catch(() => {
-      Logger.error(`[Manager] listeners::delete::An unexpected error occurred.`);
-    })
-  })
-  @Trace routes = new SafeLightWeightSet<route>(undefined, () => {return new route()}, (value) => {
-    this.KVStore?.put("route_"+value.toString(), value.toString()).catch(() => {
-      Logger.error(`[Manager] routes::put::An unexpected error occurred.`);
-    })
-  }, (value) => {
-    this.KVStore?.delete("route_"+value.toString()).catch(() => {
-      Logger.error(`[Manager] routes::delete::An unexpected error occurred.`);
-    })
-  })
-  @Trace cidrs = new SafeLightWeightSet<cidr>(undefined, () => {return new cidr()}, (value) => {
-    this.KVStore?.put("cidr_"+value.toRawString(), value.toRawString()).catch(() => {
-      Logger.error(`[Manager] cidrs::put::An unexpected error occurred.`);
-    })
-  }, (value) => {
-    this.KVStore?.delete("cidr_"+value.toRawString()).catch(() => {
-      Logger.error(`[Manager] cidrs::delete::An unexpected error occurred.`);
-    })
-  })
-  @Trace exit_nodes = new SafeLightWeightSet<exit_node>(undefined, () => {return new exit_node()}, (value) => {
-    this.KVStore?.put("exit_node_"+value.toString(), value.toString()).catch(() => {
-      Logger.error(`[Manager] exit_nodes::put::An unexpected error occurred.`);
-    })
-  }, (value) => {
-    this.KVStore?.delete("exit_node_"+value.toString()).catch(() => {
-      Logger.error(`[Manager] exit_nodes::delete::An unexpected error occurred.`);
-    })
-  })
-  @Trace whitelist = new SafeLightWeightSet<WrappedString>(undefined, () => {return new WrappedString()}, (value) => {
-    this.KVStore?.put("wl_"+value.toString(), value.toString()).catch(() => {
-      Logger.error(`[Manager] whitelist::put::An unexpected error occurred.`);
-    })
-  }, (value) => {
-    this.KVStore?.delete("wl_"+value.toString()).catch(() => {
-      Logger.error(`[Manager] whitelist::delete::An unexpected error occurred.`);
-    })
-  })
+  @Trace lastUsedConfig: Config[] = []
+  @Trace peers = new SafeLightWeightSet<peer>(undefined, () => {return new peer()})
+  @Trace network_identities = new SafeLightWeightSet<network_identity>(undefined, () => {return new network_identity()})
+  @Trace listeners = new SafeLightWeightSet<listener>(undefined, () => {return new listener()})
+  @Trace routes = new SafeLightWeightSet<route>(undefined, () => {return new route()})
+  @Trace cidrs = new SafeLightWeightSet<cidr>(undefined, () => {return new cidr()})
+  @Trace exit_nodes = new SafeLightWeightSet<exit_node>(undefined, () => {return new exit_node()})
+  @Trace whitelist = new SafeLightWeightSet<WrappedString>(undefined, () => {return new WrappedString()})
   @Trace width: number = 0
   @Trace height: number = 0
+  @Trace statusBarHeight: number = 0
+  @Trace navigationBarHeight: number = 0
+  @Trace navigationHeight: number = 0
+  @Trace compHeight: number = 0
   @Trace uiType: UIType = UIType.Column_1
   KVManager: distributedKVStore.KVManager | undefined
   KVStore: distributedKVStore.DeviceKVStore | undefined
   Preferences: preferences.Preferences | undefined
-  @Trace infos = new Map<string,NetworkInstanceRunningInfoWithUnwrappedEvents> ()
+  @Trace info_uuid: string | undefined = undefined
+  @Trace info: NetworkInstanceRunningInfoWithUnwrappedEvents | undefined = undefined
   @Trace runningInstances: Array<string> = new Array
-  @Trace errorMsgs: Array<string> = new Array
+  @Trace appLogs: Set<string> = new Set
+  @Trace nmLogs: Set<string> = new Set
+  @Trace ohLogs: Set<string> = new Set
   needTunInstances: Set<string> = new Set
   show_log: boolean = false
   @Trace preference_log: boolean = false
+  uiContext: UIContext | undefined = undefined
+  @Trace auto_start: string | undefined = undefined
+  @Trace comp_sequence: string[] = ["Instances", "Logs"]
+  @Trace comp_size: Map<string, CompSize> = new Map([["Instances", new CompSize()], ["Logs", new CompSize()]])
+
+  onInit() {
+    updatePermStatus()
+    this.updateQQGroups()
+    this.updateSharedPeers()
+    this.readDB()
+    setInterval(() => {
+      this.updateQQGroups()
+      this.updateSharedPeers()
+    }, 1800000)
+    setInterval(() => {
+      let infos = easytier.collectNetworkInfos()
+      if (infos.length > 0) {
+        let info = JSON.parse(infos[0].value) as NetworkInstanceRunningInfo
+        handleNewInfo(info, infos[0].key)
+        this.info_uuid = infos[0].key
+      }else if (this.info != undefined) {
+        this.info = undefined
+        this.info_uuid = undefined
+      }
+      let appLogs = entry.getAppLog()
+      if (this.appLogs.size < appLogs.length) {
+        appLogs.slice(this.appLogs.size, appLogs.length).forEach((value) => {
+          this.appLogs.add(value)
+        })
+      }
+      let nmLogs = entry.getNetworkManagerLog()
+      if (this.nmLogs.size < nmLogs.length) {
+        nmLogs.slice(this.nmLogs.size, nmLogs.length).forEach((value) => {
+          this.nmLogs.add(value)
+        })
+      }
+      let ohLogs = entry.getOHLog()
+      if (this.ohLogs.size < ohLogs.length) {
+        ohLogs.slice(this.ohLogs.size, ohLogs.length).forEach((value) => {
+          this.ohLogs.add(value)
+        })
+      }
+      this.runningInstances = easytier.collectRunningNetwork()
+    }, 100)
+    try {
+      this.preference_log = this.Preferences!.getSync("show_log", false).valueOf() as boolean
+    } catch (e) {
+      Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`);
+    }
+    try {
+      this.Preferences!.on("dataChange", ["show_log"], (value) => {
+        for (const keyValue of Object.entries(value)) {
+          this.preference_log = (keyValue[1]).valueOf() as boolean
+        }
+      })
+    } catch (e) {
+      Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`);
+    }
+    EventHelper.emitterListener("windowSizeChange", (data) => {
+      this.width = this.uiContext!.px2vp(data.data!.width as number)
+      this.height = this.uiContext!.px2vp(data.data!.height as number)
+      if (this.width < 720) {
+        animateToImmediately({
+          duration: 300,
+          curve: Curve.Friction
+        }, () => {
+          this.uiType = UIType.Column_1
+        })
+      }else if (this.width >= 1080) {
+        animateToImmediately({
+          duration: 300,
+          curve: Curve.Friction
+        }, () => {
+          this.uiType = UIType.Column_3
+        })
+      }else {
+        animateToImmediately({
+          duration: 300,
+          curve: Curve.Friction
+        }, () => {
+          this.uiType = UIType.Column_2
+        })
+      }
+    })
+    if (canIUse("SystemCapability.BundleManager.AppLinking.DeferredLink")) {
+      deferredLink.popDeferredLink().then((link: string) => {
+        if (link) {
+          readConfig(link).then(() => {
+            try {
+              this.uiContext!.getPromptAction().showToast({
+                message: "成功导入分享的配置"
+              })
+            } catch (e) {
+              Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`);
+            }
+          }, (reason:string) => {
+            try {
+              this.uiContext!.getPromptAction().showToast({
+                message: "导入配置失败\n" + reason
+              })
+            } catch (e) {
+              Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`);
+            }
+          })
+        }
+      })
+    }
+  }
 
   updateDistributePerm(status: number) {
     if (status === 2) {
@@ -120,7 +187,7 @@ class Manager {
   }
 
   async updateSharedPeers(page: number = 1): Promise<void> {
-    const request = new rcp.Request("https://uptime.easytier.cn/api/nodes?per_page=50&page="+page, 'GET');
+    const request = new rcp.Request("https://uptime.easytier.cn/api/nodes?per_page=50&tags=%E5%9B%BD%E5%86%85&page="+page, 'GET');
     try {
       const session = rcp.createSession();
       session.fetch(request).then((rep: rcp.Response) => {
@@ -135,7 +202,7 @@ class Manager {
         Logger.info("[Manager] sharedPeers total peers:"+total)
         items.forEach((item: object) => {
           let peer = new SharedPeer(item)
-          this.sharedPeers.set(peer.peer.toString(), peer)
+          this.sharedPeers.add(peer)
         })
         if (total_pages > 1 && page == 1) {
           Logger.info("[Manager] sharedPeers total pages:"+total_pages)
@@ -183,6 +250,16 @@ class Manager {
     return Promise.resolve()
   }
 
+  updateAutoStart(uuid: string) {
+    if (this.configs.has(uuid)) {
+      if (this.auto_start == uuid) {
+        this.auto_start = undefined
+      }else {
+        this.auto_start = uuid
+      }
+    }
+  }
+
   async readDB() {
     const options: distributedKVStore.Options = {
       createIfMissing: true,
@@ -226,7 +303,13 @@ class Manager {
           }
           entries.forEach((entry) => {
             Logger.info("[Manager] find peer "+entry.key)
-            this.peers.add(new peer().setUri(entry.value.value.toString()), false)
+            let value = entry.value.value.toString()
+            let shared = this.sharedPeers.map.get(value)
+            if (shared) {
+              shared.changeEnabled(false)
+            }else {
+              this.peers.add(new peer().setUri(value), false)
+            }
           })
         })
         store.getEntries("network_identity_", (err, entries) => {
@@ -319,6 +402,19 @@ class Manager {
     })
   }
 
+  addConfigByName(name: string) {
+    if (name.match(/^\s*$/) === null) {
+      let config = new Config()
+      config.instance_name = name
+      animateToImmediately({
+        duration: 300,
+        curve: Curve.EaseIn
+      }, () => {
+        this.addConfig(config)
+      })
+    }
+  }
+
   deleteConfig(config: Config) {
     this.configs.delete(config.instance_id)
     this.KVStore?.delete("config_"+config.instance_id, (err) => {
@@ -367,11 +463,34 @@ class Manager {
     }
   }
 
+  changeInstanceStatus(config: Config) {
+    if (this.info_uuid == config.instance_id) {
+      if (!this.stopInstance(config)) {
+        Logger.error("关闭网络失败")
+      }
+    }else {
+      if (this.info != undefined) {
+        this.uiContext?.getPromptAction().showToast({
+          message: "请先关闭正在运行的网络"
+        })
+      }else if (this.uiContext != undefined && this.uiContext.getHostContext() != undefined) {
+        requestLocPerm(this.uiContext.getHostContext()!).then((value) => {
+          if (!value) {
+            this.uiContext?.getPromptAction().showToast({
+              message: "拒绝授权定位权限将无法进行后台保活"
+            })
+          }
+          this.startInstance(config)
+        })
+      }
+    }
+  }
+
   isStarted(config: Config): boolean {
-    if (this.infos.size <= 0) {
+    if (this.info == undefined) {
       return false
     }else {
-      return this.infos.has(config.instance_id)
+      return this.info_uuid == config.instance_id
     }
   }
 

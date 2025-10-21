@@ -2,8 +2,25 @@ import { Config, network_whitelist } from "../../util/config/ETConfig"
 import { LengthUnit } from "@kit.ArkUI"
 import { safeFieldName } from "../../util/Conversion"
 import { ItemBuilder } from "../../util/ItemBuilders"
+import Logger from "../../util/Logger"
 
 type element_flags = network_whitelist | boolean
+function fixFieldName(name: string): string {
+  switch (name) {
+    case "accept_dns": return "enable_magic_dns"
+    case "private_mode": return "enable_private_mode"
+    case "enable_ipv6": return "disable_ipv6"
+    case "enable_encryption": return "disable_encryption"
+    default: return name
+  }
+}
+function fixFieldValue(name: string, value: boolean): boolean {
+  switch (name) {
+    case "enable_ipv6": return !value
+    case "enable_encryption": return !value
+    default: return value
+  }
+}
 @ComponentV2
 export struct Flags {
   @Param @Require config: Config
@@ -39,11 +56,14 @@ export struct Flags {
         ForEach(Object.entries(this.config.flags), (entry:[string, element_flags]) => {
           if (!(entry[1] instanceof network_whitelist) && !(safeFieldName(entry[0]).startsWith("_"))) {
             ItemBuilder({
-              item: $r("app.string."+ safeFieldName(entry[0])),
-              isSelected: (this.config.flags as ESObject)[entry[0].substring(5)] as boolean,
+              item: $r("app.string."+ fixFieldName(safeFieldName(entry[0]))),
+              isSelected: fixFieldValue(safeFieldName(entry[0]), (this.config.flags as ESObject)[safeFieldName(entry[0])] as boolean),
               itemWidth: (this.comp_width-40)/3,
               itemHeight: 40
             })
+              .onAppear(() => {
+                Logger.debug(safeFieldName(entry[0]))
+              })
               .onClick(() => {
                 animateToImmediately({
                   curve: Curve.Friction,

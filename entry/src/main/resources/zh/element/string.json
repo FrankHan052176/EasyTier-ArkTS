@@ -1,86 +1,6 @@
 {
   "string": [
     {
-      "name": "latency_first",
-      "value": "开启延迟优先模式"
-    },
-    {
-      "name": "use_smoltcp",
-      "value": "使用用户态协议栈"
-    },
-    {
-      "name": "enable_kcp_proxy",
-      "value": "启用 KCP 代理"
-    },
-    {
-      "name": "disable_p2p",
-      "value": "禁用 P2P"
-    },
-    {
-      "name": "no_tun",
-      "value": "无 TUN 模式"
-    },
-    {
-      "name": "relay_all_peer_rpc",
-      "value": "转发 RPC 包"
-    },
-    {
-      "name": "enable_encryption",
-      "value": "启用加密"
-    },
-    {
-      "name": "disable_udp_hole_punching",
-      "value": "禁用 UDP 打洞"
-    },
-    {
-      "name": "disable_sym_hole_punching",
-      "value": "禁用对称 NAT 打洞"
-    },
-    {
-      "name": "accept_dns",
-      "value": "启用 Magic DNS"
-    },
-    {
-      "name": "edit_proxy_cidr",
-      "value": "子网代理 CIDR"
-    },
-    {
-      "name": "edit_route",
-      "value": "自定义路由"
-    },
-    {
-      "name": "relay_network_whitelist",
-      "value": "网络白名单"
-    },
-    {
-      "name": "edit_exit_nodes",
-      "value": "出口节点"
-    },
-    {
-      "name": "disable_kcp_input",
-      "value": "禁止 KCP 输入"
-    },
-    {
-      "name": "enable_quic_proxy",
-      "value": "启用 QUIC 代理"
-    },
-    {
-      "name": "disable_quic_input",
-      "value": "禁止 QUIC 输入"
-    },
-    {
-      "name": "enable_ipv6",
-      "value": "启用 IPv6"
-    },
-    {
-      "name": "private_mode",
-      "value": "启用私有模式"
-    },
-    {
-      "name": "enable_exit_node",
-      "value": "启用出口节点"
-    },
-    {
       "name": "data_reason",
       "value": "获取设备名并与其他设备共享配置"
     },
@@ -123,6 +43,18 @@
     {
       "name": "i18_edit",
       "value": "编辑 "
+    },
+    {
+      "name": "i18_total",
+      "value": "共"
+    },
+    {
+      "name": "i18_ge",
+      "value": "个"
+    },
+    {
+      "name": "i18_tiao",
+      "value": "条"
     }
   ]
 }

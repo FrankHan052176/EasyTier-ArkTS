@@ -8,15 +8,46 @@ export interface NetworkInstanceRunningInfo {
   running: boolean
   error_msg?: string
 }
-export interface NetworkInstanceRunningInfoWithUnwrappedEvents {
-  dev_name: string
-  my_node_info: NodeInfo
-  events: Array<Event>,
-  routes: Route[]
-  peers: PeerInfo[]
-  peer_route_pairs: PeerRoutePair[]
-  running: boolean
-  error_msg?: string
+@ObservedV2
+export class NetworkInstanceRunningInfoWithUnwrappedEvents {
+  dev_name: string = ""
+  my_node_info: NodeInfo = {
+    virtual_ipv4: {
+      address: {
+        addr: 0
+      },
+      network_length: 0
+    },
+    hostname: "",
+    version: "",
+    ips: {
+      public_ipv4: {
+        addr: 0
+      },
+      public_ipv6: {
+        part1: 0,
+        part2: 0,
+        part3: 0,
+        part4: 0
+      },
+      interface_ipv4s: [],
+      interface_ipv6s: [],
+      listeners: []
+    },
+    stun_info: {
+      udp_nat_type: 0,
+      tcp_nat_type: 0,
+      last_update_time: 0
+    },
+    listeners: [],
+    vpn_portal_cfg: undefined
+  }
+  @Trace events: Array<Event> = []
+  @Trace routes: Route[] = []
+  @Trace peers: PeerInfo[] = []
+  @Trace peer_route_pairs: PeerRoutePair[] = []
+  @Trace running: boolean = false
+  @Trace error_msg?: string
 }
 
 export interface Event {

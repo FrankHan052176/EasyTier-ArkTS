@@ -1,0 +1,1096 @@
+{
+  "string": [
+    {
+      "name": "network",
+      "value": "Network"
+    },
+    {
+      "name": "networking_method",
+      "value": "Networking Method"
+    },
+    {
+      "name": "public_server",
+      "value": "Public Server"
+    },
+    {
+      "name": "manual",
+      "value": "Manual"
+    },
+    {
+      "name": "standalone",
+      "value": "Standalone"
+    },
+    {
+      "name": "virtual_ipv4",
+      "value": "Virtual IPv4"
+    },
+    {
+      "name": "virtual_ipv4_dhcp",
+      "value": "DHCP"
+    },
+    {
+      "name": "network_name",
+      "value": "Network Name"
+    },
+    {
+      "name": "network_secret",
+      "value": "Network Secret"
+    },
+    {
+      "name": "public_server_url",
+      "value": "Public Server URL"
+    },
+    {
+      "name": "peer_urls",
+      "value": "Peer URLs"
+    },
+    {
+      "name": "proxy_cidrs",
+      "value": "Subnet Proxy CIDRs"
+    },
+    {
+      "name": "enable_vpn_portal",
+      "value": "Enable VPN Portal"
+    },
+    {
+      "name": "vpn_portal_listen_port",
+      "value": "VPN Portal Listen Port"
+    },
+    {
+      "name": "vpn_portal_client_network",
+      "value": "Client Sub Network"
+    },
+    {
+      "name": "dev_name",
+      "value": "TUN interface name"
+    },
+    {
+      "name": "advanced_settings",
+      "value": "Advanced Settings"
+    },
+    {
+      "name": "basic_settings",
+      "value": "Basic Settings"
+    },
+    {
+      "name": "listener_urls",
+      "value": "Listener URLs"
+    },
+    {
+      "name": "rpc_port",
+      "value": "RPC Port"
+    },
+    {
+      "name": "rpc_portal_whitelists",
+      "value": "RPC Whitelist"
+    },
+    {
+      "name": "config_network",
+      "value": "Config Network"
+    },
+    {
+      "name": "running",
+      "value": "Running"
+    },
+    {
+      "name": "error_msg",
+      "value": "Error Message"
+    },
+    {
+      "name": "detail",
+      "value": "Detail"
+    },
+    {
+      "name": "add_new_network",
+      "value": "New Network"
+    },
+    {
+      "name": "del_cur_network",
+      "value": "Delete Current Network"
+    },
+    {
+      "name": "select_network",
+      "value": "Select Network"
+    },
+    {
+      "name": "network_instances",
+      "value": "Network Instances"
+    },
+    {
+      "name": "instance_id",
+      "value": "Instance ID"
+    },
+    {
+      "name": "network_infos",
+      "value": "Network Infos"
+    },
+    {
+      "name": "parse_network_config",
+      "value": "Parse Network Config"
+    },
+    {
+      "name": "retain_network_instance",
+      "value": "Retain Network Instance"
+    },
+    {
+      "name": "collect_network_infos",
+      "value": "Collect Network Infos"
+    },
+    {
+      "name": "settings",
+      "value": "Settings"
+    },
+    {
+      "name": "exchange_language",
+      "value": "切换中文"
+    },
+    {
+      "name": "logging",
+      "value": "Logging"
+    },
+    {
+      "name": "logging_level_info",
+      "value": "Info"
+    },
+    {
+      "name": "logging_level_debug",
+      "value": "Debug"
+    },
+    {
+      "name": "logging_level_warn",
+      "value": "Warn"
+    },
+    {
+      "name": "logging_level_trace",
+      "value": "Trace"
+    },
+    {
+      "name": "logging_level_off",
+      "value": "Off"
+    },
+    {
+      "name": "logging_open_dir",
+      "value": "Open Log Directory"
+    },
+    {
+      "name": "logging_copy_dir",
+      "value": "Copy Log Path"
+    },
+    {
+      "name": "disable_auto_launch",
+      "value": "Disable Launch on Reboot"
+    },
+    {
+      "name": "enable_auto_launch",
+      "value": "Enable Launch on Reboot"
+    },
+    {
+      "name": "hide_dock_icon",
+      "value": "Hide Dock Icon"
+    },
+    {
+      "name": "show_dock_icon",
+      "value": "Show Dock Icon"
+    },
+    {
+      "name": "exit",
+      "value": "Exit"
+    },
+    {
+      "name": "use_latency_first",
+      "value": "Latency First Mode"
+    },
+    {
+      "name": "show_node_details",
+      "value": "Show Node Details"
+    },
+    {
+      "name": "hide_node_details",
+      "value": "Hide Node Details"
+    },
+    {
+      "name": "chips_placeholder",
+      "value": "e.g: {0}, select from the dropdown after input"
+    },
+    {
+      "name": "hostname_placeholder",
+      "value": "Leave blank and default to host name: {0}"
+    },
+    {
+      "name": "dev_name_placeholder",
+      "value": "Note: When multiple networks use the same TUN interface name at the same time, there will be a conflict when setting the TUN's IP. Leave blank to automatically generate a random name."
+    },
+    {
+      "name": "off_text",
+      "value": "Press to disable"
+    },
+    {
+      "name": "on_text",
+      "value": "Press to enable"
+    },
+    {
+      "name": "show_config",
+      "value": "Show Config"
+    },
+    {
+      "name": "edit_config",
+      "value": "Edit Config File"
+    },
+    {
+      "name": "config_file",
+      "value": "Config File"
+    },
+    {
+      "name": "close",
+      "value": "Close"
+    },
+    {
+      "name": "save",
+      "value": "Save"
+    },
+    {
+      "name": "config_saved",
+      "value": "Configuration saved"
+    },
+    {
+      "name": "my_node_info",
+      "value": "My Node Info"
+    },
+    {
+      "name": "peer_count",
+      "value": "Connected"
+    },
+    {
+      "name": "upload",
+      "value": "Upload"
+    },
+    {
+      "name": "download",
+      "value": "Download"
+    },
+    {
+      "name": "show_vpn_portal_config",
+      "value": "Show VPN Portal Config"
+    },
+    {
+      "name": "vpn_portal_config",
+      "value": "VPN Portal Config"
+    },
+    {
+      "name": "show_event_log",
+      "value": "Show Event Log"
+    },
+    {
+      "name": "event_log",
+      "value": "Event Log"
+    },
+    {
+      "name": "peer_info",
+      "value": "Peer Info"
+    },
+    {
+      "name": "route_cost",
+      "value": "Route Cost"
+    },
+    {
+      "name": "tunnel_proto",
+      "value": "Protocol"
+    },
+    {
+      "name": "hostname",
+      "value": "Hostname"
+    },
+    {
+      "name": "latency",
+      "value": "Latency"
+    },
+    {
+      "name": "upload_bytes",
+      "value": "Upload"
+    },
+    {
+      "name": "download_bytes",
+      "value": "Download"
+    },
+    {
+      "name": "loss_rate",
+      "value": "Loss Rate"
+    },
+    {
+      "name": "nat_type",
+      "value": "NAT Type"
+    },
+    {
+      "name": "flags_switch",
+      "value": "Feature Switch"
+    },
+    {
+      "name": "latency_first",
+      "value": "Enable Latency-First Mode"
+    },
+    {
+      "name": "latency_first_help",
+      "value": "Ignore hop count and select the path with the lowest total latency"
+    },
+    {
+      "name": "use_smoltcp",
+      "value": "Use User-Space Protocol Stack"
+    },
+    {
+      "name": "use_smoltcp_help",
+      "value": "Use a user-space TCP/IP stack to avoid issues with operating system firewalls blocking subnet or KCP proxy functionality."
+    },
+    {
+      "name": "disable_ipv6",
+      "value": "Disable IPv6"
+    },
+    {
+      "name": "disable_ipv6_help",
+      "value": "Disable IPv6 functionality for this node, only use IPv4 for network communication."
+    },
+    {
+      "name": "enable_kcp_proxy",
+      "value": "Enable KCP Proxy"
+    },
+    {
+      "name": "enable_kcp_proxy_help",
+      "value": "Convert TCP traffic to KCP traffic to reduce latency and boost transmission speed."
+    },
+    {
+      "name": "disable_kcp_input",
+      "value": "Disable KCP Input"
+    },
+    {
+      "name": "disable_kcp_input_help",
+      "value": "Disable inbound KCP traffic, while nodes with KCP proxy enabled continue to connect using TCP."
+    },
+    {
+      "name": "enable_quic_proxy",
+      "value": "Enable QUIC Proxy"
+    },
+    {
+      "name": "enable_quic_proxy_help",
+      "value": "Convert TCP traffic to QUIC traffic to reduce latency and boost transmission speed."
+    },
+    {
+      "name": "disable_quic_input",
+      "value": "Disable QUIC Input"
+    },
+    {
+      "name": "disable_quic_input_help",
+      "value": "Disable inbound QUIC traffic, while nodes with QUIC proxy enabled continue to connect using TCP."
+    },
+    {
+      "name": "disable_p2p",
+      "value": "Disable P2P"
+    },
+    {
+      "name": "disable_p2p_help",
+      "value": "Disable P2P mode; route all traffic through a manually specified relay server."
+    },
+    {
+      "name": "bind_device",
+      "value": "Bind to Physical Device Only"
+    },
+    {
+      "name": "bind_device_help",
+      "value": "Use only the physical network interface to prevent EasyTier from connecting via virtual networks."
+    },
+    {
+      "name": "no_tun",
+      "value": "No TUN Mode"
+    },
+    {
+      "name": "no_tun_help",
+      "value": "Do not use a TUN interface, suitable for environments without administrator privileges. This node is only accessible; accessing other nodes requires SOCKS5."
+    },
+    {
+      "name": "enable_exit_node",
+      "value": "Enable Exit Node"
+    },
+    {
+      "name": "enable_exit_node_help",
+      "value": "Allow this node to be an exit node"
+    },
+    {
+      "name": "relay_all_peer_rpc",
+      "value": "Relay RPC Packets"
+    },
+    {
+      "name": "relay_all_peer_rpc_help",
+      "value": "Relay all peer rpc packets, even if the peer is not in the relay network whitelist.\nThis can help peers not in relay network whitelist to establish p2p connection.\n"
+    },
+    {
+      "name": "multi_thread",
+      "value": "Multi Thread"
+    },
+    {
+      "name": "multi_thread_help",
+      "value": "Use multi-thread runtime"
+    },
+    {
+      "name": "proxy_forward_by_system",
+      "value": "System Forward"
+    },
+    {
+      "name": "proxy_forward_by_system_help",
+      "value": "Forward packet to proxy networks via system kernel, disable internal nat for network proxy"
+    },
+    {
+      "name": "disable_encryption",
+      "value": "Disable Encryption"
+    },
+    {
+      "name": "disable_encryption_help",
+      "value": "Disable encryption for peers communication, default is false, must be same with peers"
+    },
+    {
+      "name": "disable_udp_hole_punching",
+      "value": "Disable UDP Hole Punching"
+    },
+    {
+      "name": "disable_udp_hole_punching_help",
+      "value": "Disable udp hole punching"
+    },
+    {
+      "name": "disable_sym_hole_punching",
+      "value": "Disable Symmetric NAT Hole Punching"
+    },
+    {
+      "name": "disable_sym_hole_punching_help",
+      "value": "Disable special hole punching handling for symmetric NAT (based on birthday attack), treat symmetric NAT as cone NAT"
+    },
+    {
+      "name": "enable_magic_dns",
+      "value": "Enable Magic DNS"
+    },
+    {
+      "name": "enable_magic_dns_help",
+      "value": "Enable magic dns, all nodes in the network can access each other by domain name, e.g.: node1.et.net.\n"
+    },
+    {
+      "name": "enable_private_mode",
+      "value": "Enable Private Mode"
+    },
+    {
+      "name": "enable_private_mode_help",
+      "value": "Enable private mode, nodes with different network names or passwords from this network are not allowed to perform handshake or relay through this node.\n"
+    },
+    {
+      "name": "relay_network_whitelist",
+      "value": "Network Whitelist"
+    },
+    {
+      "name": "relay_network_whitelist_help",
+      "value": "Only forward traffic from the whitelist networks, supporting wildcard strings, multiple network names can be separated by spaces.\nIf this parameter is empty, forwarding is disabled. By default, all networks are allowed.\ne.g.: '*' (all networks), 'def*' (networks with the prefix 'def'), 'net1 net2' (only allow net1 and net2)\n"
+    },
+    {
+      "name": "manual_routes",
+      "value": "Manual Route"
+    },
+    {
+      "name": "manual_routes_help",
+      "value": "Assign routes cidr manually, will disable subnet proxy and wireguard routes propagated from peers. e.g.:192.168.0.0/16\n"
+    },
+    {
+      "name": "socks5",
+      "value": "Socks5 Server"
+    },
+    {
+      "name": "socks5_help",
+      "value": "Enable socks5 server, allow socks5 client to access virtual network. format: <port>, e.g.: 1080\n"
+    },
+    {
+      "name": "exit_nodes",
+      "value": "Exit Nodes"
+    },
+    {
+      "name": "exit_nodes_help",
+      "value": "Exit nodes to forward all traffic to, a virtual ipv4 address, priority is determined by the order of the list"
+    },
+    {
+      "name": "port_forwards",
+      "value": "Port Forward"
+    },
+    {
+      "name": "port_forwards_help",
+      "value": "forward local port to remote port in virtual network. e.g.: udp://0.0.0.0:12345/10.126.126.1:23456, means forward local udp port 12345 to 10.126.126.1:23456 in the virtual network. can specify multiple."
+    },
+    {
+      "name": "port_forwards_bind_addr",
+      "value": "Bind address, e.g.: 0.0.0.0"
+    },
+    {
+      "name": "port_forwards_dst_addr",
+      "value": "Destination address, e.g.: 10.126.126.1"
+    },
+    {
+      "name": "port_forwards_add_btn",
+      "value": "Add"
+    },
+    {
+      "name": "mtu",
+      "value": "MTU"
+    },
+    {
+      "name": "mtu_help",
+      "value": "MTU of the TUN device, default is 1380 for non-encryption, 1360 for encryption. Range:400-1380\n"
+    },
+    {
+      "name": "mtu_placeholder",
+      "value": "Leave blank as default value 1380"
+    },
+    {
+      "name": "mapped_listeners",
+      "value": "Map Listeners"
+    },
+    {
+      "name": "mapped_listeners_help",
+      "value": "Manually specify the public address of the listener, other nodes can use this address to connect to this node.\ne.g.: tcp://123.123.123.123:11223, can specify multiple.\n"
+    },
+    {
+      "name": "status_version",
+      "value": "Version"
+    },
+    {
+      "name": "status_local",
+      "value": "Local"
+    },
+    {
+      "name": "status_server",
+      "value": "Server"
+    },
+    {
+      "name": "status_relay",
+      "value": "Relay"
+    },
+    {
+      "name": "run_network",
+      "value": "Run Network"
+    },
+    {
+      "name": "stop_network",
+      "value": "Stop Network"
+    },
+    {
+      "name": "network_running",
+      "value": "running"
+    },
+    {
+      "name": "network_stopped",
+      "value": "stopped"
+    },
+    {
+      "name": "dhcp_experimental_warning",
+      "value": "Experimental warning! if there is an IP conflict in the network when using DHCP, the IP will be automatically changed."
+    },
+    {
+      "name": "tray_show",
+      "value": "Show / Hide"
+    },
+    {
+      "name": "tray_exit",
+      "value": "Exit"
+    },
+    {
+      "name": "about_title",
+      "value": "About"
+    },
+    {
+      "name": "about_version",
+      "value": "Version"
+    },
+    {
+      "name": "about_author",
+      "value": "Author"
+    },
+    {
+      "name": "about_homepage",
+      "value": "Homepage"
+    },
+    {
+      "name": "about_license",
+      "value": "License"
+    },
+    {
+      "name": "about_description",
+      "value": "EasyTier is a simple, safe and decentralized VPN networking solution implemented with the Rust language and Tokio framework."
+    },
+    {
+      "name": "about_check_update",
+      "value": "Check Update"
+    },
+    {
+      "name": "event_Unknown",
+      "value": "Unknown"
+    },
+    {
+      "name": "event_TunDeviceReady",
+      "value": "TunDeviceReady"
+    },
+    {
+      "name": "event_TunDeviceError",
+      "value": "TunDeviceError"
+    },
+    {
+      "name": "event_PeerAdded",
+      "value": "PeerAdded"
+    },
+    {
+      "name": "event_PeerRemoved",
+      "value": "PeerRemoved"
+    },
+    {
+      "name": "event_PeerConnAdded",
+      "value": "PeerConnAdded"
+    },
+    {
+      "name": "event_PeerConnRemoved",
+      "value": "PeerConnRemoved"
+    },
+    {
+      "name": "event_ListenerAdded",
+      "value": "ListenerAdded"
+    },
+    {
+      "name": "event_ListenerAddFailed",
+      "value": "ListenerAddFailed"
+    },
+    {
+      "name": "event_ListenerAcceptFailed",
+      "value": "ListenerAcceptFailed"
+    },
+    {
+      "name": "event_ConnectionAccepted",
+      "value": "ConnectionAccepted"
+    },
+    {
+      "name": "event_ConnectionError",
+      "value": "ConnectionError"
+    },
+    {
+      "name": "event_Connecting",
+      "value": "Connecting"
+    },
+    {
+      "name": "event_ConnectError",
+      "value": "ConnectError"
+    },
+    {
+      "name": "event_VpnPortalStarted",
+      "value": "VpnPortalStarted"
+    },
+    {
+      "name": "event_VpnPortalClientConnected",
+      "value": "VpnPortalClientConnected"
+    },
+    {
+      "name": "event_VpnPortalClientDisconnected",
+      "value": "VpnPortalClientDisconnected"
+    },
+    {
+      "name": "event_DhcpIpv4Changed",
+      "value": "DhcpIpv4Changed"
+    },
+    {
+      "name": "event_DhcpIpv4Conflicted",
+      "value": "DhcpIpv4Conflicted"
+    },
+    {
+      "name": "event_PortForwardAdded",
+      "value": "PortForwardAdded"
+    },
+    {
+      "name": "web_login_title",
+      "value": "Login"
+    },
+    {
+      "name": "web_login_username",
+      "value": "Username"
+    },
+    {
+      "name": "web_login_password",
+      "value": "Password"
+    },
+    {
+      "name": "web_login_submit",
+      "value": "Login"
+    },
+    {
+      "name": "web_login_register",
+      "value": "Register"
+    },
+    {
+      "name": "web_login_remember_me",
+      "value": "Remember Me"
+    },
+    {
+      "name": "web_login_api_host",
+      "value": "API Host"
+    },
+    {
+      "name": "web_login_captcha",
+      "value": "Captcha"
+    },
+    {
+      "name": "web_login_back_to_login",
+      "value": "Back to Login"
+    },
+    {
+      "name": "web_login_login",
+      "value": "Login"
+    },
+    {
+      "name": "web_register_title",
+      "value": "Register"
+    },
+    {
+      "name": "web_register_username",
+      "value": "Username"
+    },
+    {
+      "name": "web_register_password",
+      "value": "Password"
+    },
+    {
+      "name": "web_register_confirm_password",
+      "value": "Confirm Password"
+    },
+    {
+      "name": "web_register_submit",
+      "value": "Register"
+    },
+    {
+      "name": "web_register_login",
+      "value": "Back to Login"
+    },
+    {
+      "name": "web_main_dashboard",
+      "value": "Dashboard"
+    },
+    {
+      "name": "web_main_device_list",
+      "value": "Device List"
+    },
+    {
+      "name": "web_main_device_management",
+      "value": "Device Management"
+    },
+    {
+      "name": "web_main_login_page",
+      "value": "Login Page"
+    },
+    {
+      "name": "web_main_settings",
+      "value": "Settings"
+    },
+    {
+      "name": "web_main_logout",
+      "value": "Logout"
+    },
+    {
+      "name": "web_main_language",
+      "value": "Language"
+    },
+    {
+      "name": "web_main_change_password",
+      "value": "Change Password"
+    },
+    {
+      "name": "web_device_list",
+      "value": "Device List"
+    },
+    {
+      "name": "web_device_management",
+      "value": "Device Management"
+    },
+    {
+      "name": "web_device_add",
+      "value": "Add Device"
+    },
+    {
+      "name": "web_device_delete",
+      "value": "Delete Device"
+    },
+    {
+      "name": "web_device_refresh",
+      "value": "Refresh"
+    },
+    {
+      "name": "web_device_status",
+      "value": "Status"
+    },
+    {
+      "name": "web_device_online",
+      "value": "Online"
+    },
+    {
+      "name": "web_device_offline",
+      "value": "Offline"
+    },
+    {
+      "name": "web_device_last_seen",
+      "value": "Last Seen"
+    },
+    {
+      "name": "web_device_no_devices",
+      "value": "No Devices Found"
+    },
+    {
+      "name": "web_device_sort_by",
+      "value": "Sort By"
+    },
+    {
+      "name": "web_device_sort_direction",
+      "value": "Sort Direction"
+    },
+    {
+      "name": "web_device_show_detailed_view",
+      "value": "Show Details"
+    },
+    {
+      "name": "web_device_hide_detailed_view",
+      "value": "Hide Details"
+    },
+    {
+      "name": "web_device_sort_by_hostname",
+      "value": "Hostname"
+    },
+    {
+      "name": "web_device_sort_by_public_ip",
+      "value": "Public IP"
+    },
+    {
+      "name": "web_device_sort_by_version",
+      "value": "Version"
+    },
+    {
+      "name": "web_device_sort_by_networks",
+      "value": "Network Count"
+    },
+    {
+      "name": "web_device_sort_direction_asc",
+      "value": "Currently ascending, click to switch to descending"
+    },
+    {
+      "name": "web_device_sort_direction_desc",
+      "value": "Currently descending, click to switch to ascending"
+    },
+    {
+      "name": "web_device_hostname",
+      "value": "Hostname"
+    },
+    {
+      "name": "web_device_public_ip",
+      "value": "Public IP"
+    },
+    {
+      "name": "web_device_networks",
+      "value": "Network Count"
+    },
+    {
+      "name": "web_device_last_report",
+      "value": "Last Seen"
+    },
+    {
+      "name": "web_device_version",
+      "value": "Version"
+    },
+    {
+      "name": "web_device_machine_id",
+      "value": "Machine ID"
+    },
+    {
+      "name": "web_device_unknown_location",
+      "value": "Unknown Location"
+    },
+    {
+      "name": "web_device_management_edit_network",
+      "value": "Edit Network"
+    },
+    {
+      "name": "web_device_management_export_config",
+      "value": "Export Config"
+    },
+    {
+      "name": "web_device_management_delete_network",
+      "value": "Delete Network"
+    },
+    {
+      "name": "web_device_management_network",
+      "value": "Network"
+    },
+    {
+      "name": "web_device_management_select_network",
+      "value": "Select Network"
+    },
+    {
+      "name": "web_device_management_create_network",
+      "value": "Create Network"
+    },
+    {
+      "name": "web_device_management_cancel_edit",
+      "value": "Cancel Edit"
+    },
+    {
+      "name": "web_device_management_more_actions",
+      "value": "More Actions"
+    },
+    {
+      "name": "web_device_management_edit_as_file",
+      "value": "Edit as File"
+    },
+    {
+      "name": "web_device_management_save_config",
+      "value": "Save Config"
+    },
+    {
+      "name": "web_device_management_config_saved",
+      "value": "Config Saved"
+    },
+    {
+      "name": "web_device_management_import_config",
+      "value": "Import Config"
+    },
+    {
+      "name": "web_device_management_create_new",
+      "value": "Create New Network"
+    },
+    {
+      "name": "web_device_management_network_status",
+      "value": "Network Status"
+    },
+    {
+      "name": "web_device_management_network_configuration",
+      "value": "Network Configuration"
+    },
+    {
+      "name": "web_device_management_loading_network_configuration",
+      "value": "Loading Network Configuration"
+    },
+    {
+      "name": "web_device_management_no_network_selected",
+      "value": "No Network Selected"
+    },
+    {
+      "name": "web_device_management_select_existing_network_or_create_new",
+      "value": "Select an existing network instance or create a new one to manage network settings"
+    },
+    {
+      "name": "web_device_management_disable_network",
+      "value": "Disable Network"
+    },
+    {
+      "name": "web_network_title",
+      "value": "Network"
+    },
+    {
+      "name": "web_network_create",
+      "value": "Create Network"
+    },
+    {
+      "name": "web_network_delete",
+      "value": "Delete Network"
+    },
+    {
+      "name": "web_network_start",
+      "value": "Start Network"
+    },
+    {
+      "name": "web_network_stop",
+      "value": "Stop Network"
+    },
+    {
+      "name": "web_network_config",
+      "value": "Network Config"
+    },
+    {
+      "name": "web_network_status",
+      "value": "Network Status"
+    },
+    {
+      "name": "web_network_import",
+      "value": "Import Config"
+    },
+    {
+      "name": "web_network_export",
+      "value": "Export Config"
+    },
+    {
+      "name": "web_common_confirm",
+      "value": "Confirm"
+    },
+    {
+      "name": "web_common_cancel",
+      "value": "Cancel"
+    },
+    {
+      "name": "web_common_save",
+      "value": "Save"
+    },
+    {
+      "name": "web_common_delete",
+      "value": "Delete"
+    },
+    {
+      "name": "web_common_edit",
+      "value": "Edit"
+    },
+    {
+      "name": "web_common_refresh",
+      "value": "Refresh"
+    },
+    {
+      "name": "web_common_loading",
+      "value": "Loading..."
+    },
+    {
+      "name": "web_common_error",
+      "value": "Error"
+    },
+    {
+      "name": "web_common_success",
+      "value": "Success"
+    },
+    {
+      "name": "web_common_warning",
+      "value": "Warning"
+    },
+    {
+      "name": "web_common_info",
+      "value": "Info"
+    },
+    {
+      "name": "web_settings_title",
+      "value": "Settings"
+    },
+    {
+      "name": "web_settings_change_password",
+      "value": "Change Password"
+    },
+    {
+      "name": "web_settings_old_password",
+      "value": "Old Password"
+    },
+    {
+      "name": "web_settings_new_password",
+      "value": "New Password"
+    },
+    {
+      "name": "web_settings_confirm_password",
+      "value": "Confirm New Password"
+    },
+    {
+      "name": "web_settings_language",
+      "value": "Language"
+    },
+    {
+      "name": "web_settings_theme",
+      "value": "Theme"
+    },
+    {
+      "name": "web_settings_logout",
+      "value": "Logout"
+    }
+  ]
+}

@@ -1,19 +1,17 @@
 import Manager from "../Manager"
 import { Config } from "./config/ETConfig"
+import { elementCode, lwElementType, updateElement } from "./Conversion"
 
 @ObservedV2
 export class SafeSet<T> implements Iterable<T> {
   config: Config | undefined = undefined
-  globalAddCallback: (value: T) => void
-  globalDeleteCallback: (value: T) => void
+  typeConstructor: () => T
   constructor(
     config: Config | undefined = undefined,
-    addCallback: (value: T) => void = () => {},
-    deleteCallback: (value: T) => void = () => {}
+    constructorFunc: () => T = () => {return null as T}
   ) {
     this.config = config
-    this.globalAddCallback = addCallback
-    this.globalDeleteCallback = deleteCallback
+    this.typeConstructor = constructorFunc
   }
   [Symbol.iterator](): IterableIterator<T> {
     return this.map.values()
@@ -28,8 +26,8 @@ export class SafeSet<T> implements Iterable<T> {
     if (!update) return
     if (this.config && !this.config._disableUpdate) {
       Manager.updateConfig(this.config)
-    }else {
-      this.globalAddCallback(value)
+    }else if (elementCode(value as object).length > 0) {
+      updateElement(value as lwElementType)
     }
   }
    addSet(set: SafeSet<T>, update: boolean = true) {
@@ -42,8 +40,8 @@ export class SafeSet<T> implements Iterable<T> {
     if (!update) return result
     if (this.config && !this.config._disableUpdate) {
       Manager.updateConfig(this.config)
-    }else {
-      this.globalDeleteCallback(value)
+    }else if (elementCode(value as object).length > 0) {
+      updateElement(value as lwElementType, false)
     }
     return result
   }

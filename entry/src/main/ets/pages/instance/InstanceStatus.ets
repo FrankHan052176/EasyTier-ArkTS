@@ -1,9 +1,9 @@
-import Manager, { UIType } from "../Manager";
-import { Config } from "../util/config/ETConfig";
-import { EventRow } from "./content/EventRow";
+import Manager, { UIType } from "../../Manager";
+import { Config } from "../../util/config/ETConfig";
+import { EventRow } from "../content/EventRow";
 import { LengthUnit } from "@kit.ArkUI";
-import { Event } from "../util/info/PeerInfo";
-import { RemotePeers } from "./content/RemotePeers";
+import { Event } from "../../util/info/PeerInfo";
+import { RemotePeers } from "../content/RemotePeers";
 
 @ComponentV2
 export struct InstanceStatus {
@@ -23,16 +23,23 @@ export struct InstanceStatus {
           .fontColor($r("sys.color.font_secondary"))
           .margin({left: 10, bottom: 5})
         Column() {
-          List() {
-            ForEach(Manager.infos.get(this.config.instance_id)!.events, (event: Event) => {
+          List({space: 5}) {
+            ListItem() {}
+            .height(10)
+            .width('100%')
+            ForEach(Manager.info?Manager.info.events:[], (event: Event) => {
               EventRow({event: event})
             })
+            ListItem() {}
+            .height(10)
+            .width('100%')
           }
+          .maintainVisibleContentPosition(true)
           .scrollBar(BarState.Off)
           .width('100%')
           .height('100%')
         }
-        .padding(10)
+        .padding({left: 10, right: 10})
         .borderRadius(18)
         .backgroundColor($r("sys.color.comp_background_primary"))
         .width("100%")

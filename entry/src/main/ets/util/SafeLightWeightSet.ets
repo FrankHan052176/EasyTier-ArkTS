@@ -2,26 +2,28 @@ import Manager from "../Manager"
 import { Config } from "./config/ETConfig"
 import { LightWeightMap } from "@kit.ArkTS"
 import { SafeSet } from "./SafeSet"
-import Logger from "./Logger"
+import { elementCode, lwElementType, updateElement } from "./Conversion"
 
 @ObservedV2
 export class SafeLightWeightSet<T> implements IDataSource {
   config: Config | undefined = undefined
-  globalAddCallback: (value: T) => void
-  globalDeleteCallback: (value: T) => void
   @Trace map = new LightWeightMap<String, T>
+  @Trace setSize = 0
   private listeners: DataChangeListener[] = [];
   typeConstructor: () => T
+  @Trace fresh: boolean = false
+  @Trace disableUpdate: boolean = false
   constructor(
     config: Config | undefined = undefined,
-    constructorFunc: () => T,
-    addCallback: (value: T) => void = () => {},
-    deleteCallback: (value: T) => void = () => {},
+    constructorFunc: () => T = ()=>{return null as T}
   ) {
     this.config = config
-    this.globalAddCallback = addCallback
-    this.globalDeleteCallback = deleteCallback
     this.typeConstructor = constructorFunc
+  }
+
+  doDisableUpdate(): SafeLightWeightSet<T> {
+    this.disableUpdate = true
+    return this
   }
 
   totalCount(): number {
@@ -58,23 +60,52 @@ export class SafeLightWeightSet<T> implements IDataSource {
       listener.onDataDelete(index);
     })
   }
-
+  refresh() {
+    this.fresh = !this.fresh
+  }
   has(value: T): boolean {
     return this.map.hasKey(`${value}`)
   }
   add(value: T, update: boolean = true) {
     if (this.map.hasKey(`${value}`)) return
     this.map.set(`${value}`, value)
+    this.setSize++
+    this.refresh()
     this.notifyDataAdd(this.map.getIndexOfKey(`${value}`))
-    if (!update) return
+    if (!update || this.disableUpdate) return
     if (this.config && !this.config._disableUpdate) {
       Manager.updateConfig(this.config)
-    }else {
-      this.globalAddCallback(value)
+    }else if (elementCode(value as object).length > 0) {
+      updateElement(value as lwElementType)
     }
   }
   addSet(set: SafeSet<T>, update: boolean = true) {
     set.forEach((value) => {
+      this.add(value, update)
+    })
+  }
+  addLightWeightSet(set: SafeLightWeightSet<T>, update: boolean = true) {
+    set.forEach((value) => {
+      this.add(value, update)
+    })
+  }
+  syncModify(set: SafeLightWeightSet<T>, update: boolean = true) {
+    let addItems: T[] = []
+    let delItems: T[] = []
+    this.forEach((value) => {
+      if (!set.has(value)) {
+        delItems.push(value)
+      }
+    })
+    set.forEach((value) => {
+      if (!this.has(value)) {
+        addItems.push(value)
+      }
+    })
+    delItems.forEach((value) => {
+      this.delete(value, update)
+    })
+    addItems.forEach((value) => {
       this.add(value, update)
     })
   }
@@ -83,11 +114,13 @@ export class SafeLightWeightSet<T> implements IDataSource {
     try {
       this.notifyDataDelete(this.map.getIndexOfKey(`${value}`))
       this.map.remove(`${value}`)
-      if (!update) return true
+      this.setSize--
+      this.refresh()
+      if (!update || this.disableUpdate) return true
       if (this.config && !this.config._disableUpdate) {
         Manager.updateConfig(this.config)
-      }else {
-        this.globalDeleteCallback(value)
+      }else if (elementCode(value as object).length > 0) {
+        updateElement(value as lwElementType, false)
       }
       return true
     } catch (error) {
@@ -95,7 +128,7 @@ export class SafeLightWeightSet<T> implements IDataSource {
     }
   }
   get size() {
-    return this.map.length
+    return this.setSize
   }
   forEach(callback: (value: T) => void): void {
     this.map.forEach((value) => {
@@ -105,10 +138,16 @@ export class SafeLightWeightSet<T> implements IDataSource {
   clear() {
     this.forEach((value) => {
       if (!this.config) {
-        this.globalDeleteCallback(value)
+        if (elementCode(value as object).length > 0) {
+          updateElement(value as lwElementType, false)
+        }
       }
     })
     this.map.clear()
+    this.refresh()
+    if (this.config) {
+      Manager.updateConfig(this.config)
+    }
   }
   toIterator(): IterableIterator<T> {
     return this.map.values()

@@ -1,5 +1,6 @@
 import Manager from "../../Manager"
 import { cidr, Config, exit_node, listener, network_identity, peer, route,
+  SharedPeer,
   WrappedString } from "../../util/config/ETConfig"
 import { ItemBuilder } from "../../util/ItemBuilders"
 import { SafeLightWeightSet } from "../../util/SafeLightWeightSet"
@@ -8,11 +9,12 @@ import { ItemEditSheet } from "../../util/ItemEditSheet"
 import { ToolButton } from "../Components"
 import EventHelper from "../../util/EventHelper"
 import Logger from "../../util/Logger"
+import { PeerRoutePair } from "../../util/info/PeerInfo"
 
 export enum ItemSize {
   SMALL,NORMAL,BIG
 }
-export type itemType = peer | network_identity | cidr | listener | route | exit_node | WrappedString | ResourceStr | Config
+export type itemType = peer | network_identity | cidr | listener | route | exit_node | WrappedString | ResourceStr | Config | PeerRoutePair | SharedPeer
 function newItemFunc(items: SafeLightWeightSet<itemType>): itemType {
   return items.typeConstructor()
 }
@@ -51,8 +53,8 @@ function deleteItemFunc(item: itemType) {
   }
 }
 function isEditable(item: itemType): boolean {
-  if (item instanceof peer) {
-    return !Manager.sharedPeers.has(item.toString())
+  if (item instanceof SharedPeer) {
+    return !Manager.sharedPeers.has(item)
   }else return true
 }
 @ComponentV2

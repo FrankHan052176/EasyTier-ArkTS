@@ -1,5 +1,5 @@
 import { isGetDistributePerm } from "./Permission"
-import Manager from "../Manager"
+import Manager, { UIType } from "../Manager"
 import { Config,
   dhcp,
   flags,
@@ -10,19 +10,26 @@ import { Config,
   socks5_proxy,
   vpn_portal_config,
   route,
-  exit_node} from "./config/ETConfig"
+  exit_node,
+  WrappedString,
+  SharedPeer} from "./config/ETConfig"
 import { SafeSet } from "./SafeSet"
-import { NetworkInstanceRunningInfo, NetworkInstanceRunningInfoWithUnwrappedEvents } from "./info/PeerInfo"
-import { Event } from "../util/info/PeerInfo"
+import { NetworkInstanceRunningInfo, NetworkInstanceRunningInfoWithUnwrappedEvents,
+  PeerRoutePair } from "./info/PeerInfo"
 import Logger from "./Logger"
 import EventHelper from "./EventHelper"
 import { toml2json } from "libentry.so"
-import { SafeLightWeightSet } from "./SafeLightWeightSet"
+import { SafeLightWeightSet } from "./SafeLightWeightSet";
+import { display } from "@kit.ArkUI"
 
 export function tomlToConfig(toml: string): Config | undefined {
   try {
     let json = toml2json(toml)
-    return flattenConfig(JSON.parse(json) as object)
+    if (json == "ERROR") {
+      return undefined
+    }else {
+      return flattenConfig(JSON.parse(json) as object)
+    }
   }catch (e) {
     return undefined
   }
@@ -50,6 +57,54 @@ export function runningTime(time: number): string {
   }
 }
 
+export function fp2vp(fp: number): number {
+  return Manager.uiContext!.px2vp(Manager.uiContext!.fp2px(fp))
+}
+
+export function vp2fp(vp: number): number {
+  return Manager.uiContext!.px2fp(Manager.uiContext!.vp2px(vp))
+}
+
+export function laneWidth(need: number): number {
+  switch (Manager.uiType) {
+    case UIType.Column_1: {
+      let scale = Math.min(2,Math.max(1, need))
+      if (scale == 2) {
+        return Manager.width-40
+      }else {
+        return (Manager.width-50)/2
+      }
+    }
+    case UIType.Column_2: {
+      let scale = Math.min(4,Math.max(1, need))
+      if (scale == 4) {
+        return Manager.width-40
+      }else {
+        return (Manager.width-70)/4*scale+(scale-1)*10
+      }
+    }
+    case UIType.Column_3: {
+      let scale = Math.min(6,Math.max(1, need))
+      if (scale == 6) {
+        return Manager.width-40
+      }else {
+        return (Manager.width-90)/6*scale+(scale-1)*10
+      }
+    }
+  }
+}
+
+export function laneHeight(need: number): number {
+  let defDisplay = display.getDefaultDisplaySync()
+  let displayHeight = defDisplay.orientation % 2 == 0?defDisplay.height:defDisplay.width
+  let scale = Math.min(3,Math.max(1,need))
+  if (scale == 3) {
+    return (Manager.uiContext!.px2vp(displayHeight)-(Manager.navigationHeight-Manager.compHeight)-Manager.statusBarHeight-20)
+  }else {
+    return (Manager.uiContext!.px2vp(displayHeight)-(Manager.navigationHeight-Manager.compHeight)-Manager.statusBarHeight-20)/3*scale+(scale-1)*10
+  }
+}
+
 export function convertAddrToIp(addr: number): string {
   const byte1 = (addr >> 24) & 0xFF;
   const byte2 = (addr >> 16) & 0xFF;
@@ -59,65 +114,8 @@ export function convertAddrToIp(addr: number): string {
   return `${byte1}.${byte2}.${byte3}.${byte4}`;
 }
 
-export function convertDeviceTypeToSymbol(type: string): Resource {
-  switch (type) {
-    case "PHONE": {
-      return $r("sys.symbol.phone")
-    }
-    case "PAD": {
-      return $r("sys.symbol.pad")
-    }
-    case "PC": {
-      return $r("sys.symbol.pc")
-    }
-    default: {
-      return $r("sys.symbol.unknown_device")
-    }
-  }
-}
-
-export function convertDeviceNumberToSymbol(type: number): Resource {
-  switch (type) {
-    case 14: {
-      return $r("sys.symbol.phone_fill_1")
-    }
-    case 17: {
-      return $r("sys.symbol.pad_fill")
-    }
-    case 2607: {
-      return $r("sys.symbol.computer_fill")
-    }
-    default: {
-      return $r("sys.symbol.unknown_device_fill")
-    }
-  }
-}
-
-export function betterHeight(size: number, lanes: number, item_height: number): number {
-  let scale = Math.min(Math.floor((size+1)/lanes), 3)
-  let mod = (size+1) % lanes
-  return scale >= 1?item_height*(scale+(mod>0?0.7:0))+10*(scale-1):item_height
-}
-
 export function getHostname(): string {
   return isGetDistributePerm()?Manager.deviceManager.getLocalDeviceName():"HarmonyOS"
-}
-
-export function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return hash;
-}
-export function hashToColor(hash: number): string {
-  // 使用哈希值生成RGB分量
-  const r = (hash & 0xFF0000) >> 16;
-  const g = (hash & 0x00FF00) >> 8;
-  const b = hash & 0x0000FF;
-
-  // 转换为十六进制
-  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
 export function safePassword(pwd: string): string {
@@ -132,9 +130,62 @@ export function safePassword(pwd: string): string {
   }
 }
 
+export type lwElementType = port_forward | cidr | peer | listener | exit_node | route | WrappedString | network_identity
+
+export function elementCode(element: object): string {
+  if (element instanceof cidr) {
+    return "cidr"
+  }else if (element instanceof peer) {
+    return "peer"
+  }else if (element instanceof listener) {
+    return "listener"
+  }else if (element instanceof exit_node) {
+    return "exit_node"
+  }else if (element instanceof WrappedString) {
+    return "wl"
+  }else if (element instanceof network_identity) {
+    return "network_identity"
+  }else if (element instanceof route) {
+    return "route"
+  }else {
+    return ""
+  }
+}
+
+export function elementString(element: lwElementType): string {
+  if (element instanceof cidr) {
+    return element.toRawString()
+  }else {
+    return element.toString()
+  }
+}
+
+export function updateElement(element: lwElementType, add: boolean = true) {
+  if (add) {
+    Manager.KVStore?.put(elementCode(element)+"_"+elementString(element), elementString(element)).catch(() => {
+      Logger.error(`[Manager] cidrs::put::An unexpected error occurred.`);
+    })
+  }else {
+    Manager.KVStore?.delete(elementCode(element)+"_"+elementString(element)).catch(() => {
+      Logger.error(`[Manager] exit_nodes::delete::An unexpected error occurred.`);
+    })
+  }
+}
+
+export function logColor(log: string): ResourceColor {
+  let level = Number.parseInt(log.charAt(0))
+  if (level >= 6) {
+    return $r("sys.color.warning")
+  }else if (level == 5) {
+    return $r("sys.color.alert")
+  }else {
+    return $r("sys.color.font_primary")
+  }
+}
+
 type tomlType = Config | flags | port_forward | vpn_portal_config | cidr | peer | network_identity | listener | exit_node | string | number | boolean | null
-type arrayType = SafeSet<port_forward> | SafeSet<cidr> | SafeSet<peer> | SafeSet<string> | SafeSet<listener> | SafeSet<exit_node>
-type elementType = port_forward | cidr | peer | string | listener | exit_node
+type setType = SafeSet<port_forward> | SafeSet<cidr> | SafeSet<peer> | SafeSet<listener> | SafeSet<exit_node> | SafeSet<route>
+type elementType = port_forward | cidr | peer | listener | exit_node | route
 
 export function safeFieldName(key: string): string {
   if (key.startsWith("__ob_")) {
@@ -152,11 +203,10 @@ export function objectToHomoTOML(obj: tomlType): string {
     let value: tomlType = pair[1]
     if (value === null || key.startsWith("_")){
     } else if (value instanceof SafeSet) {
-      let set = value as arrayType
+      let set = value as setType
       if (set.size > 0) {
         if (
-          set.map.values().next().value instanceof String ||
-            set.map.values().next().value instanceof listener ||
+          set.map.values().next().value instanceof listener ||
             set.map.values().next().value instanceof route ||
             set.map.values().next().value instanceof exit_node
         ) {
@@ -209,22 +259,32 @@ interface WrappedEvent {
   event: object
 }
 
-export function unwrappedEvents(info: NetworkInstanceRunningInfo, uuid: string): NetworkInstanceRunningInfoWithUnwrappedEvents {
-  let events = info.events
-  let newEvents = new Array<Event>()
+function handleEventMsg(type: string, value: string | object): string {
+  switch (type) {
+    case "DhcpIpv4Changed": return `${value[0]} -> ${value[1]}`
+    default: return JSON.stringify(value, null, 2)
+  }
+}
+
+export function handleNewInfo(info: NetworkInstanceRunningInfo, uuid: string) {
+  if (Manager.info == undefined) {
+    Manager.info = new NetworkInstanceRunningInfoWithUnwrappedEvents()
+  }
+  let newInfo = Manager.info!
   let config = Manager.configs.get(uuid)
   if (config) {
-    events.forEach((value) => {
+    newInfo.events.splice(0, newInfo.events.length)
+    info.events.forEach((value) => {
       let obj: WrappedEvent = JSON.parse(value)
       let time = formatDate(new Date(obj.time))
-      Object.entries(obj.event).forEach((value: [string, string | object], index) => {
+      Object.entries(obj.event).forEach((value: [string, string | object]) => {
         let msg = ""
-        if (value[1] instanceof String) {
-          msg = value[1] as string
+        if (typeof value[1] == "string") {
+          msg = value[1]
         }else {
-          msg = JSON.stringify(value[1])
+          msg = handleEventMsg(value[0], value[1])
         }
-        newEvents.push({
+        newInfo.events.push({
           time: time,
           type: value[0],
           msg: msg
@@ -242,18 +302,28 @@ export function unwrappedEvents(info: NetworkInstanceRunningInfo, uuid: string):
         }
       })
     })
+    newInfo.events = newInfo.events.slice()
+    newInfo.dev_name = info.dev_name
+    newInfo.my_node_info = info.my_node_info
+    newInfo.routes.splice(0, newInfo.routes.length)
+    info.routes.forEach((value) => {
+      newInfo.routes.push(value)
+    })
+    newInfo.routes = newInfo.routes.slice()
+    newInfo.peers.splice(0, newInfo.peers.length)
+    info.peers.forEach((value) => {
+      newInfo.peers.push(value)
+    })
+    newInfo.peers = newInfo.peers.slice()
+    newInfo.peer_route_pairs.splice(0, newInfo.peer_route_pairs.length)
+    info.peer_route_pairs.forEach((value) => {
+      newInfo.peer_route_pairs.push(value)
+    })
+    newInfo.peer_route_pairs = newInfo.peer_route_pairs.slice()
+    newInfo.running = info.running
+    newInfo.error_msg = info.error_msg
   }else {
     Logger.error("[Conversion::unwrappedEvents] Cant find config["+uuid+"]")
-  }
-  return {
-    dev_name: info.dev_name,
-    my_node_info: info.my_node_info,
-    events: newEvents,
-    routes: info.routes,
-    peers: info.peers,
-    peer_route_pairs: info.peer_route_pairs,
-    running: info.running,
-    error_msg: info.error_msg
   }
 }
 

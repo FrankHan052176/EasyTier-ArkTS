@@ -93,11 +93,11 @@ export struct IPv4 {
   build() {
     Column() {
       Row() {
-        Text("IPv4")
+        Text($r("app.string.virtual_ipv4"))
           .fontSize(17)
           .fontColor($r("sys.color.font_primary"))
         Row() {
-          Button('DHCP', {
+          Button($r("app.string.virtual_ipv4_dhcp"), {
             type: ButtonType.Normal,
             buttonStyle: this.config.dhcp.enable?ButtonStyleMode.EMPHASIZED:ButtonStyleMode.NORMAL,
             role: ButtonRole.NORMAL

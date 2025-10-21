@@ -21,86 +21,6 @@
       "value": "Share configs with other devices and get the device name"
     },
     {
-      "name": "latency_first",
-      "value": "Enable Latency-First Mode"
-    },
-    {
-      "name": "use_smoltcp",
-      "value": "Use User-Space Protocol Stack"
-    },
-    {
-      "name": "enable_kcp_proxy",
-      "value": "Enable KCP Proxy"
-    },
-    {
-      "name": "disable_kcp_input",
-      "value": "Disable KCP Input"
-    },
-    {
-      "name": "enable_quic_proxy",
-      "value": "Enable QUIC Proxy"
-    },
-    {
-      "name": "disable_quic_input",
-      "value": "Disable QUIC Input"
-    },
-    {
-      "name": "private_mode",
-      "value": "Enable Private Mode"
-    },
-    {
-      "name": "disable_p2p",
-      "value": "Disable P2P"
-    },
-    {
-      "name": "enable_exit_node",
-      "value": "Enable Exit Node"
-    },
-    {
-      "name": "no_tun",
-      "value": "No TUN Mode"
-    },
-    {
-      "name": "relay_all_peer_rpc",
-      "value": "Relay RPC Packets"
-    },
-    {
-      "name": "disable_udp_hole_punching",
-      "value": "Disable UDP hole punching"
-    },
-    {
-      "name": "disable_sym_hole_punching",
-      "value": "Disable Symmetric NAT Hole Punching"
-    },
-    {
-      "name": "enable_ipv6",
-      "value": "Enable IPv6"
-    },
-    {
-      "name": "enable_encryption",
-      "value": "Enable Encryption"
-    },
-    {
-      "name": "accept_dns",
-      "value": "Enable Magic DNS"
-    },
-    {
-      "name": "edit_proxy_cidr",
-      "value": "Subnet Proxy CIDRs"
-    },
-    {
-      "name": "edit_route",
-      "value": "Manual Route"
-    },
-    {
-      "name": "relay_network_whitelist",
-      "value": "Network Whitelist"
-    },
-    {
-      "name": "edit_exit_nodes",
-      "value": "Exit Nodes"
-    },
-    {
       "name": "i18_add",
       "value": "Add "
     },
@@ -135,6 +55,18 @@
     {
       "name": "i18_edit",
       "value": "Edit "
+    },
+    {
+      "name": "i18_total",
+      "value": "Tot."
+    },
+    {
+      "name": "i18_ge",
+      "value": ""
+    },
+    {
+      "name": "i18_tiao",
+      "value": ""
     }
   ]
 }

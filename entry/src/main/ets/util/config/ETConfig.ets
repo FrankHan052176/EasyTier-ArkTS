@@ -1,16 +1,14 @@
-import { getHostname, hashString, safeFieldName } from "../Conversion";
+import { getHostname, safeFieldName } from "../Conversion";
 import { util } from "@kit.ArkTS";
 import { SafeSet } from "../SafeSet";
 import Logger from "../Logger";
 import Manager from "../../Manager";
 import {
-  compressedFieldName,
   compressedIP, compressedMask, compressedProtocol,
   uncompressedBoolean,
   uncompressedIP, uncompressedMask,
   uncompressedProtocol,
   valueType } from "../Compress";
-import { SafeLightWeightSet } from "../SafeLightWeightSet";
 
 @ObservedV2
 export class network_identity {
@@ -86,30 +84,6 @@ export function protocolColor(protocol:Protocol): ResourceColor {
   }
 }
 @ObservedV2
-export class SharedPeer {
-  @Trace peer: peer
-  @Trace name: string
-  @Trace description: string
-  @Trace version: string
-  @Trace allow_relay: boolean
-  @Trace usage_percentage: number
-  @Trace max_connections: number
-  @Trace current_connections: number
-  constructor(obj: object) {
-    this.peer = new peer().setUri(obj["address"])
-    this.name = obj["name"]
-    this.description = obj["description"]
-    this.version = obj["version"]
-    this.allow_relay = obj["allow_relay"]
-    this.usage_percentage = obj["usage_percentage"]
-    this.max_connections = obj["max_connections"]
-    this.current_connections = obj["current_connections"]
-  }
-  toString(): string {
-    return this.name+":"+this.peer.toShortString()
-  }
-}
-@ObservedV2
 export class peer {
   @Trace _protocol: Protocol = Protocol.TCP
   @Trace _domain: string = "public.easytier.top"
@@ -147,6 +121,53 @@ export class peer {
     this._protocol = Protocol.TCP
     this._domain = "public.easytier.top"
     this._port = 11010
+  }
+}
+@ObservedV2
+export class SharedPeer extends peer {
+  @Trace name: string
+  @Trace description: string
+  @Trace version: string
+  @Trace allow_relay: boolean
+  @Trace usage_percentage: number
+  @Trace max_connections: number
+  @Trace current_connections: number
+  @Trace update: number = 0
+
+  isEnabled(): boolean {
+    if (this.update < 200) {
+      return Manager.peers.has(this)
+    }else return false
+  }
+
+  changeEnabled(update: boolean = true) {
+    if (!Manager.peers.has(this)) {
+      Manager.peers.add(this, update)
+    }else {
+      Manager.peers.delete(this, update)
+    }
+    this.update = (this.update+1)%100
+  }
+
+  constructor(obj: object) {
+    super()
+    super.setUri(obj["address"])
+    this.name = obj["name"]
+    this.description = obj["description"]
+    this.version = obj["version"]
+    this.allow_relay = obj["allow_relay"]
+    this.usage_percentage = obj["usage_percentage"]
+    this.max_connections = obj["max_connections"]
+    this.current_connections = obj["current_connections"]
+  }
+  init(obj: object) {
+    this.name = obj["name"]
+    this.description = obj["description"]
+    this.version = obj["version"]
+    this.allow_relay = obj["allow_relay"]
+    this.usage_percentage = obj["usage_percentage"]
+    this.max_connections = obj["max_connections"]
+    this.current_connections = obj["current_connections"]
   }
 }
 @ObservedV2
@@ -537,15 +558,6 @@ export class Config {
   @Trace vpn_portal_config: vpn_portal_config_with_config | null = null;
   // @Trace port_forward = new SafeSet<port_forward>(this);
   @Trace flags: flags = new flags(this);
-  // @Monitor("hostname","instance_name","dhcp.enable","dhcp.ipv4","dhcp.mask","socks5_proxy.port","network_identity.network_name","network_identity.network_secret","vpn_portal_config.client_cidr","vpn_portal_config.wireguard_listen",
-  // "flags.accept_dns","flags.disable_kcp_input","flags.disable_p2p","flags.disable_quic_input","flags.disable_sym_hole_punching","flags.disable_udp_hole_punching","flags.enable_encryption","flags.enable_exit_node","flags.enable_ipv6",
-  // "flags.enable_kcp_proxy","flags.enable_quic_proxy","flags.latency_first","flags.no_tun","flags.private_mode","flags.relay_all_peer_rpc","flags.use_smoltcp")
-  // onConfigChange(monitor: IMonitor) {
-  //   Manager.updateConfig(this)
-  //   monitor.dirty.forEach((path: string) => {
-  //     Logger.debug(`${path} changed from ${monitor.value(path)?.before} to ${monitor.value(path)?.now}`)
-  //   })
-  // }
   @Monitor("hostname","instance_name","socks5_proxy","vpn_portal_config")
   onConfigChange(monitor: IMonitor) {
     if (this._disableUpdate) return

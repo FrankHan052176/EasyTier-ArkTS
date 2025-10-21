@@ -6,16 +6,12 @@ import {
   settingSheet,
   SharedPeersSheet,
   SharedPeersTitle, ToolButton } from './Components'
-import { InstanceCard } from './InstanceCard'
-import { InstanceContent } from './InstanceContent'
-import easytier, { KeyValuePair } from "libeasytier_ohrs.so"
+import { InstanceCard } from './instance/InstanceCard'
+import { InstanceContent } from './instance/InstanceContent'
 import { requestDistributePerm, updatePermStatus } from '../util/Permission'
-import { objectToHomoTOML, tomlToConfig, unwrappedEvents } from '../util/Conversion'
+import { objectToHomoTOML, tomlToConfig } from '../util/Conversion'
 import EventHelper from '../util/EventHelper'
-import { JSON } from '@kit.ArkTS'
-import { NetworkInstanceRunningInfo } from '../util/info/PeerInfo'
-import entry from 'libentry.so'
-import { InstanceStatus } from './InstanceStatus'
+import { InstanceStatus } from './instance/InstanceStatus'
 import { harmonyShare, systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
@@ -61,80 +57,8 @@ struct Index {
   }
 
   aboutToAppear(): void {
-    updatePermStatus()
-    Manager.readDB()
-    Manager.updateQQGroups()
-    Manager.updateSharedPeers()
-    setInterval(() => {
-      Manager.updateQQGroups()
-      Manager.updateSharedPeers()
-    }, 1800000)
-    try {
-      Manager.preference_log = Manager.Preferences!.getSync("show_log", false).valueOf() as boolean
-    } catch (e) {
-      Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`);
-    }
-    try {
-      Manager.Preferences!.on("dataChange", ["show_log"], (value) => {
-        for (const keyValue of Object.entries(value)) {
-          Manager.preference_log = (keyValue[1]).valueOf() as boolean
-        }
-      })
-    } catch (e) {
-      Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`);
-    }
-    EventHelper.emitterListener("windowSizeChange", (data) => {
-      Manager.width = this.getUIContext().px2vp(data.data!.width as number)
-      Manager.height = this.getUIContext().px2vp(data.data!.height as number)
-      if (Manager.height > Manager.width && Manager.width < 720) {
-        animateToImmediately({
-          duration: 300,
-          curve: Curve.Friction
-        }, () => {
-          Manager.uiType = UIType.Column_1
-        })
-      }else if (Manager.width >= 1080) {
-        animateToImmediately({
-          duration: 300,
-          curve: Curve.Friction
-        }, () => {
-          Manager.uiType = UIType.Column_3
-          this.showSideBar = false
-        })
-      }else {
-        animateToImmediately({
-          duration: 300,
-          curve: Curve.Friction
-        }, () => {
-          Manager.uiType = UIType.Column_2
-        })
-      }
-    })
-    if (canIUse("SystemCapability.BundleManager.AppLinking.DeferredLink")) {
-      deferredLink.popDeferredLink().then((link: string) => {
-        if (link) {
-          readConfig(link).then(() => {
-            try {
-              this.getUIContext().getPromptAction().showToast({
-                message: "成功导入分享的配置"
-              })
-            } catch (e) {
-              Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`);
-            }
-          }, (reason:string) => {
-            try {
-              this.getUIContext().getPromptAction().showToast({
-                message: "导入配置失败\n" + reason
-              })
-            } catch (e) {
-              Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`);
-            }
-          })
-        }
-      }).catch((error: BusinessError) => {
-        Logger.error(`Failed to get deferred link. code: ${error.code}, message: ${error.message}`);
-      });
-    }
+    Manager.uiContext = this.getUIContext()
+    Manager.onInit()
   }
 
   changeSideBar(status: boolean = !this.showSideBar): void {
@@ -197,15 +121,15 @@ struct Index {
 
   @Builder
   DeleteButton(callback: () => void) {
-  ToolButton({
-    symbol: $r("sys.symbol.trash_fill"),
-    symbolColor: [$r("sys.color.warning")]
-  })
-    .margin({right: 10})
-    .onClick(()=>{
-      callback()
+    ToolButton({
+      symbol: $r("sys.symbol.trash_fill"),
+      symbolColor: [$r("sys.color.warning")]
     })
-}
+      .margin({right: 10})
+      .onClick(()=>{
+        callback()
+      })
+  }
 
   @Builder
   ShareMenu() {
@@ -413,7 +337,7 @@ struct Index {
                     this.setting = true
                   })
                   .margin({right: 10})
-                  .bindSheet($$this.setting, settingSheet(this.getUIContext().getHostContext()!), {
+                  .bindSheet($$this.setting, settingSheet(), {
                     height: SheetSize.LARGE,
                     preferType: SheetType.CENTER,
                     showClose: true,
@@ -513,7 +437,7 @@ struct Index {
                     .height('100%')
                     .layoutWeight(20)
                   }
-                  if (!Manager.infos.has(Manager.getConfigs()[this.realIndex].instance_id)) {
+                  if (Manager.info_uuid != Manager.getConfigs()[this.realIndex].instance_id) {
                     InstanceContent({config: Manager.getConfigs()[this.realIndex]})
                       .height('100%')
                       .zIndex(2)

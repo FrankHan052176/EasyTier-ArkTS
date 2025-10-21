@@ -1,3 +1,5 @@
 export const hilogInit: () => void;
-export const getErrorMsg: () => Array<string>;
+export const getAppLog: () => Array<string>;
+export const getNetworkManagerLog: () => Array<string>;
+export const getOHLog: () => Array<string>;
 export const toml2json: (string) => string;
