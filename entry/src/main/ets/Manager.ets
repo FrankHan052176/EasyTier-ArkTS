@@ -17,6 +17,7 @@ import entry from 'libentry.so'
 import { SafeSet } from "./util/SafeSet";
 import { SafeLightWeightSet } from "./util/SafeLightWeightSet";
 import { CompSize } from "./pages/nodes/AutoSortContainer";
+import { updateQQGroups, updateSharedPeers } from "./util/info/WebInfo";
 
 export enum UIType {
   Column_1, Column_2, Column_3
@@ -59,17 +60,18 @@ class Manager {
   @Trace preference_log: boolean = false
   uiContext: UIContext | undefined = undefined
   @Trace auto_start: string | undefined = undefined
-  @Trace comp_sequence: string[] = ["Instances", "Logs"]
-  @Trace comp_size: Map<string, CompSize> = new Map([["Instances", new CompSize()], ["Logs", new CompSize()]])
+  @Trace comp_sequence: string[] = ["Instances"]
+  @Trace InstancesSize: CompSize = new CompSize()
+  @Trace LogsSize: CompSize = new CompSize()
 
   onInit() {
     updatePermStatus()
-    this.updateQQGroups()
-    this.updateSharedPeers()
+    updateQQGroups()
+    updateSharedPeers()
     this.readDB()
     setInterval(() => {
-      this.updateQQGroups()
-      this.updateSharedPeers()
+      updateQQGroups()
+      updateSharedPeers()
     }, 1800000)
     setInterval(() => {
       let infos = easytier.collectNetworkInfos()
@@ -186,70 +188,6 @@ class Manager {
     }
   }
 
-  async updateSharedPeers(page: number = 1): Promise<void> {
-    const request = new rcp.Request("https://uptime.easytier.cn/api/nodes?per_page=50&tags=%E5%9B%BD%E5%86%85&page="+page, 'GET');
-    try {
-      const session = rcp.createSession();
-      session.fetch(request).then((rep: rcp.Response) => {
-        let obj = rep.toJSON()
-        if (!obj) return;
-        let success: boolean = obj["success"]
-        if (!success) return;
-        let data: object = obj["data"]
-        let total: number = data["total"]
-        let total_pages: number = data["total_pages"]
-        let items: Array<object> = data["items"]
-        Logger.info("[Manager] sharedPeers total peers:"+total)
-        items.forEach((item: object) => {
-          let peer = new SharedPeer(item)
-          this.sharedPeers.add(peer)
-        })
-        if (total_pages > 1 && page == 1) {
-          Logger.info("[Manager] sharedPeers total pages:"+total_pages)
-          for (let index = 2; index <= total_pages; index++) {
-            Logger.info("[Manager] read page "+index)
-            this.updateSharedPeers(index)
-          }
-        }
-      }).catch(() => {
-        Logger.error(`[Manager] updateSharedPeers()::An unexpected error occurred.`);
-      })
-    } catch (e) {
-      Logger.error(`[Manager] An unexpected error occurred. Code:${e.code},message:${e.message}`);
-    }
-    return Promise.resolve()
-  }
-
-  async updateQQGroups(): Promise<void> {
-    const request = new rcp.Request("https://easytier.cn/", 'GET');
-    try {
-      const session = rcp.createSession();
-      session.fetch(request).then((rep: rcp.Response) => {
-        const pattern: RegExp = /<a\s+href="[^"]*"\s+target="_blank"\s+rel="noreferrer">([^<]*)<\/a>/gi;
-        const texts: string[] = [];
-
-        let match: RegExpExecArray | null;
-        while ((match = pattern.exec(rep.toString()!)) !== null) {
-          if (match[1]) {
-            let text = match[1].trim()
-            if (!Number.isNaN(parseInt(text))) {
-              texts.push(text);
-            }else {
-              // TODO discord && tg 跳转
-            }
-          }
-        }
-        this.qqgroups = texts;
-        Logger.info("[Manager] Update QQ Groups:"+JSON.stringify(this.qqgroups))
-      }).catch(() => {
-        Logger.error(`[Manager] updateQQGroups()::An unexpected error occurred.`);
-      })
-    } catch (e) {
-      Logger.error(`[Manager] An unexpected error occurred. Code:${e.code},message:${e.message}`);
-    }
-    return Promise.resolve()
-  }
-
   updateAutoStart(uuid: string) {
     if (this.configs.has(uuid)) {
       if (this.auto_start == uuid) {
@@ -258,6 +196,19 @@ class Manager {
         this.auto_start = uuid
       }
     }
+  }
+
+  getCompSize(type: string): CompSize {
+    switch (type) {
+      case "Instances" : return this.InstancesSize
+      case "Logs": return this.LogsSize
+      default : return new CompSize()
+    }
+  }
+
+  updateCompSize(type: string, field: string, value: number) {
+    let size = this.getCompSize(type)
+
   }
 
   async readDB() {

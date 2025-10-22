@@ -9,6 +9,8 @@ import { abilityAccessCtrl, Context } from "@kit.AbilityKit"
 import { laneWidth, laneHeight } from "../util/Conversion"
 import EventHelper from "../util/EventHelper"
 import { CompSize } from "./nodes/AutoSortContainer"
+import { updateSharedPeers } from "../util/info/WebInfo"
+import { vibrator } from "@kit.SensorServiceKit"
 
 interface color {
   r: number
@@ -193,7 +195,7 @@ export function SharedPeersTitle() {
     })
       .margin({right: 10})
       .onClick(() => {
-        Manager.updateSharedPeers()
+        updateSharedPeers()
       })
   }
   .alignItems(VerticalAlign.Center)
@@ -636,7 +638,6 @@ struct ResizeBall {
 @ComponentV2
 export struct ResizableComponent {
   @Param @Require comp_type: string
-  @Local comp_size: CompSize = Manager.comp_size.get(this.comp_type)!
   @Local lane_w: number = 1
   @Local lane_h: number = 1
   @Local offset_l: number = 0
@@ -645,14 +646,22 @@ export struct ResizableComponent {
   @Local offset_d: number = 0
   @Local isResize: boolean = false
   @BuilderParam content: ()=>void
+  @Local timer: number = -1
+  @Local pan_offset_x: number = 0
+  @Local pan_offset_y: number = 0
+
+  @Monitor("lane_w", "lane_h", "offset_l", "offset_r", "offset_u", "offset_d")
+  onStrChange(monitor: IMonitor) {
+
+  }
 
   @Computed
   get offset_w() {
-    return this.comp_size.offset_l + this.comp_size.offset_r
+    return this.offset_l + this.offset_r
   }
   @Computed
   get offset_h() {
-    return this.comp_size.offset_u + this.comp_size.offset_d
+    return this.offset_u + this.offset_d
   }
 
   aboutToAppear(): void {
@@ -669,12 +678,12 @@ export struct ResizableComponent {
       if (this.isResize) {
         ResizeBall({
           addDirection: PanDirection.Left,
-          extra: this.comp_size.offset_l!!,
+          extra: this.offset_l!!,
           isAddable: ()=>{return false},
           isDeletable: ()=>{return true},
           isResize: this.isResize,
-          lane: this.comp_size.lane_h!!,
-          length: laneHeight(this.comp_size.lane_h) + this.offset_h
+          lane: this.lane_h!!,
+          length: laneHeight(this.lane_h) + this.offset_h
         })
           .position({
             x: -8,
@@ -682,12 +691,12 @@ export struct ResizableComponent {
           })
         ResizeBall({
           addDirection: PanDirection.Up,
-          extra: this.comp_size.offset_u!!,
+          extra: this.offset_u!!,
           isAddable: ()=>{return false},
           isDeletable: ()=>{return true},
           isResize: this.isResize,
-          lane: this.comp_size.lane_h!!,
-          length: laneWidth(this.comp_size.lane_w) + this.offset_w
+          lane: this.lane_h!!,
+          length: laneWidth(this.lane_w) + this.offset_w
         })
           .position({
             x: 18,
@@ -695,44 +704,69 @@ export struct ResizableComponent {
           })
         ResizeBall({
           addDirection: PanDirection.Down,
-          extra: this.comp_size.offset_d!!,
+          extra: this.offset_d!!,
           isAddable: ()=>{return true},
           isDeletable: ()=>{return true},
           isResize: this.isResize,
-          lane: this.comp_size.lane_h!!,
-          length: laneWidth(this.comp_size.lane_w) + this.offset_w
+          lane: this.lane_h!!,
+          length: laneWidth(this.lane_w) + this.offset_w
         })
           .position({
             x: 18,
-            y: laneHeight(this.comp_size.lane_h) + this.comp_size.offset_d + this.comp_size.offset_u -10
+            y: laneHeight(this.lane_h) + this.offset_d + this.offset_u -10
           })
         ResizeBall({
           addDirection: PanDirection.Right,
-          extra: this.comp_size.offset_r!!,
+          extra: this.offset_r!!,
           isAddable: ()=>{return true},
           isDeletable: ()=>{return true},
           isResize: this.isResize,
-          lane: this.comp_size.lane_w!!,
-          length: laneHeight(this.comp_size.lane_h) + this.offset_h
+          lane: this.lane_w!!,
+          length: laneHeight(this.lane_h) + this.offset_h
         })
           .position({
-            x: laneWidth(this.comp_size.lane_w) + this.comp_size.offset_r + this.comp_size.offset_l -10,
+            x: laneWidth(this.lane_w) + this.offset_r + this.offset_l -10,
             y: 18
           })
       }
     }
-    .gesture(LongPressGesture({ repeat: false, fingers: 1 })
+    .gesture(GestureGroup(GestureMode.Sequence,LongPressGesture({ repeat: false, fingers: 1 })
       .onAction((event: GestureEvent|undefined) => {
-        if(event && !this.isResize) animateToImmediately(animationParm, () => {
-          this.isResize = true
-        })
-      })
+        if(event && !this.isResize) {
+          vibrator.startVibration({
+            type: 'time',
+            duration: 1,
+          }, {
+            id: 0,
+            usage: 'touch'
+          }, () => {})
+          animateToImmediately(animationParm, () => {
+            this.isResize = true
+          })
+        }
+      }),
+      PanGesture({direction: PanDirection.All, fingers: 1})
+      .onActionStart((event) => {
+        if(event) {
+          animateToImmediately(animationParm, () => {
+            this.isResize = false
+          })
+        }
+      }).onActionUpdate((event) => {
+        if(event) {
+          this.pan_offset_x = event.offsetX
+          this.pan_offset_y = event.offsetY
+        }
+      }).onActionEnd((event) => {
+        if (event) {
+          animateToImmediately(animationParm, () => {
+            this.isResize = true
+            this.pan_offset_x = 0
+            this.pan_offset_y = 0
+          })
+        }
+      }))
     )
-    .onTouch((event)=> {
-      if (this.isResize) {
-        event.stopPropagation()
-      }
-    })
     .backgroundColor($r("sys.color.comp_background_primary"))
     .borderWidth(this.isResize?2:0)
     .borderColor($r("sys.color.brand"))
@@ -740,8 +774,8 @@ export struct ResizableComponent {
     .width(laneWidth(this.lane_w) + this.offset_w)
     .height(laneHeight(this.lane_h) + this.offset_h)
     .position({
-      x: -this.offset_l,
-      y: -this.offset_u
+      x: -this.offset_l + this.pan_offset_x,
+      y: -this.offset_u + this.pan_offset_y
     })
   }
 }

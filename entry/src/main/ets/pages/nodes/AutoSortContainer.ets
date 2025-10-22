@@ -37,7 +37,6 @@ export class AutoSortContainer extends NodeController {
       this.rootNode = new MyFrameNode(context);
       this.rootNode.commonAttribute
         .width("100%")
-        .borderWidth(1)
         .padding({top: 10, left: 20, right: 20, bottom: 50})
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }

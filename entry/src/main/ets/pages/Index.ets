@@ -21,6 +21,7 @@ import { compressedConfig, readConfig } from '../util/Compress'
 import { deferredLink } from '@kit.AppLinkingKit'
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { ItemBuilder } from '../util/ItemBuilders'
+import { updateSharedPeers } from '../util/info/WebInfo'
 
 @Entry
 @ComponentV2
@@ -318,7 +319,7 @@ struct Index {
                 ToolButton({symbol: $r("sys.symbol.cloud_and_arrow_down")})
                   .margin({right: 10})
                   .onClick(() => {
-                    Manager.updateSharedPeers()
+                    updateSharedPeers()
                     this.sharedPeersSheet = true
                   })
                   .bindSheet($$this.sharedPeersSheet, SharedPeersSheet(), {
