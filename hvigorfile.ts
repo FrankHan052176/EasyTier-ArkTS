@@ -5,6 +5,7 @@ import { parse } from 'yaml';
 import fs from 'fs';
 import path from 'path';
 const build_time_file = "./entry/src/main/ets/util/info/BuildTime.ets"
+const appInfo = "./AppScope/app.json5"
 const en_file = "./entry/src/main/resources/base/element/easytier.json"
 const cn_file = "./entry/src/main/resources/zh/element/easytier.json"
 const cn = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/cn.yaml"
@@ -22,12 +23,27 @@ function loadSigningConfigs() {
     const data = fs.readFileSync(path);
     return JSON.parse(data);
 }
+function loadAppInfo() {
+    try {
+        fs.accessSync(appInfo);
+    } catch (e) {
+        if (e.code !== 'ENOENT') {
+            log.error(e);
+        }
+        return [];
+    }
+    const data = fs.readFileSync(appInfo);
+    return JSON.parse(data);
+}
 function updateBuildTime() {
     const now = new Date();
     const buildTimeString = now.toISOString();
-
+    const info = loadAppInfo();
     try {
-        fs.writeFileSync(build_time_file, `export const BUILD_TIME:string = "${buildTimeString}"`);
+        fs.writeFileSync(
+          build_time_file,
+            `export const BUILD_TIME:string = "${buildTimeString}"\nexport const APP_VERSION:string = "${info["app"]["versionName"]}"\nexport const APP_VERSION_CODE:string = "${info["app"]["versionCode"]}"`
+        );
         console.log(`> hvigor Build time updated : ${buildTimeString}`);
     } catch (error) {
         console.error(`> hvigor Failed to update build_time.json: ${error}`);

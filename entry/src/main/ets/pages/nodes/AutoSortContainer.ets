@@ -1,6 +1,6 @@
 import { BuilderNode, FrameNode, NodeController, Position } from '@kit.ArkUI';
 import Manager from '../../Manager';
-import { laneWidth } from '../../util/Conversion';
+import { laneHeight, laneWidth } from '../../util/Conversion';
 import Logger from '../../util/Logger';
 import { ResizableComponent } from '../Components';
 
@@ -18,12 +18,61 @@ export class CompSize {
 }
 
 @Builder
+function gradientText(size: number = 36, text: string | Resource | undefined = 'EasyTier', weight: number | FontWeight | ResourceStr = FontWeight.Bold, angle: string | number | undefined = 225) {
+  Stack() {
+    Row() {
+      Text(text)
+        .fontWeight(weight)
+        .minFontSize(1)
+        .maxFontSize(100)
+        .maxLines(1)
+        .blendMode(BlendMode.DST_IN, BlendApplyType.OFFSCREEN)
+        .clip(false)
+        .padding(5)
+    }
+    .linearGradient({
+      colors:[
+        ['rgba(255,200,50,1)', 0.3],
+        ['rgba(0,230,118,1)', 1]
+      ],
+      angle: angle
+    })
+    .blendMode(BlendMode.SRC_OVER, BlendApplyType.OFFSCREEN)
+    .justifyContent(FlexAlign.Center)
+  }
+  .layoutWeight(size)
+  .clip(false)
+}
+
+@Builder
+function Comp_Title() {
+  Column() {
+    Row() {
+      gradientText(50)
+      gradientText(10, "v2.4.5", FontWeight.Normal, 135)
+    }
+    .width('80%')
+    .alignItems(VerticalAlign.Bottom)
+    .justifyContent(FlexAlign.Center)
+    .geometryTransition("easytier_text")
+  }
+  .width('100%')
+  .height('100%')
+  .alignItems(HorizontalAlign.Center)
+  .justifyContent(FlexAlign.Center)
+}
+
+@Builder
 function buildText(params: Params) {
   ResizableComponent({comp_type: params.comp}) {
-    Text(params.comp)
-      .fontSize(50)
-      .fontWeight(FontWeight.Bold)
-      .margin({ bottom: 36 })
+    if (params.comp == "Title") {
+      Comp_Title()
+    }else {
+      Text(params.comp)
+        .fontSize(50)
+        .fontWeight(FontWeight.Bold)
+        .margin({ bottom: 36 })
+    }
   }
 }
 

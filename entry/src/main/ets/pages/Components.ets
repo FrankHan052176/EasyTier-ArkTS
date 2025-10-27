@@ -767,7 +767,6 @@ export struct ResizableComponent {
         }
       }))
     )
-    .backgroundColor($r("sys.color.comp_background_primary"))
     .borderWidth(this.isResize?2:0)
     .borderColor($r("sys.color.brand"))
     .borderRadius(34)

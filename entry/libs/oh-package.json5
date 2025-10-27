@@ -1,6 +1,0 @@
-{
-  "name": "libeasytier_ohrs.so",
-  "version": "1.0.0",
-  "description": "Rust implementation of easytier",
-  "main": "libeasytier_ohrs.so"
-}

@@ -623,7 +623,7 @@ struct NavIndex {
       Column() {
         Scroll() {
           Column() {
-            this.Comp_Title()
+            // this.Comp_Title()
             // Flex({wrap: FlexWrap.Wrap, direction: FlexDirection.Row,
             //   space: {
             //     main: LengthMetrics.vp(10),

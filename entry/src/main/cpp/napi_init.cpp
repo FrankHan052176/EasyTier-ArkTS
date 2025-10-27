@@ -5,10 +5,11 @@
 #include "hilog/log.h"
 #include <toml++/toml.hpp>
 #include <nlohmann/json.hpp>
+#include "layout.hpp"
 std::vector<std::string> appLog;
 std::vector<std::string> nmLog;
 std::vector<std::string> ohLog;
-
+Layout layout(1,8);
 void MyHiLog(const LogType type, const LogLevel level, const unsigned int domain, const char *tag, const char *msg)
 {
     if (level >= LOG_INFO && strcmp(tag, "fhl") == 0) {
@@ -86,6 +87,14 @@ static napi_value toml2json(napi_env env, napi_callback_info info)
     }
     napi_create_string_utf8(env, oss.str().c_str(), NAPI_AUTO_LENGTH, &result);
     return result;
+}
+static napi_value updateLayout(napi_env env, napi_callback_info info)
+{
+    size_t argc = 1;
+    napi_value args[1] = {nullptr};
+    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+    layout.
+    return NULL;
 }
 
 EXTERN_C_START

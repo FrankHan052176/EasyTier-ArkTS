@@ -97,11 +97,11 @@ export function laneWidth(need: number): number {
 export function laneHeight(need: number): number {
   let defDisplay = display.getDefaultDisplaySync()
   let displayHeight = defDisplay.orientation % 2 == 0?defDisplay.height:defDisplay.width
-  let scale = Math.min(3,Math.max(1,need))
-  if (scale == 3) {
+  let scale = Math.min(4,Math.max(1,need))
+  if (scale == 4) {
     return (Manager.uiContext!.px2vp(displayHeight)-(Manager.navigationHeight-Manager.compHeight)-Manager.statusBarHeight-20)
   }else {
-    return (Manager.uiContext!.px2vp(displayHeight)-(Manager.navigationHeight-Manager.compHeight)-Manager.statusBarHeight-20)/3*scale+(scale-1)*10
+    return (Manager.uiContext!.px2vp(displayHeight)-(Manager.navigationHeight-Manager.compHeight)-Manager.statusBarHeight-20)/4*scale+(scale-1)*10
   }
 }
 

@@ -7,14 +7,12 @@ import { cidr, Config, exit_node, listener, network_identity, peer, route, Share
 import { distributedKVStore, preferences } from "@kit.ArkData";
 import { handleNewInfo, objectToHomoTOML, tomlToConfig } from "./util/Conversion";
 import { NetworkInstanceRunningInfo, NetworkInstanceRunningInfoWithUnwrappedEvents } from "./util/info/PeerInfo";
-import { rcp } from "@kit.RemoteCommunicationKit";
 import { JSON } from "@kit.ArkTS";
 import { requestLocPerm, updatePermStatus } from "./util/Permission";
 import { deferredLink } from "@kit.AppLinkingKit";
 import { readConfig } from "./util/Compress";
-import easytier from "libeasytier_ohrs.so"
+import easytier from "easytier-ohrs"
 import entry from 'libentry.so'
-import { SafeSet } from "./util/SafeSet";
 import { SafeLightWeightSet } from "./util/SafeLightWeightSet";
 import { CompSize } from "./pages/nodes/AutoSortContainer";
 import { updateQQGroups, updateSharedPeers } from "./util/info/WebInfo";
@@ -60,7 +58,8 @@ class Manager {
   @Trace preference_log: boolean = false
   uiContext: UIContext | undefined = undefined
   @Trace auto_start: string | undefined = undefined
-  @Trace comp_sequence: string[] = ["Instances"]
+  @Trace comp_sequence: string[] = ["Title"]
+  @Trace TitleSize: CompSize = new CompSize()
   @Trace InstancesSize: CompSize = new CompSize()
   @Trace LogsSize: CompSize = new CompSize()
 
