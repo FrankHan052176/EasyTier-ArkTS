@@ -6,7 +6,11 @@ import Logger from '../Logger'
 export async function updateSharedPeers(page: number = 1): Promise<void> {
   const request = new rcp.Request("https://uptime.easytier.cn/api/nodes?per_page=50&tags=%E5%9B%BD%E5%86%85&page="+page, 'GET');
   try {
-    const session = rcp.createSession();
+    const session = rcp.createSession({
+      headers: {
+        "user-agent": "Mozilla/6.0 (XiaoLingTong; FrankHarmony 6.0)AppleWebKit/0.2 (FHTML, like Gecko)Chrome/0.1.0.3 Safari/0.2 ArkWeb/0.1.0.3 Mobile FrankBrowser/0.1.0.3"
+      }
+    });
     session.fetch(request).then((rep: rcp.Response) => {
       let obj = rep.toJSON()
       if (!obj) return;

@@ -6,7 +6,7 @@ import EventHelper from "../util/EventHelper";
 import Logger from "../util/Logger";
 import { BusinessError } from "@kit.BasicServicesKit";
 import { distributedKVStore, preferences } from "@kit.ArkData";
-import easytier from "libeasytier_ohrs.so"
+import easytier from "easytier-ohrs"
 import { vpnExtension } from "@kit.NetworkKit";
 import { isGetLocPerm, requestVpnPerm } from "../util/Permission";
 import Manager, { UIType } from "../Manager";
