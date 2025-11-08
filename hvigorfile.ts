@@ -4,12 +4,16 @@ import { appTasks, OhosHapContext, OhosAppContext, OhosPluginId, Target } from '
 import { parse } from 'yaml';
 import fs from 'fs';
 import path from 'path';
+import { execSync } from "child_process";
+
 const build_time_file = "./entry/src/main/ets/util/info/BuildTime.ets"
 const appInfo = "./AppScope/app.json5"
+
 const en_file = "./entry/src/main/resources/base/element/easytier.json"
 const cn_file = "./entry/src/main/resources/zh/element/easytier.json"
 const cn = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/cn.yaml"
 const en = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/en.yaml"
+const proto = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/refs/heads/main/easytier/src/proto/"
 function loadSigningConfigs() {
     const path = 'signingConfigs.json';
     try {
@@ -84,6 +88,20 @@ function convertToI18nFormat(flatObject: Record<string, any>): { string: Array<{
     processObject(flatObject);
     return { string: strings };
 }
+async function downloadProtoFile(fileName: string): Promise<void> {
+    try {
+        const dir = path.resolve(__dirname, "./proto");
+        const filePath = path.join(dir, fileName+".proto");
+        const response = await fetch(proto+fileName+".proto");
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const protoContent = await response.text();
+        fs.writeFileSync(filePath, protoContent, 'utf8');
+    } catch (error) {
+        console.error('❌ 转换失败:', error);
+    }
+}
 hvigor.nodesEvaluated(() => {
     const rootNode = hvigor.getRootNode();
     rootNode.subNodes((node: HvigorNode) => {
@@ -99,6 +117,17 @@ hvigor.nodesEvaluated(() => {
                     updateBuildTime()
                     convertYamlFromUrlToI18nJson(en,en_file)
                     convertYamlFromUrlToI18nJson(cn,cn_file)
+                    const files = [
+                        "api_manage",
+                        "common",
+                        "peer_rpc",
+                        "api_instance",
+                        "acl",
+                        "error",
+                    ];
+                    Promise.all(files.map(downloadProtoFile)).then(() => {
+                        execSync("C:\\Users\\23820\\scoop\\shims\\buf.exe generate", { cwd: path.resolve(__dirname, "."), stdio: "inherit" });
+                    })
                 });
             }
         });

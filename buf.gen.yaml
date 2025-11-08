@@ -1,0 +1,15 @@
+version: v2
+clean: true
+plugins:
+  - remote: buf.build/community/stephenh-ts-proto
+    out: entry/src/main/ets/generated
+    opt:
+      - outputTypes=interface
+      - outputJsonMethods=false
+      - outputEncodeMethods=false
+      - outputClientImpl=false
+      - outputServices=none
+      - useExactTypes=true
+      - eslintDisable=false
+inputs:
+  - directory: proto

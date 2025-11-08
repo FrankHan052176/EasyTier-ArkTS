@@ -529,6 +529,10 @@
       "value": "添加"
     },
     {
+      "name": "edit_port_forward",
+      "value": "编辑端口转发"
+    },
+    {
       "name": "mtu",
       "value": "MTU"
     },

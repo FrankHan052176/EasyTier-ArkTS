@@ -529,6 +529,10 @@
       "value": "Add"
     },
     {
+      "name": "edit_port_forward",
+      "value": "Edit Port Forward"
+    },
+    {
       "name": "mtu",
       "value": "MTU"
     },
