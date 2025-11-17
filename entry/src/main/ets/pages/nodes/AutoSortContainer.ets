@@ -1,5 +1,6 @@
 import { BuilderNode, FrameNode, NodeController, Position } from '@kit.ArkUI';
 import { Instances } from '../../components/index/Instances';
+import { Svp2px } from '../../ContextUtil';
 import { LayoutUtil } from '../../LayoutUtil';
 import { lane } from '../../util/Conversion';
 import { Logger } from '../../util/Logger';
@@ -60,16 +61,18 @@ class MyFrameNode extends FrameNode {
       const compType = LayoutUtil.comp_sequence[i];
       const compSize = LayoutUtil.getCompSize(compType);
       if (compSize) {
-        const pixelX = vp2px(20) + compSize.x * lane(1);
-        const pixelY = vp2px(10) + compSize.y * lane(1);
+        const gridSize = lane(1);
+        const pixelX = Svp2px(20 + compSize.x * gridSize + 10*compSize.x);
+        const pixelY = Svp2px(10 + compSize.y * gridSize + 10*compSize.y);
+
         child.layout({
           x: pixelX,
           y: pixelY
         });
-        Logger.debug(`[MyFrameNode] Laid out ${compType} at grid (${compSize.x}, ${compSize.y}) -> pixel (${pixelX}, ${pixelY})`);
+
+        Logger.debug(`[MyFrameNode] Laid out ${compType} at grid (${compSize.x}, ${compSize.y}) -> pixel (${pixelX}, ${pixelY}) size: ${compSize.lane_w}x${compSize.lane_h}`);
       }
     }
     this.setLayoutPosition(position);
   }
 }
-

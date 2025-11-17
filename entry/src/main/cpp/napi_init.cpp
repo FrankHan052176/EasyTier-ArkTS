@@ -11,14 +11,18 @@ LockFreeRingBuffer<5000> nmLog;
 LockFreeRingBuffer<5000> ohLog;
 void MyHiLog(const LogType type, const LogLevel level, const unsigned int domain, const char *tag, const char *msg)
 {
+    std::string finalMsg;
     if (level >= LOG_INFO && strcmp(tag, "fhl") == 0) {
-        appLog.write(std::move(std::to_string(static_cast<int>(level))+msg));
-    }else if (level >= LOG_WARN && strcmp(tag, "NETMANAGER_EXT") == 0) {
-        std::string safeMsg;
-        safeMsg = std::string("[NETMANAGER_EXT] ") + msg;
-        nmLog.write(std::move(std::to_string(static_cast<int>(level))+safeMsg));
-    }else if (level >= LOG_ERROR) {
-        ohLog.write(std::move(std::to_string(static_cast<int>(level))+msg));
+        finalMsg = std::to_string(static_cast<int>(level)) + msg;
+        appLog.write(finalMsg);
+    } 
+    else if (level >= LOG_WARN && strcmp(tag, "NETMANAGER_EXT") == 0) {
+        finalMsg = std::to_string(static_cast<int>(level)) + "[NETMANAGER_EXT] " + msg;
+        nmLog.write(finalMsg);
+    } 
+    else if (level >= LOG_ERROR) {
+        finalMsg = std::to_string(static_cast<int>(level)) + msg;
+        ohLog.write(finalMsg);
     }
 }
 static napi_value hilogInit(napi_env env, napi_callback_info info)
