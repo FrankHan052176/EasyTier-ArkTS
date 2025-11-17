@@ -1,5 +1,5 @@
 import { isGetDistributePerm } from "./Permission"
-import Manager, { UIType } from "../Manager"
+import Manager from "../Manager"
 import { Config,
   dhcp,
   flags,
@@ -12,15 +12,17 @@ import { Config,
   route,
   exit_node,
   WrappedString,
-  SharedPeer} from "./config/ETConfig"
+  SharedPeer} from "./ETConfig"
 import { SafeSet } from "./SafeSet"
-import { NetworkInstanceRunningInfo, NetworkInstanceRunningInfoWithUnwrappedEvents,
+import {
+  Event,
+  NetworkInstanceRunningInfo, NetworkInstanceRunningInfoWithUnwrappedEvents,
   PeerRoutePair } from "./info/PeerInfo"
-import Logger from "./Logger"
-import EventHelper from "./EventHelper"
+import { Logger } from "./Logger"
 import { toml2json } from "libentry.so"
 import { SafeLightWeightSet } from "./SafeLightWeightSet";
 import { display } from "@kit.ArkUI"
+import { UIType, WindowUtil } from "../WindowUtil"
 
 export function tomlToConfig(toml: string): Config | undefined {
   try {
@@ -57,51 +59,35 @@ export function runningTime(time: number): string {
   }
 }
 
-export function fp2vp(fp: number): number {
-  return Manager.uiContext!.px2vp(Manager.uiContext!.fp2px(fp))
-}
-
-export function vp2fp(vp: number): number {
-  return Manager.uiContext!.px2fp(Manager.uiContext!.vp2px(vp))
-}
-
-export function laneWidth(need: number): number {
-  switch (Manager.uiType) {
+export function lane(need: number): number {
+  switch (WindowUtil.uiType) {
     case UIType.Column_1: {
       let scale = Math.min(2,Math.max(1, need))
       if (scale == 2) {
-        return Manager.width-40
+        return WindowUtil.width-40
       }else {
-        return (Manager.width-50)/2
+        return (WindowUtil.width-50)/2
       }
     }
     case UIType.Column_2: {
       let scale = Math.min(4,Math.max(1, need))
       if (scale == 4) {
-        return Manager.width-40
+        return WindowUtil.width-40
       }else {
-        return (Manager.width-70)/4*scale+(scale-1)*10
+        return (WindowUtil.width-70)/4*scale+(scale-1)*10
       }
     }
     case UIType.Column_3: {
       let scale = Math.min(6,Math.max(1, need))
       if (scale == 6) {
-        return Manager.width-40
+        return WindowUtil.width-40
       }else {
-        return (Manager.width-90)/6*scale+(scale-1)*10
+        return (WindowUtil.width-90)/6*scale+(scale-1)*10
       }
     }
-  }
-}
-
-export function laneHeight(need: number): number {
-  let defDisplay = display.getDefaultDisplaySync()
-  let displayHeight = defDisplay.orientation % 2 == 0?defDisplay.height:defDisplay.width
-  let scale = Math.min(4,Math.max(1,need))
-  if (scale == 4) {
-    return (Manager.uiContext!.px2vp(displayHeight)-(Manager.navigationHeight-Manager.compHeight)-Manager.statusBarHeight-20)
-  }else {
-    return (Manager.uiContext!.px2vp(displayHeight)-(Manager.navigationHeight-Manager.compHeight)-Manager.statusBarHeight-20)/4*scale+(scale-1)*10
+    default: {
+      return 0
+    }
   }
 }
 
@@ -161,15 +147,15 @@ export function elementString(element: lwElementType): string {
 }
 
 export function updateElement(element: lwElementType, add: boolean = true) {
-  if (add) {
-    Manager.KVStore?.put(elementCode(element)+"_"+elementString(element), elementString(element)).catch(() => {
-      Logger.error(`[Manager] cidrs::put::An unexpected error occurred.`);
-    })
-  }else {
-    Manager.KVStore?.delete(elementCode(element)+"_"+elementString(element)).catch(() => {
-      Logger.error(`[Manager] exit_nodes::delete::An unexpected error occurred.`);
-    })
-  }
+  // if (add) {
+  //   Manager.KVStore?.put(elementCode(element)+"_"+elementString(element), elementString(element)).catch(() => {
+  //     Logger.error(`[Manager] cidrs::put::An unexpected error occurred.`);
+  //   })
+  // }else {
+  //   Manager.KVStore?.delete(elementCode(element)+"_"+elementString(element)).catch(() => {
+  //     Logger.error(`[Manager] exit_nodes::delete::An unexpected error occurred.`);
+  //   })
+  // }
 }
 
 export function logColor(log: string): ResourceColor {
@@ -266,65 +252,63 @@ function handleEventMsg(type: string, value: string | object): string {
   }
 }
 
+export function unwrappedRawEvent(raw: string): Event {
+  let obj: WrappedEvent = JSON.parse(raw)
+  let time = formatDate(new Date(obj.time))
+  Object.entries(obj.event).forEach((value: [string, string | object]) => {
+    let msg = ""
+    if (typeof value[1] == "string") {
+      msg = value[1]
+    }else {
+      msg = handleEventMsg(value[0], value[1])
+    }
+    return {
+      time: time,
+      type: value[0],
+      msg: msg
+    } as Event
+  })
+  return {
+    time: "",
+    type: "",
+    msg: ""
+  }
+}
+
 export function handleNewInfo(info: NetworkInstanceRunningInfo, uuid: string) {
-  if (Manager.info == undefined) {
-    Manager.info = new NetworkInstanceRunningInfoWithUnwrappedEvents()
-  }
-  let newInfo = Manager.info!
-  let config = Manager.configs.get(uuid)
-  if (config) {
-    newInfo.events.splice(0, newInfo.events.length)
-    info.events.forEach((value) => {
-      let obj: WrappedEvent = JSON.parse(value)
-      let time = formatDate(new Date(obj.time))
-      Object.entries(obj.event).forEach((value: [string, string | object]) => {
-        let msg = ""
-        if (typeof value[1] == "string") {
-          msg = value[1]
-        }else {
-          msg = handleEventMsg(value[0], value[1])
-        }
-        newInfo.events.push({
-          time: time,
-          type: value[0],
-          msg: msg
-        })
-        if (Manager.needTunInstances.has(uuid) && info.my_node_info.virtual_ipv4 !== null) {
-          Manager.needTunInstances.delete(uuid)
-          EventHelper.emitterPublish("setup_tun", {
-            data: {
-              ip: convertAddrToIp(info.my_node_info.virtual_ipv4.address.addr),
-              mask: info.my_node_info.virtual_ipv4.network_length,
-              id: uuid,
-              magicDNS: config!.flags.accept_dns
-            }
-          })
-        }
-      })
-    })
-    newInfo.events = newInfo.events.slice()
-    newInfo.dev_name = info.dev_name
-    newInfo.my_node_info = info.my_node_info
-    newInfo.routes.splice(0, newInfo.routes.length)
-    info.routes.forEach((value) => {
-      newInfo.routes.push(value)
-    })
-    newInfo.routes = newInfo.routes.slice()
-    newInfo.peers.splice(0, newInfo.peers.length)
-    info.peers.forEach((value) => {
-      newInfo.peers.push(value)
-    })
-    newInfo.peers = newInfo.peers.slice()
-    newInfo.peer_route_pairs.splice(0, newInfo.peer_route_pairs.length)
-    info.peer_route_pairs.forEach((value) => {
-      newInfo.peer_route_pairs.push(value)
-    })
-    newInfo.peer_route_pairs = newInfo.peer_route_pairs.slice()
-    newInfo.running = info.running
-    newInfo.error_msg = info.error_msg
-  }else {
-    Logger.error("[Conversion::unwrappedEvents] Cant find config["+uuid+"]")
-  }
+  // if (Manager.info == undefined) {
+  //   Manager.info = new NetworkInstanceRunningInfoWithUnwrappedEvents()
+  // }
+  // let newInfo = Manager.info!
+  // let config = Manager.configs.get(uuid)
+  // if (config) {
+  //   newInfo.events.splice(0, newInfo.events.length)
+  //   info.events.forEach((value) => {
+  //
+  //   })
+  //   newInfo.events = newInfo.events.slice()
+  //   newInfo.dev_name = info.dev_name
+  //   newInfo.my_node_info = info.my_node_info
+  //   newInfo.routes.splice(0, newInfo.routes.length)
+  //   info.routes.forEach((value) => {
+  //     newInfo.routes.push(value)
+  //   })
+  //   newInfo.routes = newInfo.routes.slice()
+  //   newInfo.peers.splice(0, newInfo.peers.length)
+  //   info.peers.forEach((value) => {
+  //     newInfo.peers.push(value)
+  //   })
+  //   newInfo.peers = newInfo.peers.slice()
+  //   newInfo.peer_route_pairs.splice(0, newInfo.peer_route_pairs.length)
+  //   info.peer_route_pairs.forEach((value) => {
+  //     newInfo.peer_route_pairs.push(value)
+  //   })
+  //   newInfo.peer_route_pairs = newInfo.peer_route_pairs.slice()
+  //   newInfo.running = info.running
+  //   newInfo.error_msg = info.error_msg
+  // }else {
+  //   Logger.error("[Conversion::unwrappedEvents] Cant find config["+uuid+"]")
+  // }
 }
 
 export function flattenConfig(obj: object): Config {

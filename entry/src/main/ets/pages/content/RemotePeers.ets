@@ -1,32 +1,27 @@
-import Manager from "../../Manager"
-import { Config} from "../../util/config/ETConfig"
-import { PeerRoutePair } from "../../util/info/PeerInfo"
+import { PeerRoutePair } from "../../protobuf/api_instance"
+import { MyNodeInfo } from "../../protobuf/api_manage"
 import { ItemBuilder } from "../../util/ItemBuilders"
 
 @ComponentV2
 export struct RemotePeers {
-  @Param @Require config: Config
+  @Param @Require pairs: Map<number, PeerRoutePair>
+  @Param @Require myInfo: MyNodeInfo
   @Param @Require comp_width: number
   @Local item_width: number = 160
   @Local item_height: number = 80
 
   @Computed
-  get info() {
-    return Manager.info!
-  }
-
-  @Computed
   get full_infos() {
-    if (this.info) {
+    if (this.pairs) {
       return [
         {
           route: {
-            ipv4_addr: this.info.my_node_info.virtual_ipv4,
-            hostname: this.info.my_node_info.hostname,
-            version: this.info.my_node_info.version
+            ipv4Addr: this.myInfo.virtualIpv4,
+            hostname: this.myInfo.hostname,
+            version: this.myInfo.version
           }
         } as PeerRoutePair,
-        ...this.info.peer_route_pairs
+        ...Array.from(this.pairs.values())
       ]
     }else {
       return []
@@ -52,7 +47,7 @@ export struct RemotePeers {
       List({space: 10, initialIndex: 0}) {
         ForEach(this.full_infos, (value:PeerRoutePair) => {
           ItemBuilder({
-            isSelected: value.route.peer_id == undefined,
+            isSelected: false,
             item: value,
             itemWidth: this.item_width,
             switchHighlight: false

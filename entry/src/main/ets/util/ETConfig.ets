@@ -1,14 +1,14 @@
-import { getHostname, safeFieldName } from "../Conversion";
+import { getHostname, safeFieldName } from "./Conversion";
 import { util } from "@kit.ArkTS";
-import { SafeSet } from "../SafeSet";
-import Logger from "../Logger";
-import Manager from "../../Manager";
+import { SafeSet } from "./SafeSet";
+import { Logger } from "./Logger";
+import Manager from "../Manager";
 import {
   compressedIP, compressedMask, compressedProtocol,
   uncompressedBoolean,
   uncompressedIP, uncompressedMask,
   uncompressedProtocol,
-  valueType } from "../Compress";
+  valueType } from "./Compress";
 
 @ObservedV2
 export class network_identity {

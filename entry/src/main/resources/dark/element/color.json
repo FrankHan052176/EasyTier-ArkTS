@@ -87,6 +87,10 @@
     {
       "name": "normal_highlight_7",
       "value": "#03FFFFFF"
+    },
+    {
+      "name": "point_light",
+      "value": "#ffffff"
     }
   ]
 }

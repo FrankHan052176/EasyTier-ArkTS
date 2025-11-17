@@ -1,27 +1,32 @@
-import Manager, { UIType } from '../Manager';
-import EventHelper from '../util/EventHelper';
+import Manager from '../Manager';
+import { EventHelper } from '../util/EventHelper';
 import { AddSheetTitle, cleanNewConfigName } from '../util/AddConfigSheet';
 import { systemDateTime } from '@kit.BasicServicesKit';
-import { fp2vp, laneWidth, laneHeight, logColor } from '../util/Conversion';
+import { lane, logColor } from '../util/Conversion';
 import { LengthMetrics } from '@kit.ArkUI';
-import { Config, SharedPeer } from '../util/config/ETConfig';
+import { Config, SharedPeer } from '../util/ETConfig';
 import { ItemBuilder } from '../util/ItemBuilders';
 import { AddConfig } from '../util/AddConfigSheet';
-import { MenuButton, ResizableComponent, settingSheet, ToolButton } from './Components';
-import Logger from '../util/Logger';
+import { MenuButton, settingSheet, ToolButton } from './Components';
+import { Logger, LogLocate } from '../util/Logger';
 import { requestDistributePerm } from '../util/Permission';
 import { InstanceContent } from './instance/InstanceContent';
 import { common } from '@kit.AbilityKit';
 import { AutoSortContainer } from './nodes/AutoSortContainer';
+import { ContextUtil, Sfp2vp } from '../ContextUtil';
+import { UIType, WindowUtil } from '../WindowUtil';
+import { EasyTierUtil } from '../EasyTierUtil';
+import { EditPage } from '../components/edit/EditPage';
+import { ContentUtil } from '../ContentUtil';
 
 @Extend(Column)
-function comp_bg(lane: number, height: number) {
+function comp_bg(need: number, height: number) {
   .clickEffect({
     level: ClickEffectLevel.LIGHT
   })
   .borderRadius(18)
-  .width(laneWidth(lane))
-  .height(laneHeight(height))
+  .width(lane(need))
+  .height(lane(height))
   .backgroundColor($r("sys.color.comp_background_primary"))
   .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 }
@@ -40,6 +45,7 @@ function comp_list() {
     curve: Curve.EaseIn
   })
 }
+
 @Entry
 @ComponentV2
 struct NavIndex {
@@ -55,6 +61,15 @@ struct NavIndex {
   @Local edit_uuid: string | undefined
   @Local lane_h: number = 1
   @Local lane_w: number = 1
+
+  aboutToAppear(): void {
+    // Manager.uiContext = this.getUIContext()
+    // Manager.onInit()
+    // EventHelper.emitterListener("sheet_add_config_close", () => {
+    //   this.add_config_sheet = false
+    // })
+    ContextUtil.init(this.getUIContext())
+  }
 
   @Builder
   PageMap(name: string, param?: object) {
@@ -153,7 +168,7 @@ struct NavIndex {
       .height('100%')
       .alignItems(VerticalAlign.Bottom)
     }
-    .height(fp2vp(22))
+    .height(Sfp2vp(22))
     .justifyContent(FlexAlign.SpaceBetween)
     .padding({left: 10, right: 15})
     .margin({top: 15, bottom: 5})
@@ -231,14 +246,6 @@ struct NavIndex {
     })
   }
 
-  aboutToAppear(): void {
-    Manager.uiContext = this.getUIContext()
-    Manager.onInit()
-    EventHelper.emitterListener("sheet_add_config_close", () => {
-      this.add_config_sheet = false
-    })
-  }
-
   @Builder
   Comp_Title() {
     Column() {
@@ -261,8 +268,8 @@ struct NavIndex {
           }))
       }
     }
-    .width(laneWidth(6))
-    .height(laneHeight(1))
+    .width(lane(6))
+    .height(lane(1))
     .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
   }
@@ -276,7 +283,7 @@ struct NavIndex {
 
   @Computed
   get isNeedHideButtons() {
-    return Manager.uiType == UIType.Column_1
+    return WindowUtil.uiType == UIType.Column_1
   }
 
   @Builder
@@ -391,8 +398,8 @@ struct NavIndex {
     Tabs({index: $$this.log_index}) {
       TabContent() {
         List() {
-          if (Manager.appLogs.size > 0) {
-            ForEach(Array.from(Manager.appLogs.values()), (msg: string) => {
+          if (EasyTierUtil.appLogs.size > 0) {
+            ForEach(Array.from(EasyTierUtil.appLogs.values()), (msg: string) => {
               ListItem() {
                 Text(msg.substring(1))
                   .fontSize(14)
@@ -423,8 +430,8 @@ struct NavIndex {
       .tabBar("App日志")
       TabContent() {
         List() {
-          if (Manager.nmLogs.size > 0) {
-            ForEach(Array.from(Manager.nmLogs.values()), (msg: string) => {
+          if (EasyTierUtil.nmLogs.size > 0) {
+            ForEach(Array.from(EasyTierUtil.nmLogs.values()), (msg: string) => {
               ListItem() {
                 Text(msg.substring(1))
                   .fontSize(14)
@@ -455,8 +462,8 @@ struct NavIndex {
       .tabBar("网络日志")
       TabContent() {
         List() {
-          if (Manager.ohLogs.size > 0) {
-            ForEach(Array.from(Manager.ohLogs.values()), (msg: string) => {
+          if (EasyTierUtil.ohLogs.size > 0) {
+            ForEach(Array.from(EasyTierUtil.ohLogs.values()), (msg: string) => {
               ListItem() {
                 Text(msg.substring(1))
                   .fontSize(14)
@@ -493,11 +500,11 @@ struct NavIndex {
   @Builder
   Comp_Logs() {
     Column() {
-      this.CompTitle("日志", $r("sys.color.font_primary"), ()=>{return Manager.appLogs.size+Manager.nmLogs.size+Manager.ohLogs.size}, $r("app.string.i18_tiao"))
+      this.CompTitle("日志", $r("sys.color.font_primary"), ()=>{return EasyTierUtil.appLogs.size+EasyTierUtil.nmLogs.size+EasyTierUtil.ohLogs.size}, $r("app.string.i18_tiao"))
       Column({space: 10}) {
-        this.LogShower($r("sys.symbol.house"), "App日志", ()=>{return Manager.appLogs.size}, 0)
-        this.LogShower($r("sys.symbol.wifi"), "网络日志", ()=>{return Manager.nmLogs.size}, 1)
-        this.LogShower($r("sys.symbol.HarmonyOS"), "ArkUI日志", ()=>{return Manager.ohLogs.size}, 2)
+        this.LogShower($r("sys.symbol.house"), "App日志", ()=>{return EasyTierUtil.appLogs.size}, 0)
+        this.LogShower($r("sys.symbol.wifi"), "网络日志", ()=>{return EasyTierUtil.nmLogs.size}, 1)
+        this.LogShower($r("sys.symbol.HarmonyOS"), "ArkUI日志", ()=>{return EasyTierUtil.ohLogs.size}, 2)
       }
       .width('100%')
       .layoutWeight(100)
@@ -621,39 +628,30 @@ struct NavIndex {
   build() {
     Navigation(this.pageStack) {
       Column() {
-        Scroll() {
-          Column() {
-            // this.Comp_Title()
-            // Flex({wrap: FlexWrap.Wrap, direction: FlexDirection.Row,
-            //   space: {
-            //     main: LengthMetrics.vp(10),
-            //     cross: LengthMetrics.vp(10)
-            //   }
-            // }) {
-            //   ResizableComponent()
-            //   this.Comp_Instances()
-            //   this.Comp_Last()
-            //   this.Comp_QQ()
-            //   this.Comp_Logs()
-            //   this.Comp_Peers()
-            //   this.Comp_Global()
-            // }
-            // .padding({left: 20, right: 20})
-            // .width('100%')
-            // .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-            NodeContainer(this.myNodeController)
-              .width('100%')
-              .layoutWeight(100)
-              .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-          }
+        // this.Comp_Title()
+        // Flex({wrap: FlexWrap.Wrap, direction: FlexDirection.Row,
+        //   space: {
+        //     main: LengthMetrics.vp(10),
+        //     cross: LengthMetrics.vp(10)
+        //   }
+        // }) {
+        //   ResizableComponent()
+        //   this.Comp_Instances()
+        //   this.Comp_Last()
+        //   this.Comp_QQ()
+        //   this.Comp_Logs()
+        //   this.Comp_Peers()
+        //   this.Comp_Global()
+        // }
+        // .padding({left: 20, right: 20})
+        // .width('100%')
+        // .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+        // NodeContainer(this.myNodeController)
+        //   .width('100%')
+        //   .layoutWeight(100)
+        //   .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+        EditPage({config: ContentUtil.getDefaultConfig()})
           .width('100%')
-          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-        }
-        .scrollBar(BarState.Off)
-        .width('100%')
-        .height('100%')
-        .align(Alignment.Top)
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       }
       .width('100%')
       .height('100%')
@@ -706,8 +704,9 @@ struct NavIndex {
       Manager.navigationHeight = b.height.valueOf() as number
     })
     .onTouch((event) => {
-      if (event && event.type == TouchType.Down) {
+      if (event.type == TouchType.Down) {
         EventHelper.emitterPublish("resize_off")
+        EventHelper.emitterPublish("click_edit")
       }
     })
   }

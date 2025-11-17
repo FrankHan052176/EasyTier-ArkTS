@@ -2,7 +2,7 @@ import { abilityAccessCtrl, bundleManager, common, Permissions } from '@kit.Abil
 import { BusinessError } from '@kit.BasicServicesKit';
 import { vpnExtension } from '@kit.NetworkKit';
 import Manager from '../Manager';
-import Logger from './Logger';
+import { Logger } from './Logger';
 
 const permissions: Array<Permissions> =
   ['ohos.permission.APPROXIMATELY_LOCATION', 'ohos.permission.DISTRIBUTED_DATASYNC'];

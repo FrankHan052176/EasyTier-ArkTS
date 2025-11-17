@@ -1,5 +1,5 @@
 import { itemType } from "../pages/content/FlexItems"
-import { cidr, exit_node, listener, network_identity, peer, Protocol, route, WrappedString } from "./config/ETConfig"
+import { cidr, exit_node, listener, network_identity, peer, Protocol, route, WrappedString } from "./ETConfig"
 import { LengthMetrics } from "@kit.ArkUI"
 
 let protocols = [Protocol.TCP, Protocol.UDP, Protocol.QUIC, Protocol.WS, Protocol.WSS, Protocol.WG]

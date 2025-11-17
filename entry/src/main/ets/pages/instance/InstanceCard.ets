@@ -1,8 +1,9 @@
 import Manager from "../../Manager"
-import { Config } from "../../util/config/ETConfig"
-import Logger from "../../util/Logger"
+import { Config } from "../../util/ETConfig"
+import { Logger } from "../../util/Logger"
 import { ToolButton } from "../Components"
 import { requestLocPerm } from "../../util/Permission"
+import { EasyTierUtil } from "../../EasyTierUtil"
 
 @ComponentV2
 export struct InstanceCard {
@@ -34,16 +35,16 @@ export struct InstanceCard {
       .alignItems(HorizontalAlign.Start)
       .justifyContent(FlexAlign.Center)
       ToolButton({
-        symbol: Manager.info_uuid == this.config.instance_id?$r("sys.symbol.pause"):$r("sys.symbol.play_fill"),
+        symbol: EasyTierUtil.runningNetworks.has(this.config.instance_id)?$r("sys.symbol.pause"):$r("sys.symbol.play_fill"),
         symbolColor: [this.fontColor]
       })
         .onClick(() => {
-          if (Manager.info_uuid == this.config.instance_id) {
+          if (EasyTierUtil.runningNetworks.has(this.config.instance_id)) {
             if (!Manager.stopInstance(this.config)) {
               Logger.error("关闭网络失败")
             }
           }else {
-            if (Manager.info != undefined) {
+            if (EasyTierUtil.runningNetworks.size > 0) {
               this.getUIContext().getPromptAction().showToast({
                 message: "请先关闭正在运行的网络"
               })

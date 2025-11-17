@@ -1,6 +1,6 @@
 import Manager from '../Manager'
 import { ToolButton, ToolButtonWithPaste } from '../pages/Components'
-import EventHelper from './EventHelper'
+import { EventHelper } from './EventHelper'
 
 let new_config_name: string = ""
 export function cleanNewConfigName() {

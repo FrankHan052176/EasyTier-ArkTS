@@ -1,5 +1,5 @@
 import Manager from "../Manager"
-import { Config } from "./config/ETConfig"
+import { Config } from "./ETConfig"
 import { elementCode, lwElementType, updateElement } from "./Conversion"
 
 @ObservedV2

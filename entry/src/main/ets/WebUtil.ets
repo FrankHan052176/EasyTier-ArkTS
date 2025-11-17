@@ -1,7 +1,7 @@
 import { rcp } from '@kit.RemoteCommunicationKit'
-import Manager from '../../Manager'
-import { SharedPeer } from '../config/ETConfig';
-import Logger from '../Logger'
+import Manager from './Manager'
+import { SharedPeer } from './util/ETConfig';
+import { Logger } from './util/Logger'
 
 export async function updateSharedPeers(page: number = 1): Promise<void> {
   const request = new rcp.Request("https://uptime.easytier.cn/api/nodes?per_page=50&tags=%E5%9B%BD%E5%86%85&page="+page, 'GET');
@@ -38,7 +38,7 @@ export async function updateSharedPeers(page: number = 1): Promise<void> {
   } catch (e) {
     Logger.error(`[Manager] An unexpected error occurred. Code:${e.code},message:${e.message}`);
   }
-return Promise.resolve()
+  return Promise.resolve()
 }
 
 export async function updateQQGroups(): Promise<void> {

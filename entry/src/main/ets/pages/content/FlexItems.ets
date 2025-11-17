@@ -1,15 +1,15 @@
 import Manager from "../../Manager"
 import { cidr, Config, exit_node, listener, network_identity, peer, route,
   SharedPeer,
-  WrappedString } from "../../util/config/ETConfig"
+  WrappedString } from "../../util/ETConfig"
 import { ItemBuilder } from "../../util/ItemBuilders"
 import { SafeLightWeightSet } from "../../util/SafeLightWeightSet"
 import { LengthMetrics, SymbolGlyphModifier } from "@kit.ArkUI"
 import { ItemEditSheet } from "../../util/ItemEditSheet"
 import { ToolButton } from "../Components"
-import EventHelper from "../../util/EventHelper"
-import Logger from "../../util/Logger"
-import { PeerRoutePair } from "../../util/info/PeerInfo"
+import { EventHelper } from "../../util/EventHelper"
+import { Logger } from "../../util/Logger"
+import { PeerRoutePair } from "../../protobuf/api_instance"
 
 export enum ItemSize {
   SMALL,NORMAL,BIG

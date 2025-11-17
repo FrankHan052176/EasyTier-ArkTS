@@ -2,10 +2,11 @@ version: v2
 clean: true
 plugins:
   - remote: buf.build/community/stephenh-ts-proto
-    out: entry/src/main/ets/generated
+    out: entry/src/main/ets/protobuf
     opt:
       - outputTypes=interface
-      - outputJsonMethods=false
+      - useOptionals=false
+      - outputJsonMethods=true
       - outputEncodeMethods=false
       - outputClientImpl=false
       - outputServices=none

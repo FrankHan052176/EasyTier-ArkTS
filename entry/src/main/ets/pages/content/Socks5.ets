@@ -1,5 +1,5 @@
 import Manager from "../../Manager"
-import { Config, socks5_proxy } from "../../util/config/ETConfig"
+import { Config, socks5_proxy } from "../../util/ETConfig"
 
 @Extend(TextInput) function fancyText(width: number = 30, length: number = 3) {
   .padding(0)

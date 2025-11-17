@@ -1,16 +1,17 @@
 import { cidr, Config,
   exit_node,
-  listener, network_identity, peer, route, WrappedString } from "../../util/config/ETConfig"
+  listener, network_identity, peer, route, WrappedString } from "../../util/ETConfig"
 import { Hostname } from "../content/Hostname"
 import { IPv4 } from "../content/IPv4"
 import { LengthUnit } from "@kit.ArkUI"
-import Manager, { UIType } from "../../Manager"
+import Manager from "../../Manager"
 import { Flags } from "../content/Flags"
 import { WGPortal } from "../content/WGPortal"
 import { Socks5 } from "../content/Socks5"
 import { FlexItems, ItemSize, itemType } from "../content/FlexItems"
 import { SafeLightWeightSet } from "../../util/SafeLightWeightSet"
-import Logger from "../../util/Logger"
+import { Logger } from "../../util/Logger"
+import { UIType, WindowUtil } from "../../WindowUtil"
 
 const space: FlexSpaceOptions = {
   main: {
@@ -26,11 +27,11 @@ const space: FlexSpaceOptions = {
 @ComponentV2
 export struct InstanceContent {
   @Param @Require config:Config
-  @Param comp_height: Length = Manager.height-95
+  @Param comp_height: Length = WindowUtil.height-95
   @Local realWidth: number = 0
 
   get betterComponentWidth() {
-    switch (Manager.uiType) {
+    switch (WindowUtil.uiType) {
       case UIType.Column_1: {
         return this.realWidth
       }
@@ -39,6 +40,9 @@ export struct InstanceContent {
       }
       case UIType.Column_3: {
         return (this.realWidth-20)/3
+      }
+      default: {
+        return 0
       }
     }
   }
@@ -240,7 +244,7 @@ export struct InstanceContent {
     Column({space: 10}) {
       this.advancedText()
       this.flags()
-      if (Manager.uiType != UIType.Column_3) {
+      if (WindowUtil.uiType != UIType.Column_3) {
         this.cidrs()
         this.listeners()
         this.wl()
@@ -274,7 +278,7 @@ export struct InstanceContent {
   build() {
     Scroll() {
       Column() {
-        if (Manager.uiType == UIType.Column_1) {
+        if (WindowUtil.uiType == UIType.Column_1) {
           this.basic()
           this.advanced()
         }else {
@@ -287,7 +291,7 @@ export struct InstanceContent {
               this.advanced()
             }
             .layoutWeight(33)
-            if (Manager.uiType == UIType.Column_3) {
+            if (WindowUtil.uiType == UIType.Column_3) {
               Row() {
                 this.moreItems()
               }
@@ -299,7 +303,7 @@ export struct InstanceContent {
           .justifyContent(FlexAlign.SpaceEvenly)
         }
         Blank()
-          .height(Manager.height*0.1)
+          .height(WindowUtil.height*0.1)
           .width('100%')
           .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.START, SafeAreaEdge.BOTTOM])
       }

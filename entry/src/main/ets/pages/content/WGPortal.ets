@@ -1,5 +1,5 @@
 import Manager from "../../Manager"
-import { Config, vpn_portal_config } from "../../util/config/ETConfig"
+import { Config, vpn_portal_config } from "../../util/ETConfig"
 @Extend(TextInput) function fancyTextInput(enable: boolean, weight: number = 30, length: number = 3) {
   .fontColor(enable?$r("sys.color.font_secondary"):$r("sys.color.font_primary"))
   .fontSize(16)

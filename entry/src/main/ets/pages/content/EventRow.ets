@@ -1,8 +1,10 @@
-import {Event} from '../../util/info/PeerInfo'
+import { unwrappedRawEvent } from "../../util/Conversion"
+import { Event } from "../../util/info/PeerInfo"
 
 @ComponentV2
 export struct EventRow {
-  @Param @Require event: Event
+  @Param @Require rawEvent: string
+  @Local event: Event = unwrappedRawEvent(this.rawEvent)
 
   build() {
     Column() {

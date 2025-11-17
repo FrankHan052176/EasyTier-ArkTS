@@ -1,8 +1,8 @@
-import { Config, network_whitelist } from "../../util/config/ETConfig"
+import { Config, network_whitelist } from "../../util/ETConfig"
 import { LengthUnit } from "@kit.ArkUI"
 import { safeFieldName } from "../../util/Conversion"
 import { ItemBuilder } from "../../util/ItemBuilders"
-import Logger from "../../util/Logger"
+import { Logger } from "../../util/Logger"
 
 type element_flags = network_whitelist | boolean
 function fixFieldName(name: string): string {

@@ -1,5 +1,5 @@
 import Manager from "../Manager"
-import { Config } from "./config/ETConfig"
+import { Config } from "./ETConfig"
 import { LightWeightMap } from "@kit.ArkTS"
 import { SafeSet } from "./SafeSet"
 import { elementCode, lwElementType, updateElement } from "./Conversion"

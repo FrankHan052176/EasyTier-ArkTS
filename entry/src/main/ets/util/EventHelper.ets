@@ -1,12 +1,12 @@
 import { BusinessError, commonEventManager, emitter } from "@kit.BasicServicesKit";
-import Logger from "./Logger";
+import { Logger } from "./Logger";
 
-class EventHelper {
-  private bundleName = "top.frankhan.et4hm"
-  public commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void) {
+export class EventHelper {
+  private static bundleName = "top.frankhan.et4hm"
+  public static commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void) {
     let subscribeInfo: commonEventManager.CommonEventSubscribeInfo = {
       events: [event],
-      publisherBundleName: this.bundleName
+      publisherBundleName: EventHelper.bundleName
     };
     let subscriber: commonEventManager.CommonEventSubscriber | null = null;
     commonEventManager.createSubscriber(subscribeInfo, (err: BusinessError, data: commonEventManager.CommonEventSubscriber) => {
@@ -22,35 +22,33 @@ class EventHelper {
     })
   }
 
-  public commonPublish(event: string) {
+  public static commonPublish(event: string) {
     commonEventManager.publish(event,()=>{})
   }
 
-  public commonPublishCode(event: string, code: number) {
+  public static commonPublishCode(event: string, code: number) {
     commonEventManager.publish(event,{
-      bundleName: this.bundleName,
+      bundleName: EventHelper.bundleName,
       code: code
     },()=>{})
   }
 
-  public commonPublishData(event: string, data: string) {
+  public static commonPublishData(event: string, data: string) {
     commonEventManager.publish(event,{
-      bundleName: this.bundleName,
+      bundleName: EventHelper.bundleName,
       data: data
     },()=>{})
   }
 
-  public commonPublishCallback(event: string, callback: () => void) {
+  public static commonPublishCallback(event: string, callback: () => void) {
     commonEventManager.publish(event,callback)
   }
 
-  public emitterListener(event: string, callback: Callback<emitter.EventData>) {
+  public static emitterListener(event: string, callback: Callback<emitter.EventData>) {
     emitter.on(event, callback)
   }
 
-  public emitterPublish(event: string, data: emitter.EventData | undefined = undefined) {
+  public static emitterPublish(event: string, data: emitter.EventData | undefined = undefined) {
     emitter.emit(event, data)
   }
 }
-
-export default new EventHelper()

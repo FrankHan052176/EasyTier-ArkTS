@@ -1,6 +1,7 @@
 {
   "src": [
     "pages/Index",
-    "pages/NavIndex"
+    "pages/NavIndex",
+    "pages/HMRouterIndex"
   ]
 }

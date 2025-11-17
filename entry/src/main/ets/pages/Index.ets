@@ -1,5 +1,5 @@
-import Manager, { UIType } from '../Manager'
-import { Config } from '../util/config/ETConfig'
+import Manager from '../Manager'
+import { Config } from '../util/ETConfig'
 import {
   AddSheet,
   AddSheetTitle,
@@ -8,20 +8,21 @@ import {
   SharedPeersTitle, ToolButton } from './Components'
 import { InstanceCard } from './instance/InstanceCard'
 import { InstanceContent } from './instance/InstanceContent'
-import { requestDistributePerm, updatePermStatus } from '../util/Permission'
+import { requestDistributePerm } from '../util/Permission'
 import { objectToHomoTOML, tomlToConfig } from '../util/Conversion'
-import EventHelper from '../util/EventHelper'
 import { InstanceStatus } from './instance/InstanceStatus'
 import { harmonyShare, systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
 import { common } from '@kit.AbilityKit';
 import { BusinessError, pasteboard } from '@kit.BasicServicesKit';
-import Logger from '../util/Logger'
-import { compressedConfig, readConfig } from '../util/Compress'
-import { deferredLink } from '@kit.AppLinkingKit'
+import { Logger } from '../util/Logger'
+import { compressedConfig } from '../util/Compress'
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { ItemBuilder } from '../util/ItemBuilders'
-import { updateSharedPeers } from '../util/info/WebInfo'
+import { updateSharedPeers } from '../WebUtil'
+import { ContextUtil } from '../ContextUtil'
+import { UIType, WindowUtil } from '../WindowUtil'
+import { EasyTierUtil } from '../EasyTierUtil'
 
 @Entry
 @ComponentV2
@@ -58,7 +59,7 @@ struct Index {
   }
 
   aboutToAppear(): void {
-    Manager.uiContext = this.getUIContext()
+    ContextUtil.uiContext = this.getUIContext()
     Manager.onInit()
   }
 
@@ -280,7 +281,7 @@ struct Index {
       .height(Manager.qqgroups.length*53+53+44)
       .clip(true)
     }
-    .padding({top: Manager.uiType != UIType.Column_3?55:0, right: 10, left: Manager.uiType != UIType.Column_3?10:0})
+    .padding({top: WindowUtil.uiType != UIType.Column_3?55:0, right: 10, left: WindowUtil.uiType != UIType.Column_3?10:0})
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Start)
@@ -289,7 +290,7 @@ struct Index {
     .gesture(
       SwipeGesture({ direction: SwipeDirection.Horizontal })
         .onAction((event: GestureEvent|undefined) => {
-          if(Manager.uiType != UIType.Column_3 || (event && Math.abs(event.angle) > 90)){
+          if(WindowUtil.uiType != UIType.Column_3 || (event && Math.abs(event.angle) > 90)){
             this.changeSideBar(false)
           }
         })
@@ -307,7 +308,7 @@ struct Index {
               Text("晚安!")
                 .fontColor($r("sys.color.font_primary"))
                 .fontSize(24)
-                .margin({left: Manager.uiType != UIType.Column_3?55:15})
+                .margin({left: WindowUtil.uiType != UIType.Column_3?55:15})
               Row() {
                 ToolButton({symbol: $r("sys.symbol.plus")})
                   .margin({right: 10})
@@ -390,7 +391,7 @@ struct Index {
             })
             if (Manager.configs.size == 0) {
               Stack({alignContent: Alignment.TopStart}) {
-                if (Manager.uiType == UIType.Column_3) {
+                if (WindowUtil.uiType == UIType.Column_3) {
                   Row() {
                     Column() {
                       this.sideBar()
@@ -405,8 +406,8 @@ struct Index {
                 }
                 Line()
                   .zIndex(3)
-                  .startPoint([Manager.width-130,5])
-                  .endPoint([Manager.width-130,30])
+                  .startPoint([WindowUtil.width-130,5])
+                  .endPoint([WindowUtil.width-130,30])
                   .strokeWidth(3)
                   .strokeLineCap(LineCapStyle.Round)
                   .width('100%')
@@ -416,7 +417,7 @@ struct Index {
                   .fontColor($r("sys.color.font_tertiary"))
                   .fontSize(12)
                   .offset({
-                    x: Manager.width-166,
+                    x: WindowUtil.width-166,
                     y: 33
                   })
               }
@@ -424,21 +425,21 @@ struct Index {
               .height('100%')
             }else {
               Stack() {
-                if (Manager.uiType != UIType.Column_3) {
+                if (WindowUtil.uiType != UIType.Column_3) {
                   InstanceCard({config: Manager.getConfigs()[this.realIndex]})
                     .zIndex(3)
                     .margin({top: 5})
                     .geometryTransition("instance_card_"+Manager.getConfigs()[this.realIndex].instance_id)
                 }
                 Row() {
-                  if (Manager.uiType == UIType.Column_3) {
+                  if (WindowUtil.uiType == UIType.Column_3) {
                     Column() {
                       this.sideBar()
                     }
                     .height('100%')
                     .layoutWeight(20)
                   }
-                  if (Manager.info_uuid != Manager.getConfigs()[this.realIndex].instance_id) {
+                  if (EasyTierUtil.runningNetworks.has(Manager.getConfigs()[this.realIndex].instance_id)) {
                     InstanceContent({config: Manager.getConfigs()[this.realIndex]})
                       .height('100%')
                       .zIndex(2)
@@ -450,7 +451,7 @@ struct Index {
                       .layoutWeight(80)
                   }
                 }
-                .margin({top: Manager.uiType != UIType.Column_3?66:0})
+                .margin({top: WindowUtil.uiType != UIType.Column_3?66:0})
                 .width('100%')
                 .height('100%')
               }
@@ -489,10 +490,10 @@ struct Index {
       .height('100%')
       .zIndex(1)
       .sideBarWidth('80%')
-      .minSideBarWidth(Manager.width*0.8)
+      .minSideBarWidth(WindowUtil.width*0.8)
       .showSideBar($$this.showSideBar)
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      if (Manager.uiType != UIType.Column_3) {
+      if (WindowUtil.uiType != UIType.Column_3) {
         Row() {
           ToolButton({symbol: this.showSideBar?$r("sys.symbol.indentation_left"):$r("sys.symbol.indent_right")})
             .onClick(() => {

@@ -1,19 +1,45 @@
 import { appTasks } from '@ohos/hvigor-ohos-plugin';
+import { appPlugin } from "@hadss/hmrouter-plugin";
 import { hvigor, getNode, HvigorNode, HvigorPlugin } from '@ohos/hvigor';
 import { appTasks, OhosHapContext, OhosAppContext, OhosPluginId, Target } from '@ohos/hvigor-ohos-plugin';
 import { parse } from 'yaml';
+import crypto from "crypto";
 import fs from 'fs';
 import path from 'path';
+import protobuf from "protobufjs";
 import { execSync } from "child_process";
-
+const scalarTypeMap = {
+    string: "string",
+    bool: "boolean",
+    bytes: "Uint8Array",
+    int32: "number",
+    uint32: "number",
+    sint32: "number",
+    fixed32: "number",
+    sfixed32: "number",
+    int64: "number",
+    uint64: "number",
+    sint64: "number",
+    fixed64: "number",
+    sfixed64: "number",
+    double: "number",
+    float: "number",
+};
 const build_time_file = "./entry/src/main/ets/util/info/BuildTime.ets"
 const appInfo = "./AppScope/app.json5"
-
 const en_file = "./entry/src/main/resources/base/element/easytier.json"
 const cn_file = "./entry/src/main/resources/zh/element/easytier.json"
 const cn = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/cn.yaml"
 const en = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/en.yaml"
 const proto = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/refs/heads/main/easytier/src/proto/"
+function calcHash(content: string): string {
+    return crypto.createHash("sha256").update(content).digest("hex");
+}
+function shouldSkipWrite(filePath: string, newContent: string): boolean {
+    if (!fs.existsSync(filePath)) return false;
+    const oldContent = fs.readFileSync(filePath, "utf8");
+    return calcHash(oldContent) === calcHash(newContent);
+}
 function loadSigningConfigs() {
     const path = 'signingConfigs.json';
     try {
@@ -56,14 +82,16 @@ function updateBuildTime() {
 async function convertYamlFromUrlToI18nJson(yamlUrl: string, jsonFilePath: string): Promise<void> {
     try {
         const response = await fetch(yamlUrl);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const yamlContent = await response.text();
-        console.log('✅ YAML 内容获取成功');
         const parsedObject = parse(yamlContent);
         const i18nData = convertToI18nFormat(parsedObject);
-        fs.writeFileSync(jsonFilePath, JSON.stringify(i18nData, null, 2), 'utf8');
+        const jsonString = JSON.stringify(i18nData, null, 2);
+        if (shouldSkipWrite(jsonFilePath, jsonString)) {
+            console.log(`⏩ 未变更，跳过写入：${path.basename(jsonFilePath)}`);
+            return;
+        }
+        fs.writeFileSync(jsonFilePath, jsonString, 'utf8');
         console.log(`📊 共转换了 ${i18nData.string.length} 个字符串`);
     } catch (error) {
         console.error('❌ 转换失败:', error);
@@ -74,12 +102,8 @@ function convertToI18nFormat(flatObject: Record<string, any>): { string: Array<{
     function processObject(obj: Record<string, any>, prefix: string = ''): void {
         for (const [key, value] of Object.entries(obj)) {
             const fullKey = prefix ? `${prefix}_${key}` : key;
-
             if (typeof value === 'string') {
-                strings.push({
-                    name: fullKey,
-                    value: value
-                });
+                strings.push({ name: fullKey, value: value });
             } else if (typeof value === 'object' && value !== null) {
                 processObject(value, fullKey);
             }
@@ -88,7 +112,7 @@ function convertToI18nFormat(flatObject: Record<string, any>): { string: Array<{
     processObject(flatObject);
     return { string: strings };
 }
-async function downloadProtoFile(fileName: string): Promise<void> {
+async function downloadProtoFile(fileName: string): Promise<boolean> {
     try {
         const dir = path.resolve(__dirname, "./proto");
         const filePath = path.join(dir, fileName+".proto");
@@ -97,9 +121,16 @@ async function downloadProtoFile(fileName: string): Promise<void> {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const protoContent = await response.text();
+        if (shouldSkipWrite(filePath, protoContent)) {
+            console.log(`⏩ 未变更，跳过下载：${fileName}.proto`);
+            return false;
+        }
         fs.writeFileSync(filePath, protoContent, 'utf8');
+        console.log(`✅ 已下载并更新：${fileName}.proto`);
+        return true;
     } catch (error) {
         console.error('❌ 转换失败:', error);
+        return false;
     }
 }
 hvigor.nodesEvaluated(() => {
@@ -113,7 +144,7 @@ hvigor.nodesEvaluated(() => {
             const targetName = target.getTargetName();
             const resourceTask: Task | undefined = node.getTaskByName(`${targetName}@ProcessStartupConfig`);
             if (resourceTask) {
-                resourceTask.beforeRun(() => {
+                resourceTask.beforeRun(async () => {
                     updateBuildTime()
                     convertYamlFromUrlToI18nJson(en,en_file)
                     convertYamlFromUrlToI18nJson(cn,cn_file)
@@ -125,9 +156,31 @@ hvigor.nodesEvaluated(() => {
                         "acl",
                         "error",
                     ];
-                    Promise.all(files.map(downloadProtoFile)).then(() => {
-                        execSync("C:\\Users\\23820\\scoop\\shims\\buf.exe generate", { cwd: path.resolve(__dirname, "."), stdio: "inherit" });
-                    })
+                    let results = await Promise.all(files.map(downloadProtoFile));
+                    const changed = results.some(Boolean);
+                    if (changed) {
+                        console.log("🔄 检测到 proto 文件更新，重新生成...");
+                        execSync("C:\\Users\\23820\\scoop\\shims\\buf.exe generate", {
+                            cwd: path.resolve(__dirname, "."),
+                            stdio: "inherit"
+                        });
+                        const mapping = {};
+                        const dir = path.resolve(__dirname, "./proto");
+                        const root = await protobuf.load(path.join(dir, "api_manage.proto"))
+                        const message = root.lookupType("NetworkConfig")!;
+                        for (const [fieldName, field] of Object.entries(message.fields)) {
+                            const tsType = scalarTypeMap[field.type] || field.type;
+                            const finalType = field.rule === "repeated" ? `${tsType}[]` : tsType;
+                            mapping[fieldName] = finalType;
+                        }
+                        fs.writeFileSync(
+                            "./entry/src/main/ets/protobuf/proto-type-map.ts",
+                            "export const NetworkConfigTypeMap = " + JSON.stringify(mapping, null, 2)
+                        );
+                        console.log("✅ 生成完成");
+                    } else {
+                        console.log("⏭️ 所有 proto 文件均无变化，跳过生成");
+                    }
                 });
             }
         });
@@ -144,5 +197,5 @@ rootNode.afterNodeEvaluate(node => {
 })
 export default {
     system: appTasks,  /* Built-in plugin of Hvigor. It cannot be modified. */
-    plugins:[]         /* Custom plugin to extend the functionality of Hvigor. */
+    plugins:[appPlugin({ ignoreModuleNames: [] })]         /* Custom plugin to extend the functionality of Hvigor. */
 }

@@ -1,16 +1,19 @@
 import { SymbolGlyphModifier } from "@kit.ArkUI"
 import { BusinessError, pasteboard } from "@kit.BasicServicesKit"
-import Manager, { UIType } from "../Manager"
-import { protocolColor, SharedPeer } from "../util/config/ETConfig"
-import Logger from "../util/Logger"
+import Manager from "../Manager"
+import { protocolColor, SharedPeer } from "../util/ETConfig"
+import { Logger } from "../util/Logger"
 import {
   requestDistributePerm, requestLocPerm } from "../util/Permission"
-import { abilityAccessCtrl, Context } from "@kit.AbilityKit"
-import { laneWidth, laneHeight } from "../util/Conversion"
-import EventHelper from "../util/EventHelper"
-import { CompSize } from "./nodes/AutoSortContainer"
-import { updateSharedPeers } from "../util/info/WebInfo"
+import { abilityAccessCtrl } from "@kit.AbilityKit"
+import { EventHelper } from "../util/EventHelper"
+import { updateSharedPeers } from "../WebUtil"
 import { vibrator } from "@kit.SensorServiceKit"
+import { PreferenceUtil } from "../PreferencesUtil"
+import { UIType, WindowUtil } from "../WindowUtil"
+import { ContextUtil } from "../ContextUtil"
+import { lane } from "../util/Conversion"
+import { HdsNavigationIconOptions, HdsNavigationMenuItemOptions, IconStyleMode } from "@kit.UIDesignKit"
 
 interface color {
   r: number
@@ -306,26 +309,12 @@ export function settingSheet() {
           .fontColor($r("sys.color.font_primary"))
           .fontSize(16)
           .margin({right: 5})
-        if (Manager.preference_log != Manager.show_log) {
-          Text("重启后生效")
-            .fontColor($r("sys.color.font_secondary"))
-            .fontSize(14)
-        }
       }
-      Toggle({ type: ToggleType.Switch, isOn: Manager.preference_log })
+      Toggle({ type: ToggleType.Switch, isOn: PreferenceUtil.show_log })
         .selectedColor($r('sys.color.brand'))
         .switchPointColor($r('sys.color.comp_background_list_card'))
         .onChange((isOn: boolean) => {
-          try {
-            Manager.Preferences!.putSync("show_log", isOn)
-          } catch (e) {
-            Logger.error(`[Components] An unexpected error occurred. Code:${e.code},message:${e.message}`);
-          }
-          try {
-            Manager.Preferences!.flushSync()
-          } catch (e) {
-            Logger.error(`[Components] An unexpected error occurred. Code:${e.code},message:${e.message}`);
-          }
+          PreferenceUtil.show_log = isOn
         })
         .height(29)
         .width(52)
@@ -357,7 +346,7 @@ export function settingSheet() {
         Button('授权', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL})
           .borderRadius(13)
           .onClick(() => {
-            requestLocPerm(Manager.uiContext!.getHostContext()!)
+            requestLocPerm(ContextUtil.uiContext!.getHostContext()!)
           })
       }
     }
@@ -388,7 +377,7 @@ export function settingSheet() {
         Button('授权', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL})
           .borderRadius(13)
           .onClick(() => {
-            requestDistributePerm(Manager.uiContext!.getHostContext()!)
+            requestDistributePerm(ContextUtil.uiContext!.getHostContext()!)
           })
       }
     }
@@ -409,6 +398,19 @@ export function MenuButton(value: string | Resource, symbol: Resource, callback:
   return {'value': value, 'symbolIcon': new SymbolGlyphModifier(symbol), 'action': ()=> {
     callback()
   }}
+}
+
+export function HdsMenuButton(value: ResourceStr, symbol: Resource, callback: () => void): HdsNavigationMenuItemOptions {
+  return {
+    content: {
+      icon: new SymbolGlyphModifier(symbol),
+      label: value,
+      action: ()=>{
+        callback()
+      },
+      type: IconStyleMode.LARGE
+    }
+  }
 }
 
 @ComponentV2
@@ -501,280 +503,29 @@ export struct ToolButtonWithPaste {
   }
 }
 
-const animationParm: AnimateParam = {
-  duration: 200,
-  curve: Curve.Friction
-}
-
-@ComponentV2
-struct ResizeBall {
-  @Param @Require addDirection: PanDirection
-  @Param @Require isResize: boolean
-  @Param @Require isAddable: () => boolean
-  @Param @Require isDeletable: () => boolean
-  @Param @Require lane: number
-  @Param @Require length: number
-  @Event $lane: (val: number) => void = (val: number) => {}
-  @Param @Require extra: number
-  @Event $extra: (val: number) => void = (val: number) => {}
-  @Local fingerOffset: number = 0
-  @Local disable_a: boolean = false
-  @Local disable_d: boolean = false
-  @BuilderParam content: ()=>void
-
-  @Computed
-  get isHorizontal() {
-    return this.addDirection == PanDirection.Left || this.addDirection == PanDirection.Right
-  }
-
-  getFixScale(): number {
-    return (this.addDirection == PanDirection.Left || this.addDirection == PanDirection.Up)?-1:1
-  }
-
-  getOffset(event: GestureEvent): number {
-    if (this.isHorizontal) {
-      return (event.offsetX - this.fingerOffset)*this.getFixScale()
-    }else {
-      return (event.offsetY - this.fingerOffset)*this.getFixScale()
-    }
-  }
-
-  getRawOffset(event: GestureEvent): number {
-    return this.isHorizontal?event.offsetX:event.offsetY
-  }
-
-  getLane(lane: number = this.lane): number {
-    if (this.isHorizontal) {
-      return laneWidth(lane)
-    }else {
-      return laneHeight(lane)
-    }
-  }
-
-  canExtra(offset: number): boolean {
-    return offset>0?this.isAddable() && this.getNextLane() > this.lane:this.isDeletable() && this.getPreLane() < this.lane
-  }
-
-  extraLane(offset: number) {
-    if (offset>0) {
-      this.$lane(this.getNextLane())
-    }else {
-      this.$lane(this.getPreLane())
-    }
-  }
-
-  getNextLane(): number {
-    if (this.isHorizontal) {
-      switch (Manager.uiType) {
-        case UIType.Column_1: {
-          return Math.min(2, this.lane+1)
-        }
-        case UIType.Column_2: {
-          return Math.min(4, this.lane+1)
-        }
-        case UIType.Column_3: {
-          return Math.min(6, this.lane+1)
-        }
-      }
-    }else {
-      return Math.min(4, this.lane+1)
-    }
-  }
-
-  getPreLane(): number {
-    return Math.max(1, this.lane-1)
-  }
-
-  build() {
+@Builder
+function gradientText(size: number = 36, text: string | Resource | undefined = 'EasyTier', weight: number | FontWeight | ResourceStr = FontWeight.Bold, angle: string | number | undefined = 225) {
+  Stack() {
     Row() {
-      Stack() {
-        Circle({ width: 18, height: 18 })
-          .fill("#3A0a59f7")
-        Circle({ width: 8, height: 8 })
-          .fill($r("sys.color.brand"))
-      }
+      Text(text)
+        .fontWeight(weight)
+        .minFontSize(1)
+        .maxFontSize(100)
+        .maxLines(1)
+        .blendMode(BlendMode.DST_IN, BlendApplyType.OFFSCREEN)
+        .clip(false)
+        .padding(5)
     }
-    .alignItems(VerticalAlign.Center)
+    .linearGradient({
+      colors:[
+        ['rgba(255,200,50,1)', 0.3],
+        ['rgba(0,230,118,1)', 1]
+      ],
+      angle: angle
+    })
+    .blendMode(BlendMode.SRC_OVER, BlendApplyType.OFFSCREEN)
     .justifyContent(FlexAlign.Center)
-    .width(!this.isHorizontal?this.length-36:18)
-    .height(this.isHorizontal?this.length-36:18)
-    .gesture(PanGesture({ direction: this.isHorizontal?PanDirection.Horizontal:PanDirection.Vertical, fingers: 1 })
-      .onActionUpdate((event) => {
-        animateToImmediately(animationParm, () => {
-          let offset = this.getOffset(event)
-          if ((!this.disable_a && offset >= 0) || (!this.disable_d && offset < 0)) {
-            this.disable_a = false
-            this.disable_d = false
-            if (Math.abs(offset) >= 30 && !this.canExtra(offset)) {
-              this.$extra(0)
-              if (offset < 0) {
-                this.disable_d = true
-              }else {
-                this.disable_a = true
-              }
-            }else if (this.canExtra(offset) && (offset-10 >= this.getLane(1)*0.7 || offset+10 <= this.getLane(1)*-0.5)) {
-              this.fingerOffset = this.getRawOffset(event)
-              this.extraLane(offset)
-            }else {
-              this.$extra(offset)
-            }
-          }else {
-            this.fingerOffset = this.getRawOffset(event)
-          }
-        })
-      })
-      .onActionEnd(() => {
-        animateToImmediately(animationParm, () => {
-          this.$extra(0)
-          this.fingerOffset = 0
-          this.disable_a = false
-          this.disable_d = false
-        })
-      }))
-    .hitTestBehavior(this.isResize ? HitTestMode.Block : HitTestMode.Default)
   }
-}
-
-@ComponentV2
-export struct ResizableComponent {
-  @Param @Require comp_type: string
-  @Local lane_w: number = 1
-  @Local lane_h: number = 1
-  @Local offset_l: number = 0
-  @Local offset_r: number = 0
-  @Local offset_u: number = 0
-  @Local offset_d: number = 0
-  @Local isResize: boolean = false
-  @BuilderParam content: ()=>void
-  @Local timer: number = -1
-  @Local pan_offset_x: number = 0
-  @Local pan_offset_y: number = 0
-
-  @Monitor("lane_w", "lane_h", "offset_l", "offset_r", "offset_u", "offset_d")
-  onStrChange(monitor: IMonitor) {
-
-  }
-
-  @Computed
-  get offset_w() {
-    return this.offset_l + this.offset_r
-  }
-  @Computed
-  get offset_h() {
-    return this.offset_u + this.offset_d
-  }
-
-  aboutToAppear(): void {
-    EventHelper.emitterListener("resize_off", () => {
-      animateToImmediately(animationParm, () => {
-        this.isResize = false
-      })
-    })
-  }
-
-  build() {
-    Stack({alignContent: Alignment.Center}) {
-      this.content()
-      if (this.isResize) {
-        ResizeBall({
-          addDirection: PanDirection.Left,
-          extra: this.offset_l!!,
-          isAddable: ()=>{return false},
-          isDeletable: ()=>{return true},
-          isResize: this.isResize,
-          lane: this.lane_h!!,
-          length: laneHeight(this.lane_h) + this.offset_h
-        })
-          .position({
-            x: -8,
-            y: 18
-          })
-        ResizeBall({
-          addDirection: PanDirection.Up,
-          extra: this.offset_u!!,
-          isAddable: ()=>{return false},
-          isDeletable: ()=>{return true},
-          isResize: this.isResize,
-          lane: this.lane_h!!,
-          length: laneWidth(this.lane_w) + this.offset_w
-        })
-          .position({
-            x: 18,
-            y: -8
-          })
-        ResizeBall({
-          addDirection: PanDirection.Down,
-          extra: this.offset_d!!,
-          isAddable: ()=>{return true},
-          isDeletable: ()=>{return true},
-          isResize: this.isResize,
-          lane: this.lane_h!!,
-          length: laneWidth(this.lane_w) + this.offset_w
-        })
-          .position({
-            x: 18,
-            y: laneHeight(this.lane_h) + this.offset_d + this.offset_u -10
-          })
-        ResizeBall({
-          addDirection: PanDirection.Right,
-          extra: this.offset_r!!,
-          isAddable: ()=>{return true},
-          isDeletable: ()=>{return true},
-          isResize: this.isResize,
-          lane: this.lane_w!!,
-          length: laneHeight(this.lane_h) + this.offset_h
-        })
-          .position({
-            x: laneWidth(this.lane_w) + this.offset_r + this.offset_l -10,
-            y: 18
-          })
-      }
-    }
-    .gesture(GestureGroup(GestureMode.Sequence,LongPressGesture({ repeat: false, fingers: 1 })
-      .onAction((event: GestureEvent|undefined) => {
-        if(event && !this.isResize) {
-          vibrator.startVibration({
-            type: 'time',
-            duration: 1,
-          }, {
-            id: 0,
-            usage: 'touch'
-          }, () => {})
-          animateToImmediately(animationParm, () => {
-            this.isResize = true
-          })
-        }
-      }),
-      PanGesture({direction: PanDirection.All, fingers: 1})
-      .onActionStart((event) => {
-        if(event) {
-          animateToImmediately(animationParm, () => {
-            this.isResize = false
-          })
-        }
-      }).onActionUpdate((event) => {
-        if(event) {
-          this.pan_offset_x = event.offsetX
-          this.pan_offset_y = event.offsetY
-        }
-      }).onActionEnd((event) => {
-        if (event) {
-          animateToImmediately(animationParm, () => {
-            this.isResize = true
-            this.pan_offset_x = 0
-            this.pan_offset_y = 0
-          })
-        }
-      }))
-    )
-    .borderWidth(this.isResize?2:0)
-    .borderColor($r("sys.color.brand"))
-    .borderRadius(34)
-    .width(laneWidth(this.lane_w) + this.offset_w)
-    .height(laneHeight(this.lane_h) + this.offset_h)
-    .position({
-      x: -this.offset_l + this.pan_offset_x,
-      y: -this.offset_u + this.pan_offset_y
-    })
-  }
+  .layoutWeight(size)
+  .clip(false)
 }

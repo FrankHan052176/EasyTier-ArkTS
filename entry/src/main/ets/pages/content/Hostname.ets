@@ -1,5 +1,5 @@
 import Manager from "../../Manager"
-import { Config } from "../../util/config/ETConfig"
+import { Config } from "../../util/ETConfig"
 import { isGetDistributePerm, requestDistributePerm } from "../../util/Permission"
 
 @ComponentV2

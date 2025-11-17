@@ -75,6 +75,10 @@
           {
             "name": "ohos.extension.backup",
             "resource": "$profile:backup_config"
+          },
+          {
+            "name": "configColorModeChangePerformanceInArkUI",
+            "value": "true"
           }
         ]
       },

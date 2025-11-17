@@ -9,8 +9,8 @@ import { cidr, Config,
   Protocol,
   route,
   socks5_proxy,
-  vpn_portal_config_with_config} from "./config/ETConfig";
-import Logger from "./Logger";
+  vpn_portal_config_with_config} from "./ETConfig";
+import { Logger } from "./Logger";
 import { SafeSet } from "./SafeSet";
 import { buffer } from "@kit.ArkTS";
 import { BusinessError, zlib } from "@kit.BasicServicesKit";

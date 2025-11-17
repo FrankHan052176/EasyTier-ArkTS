@@ -1,5 +1,5 @@
 import Manager from "../../Manager"
-import { Config } from "../../util/config/ETConfig"
+import { Config } from "../../util/ETConfig"
 
 @Extend(TextInput) function fancyText(enable: boolean, weight: number = 30, length: number = 3) {
   .fontColor(enable?$r("sys.color.font_secondary"):$r("sys.color.font_primary"))

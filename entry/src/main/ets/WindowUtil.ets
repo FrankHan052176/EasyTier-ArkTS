@@ -1,19 +1,54 @@
+import { Spx2vp } from "./ContextUtil"
+import { Logger, LogLocate } from "./util/Logger"
+
 export enum UIType {
-  Column_1, Column_2, Column_3
+  Column_1 = 2, Column_2 = 4, Column_3 = 6
 }
 
+@LogLocate("WindowUtil")
 @ObservedV2
-class WindowUtil {
+export class WindowUtil {
   @Trace public static width: number = 0
   @Trace public static height: number = 0
   @Trace public static uiType: UIType = UIType.Column_1
-  @Trace public static context: Context | undefined
+  @Trace public static statusBarHeight: number = 0
+  @Trace public static navigationBarHeight: number = 0
+
+  static set setStatusBarHeight(value: number) {
+    WindowUtil.statusBarHeight = Spx2vp(value)
+  }
+
+  static set setNavigationBarHeight(value: number) {
+    WindowUtil.navigationBarHeight = Spx2vp(value)
+  }
 
   public static update(width: number, height: number) {
-    WindowUtil.width = width
-    WindowUtil.height = height
-    if (condition) {
-      
-    }
+    animateToImmediately({
+      duration: 300,
+      curve: Curve.Friction
+    }, () => {
+      WindowUtil.width = Spx2vp(width)
+      WindowUtil.height = Spx2vp(height)
+      if (WindowUtil.width < 720) {
+        WindowUtil.uiType = UIType.Column_1
+      }else if (WindowUtil.width >= 1080) {
+        WindowUtil.uiType = UIType.Column_3
+      }else {
+        WindowUtil.uiType = UIType.Column_2
+      }
+    })
+    Logger.debug(`WindowUtil update.`, WindowUtil)
+  }
+
+  public static foreground() {
+
+  }
+
+  public static background() {
+
+  }
+
+  public static windowStageDestroy() {
+
   }
 }

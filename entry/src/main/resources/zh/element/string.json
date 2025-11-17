@@ -55,6 +55,14 @@
     {
       "name": "i18_tiao",
       "value": "条"
+    },
+    {
+      "name": "socks5_port",
+      "value": "socks5服务器端口"
+    },
+    {
+      "name": "i18_enable",
+      "value": "启用"
     }
   ]
 }

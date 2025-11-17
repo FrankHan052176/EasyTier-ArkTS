@@ -1,23 +1,24 @@
 #include "napi/native_api.h"
 #include <iostream>
-#include <vector>
 #include <string>
 #include "hilog/log.h"
 #include <toml++/toml.hpp>
 #include <nlohmann/json.hpp>
-std::vector<std::string> appLog;
-std::vector<std::string> nmLog;
-std::vector<std::string> ohLog;
+#include "LockFreeRingBuffer.h"
+
+LockFreeRingBuffer<5000> appLog;
+LockFreeRingBuffer<5000> nmLog;
+LockFreeRingBuffer<5000> ohLog;
 void MyHiLog(const LogType type, const LogLevel level, const unsigned int domain, const char *tag, const char *msg)
 {
     if (level >= LOG_INFO && strcmp(tag, "fhl") == 0) {
-        appLog.push_back(std::to_string(static_cast<int>(level))+msg);
+        appLog.write(std::move(std::to_string(static_cast<int>(level))+msg));
     }else if (level >= LOG_WARN && strcmp(tag, "NETMANAGER_EXT") == 0) {
         std::string safeMsg;
         safeMsg = std::string("[NETMANAGER_EXT] ") + msg;
-        nmLog.push_back(std::to_string(static_cast<int>(level))+safeMsg);
+        nmLog.write(std::move(std::to_string(static_cast<int>(level))+safeMsg));
     }else if (level >= LOG_ERROR) {
-        ohLog.push_back(std::to_string(static_cast<int>(level))+msg);
+        ohLog.write(std::move(std::to_string(static_cast<int>(level))+msg));
     }
 }
 static napi_value hilogInit(napi_env env, napi_callback_info info)
@@ -27,40 +28,52 @@ static napi_value hilogInit(napi_env env, napi_callback_info info)
 }
 static napi_value getAppLog(napi_env env, napi_callback_info info)
 {
+    std::vector<std::string> messages = appLog.read_all();
     napi_value output_array;
-    napi_create_array(env, &output_array);
-    for (size_t i = 0; i < appLog.size(); i++) {
+    napi_status status = napi_create_array(env, &output_array);
+    if (status != napi_ok) {
+        return nullptr;
+    }
+    for (size_t i = 0; i < messages.size(); i++) {
         napi_value jsString;
-        // C++ string 转 JS string
-        napi_create_string_utf8(env, appLog[i].c_str(), NAPI_AUTO_LENGTH, &jsString);
-        // 设置到 array[i]
-        napi_set_element(env, output_array, i, jsString);
+        status = napi_create_string_utf8(env, messages[i].c_str(), NAPI_AUTO_LENGTH, &jsString);
+        if (status == napi_ok) {
+            napi_set_element(env, output_array, i, jsString);
+        }
     }
     return output_array;
 }
 static napi_value getNetworkManagerLog(napi_env env, napi_callback_info info)
 {
+    std::vector<std::string> messages = nmLog.read_all();
     napi_value output_array;
-    napi_create_array(env, &output_array);
-    for (size_t i = 0; i < nmLog.size(); i++) {
+    napi_status status = napi_create_array(env, &output_array);
+    if (status != napi_ok) {
+        return nullptr;
+    }
+    for (size_t i = 0; i < messages.size(); i++) {
         napi_value jsString;
-        // C++ string 转 JS string
-        napi_create_string_utf8(env, nmLog[i].c_str(), NAPI_AUTO_LENGTH, &jsString);
-        // 设置到 array[i]
-        napi_set_element(env, output_array, i, jsString);
+        status = napi_create_string_utf8(env, messages[i].c_str(), NAPI_AUTO_LENGTH, &jsString);
+        if (status == napi_ok) {
+            napi_set_element(env, output_array, i, jsString);
+        }
     }
     return output_array;
 }
 static napi_value getOHLog(napi_env env, napi_callback_info info)
 {
+    std::vector<std::string> messages = ohLog.read_all();
     napi_value output_array;
-    napi_create_array(env, &output_array);
-    for (size_t i = 0; i < ohLog.size(); i++) {
+    napi_status status = napi_create_array(env, &output_array);
+    if (status != napi_ok) {
+        return nullptr;
+    }
+    for (size_t i = 0; i < messages.size(); i++) {
         napi_value jsString;
-        // C++ string 转 JS string
-        napi_create_string_utf8(env, ohLog[i].c_str(), NAPI_AUTO_LENGTH, &jsString);
-        // 设置到 array[i]
-        napi_set_element(env, output_array, i, jsString);
+        status = napi_create_string_utf8(env, messages[i].c_str(), NAPI_AUTO_LENGTH, &jsString);
+        if (status == napi_ok) {
+            napi_set_element(env, output_array, i, jsString);
+        }
     }
     return output_array;
 }
