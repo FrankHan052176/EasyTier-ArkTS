@@ -5,7 +5,7 @@ import { EventHelper } from "../../util/EventHelper"
 import { Logger } from "../../util/Logger"
 import { UIType, WindowUtil } from "../../WindowUtil"
 
-const animationParm: AnimateParam = {
+export const layoutAnimationParm: AnimateParam = {
   duration: 200,
   curve: Curve.Friction
 }
@@ -16,16 +16,16 @@ struct ResizeBall {
   @Param @Require isResize: boolean
   @Param @Require isAddable: () => boolean
   @Param @Require isDeletable: () => boolean
-  @Param @Require length: number
   @Param @Require lane: number
+  @Param @Require length: number
   @Event $lane: (val: number) => void = (val: number) => {}
   @Param @Require extra: number
   @Event $extra: (val: number) => void = (val: number) => {}
-  @Param @Require compType: string
+  @Param pos: number = 0
+  @Event $pos: (val: number) => void = (val: number) => {}
   @Local fingerOffset: number = 0
   @Local disable_a: boolean = false
   @Local disable_d: boolean = false
-  @Local lastValidLane: number = 1
   @BuilderParam content: ()=>void
 
   @Computed
@@ -50,7 +50,11 @@ struct ResizeBall {
   }
 
   getLane(need: number = this.lane): number {
-    return lane(need)
+    if (this.isHorizontal) {
+      return lane(need)
+    }else {
+      return lane(need)
+    }
   }
 
   canExtra(offset: number): boolean {
@@ -59,8 +63,14 @@ struct ResizeBall {
 
   extraLane(offset: number) {
     if (offset>0) {
+      if (this.addDirection == PanDirection.Left || this.addDirection == PanDirection.Up) {
+        this.$pos(this.pos-1)
+      }
       this.$lane(this.getNextLane())
     }else {
+      if (this.addDirection == PanDirection.Left || this.addDirection == PanDirection.Up) {
+        this.$pos(this.pos+1)
+      }
       this.$lane(this.getPreLane())
     }
   }
@@ -68,15 +78,18 @@ struct ResizeBall {
   getNextLane(): number {
     if (this.isHorizontal) {
       switch (WindowUtil.uiType) {
-        case UIType.Column_1: return Math.min(2, this.lane+1)
-        case UIType.Column_2: return Math.min(4, this.lane+1)
-        case UIType.Column_3: return Math.min(6, this.lane+1)
-        default: {
-          return 0
+        case UIType.Column_1: {
+          return Math.min(2, this.lane+1)
+        }
+        case UIType.Column_2: {
+          return Math.min(4, this.lane+1)
+        }
+        case UIType.Column_3: {
+          return Math.min(6, this.lane+1)
         }
       }
     }else {
-      return Math.min(4, this.lane+1)
+      return Math.min(10, this.lane+1)
     }
   }
 
@@ -99,7 +112,7 @@ struct ResizeBall {
     .height(this.isHorizontal?this.length-36:18)
     .gesture(PanGesture({ direction: this.isHorizontal?PanDirection.Horizontal:PanDirection.Vertical, fingers: 1 })
       .onActionUpdate((event) => {
-        animateToImmediately(animationParm, () => {
+        animateToImmediately(layoutAnimationParm, () => {
           let offset = this.getOffset(event)
           if ((!this.disable_a && offset >= 0) || (!this.disable_d && offset < 0)) {
             this.disable_a = false
@@ -111,7 +124,8 @@ struct ResizeBall {
               }else {
                 this.disable_a = true
               }
-            }else if (this.canExtra(offset) && (offset-10 >= this.getLane(1)*0.7 || offset+10 <= this.getLane(1)*-0.5)) {
+              this.fingerOffset = this.getRawOffset(event)
+            }else if (this.canExtra(offset) && (offset-10 >= this.getLane(1)*0.6 || offset+10 <= this.getLane(1)*-0.5)) {
               this.fingerOffset = this.getRawOffset(event)
               this.extraLane(offset)
             }else {
@@ -123,7 +137,7 @@ struct ResizeBall {
         })
       })
       .onActionEnd(() => {
-        animateToImmediately(animationParm, () => {
+        animateToImmediately(layoutAnimationParm, () => {
           this.$extra(0)
           this.fingerOffset = 0
           this.disable_a = false
@@ -145,10 +159,6 @@ export struct ResizableComponent {
   @Local pan_offset_y: number = 0
   @Local touch_x: number = 0
   @Local touch_y: number = 0
-  @Local find_next_grid: boolean = false
-  @Local next_grid_x: number = this.comp_size.grid_x
-  @Local next_grid_y: number = this.comp_size.grid_y
-
 
   @Computed
   get offset_w() {
@@ -158,10 +168,30 @@ export struct ResizableComponent {
   get offset_h() {
     return this.comp_size.offset_u + this.comp_size.offset_d
   }
+  @Computed
+  get grid_size() {
+    return lane(1)
+  }
+  @Computed
+  get tempPosOffsetX() {
+    if (!this.comp_size.isFloating && this.comp_size.find_next_grid) {
+      return (this.comp_size.next_grid_x - this.comp_size.grid_x)*(this.grid_size+10)
+    }else {
+      return 0
+    }
+  }
+  @Computed
+  get tempPosOffsetY() {
+    if (!this.comp_size.isFloating && this.comp_size.find_next_grid) {
+      return (this.comp_size.next_grid_y - this.comp_size.grid_y)*(this.grid_size+10)
+    }else {
+      return 0
+    }
+  }
 
   aboutToAppear(): void {
     EventHelper.emitterListener("resize_off", () => {
-      animateToImmediately(animationParm, () => {
+      animateToImmediately(layoutAnimationParm, () => {
         this.isResize = false
       })
     })
@@ -169,8 +199,9 @@ export struct ResizableComponent {
 
   build() {
     Stack({alignContent: Alignment.Center}) {
-      if (this.find_next_grid) {
+      if (this.comp_size.find_next_grid && this.comp_size.isFloating) {
         Column()
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           .width(lane(this.comp_size.lane_w))
           .height(lane(this.comp_size.lane_h))
           .backgroundColor($r("sys.color.font_on_fourth"))
@@ -178,8 +209,8 @@ export struct ResizableComponent {
           .borderColor($r("sys.color.font_on_tertiary"))
           .borderRadius(18)
           .position({
-            x: (this.next_grid_x-this.comp_size.grid_x)*(lane(1)+10),
-            y: (this.next_grid_y-this.comp_size.grid_y)*(lane(1)+10)
+            x: (this.comp_size.next_grid_x-this.comp_size.grid_x)*(lane(1)+10),
+            y: (this.comp_size.next_grid_y-this.comp_size.grid_y)*(lane(1)+10)
           })
           .transition(TransitionEffect.asymmetric(
             TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.Ease }),
@@ -192,12 +223,13 @@ export struct ResizableComponent {
             ResizeBall({
               addDirection: PanDirection.Left,
               extra: this.comp_size.offset_l!!,
-              isAddable: ()=>{return false},
-              isDeletable: ()=>{return true},
+              isAddable: ()=>{return this.comp_size.grid_x > 0
+                && LayoutUtil.getObstacles(this.comp_type, {x:this.comp_size.grid_x-1,y:this.comp_size.grid_y}, this.comp_size.lane_w+1, this.comp_size.lane_h).length === 0},
+              isDeletable: ()=>{return this.comp_size.lane_w > 1},
               isResize: this.isResize,
-              lane: this.comp_size.lane_h!!,
+              lane: this.comp_size.lane_w!!,
               length: lane(this.comp_size.lane_h) + this.offset_h,
-              compType: this.comp_type
+              pos: this.comp_size.grid_x!!
             })
               .position({
                 x: -8,
@@ -206,12 +238,13 @@ export struct ResizableComponent {
             ResizeBall({
               addDirection: PanDirection.Up,
               extra: this.comp_size.offset_u!!,
-              isAddable: ()=>{return false},
-              isDeletable: ()=>{return true},
+              isAddable: ()=>{return this.comp_size.grid_y > 0
+                && LayoutUtil.getObstacles(this.comp_type, {x:this.comp_size.grid_x,y:this.comp_size.grid_y-1}, this.comp_size.lane_w, this.comp_size.lane_h+1).length === 0},
+              isDeletable: ()=>{return this.comp_size.lane_h > 1},
               isResize: this.isResize,
               lane: this.comp_size.lane_h!!,
               length: lane(this.comp_size.lane_w) + this.offset_w,
-              compType: this.comp_type
+              pos: this.comp_size.grid_y!!
             })
               .position({
                 x: 18,
@@ -220,12 +253,12 @@ export struct ResizableComponent {
             ResizeBall({
               addDirection: PanDirection.Down,
               extra: this.comp_size.offset_d!!,
-              isAddable: ()=>{return true},
-              isDeletable: ()=>{return true},
+              isAddable: ()=>{return this.comp_size.grid_y + this.comp_size.lane_h < LayoutUtil.LayoutHeight()
+                && LayoutUtil.getObstacles(this.comp_type, {x:this.comp_size.grid_x,y:this.comp_size.grid_y}, this.comp_size.lane_w, this.comp_size.lane_h+1).length === 0},
+              isDeletable: ()=>{return this.comp_size.lane_h > 1},
               isResize: this.isResize,
               lane: this.comp_size.lane_h!!,
-              length: lane(this.comp_size.lane_w) + this.offset_w,
-              compType: this.comp_type
+              length: lane(this.comp_size.lane_w) + this.offset_w
             })
               .position({
                 x: 18,
@@ -234,12 +267,12 @@ export struct ResizableComponent {
             ResizeBall({
               addDirection: PanDirection.Right,
               extra: this.comp_size.offset_r!!,
-              isAddable: ()=>{return true},
-              isDeletable: ()=>{return true},
+              isAddable: ()=>{return this.comp_size.grid_x + this.comp_size.lane_w < LayoutUtil.LayoutWidth()
+                && LayoutUtil.getObstacles(this.comp_type, {x:this.comp_size.grid_x,y:this.comp_size.grid_y}, this.comp_size.lane_w+1, this.comp_size.lane_h).length === 0},
+              isDeletable: ()=>{return this.comp_size.lane_w > 1},
               isResize: this.isResize,
               lane: this.comp_size.lane_w!!,
-              length: lane(this.comp_size.lane_h) + this.offset_h,
-              compType: this.comp_type
+              length: lane(this.comp_size.lane_h) + this.offset_h
             })
               .position({
                 x: lane(this.comp_size.lane_w) + this.comp_size.offset_r + this.comp_size.offset_l -10,
@@ -247,6 +280,7 @@ export struct ResizableComponent {
               })
           }
         }
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
         .gesture(GestureGroup(GestureMode.Sequence,LongPressGesture({ repeat: false, fingers: 1, duration: 300 })
           .onAction(() => {
             if(!this.isResize) {
@@ -257,7 +291,7 @@ export struct ResizableComponent {
                 id: 0,
                 usage: 'touch'
               }, () => {})
-              animateToImmediately(animationParm, () => {
+              animateToImmediately(layoutAnimationParm, () => {
                 this.isResize = true
                 this.comp_scale = 1
               })
@@ -265,35 +299,50 @@ export struct ResizableComponent {
           }),
           PanGesture({direction: PanDirection.All, fingers: 1})
             .onActionStart((event) => {
-              animateToImmediately(animationParm, () => {
+              this.comp_size.next_grid_x = this.comp_size.grid_x
+              this.comp_size.next_grid_y = this.comp_size.grid_y
+              animateToImmediately(layoutAnimationParm, () => {
                 this.isResize = false
                 this.comp_size.isFloating = true
                 this.touch_x = event.fingerList[0].localX
                 this.touch_y = event.fingerList[0].localY
-                this.next_grid_x = this.comp_size.grid_x
-                this.next_grid_y = this.comp_size.grid_y
               })
             })
             .onActionUpdate((event) => {
               this.pan_offset_x = event.offsetX
               this.pan_offset_y = event.offsetY
-              this.comp_size.floatingX = this.comp_size.grid_x + this.pan_offset_x
-              this.comp_size.floatingY = this.comp_size.grid_y + this.pan_offset_y
-              let floatPos = LayoutUtil.updateGridPosition({
-                x: this.comp_size.floatingX,
-                y: this.comp_size.floatingY,
-              }, this.comp_size.lane_w, this.comp_size.lane_h)
-              if (floatPos.x >= 0) {
-                this.next_grid_x = floatPos.x
-                this.next_grid_y = floatPos.y
-                this.find_next_grid = true
+              let maxGridX = LayoutUtil.LayoutWidth() * this.grid_size + (LayoutUtil.LayoutWidth()-1)*10
+              let maxGridY = LayoutUtil.LayoutHeight() * this.grid_size + (LayoutUtil.LayoutHeight()-1)*10
+              this.comp_size.floatingX = this.comp_size.grid_x * this.grid_size + (this.comp_size.grid_x-1)*10 + this.pan_offset_x
+              this.comp_size.floatingY = this.comp_size.grid_y * this.grid_size + (this.comp_size.grid_y-1)*10 + this.pan_offset_y
+              // 越界
+              if (this.comp_size.floatingX < 0 && this.comp_size.floatingX > maxGridX && this.comp_size.floatingY < 0 && this.comp_size.floatingY > maxGridY) {
+                LayoutUtil.cancelTempPos()
               }else {
-                this.find_next_grid = false
+                let floatPos = LayoutUtil.updateGridPosition({
+                  x: this.comp_size.floatingX,
+                  y: this.comp_size.floatingY,
+                }, this.comp_size.lane_w, this.comp_size.lane_h)
+                // 位置合法
+                if (floatPos.x >= 0) {
+                  if (this.comp_size.next_grid_x != floatPos.x || this.comp_size.next_grid_y != floatPos.y || !this.comp_size.find_next_grid) {
+                    this.comp_size.next_grid_x = floatPos.x
+                    this.comp_size.next_grid_y = floatPos.y
+                    this.comp_size.find_next_grid = true
+                    LayoutUtil.pushObstacle(this.comp_type, {
+                      x: this.comp_size.next_grid_x,
+                      y: this.comp_size.next_grid_y,
+                    }, this.comp_size.lane_w, this.comp_size.lane_h)
+                  }
+                }else {
+                  // 位置非法
+                  LayoutUtil.cancelTempPos()
+                }
               }
             })
             .onActionEnd(() => {
-              this.find_next_grid = false
-              animateToImmediately(animationParm, () => {
+              LayoutUtil.confirmTempPos()
+              animateToImmediately(layoutAnimationParm, () => {
                 this.comp_size.isFloating = false
                 this.isResize = true
                 this.pan_offset_x = 0
@@ -306,6 +355,7 @@ export struct ResizableComponent {
         .width(lane(this.comp_size.lane_w) + this.offset_w)
         .height(lane(this.comp_size.lane_h) + this.offset_h)
       }
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .width(lane(this.comp_size.lane_w) + this.offset_w)
       .height(lane(this.comp_size.lane_h) + this.offset_h)
       .borderWidth(this.isResize?2:0)
@@ -313,8 +363,8 @@ export struct ResizableComponent {
       .borderRadius(18)
       .zIndex(this.comp_size.isFloating?999:1)
       .position({
-        x: -this.comp_size.offset_l + (this.comp_size.isFloating ? this.pan_offset_x : 0),
-        y: -this.comp_size.offset_u + (this.comp_size.isFloating ? this.pan_offset_y : 0)
+        x: -this.comp_size.offset_l + (this.comp_size.isFloating ? this.pan_offset_x : 0) + this.tempPosOffsetX,
+        y: -this.comp_size.offset_u + (this.comp_size.isFloating ? this.pan_offset_y : 0) + this.tempPosOffsetY
       })
       .scale({
         centerX: "50%",
@@ -325,19 +375,21 @@ export struct ResizableComponent {
       .onTouch((event) => {
         if (!this.isResize && !this.comp_size.isFloating) {
           if (event.type === TouchType.Down) {
-            animateToImmediately(animationParm, () => {
+            animateToImmediately(layoutAnimationParm, () => {
               this.comp_scale = 0.9
             })
           }else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-            animateToImmediately(animationParm, () => {
+            animateToImmediately(layoutAnimationParm, () => {
               this.comp_scale = 1
             })
           }
         }
       })
     }
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .width(lane(this.comp_size.lane_w))
     .height(lane(this.comp_size.lane_h))
     .clip(false)
+    .id(this.comp_type)
   }
 }

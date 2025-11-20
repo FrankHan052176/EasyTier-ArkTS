@@ -1,4 +1,7 @@
+import { AutoSortContainer } from "./pages/nodes/AutoSortContainer"
+import { layoutAnimationParm } from "./pages/nodes/ResizableComponent"
 import { lane } from "./util/Conversion"
+import { EventHelper } from "./util/EventHelper"
 import { Logger } from "./util/Logger"
 import { WindowUtil } from "./WindowUtil"
 
@@ -15,16 +18,26 @@ export class CompSize {
   @Trace isFloating: boolean = false
   @Trace floatingX: number = 0
   @Trace floatingY: number = 0
+  @Trace next_grid_x: number = 0
+  @Trace next_grid_y: number = 0
+  @Trace find_next_grid: boolean = false
+
+  setPos(x: number, y: number): CompSize {
+    this.grid_x = x;
+    this.grid_y = y;
+    return this
+  }
 }
 
 export interface Position { x: number, y: number}
 
 @ObservedV2
 export class LayoutUtil {
-  @Trace public static comp_sequence: string[] = ["Instances"]
+  public static myNodeController: AutoSortContainer = new AutoSortContainer();
+  @Trace public static comp_sequence: string[] = false?["Instances"]:["Instances", "GlobalConfigs", "Logs"]
   @Trace public static InstancesSize: CompSize = new CompSize()
-  @Trace public static GlobalConfigsSize: CompSize = new CompSize()
-  @Trace public static LogsSize: CompSize = new CompSize()
+  @Trace public static GlobalConfigsSize: CompSize = new CompSize().setPos(1,0)
+  @Trace public static LogsSize: CompSize = new CompSize().setPos(0,1)
 
   public static readonly MIN_COMP_WIDTH = 1;
   public static readonly MIN_COMP_HEIGHT = 1;
@@ -34,7 +47,7 @@ export class LayoutUtil {
   }
 
   public static LayoutHeight(): number {
-    return 10
+    return (LayoutUtil.comp_sequence.length+1)*2
   }
 
   public static getCompSize(type: string): CompSize {
@@ -70,49 +83,32 @@ export class LayoutUtil {
   public static updateGridPosition(pos: Position, width: number, height: number): Position {
     const a = lane(1);
     const period = a + 10;
-
-    // 当前浮动区域的像素尺寸和范围
     const regionWidth = width * a + (width - 1) * 10;
     const regionHeight = height * a + (height - 1) * 10;
-
     const floatLeft = pos.x;
     const floatRight = pos.x + regionWidth;
     const floatBottom = pos.y;
     const floatTop = pos.y + regionHeight;
-
-    // 目标区域的左下角必须是 period 的整数倍
-    // 找出所有可能的目标区域左下角
     const startX = Math.floor(floatLeft / period) * period;
     const endX = Math.ceil(floatRight / period) * period;
     const startY = Math.floor(floatBottom / period) * period;
     const endY = Math.ceil(floatTop / period) * period;
-
-    // 检查所有可能的目标区域
     for (let baseX = startX; baseX <= endX; baseX += period) {
       for (let baseY = startY; baseY <= endY; baseY += period) {
-        // 目标区域的像素范围
         const targetLeft = baseX;
         const targetRight = baseX + regionWidth;
         const targetBottom = baseY;
         const targetTop = baseY + regionHeight;
-
-        // 计算重叠区域
         const overlapLeft = Math.max(floatLeft, targetLeft);
         const overlapRight = Math.min(floatRight, targetRight);
         const overlapBottom = Math.max(floatBottom, targetBottom);
         const overlapTop = Math.min(floatTop, targetTop);
-
         if (overlapLeft < overlapRight && overlapBottom < overlapTop) {
           const overlapWidth = overlapRight - overlapLeft;
           const overlapHeight = overlapTop - overlapBottom;
           const overlapArea = overlapWidth * overlapHeight;
-
-          // 计算总面积
           const totalArea = regionWidth * regionHeight;
-
-          // 检查是否达到60%重叠
           if (overlapArea >= 0.6 * totalArea) {
-            // 将目标区域左下角转换回小格子坐标
             const baseGridX = baseX / period;
             const baseGridY = baseY / period;
             return { x: baseGridX, y: baseGridY };
@@ -120,7 +116,103 @@ export class LayoutUtil {
         }
       }
     }
-
     return { x: -1, y: -1 };
+  }
+  public static confirmTempPos() {
+    LayoutUtil.comp_sequence.forEach((comp) => {
+      let compSize = LayoutUtil.getCompSize(comp)
+      if (compSize.find_next_grid) {
+        compSize.find_next_grid = false
+        compSize.grid_x = compSize.next_grid_x
+        compSize.grid_y = compSize.next_grid_y
+      }
+    })
+    LayoutUtil.myNodeController.rootNode?.setNeedsLayout()
+  }
+
+  public static cancelTempPos() {
+    LayoutUtil.comp_sequence.forEach((comp) => {
+      let compSize = LayoutUtil.getCompSize(comp)
+      if (compSize.find_next_grid) {
+        animateToImmediately(layoutAnimationParm, () => {
+          compSize.find_next_grid = false
+        })
+      }
+    })
+  }
+
+  public static getObstacles(comp_name: string, pos: Position, width: number, height: number): string[] {
+    let overlapComps: string[] = []
+    for (const comp of LayoutUtil.comp_sequence) {
+      if (comp === comp_name) continue
+      let size = LayoutUtil.getCompSize(comp)
+      const overlapLeft = Math.max(pos.x, size.grid_x);
+      const overlapRight = Math.min(pos.x+width, size.grid_x+size.lane_w);
+      const overlapBottom = Math.max(pos.y, size.grid_y);
+      const overlapTop = Math.min(pos.y+height, size.grid_y+size.lane_h);
+      if (overlapLeft < overlapRight && overlapBottom < overlapTop) {
+        overlapComps.push(comp)
+      }
+    }
+    return overlapComps
+  }
+
+  public static pushObstacle(comp_name: string, pos: Position, width: number, height: number) {
+    let overlapComps: string[] = LayoutUtil.getObstacles(comp_name, pos, width, height)
+    overlapComps.sort((a,b) => {
+      let size1 = LayoutUtil.getCompSize(a)
+      let size2 = LayoutUtil.getCompSize(b)
+      if (size1.grid_y !== size2.grid_y) {
+        return size1.grid_y - size2.grid_y;
+      }
+      return size1.grid_x - size2.grid_x;
+    })
+    overlapComps.forEach((comp) => {
+      let compSize = LayoutUtil.getCompSize(comp)
+      let tempPos = LayoutUtil.findFreeSpace(compSize.lane_w, compSize.lane_h)
+      if (tempPos.x >= 0) {
+        animateToImmediately(layoutAnimationParm, () => {
+          compSize.find_next_grid = true
+          compSize.next_grid_x = tempPos.x
+          compSize.next_grid_y = tempPos.y
+        })
+      }
+    })
+  }
+
+  public static canPlaceAt(
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ): boolean {
+    for (const comp of LayoutUtil.comp_sequence) {
+      let compSize = LayoutUtil.getCompSize(comp)
+      let comp_x = compSize.find_next_grid?compSize.next_grid_x:compSize.grid_x;
+      let comp_y = compSize.find_next_grid?compSize.next_grid_y:compSize.grid_y;
+      const overlap =
+        !(x + w <= comp_x ||
+          comp_x + compSize.lane_w <= x ||
+          y + h <= comp_y ||
+          comp_y + compSize.lane_h <= y);
+      if (overlap) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  public static findFreeSpace(
+    itemW: number,
+    itemH: number
+  ): Position {
+    for (let y = 0; y + itemH <= LayoutUtil.LayoutHeight(); y++) {
+      for (let x = 0; x + itemW <= LayoutUtil.LayoutWidth(); x++) {
+        if (LayoutUtil.canPlaceAt(x, y, itemW, itemH)) {
+          return { x, y };
+        }
+      }
+    }
+    return { x:-1, y:-1 };
   }
 }

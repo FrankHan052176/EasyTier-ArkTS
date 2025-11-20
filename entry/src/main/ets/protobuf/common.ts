@@ -212,6 +212,7 @@ export interface FlagsInConfig {
   disableSymHolePunching: boolean;
   /** tld dns zone for magic dns */
   tldDnsZone: string;
+  p2pOnly: boolean;
 }
 
 export interface RpcDescriptor {
@@ -388,6 +389,7 @@ function createBaseFlagsInConfig(): FlagsInConfig {
     encryptionAlgorithm: "",
     disableSymHolePunching: false,
     tldDnsZone: "",
+    p2pOnly: false,
   };
 }
 
@@ -433,6 +435,7 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
         ? globalThis.Boolean(object.disableSymHolePunching)
         : false,
       tldDnsZone: isSet(object.tldDnsZone) ? globalThis.String(object.tldDnsZone) : "",
+      p2pOnly: isSet(object.p2pOnly) ? globalThis.Boolean(object.p2pOnly) : false,
     };
   },
 
@@ -531,6 +534,9 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     if (message.tldDnsZone !== "") {
       obj.tldDnsZone = message.tldDnsZone;
     }
+    if (message.p2pOnly !== false) {
+      obj.p2pOnly = message.p2pOnly;
+    }
     return obj;
   },
 
@@ -570,6 +576,7 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     message.encryptionAlgorithm = object.encryptionAlgorithm ?? "";
     message.disableSymHolePunching = object.disableSymHolePunching ?? false;
     message.tldDnsZone = object.tldDnsZone ?? "";
+    message.p2pOnly = object.p2pOnly ?? false;
     return message;
   },
 };

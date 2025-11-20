@@ -389,6 +389,14 @@
       "value": "禁用 P2P 模式，所有流量通过手动指定的服务器中转。"
     },
     {
+      "name": "p2p_only",
+      "value": "仅 P2P"
+    },
+    {
+      "name": "p2p_only_help",
+      "value": "仅与已经建立P2P连接的对等节点通信，不通过其他节点中转。"
+    },
+    {
       "name": "bind_device",
       "value": "仅使用物理网卡"
     },

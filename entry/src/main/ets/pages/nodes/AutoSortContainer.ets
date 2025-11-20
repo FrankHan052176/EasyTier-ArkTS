@@ -3,6 +3,7 @@ import { Instances } from '../../components/index/Instances';
 import { Svp2px } from '../../ContextUtil';
 import { LayoutUtil } from '../../LayoutUtil';
 import { lane } from '../../util/Conversion';
+import { Logger } from '../../util/Logger';
 import { ResizableComponent } from './ResizableComponent';
 
 class Params {
@@ -54,21 +55,21 @@ class MyFrameNode extends FrameNode {
   }
 
   onLayout(position: Position): void {
+    Logger.debug("onLayout")
     for (let i = 0; i < this.getChildrenCount(); i++) {
       const child = this.getChild(i);
       if (!child) continue;
       const compType = LayoutUtil.comp_sequence[i];
       const compSize = LayoutUtil.getCompSize(compType);
-      if (compSize) {
-        const gridSize = lane(1) + 10;
-        const pixelX = Svp2px(20 + compSize.grid_x * gridSize);
-        const pixelY = Svp2px(10 + compSize.grid_y * gridSize);
-
-        child.layout({
-          x: pixelX,
-          y: pixelY
-        });
-      }
+      const gridSize = lane(1) + 10;
+      const grid_x = compSize.grid_x;
+      const grid_y = compSize.grid_y;
+      const pixelX = Svp2px(20 + grid_x * gridSize);
+      const pixelY = Svp2px(10 + grid_y * gridSize);
+      child.layout({
+        x: pixelX,
+        y: pixelY
+      });
     }
     this.setLayoutPosition(position);
   }

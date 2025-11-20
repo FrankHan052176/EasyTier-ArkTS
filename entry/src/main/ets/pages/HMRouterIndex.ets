@@ -23,7 +23,9 @@ export struct HMRouterIndex {
           modifier: this.modifier
         }
       })
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .height('100%')
     .width('100%')
     .onTouch((event) => {

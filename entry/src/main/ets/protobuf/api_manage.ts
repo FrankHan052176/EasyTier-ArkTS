@@ -100,6 +100,7 @@ export interface NetworkConfig {
   quicListenPort?: number | undefined;
   portForwards: PortForwardConfig[];
   disableSymHolePunching?: boolean | undefined;
+  p2pOnly?: boolean | undefined;
 }
 
 export interface PortForwardConfig {
@@ -262,6 +263,7 @@ function createBaseNetworkConfig(): NetworkConfig {
     quicListenPort: undefined,
     portForwards: [],
     disableSymHolePunching: undefined,
+    p2pOnly: undefined,
   };
 }
 
@@ -342,6 +344,7 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
       disableSymHolePunching: isSet(object.disableSymHolePunching)
         ? globalThis.Boolean(object.disableSymHolePunching)
         : undefined,
+      p2pOnly: isSet(object.p2pOnly) ? globalThis.Boolean(object.p2pOnly) : undefined,
     };
   },
 
@@ -491,6 +494,9 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     if (message.disableSymHolePunching !== undefined) {
       obj.disableSymHolePunching = message.disableSymHolePunching;
     }
+    if (message.p2pOnly !== undefined) {
+      obj.p2pOnly = message.p2pOnly;
+    }
     return obj;
   },
 
@@ -547,6 +553,7 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     message.quicListenPort = object.quicListenPort ?? undefined;
     message.portForwards = object.portForwards?.map((e) => PortForwardConfig.fromPartial(e)) || [];
     message.disableSymHolePunching = object.disableSymHolePunching ?? undefined;
+    message.p2pOnly = object.p2pOnly ?? undefined;
     return message;
   },
 };

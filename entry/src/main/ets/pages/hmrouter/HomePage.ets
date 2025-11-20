@@ -7,6 +7,8 @@ import { HdsNavigation, HdsNavigationTitleMode, HdsNavigationAttribute,
 import { MenuButton } from "../Components";
 import { requestDistributePerm } from "../../util/Permission";
 import { LengthMetrics, SymbolGlyphModifier } from "@kit.ArkUI";
+import { EventHelper } from "../../util/EventHelper";
+import { LayoutUtil } from "../../LayoutUtil";
 
 function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
   let result = new SymbolGlyphModifier(symbol)
@@ -18,12 +20,11 @@ function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
 @HMRouter({ pageUrl: "HomePage" })
 @ComponentV2
 export struct HomePage {
-  private myNodeController: AutoSortContainer = new AutoSortContainer();
 
   @Builder
   content() {
     Scroll() {
-      NodeContainer(this.myNodeController)
+      NodeContainer(LayoutUtil.myNodeController)
         .width('100%')
         .layoutWeight(100)
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
@@ -32,6 +33,7 @@ export struct HomePage {
     .height('100%')
     .backgroundColor($r("sys.color.background_secondary"))
     .align(Alignment.Top)
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   build() {
@@ -122,6 +124,7 @@ export struct HomePage {
         },
         enableComponentSafeArea: true
       })
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }else {
       Navigation() {
         this.content()
@@ -142,6 +145,7 @@ export struct HomePage {
 
         }),
       ])
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
   }
 }

@@ -46,5 +46,6 @@ export const NetworkConfigTypeMap = {
   "disableQuicInput": "boolean",
   "quicListenPort": "number",
   "portForwards": "PortForwardConfig[]",
-  "disableSymHolePunching": "boolean"
+  "disableSymHolePunching": "boolean",
+  "p2pOnly": "boolean"
 }

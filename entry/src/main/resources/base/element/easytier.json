@@ -389,6 +389,14 @@
       "value": "Disable P2P mode; route all traffic through a manually specified relay server."
     },
     {
+      "name": "p2p_only",
+      "value": "P2P Only"
+    },
+    {
+      "name": "p2p_only_help",
+      "value": "Only communicate with peers that have already established P2P connections, do not relay through other nodes."
+    },
+    {
       "name": "bind_device",
       "value": "Bind to Physical Device Only"
     },
