@@ -2,12 +2,12 @@ import { NetworkConfig } from "../../../protobuf/api_manage";
 import { hdsEffect } from "@kit.UIDesignKit";
 import { deviceInfo } from "@kit.BasicServicesKit";
 import { uiAppearance } from "@kit.ArkUI";
-import { Spx2vp } from "../../../ContextUtil";
 import { ContentUtil } from "../../../ContentUtil";
 import { getFieldI18Name } from "../FieldEdit";
+import { Spx2vp } from "../../../AppManager";
 
 @Extend(TextInput)
-function fieldTextInput(onChange:EditableTextOnChangeCallback, inputType: InputType, enterKeyType: EnterKeyType, id: string, editChange: OnSubmitCallback) {
+function fieldTextInput(onChange:EditableTextOnChangeCallback, inputType: InputType, enterKeyType: EnterKeyType, id: string, submit: OnSubmitCallback) {
   .padding({top:8, bottom: 8, left: 12, right: 12})
   .borderWidth(0)
   .borderRadius(12)
@@ -17,7 +17,7 @@ function fieldTextInput(onChange:EditableTextOnChangeCallback, inputType: InputT
   .enableAutoFill(inputType !== InputType.Normal)
   .enterKeyType(enterKeyType)
   .id(id)
-  .onSubmit(editChange)
+  .onSubmit(submit)
 }
 
 @ComponentV2

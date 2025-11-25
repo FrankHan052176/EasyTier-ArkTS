@@ -1,5 +1,5 @@
 import { BusinessError, pasteboard } from "@kit.BasicServicesKit"
-import { Svp2fp } from "../../ContextUtil"
+import { Svp2fp } from "../../AppManager"
 import { Logger } from "../../util/Logger"
 
 @ComponentV2

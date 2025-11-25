@@ -1,0 +1,10 @@
+{
+  "customPageTemplate": [
+    {
+      "srcPath": [
+        "**/InstancesPage.ets"
+      ],
+      "templatePath": "./oh_modules/@hadss/hmrouter-transitions/ets/template/CardLongTakeTemplate.ejs"
+    }
+  ]
+}

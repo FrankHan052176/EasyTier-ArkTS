@@ -2,7 +2,7 @@ import Manager from "../../Manager"
 import { Config } from "../../util/ETConfig"
 import { Logger } from "../../util/Logger"
 import { ToolButton } from "../Components"
-import { requestLocPerm } from "../../util/Permission"
+import { PermissionUtil } from "../../PermissionUtil"
 import { EasyTierUtil } from "../../EasyTierUtil"
 
 @ComponentV2
@@ -49,7 +49,7 @@ export struct InstanceCard {
                 message: "请先关闭正在运行的网络"
               })
             }else {
-              requestLocPerm(this.getUIContext().getHostContext()!).then((value) => {
+              PermissionUtil.requestLocPerm(this.getUIContext().getHostContext()!).then((value) => {
                 if (!value) {
                   this.getUIContext().getPromptAction().showToast({
                     message: "拒绝授权定位权限将无法进行后台保活"

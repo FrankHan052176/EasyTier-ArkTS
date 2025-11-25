@@ -13,6 +13,7 @@ import { Url, UrlBuilder } from "../../class/config/Url";
 import { IP, IPBuilder } from "../../class/config/IP";
 import { NetworkName, NetworkNameBuilder } from "../../class/config/NetworkName";
 import { PortForward, PortForwardBuilder } from "../../class/config/PortForward";
+import { AppManager } from "../../AppManager";
 
 @Extend(Row)
 function LightEffect() {
@@ -141,7 +142,7 @@ export struct ListFieldValue {
             curve: Curve.Ease,
             duration: 300
           }, () => {
-            DataUtil.getDataSource(this.type).del(this.item)
+            AppManager.data.getDataSource(this.type).del(this.item)
           })
         })
     }

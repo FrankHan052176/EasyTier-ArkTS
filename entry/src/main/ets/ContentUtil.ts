@@ -90,7 +90,6 @@ export class ContentUtil {
     let cfg = NetworkConfig.fromJSON(easytier.defaultNetworkConfig())
     cfg.enableRelayNetworkWhitelist = true
     cfg.enableManualRoutes = true
-    cfg.instanceId = util.generateRandomUUID(true)
     return cfg
   }
 

@@ -3,17 +3,17 @@ import { BusinessError, pasteboard } from "@kit.BasicServicesKit"
 import Manager from "../Manager"
 import { protocolColor, SharedPeer } from "../util/ETConfig"
 import { Logger } from "../util/Logger"
-import {
-  requestDistributePerm, requestLocPerm } from "../util/Permission"
+import { PermissionUtil } from "../PermissionUtil"
 import { abilityAccessCtrl } from "@kit.AbilityKit"
 import { EventHelper } from "../util/EventHelper"
-import { updateSharedPeers } from "../WebUtil"
+import { WebUtil } from "../WebUtil"
 import { vibrator } from "@kit.SensorServiceKit"
 import { PreferenceUtil } from "../PreferencesUtil"
 import { UIType, WindowUtil } from "../WindowUtil"
 import { ContextUtil } from "../ContextUtil"
 import { lane } from "../util/Conversion"
 import { HdsNavigationIconOptions, HdsNavigationMenuItemOptions, IconStyleMode } from "@kit.UIDesignKit"
+import { AppManager } from "../AppManager"
 
 interface color {
   r: number
@@ -198,7 +198,7 @@ export function SharedPeersTitle() {
     })
       .margin({right: 10})
       .onClick(() => {
-        updateSharedPeers()
+        WebUtil.updateSharedPeers()
       })
   }
   .alignItems(VerticalAlign.Center)
@@ -310,11 +310,11 @@ export function settingSheet() {
           .fontSize(16)
           .margin({right: 5})
       }
-      Toggle({ type: ToggleType.Switch, isOn: PreferenceUtil.show_log })
+      Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.show_log })
         .selectedColor($r('sys.color.brand'))
         .switchPointColor($r('sys.color.comp_background_list_card'))
         .onChange((isOn: boolean) => {
-          PreferenceUtil.show_log = isOn
+          AppManager.preference.show_log = isOn
         })
         .height(29)
         .width(52)
@@ -346,7 +346,7 @@ export function settingSheet() {
         Button('授权', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL})
           .borderRadius(13)
           .onClick(() => {
-            requestLocPerm(ContextUtil.uiContext!.getHostContext()!)
+            AppManager.permission.requestLocPerm()
           })
       }
     }
@@ -377,7 +377,7 @@ export function settingSheet() {
         Button('授权', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL})
           .borderRadius(13)
           .onClick(() => {
-            requestDistributePerm(ContextUtil.uiContext!.getHostContext()!)
+            AppManager.permission.requestDistributePerm()
           })
       }
     }

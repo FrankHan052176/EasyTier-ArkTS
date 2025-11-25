@@ -1,3 +1,4 @@
+import { AppManager } from "../../../AppManager";
 import { FieldValue } from "../../../class/config/Basic";
 import { FieldValueDataSource } from "../../../class/FieldValueDataSource";
 import { DataUtil } from "../../../DataUtil";
@@ -10,7 +11,7 @@ export struct WaterFlowField {
   @Param @Require config: NetworkConfig;
   @Param @Require field: string;
   @Param @Require type: string;
-  @Local dataSource: FieldValueDataSource = DataUtil.getDataSource(this.type)
+  @Local dataSource: FieldValueDataSource = AppManager.data.getDataSource(this.type)
 
   @Computed
   get comp_height() {

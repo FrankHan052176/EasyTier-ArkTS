@@ -1,4 +1,4 @@
-import { isGetDistributePerm } from "./Permission"
+import { PermissionUtil } from "../PermissionUtil"
 import Manager from "../Manager"
 import { Config,
   dhcp,
@@ -23,6 +23,7 @@ import { toml2json } from "libentry.so"
 import { SafeLightWeightSet } from "./SafeLightWeightSet";
 import { display } from "@kit.ArkUI"
 import { UIType, WindowUtil } from "../WindowUtil"
+import { AppManager } from "../AppManager"
 
 export function tomlToConfig(toml: string): Config | undefined {
   try {
@@ -64,31 +65,39 @@ export function lane(need: number): number {
     case UIType.Column_1: {
       let scale = Math.min(2,Math.max(1, need))
       if (scale == 2) {
-        return WindowUtil.width-40
+        return WindowUtil.width-20
       }else {
-        return (WindowUtil.width-50)/2
+        return (WindowUtil.width-30)/2
       }
     }
     case UIType.Column_2: {
       let scale = Math.min(4,Math.max(1, need))
       if (scale == 4) {
-        return WindowUtil.width-40
+        return WindowUtil.width-20
       }else {
-        return (WindowUtil.width-70)/4*scale+(scale-1)*10
+        return (WindowUtil.width-50)/4*scale+(scale-1)*10
       }
     }
     case UIType.Column_3: {
       let scale = Math.min(6,Math.max(1, need))
       if (scale == 6) {
-        return WindowUtil.width-40
+        return WindowUtil.width-20
       }else {
-        return (WindowUtil.width-90)/6*scale+(scale-1)*10
+        return (WindowUtil.width-70)/6*scale+(scale-1)*10
       }
     }
     default: {
       return 0
     }
   }
+}
+
+export function preciseIntegerDivision(a:number, b:number) {
+  const result = a / b;
+  if (Math.abs(result - Math.round(result)) < 1e-10) {
+    return Math.round(result);
+  }
+  return result;
 }
 
 export function convertAddrToIp(addr: number): string {
@@ -101,7 +110,7 @@ export function convertAddrToIp(addr: number): string {
 }
 
 export function getHostname(): string {
-  return isGetDistributePerm()?Manager.deviceManager.getLocalDeviceName():"HarmonyOS"
+  return AppManager.permission.isGetDistributePerm()?Manager.deviceManager.getLocalDeviceName():"HarmonyOS"
 }
 
 export function safePassword(pwd: string): string {

@@ -1103,6 +1103,110 @@
     {
       "name": "web_settings_logout",
       "value": "Logout"
+    },
+    {
+      "name": "mode_title",
+      "value": "Mode"
+    },
+    {
+      "name": "mode_switch_mode",
+      "value": "Switch Mode"
+    },
+    {
+      "name": "mode_config_dir",
+      "value": "Config Dir"
+    },
+    {
+      "name": "mode_rpc_portal",
+      "value": "RPC Portal"
+    },
+    {
+      "name": "mode_log_level",
+      "value": "Log Level"
+    },
+    {
+      "name": "mode_log_dir",
+      "value": "Log Dir"
+    },
+    {
+      "name": "mode_remote_rpc_address",
+      "value": "Remote RPC Address"
+    },
+    {
+      "name": "mode_normal",
+      "value": "Normal"
+    },
+    {
+      "name": "mode_service",
+      "value": "Service"
+    },
+    {
+      "name": "mode_remote",
+      "value": "Remote"
+    },
+    {
+      "name": "mode_normal_description",
+      "value": "Run EasyTier directly, suitable for local use."
+    },
+    {
+      "name": "mode_service_description",
+      "value": "Run as a system service, supporting auto-startup and background operation. The service continues to run in the background after exiting the GUI."
+    },
+    {
+      "name": "mode_remote_description",
+      "value": "Connect to a remote RPC service to manage and control remote nodes."
+    },
+    {
+      "name": "mode_service_status",
+      "value": "Service Status"
+    },
+    {
+      "name": "mode_service_status_running",
+      "value": "Running"
+    },
+    {
+      "name": "mode_service_status_stopped",
+      "value": "Stopped"
+    },
+    {
+      "name": "mode_service_status_notinstalled",
+      "value": "Not Installed"
+    },
+    {
+      "name": "mode_uninstall_service",
+      "value": "Uninstall Service"
+    },
+    {
+      "name": "mode_stop_service",
+      "value": "Stop Service"
+    },
+    {
+      "name": "mode_uninstall_service_confirm",
+      "value": "Are you sure you want to uninstall the service?"
+    },
+    {
+      "name": "mode_uninstall_service_success",
+      "value": "Service uninstalled successfully, switched back to normal mode"
+    },
+    {
+      "name": "mode_stop_service_success",
+      "value": "Service stopped successfully"
+    },
+    {
+      "name": "mode_remote_rpc_address_empty",
+      "value": "Remote RPC Address cannot be empty"
+    },
+    {
+      "name": "mode_service_config_empty",
+      "value": "Service Config cannot be empty"
+    },
+    {
+      "name": "client_not_running",
+      "value": "Unable to connect to remote client."
+    },
+    {
+      "name": "client_retry",
+      "value": "Retry"
     }
   ]
 }

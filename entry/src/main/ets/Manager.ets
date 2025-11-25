@@ -6,14 +6,14 @@ import { cidr, Config, exit_node, listener, network_identity, peer, route, Share
   WrappedString } from "./util/ETConfig";
 import { distributedKVStore } from "@kit.ArkData";
 import { objectToHomoTOML } from "./util/Conversion";
-import { updatePermStatus } from "./util/Permission";
 import { deferredLink } from "@kit.AppLinkingKit";
 import { readConfig } from "./util/Compress";
 import { SafeLightWeightSet } from "./util/SafeLightWeightSet";
-import { updateQQGroups, updateSharedPeers } from "./WebUtil";
+import { WebUtil } from "./WebUtil";
 import { ContextUtil } from "./ContextUtil";
 import { WindowUtil } from "./WindowUtil";
 import { EasyTierUtil } from "./EasyTierUtil";
+import { AppManager } from "./AppManager";
 
 @ObservedV2
 class Manager {
@@ -36,13 +36,6 @@ class Manager {
   @Trace auto_start: string | undefined = undefined
 
   onInit() {
-    updatePermStatus()
-    updateQQGroups()
-    updateSharedPeers()
-    setInterval(() => {
-      updateQQGroups()
-      updateSharedPeers()
-    }, 1800000)
     EventHelper.emitterListener("windowSizeChange", (data) => {
       WindowUtil.update(data.data!.width, data.data!.height)
     })
@@ -51,7 +44,7 @@ class Manager {
         if (link) {
           readConfig(link).then(() => {
             try {
-              ContextUtil.uiContext!.getPromptAction().showToast({
+              AppManager.content.uiContext!.getPromptAction().showToast({
                 message: "成功导入分享的配置"
               })
             } catch (e) {
@@ -59,7 +52,7 @@ class Manager {
             }
           }, (reason:string) => {
             try {
-              ContextUtil.uiContext!.getPromptAction().showToast({
+              AppManager.content.uiContext!.getPromptAction().showToast({
                 message: "导入配置失败\n" + reason
               })
             } catch (e) {
@@ -77,7 +70,6 @@ class Manager {
     }else {
       Logger.info("[Manager] update DistributePerm: "+status)
       this.distributePerm = status
-      EventHelper.emitterPublish("update_distribute")
     }
   }
 
@@ -87,7 +79,6 @@ class Manager {
     }else {
       Logger.info("[Manager] update LocPerm: "+status)
       this.locPerm = status
-      EventHelper.emitterPublish("update_loc")
     }
   }
 
@@ -275,7 +266,7 @@ class Manager {
   }
 
   startInstance(config: Config): boolean {
-    if (EasyTierUtil.runningNetworks.size > 0) {
+    if (AppManager.easytier.runningNetworks.size > 0) {
       return false
     }else {
       EventHelper.emitterPublish("start_bg", {

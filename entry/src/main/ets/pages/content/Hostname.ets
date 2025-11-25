@@ -1,6 +1,6 @@
 import Manager from "../../Manager"
 import { Config } from "../../util/ETConfig"
-import { isGetDistributePerm, requestDistributePerm } from "../../util/Permission"
+import { PermissionUtil } from "../../PermissionUtil"
 
 @ComponentV2
 export struct Hostname {
@@ -23,7 +23,7 @@ export struct Hostname {
             .effectStrategy(SymbolEffectStrategy.HIERARCHICAL)
         }
         .onClick(() => {
-          requestDistributePerm(this.getUIContext().getHostContext()!).then((value) => {
+          PermissionUtil.requestDistributePerm(this.getUIContext().getHostContext()!).then((value) => {
             this.config.hostname = value?Manager.deviceManager.getLocalDeviceName():"HarmonyOS"
           })
         })

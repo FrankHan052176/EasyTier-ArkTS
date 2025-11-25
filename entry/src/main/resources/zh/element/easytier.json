@@ -1103,6 +1103,110 @@
     {
       "name": "web_settings_logout",
       "value": "退出登录"
+    },
+    {
+      "name": "mode_title",
+      "value": "模式"
+    },
+    {
+      "name": "mode_switch_mode",
+      "value": "切换模式"
+    },
+    {
+      "name": "mode_config_dir",
+      "value": "配置目录"
+    },
+    {
+      "name": "mode_rpc_portal",
+      "value": "RPC端口"
+    },
+    {
+      "name": "mode_log_level",
+      "value": "日志级别"
+    },
+    {
+      "name": "mode_log_dir",
+      "value": "日志目录"
+    },
+    {
+      "name": "mode_remote_rpc_address",
+      "value": "远程RPC地址"
+    },
+    {
+      "name": "mode_normal",
+      "value": "普通模式"
+    },
+    {
+      "name": "mode_service",
+      "value": "服务模式"
+    },
+    {
+      "name": "mode_remote",
+      "value": "远程模式"
+    },
+    {
+      "name": "mode_normal_description",
+      "value": "直接运行EasyTier，适合本地使用"
+    },
+    {
+      "name": "mode_service_description",
+      "value": "作为系统服务运行，支持开机自启和后台运行。退出GUI后服务仍在后台运行。"
+    },
+    {
+      "name": "mode_remote_description",
+      "value": "连接到远程RPC服务，管理和控制远程节点"
+    },
+    {
+      "name": "mode_service_status",
+      "value": "服务状态"
+    },
+    {
+      "name": "mode_service_status_running",
+      "value": "运行中"
+    },
+    {
+      "name": "mode_service_status_stopped",
+      "value": "已停止"
+    },
+    {
+      "name": "mode_service_status_notinstalled",
+      "value": "未安装"
+    },
+    {
+      "name": "mode_uninstall_service",
+      "value": "卸载服务"
+    },
+    {
+      "name": "mode_stop_service",
+      "value": "停止服务"
+    },
+    {
+      "name": "mode_uninstall_service_confirm",
+      "value": "确定要卸载服务吗？"
+    },
+    {
+      "name": "mode_uninstall_service_success",
+      "value": "服务卸载成功，已切换回普通模式"
+    },
+    {
+      "name": "mode_stop_service_success",
+      "value": "服务停止成功"
+    },
+    {
+      "name": "mode_remote_rpc_address_empty",
+      "value": "远程RPC地址不能为空"
+    },
+    {
+      "name": "mode_service_config_empty",
+      "value": "服务配置不能为空"
+    },
+    {
+      "name": "client_not_running",
+      "value": "无法连接至远程客户端"
+    },
+    {
+      "name": "client_retry",
+      "value": "重试"
     }
   ]
 }

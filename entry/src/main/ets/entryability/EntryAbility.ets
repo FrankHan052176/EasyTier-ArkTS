@@ -1,4 +1,4 @@
-import { UIAbility, Want, WantAgent, wantAgent } from "@kit.AbilityKit";
+import { Configuration, UIAbility, Want, WantAgent, wantAgent } from "@kit.AbilityKit";
 import { backgroundTaskManager } from "@kit.BackgroundTasksKit";
 import { geoLocationManager } from "@kit.LocationKit";
 import { window } from "@kit.ArkUI";
@@ -7,7 +7,7 @@ import { Logger, LogLocate } from "../util/Logger";
 import { BusinessError } from "@kit.BasicServicesKit";
 import easytier from "easytier-ohrs"
 import { vpnExtension } from "@kit.NetworkKit";
-import { isGetLocPerm, requestVpnPerm } from "../util/Permission";
+import { PermissionUtil } from "../PermissionUtil";
 import Manager from "../Manager";
 import { objectToHomoTOML } from "../util/Conversion";
 import { readConfig } from "../util/Compress";
@@ -17,6 +17,8 @@ import { BUILD_TIME } from "../util/info/BuildTime";
 import { SpiderMan } from "@simplepeng/spider-man";
 import { WindowUtil } from "../WindowUtil";
 import { HMRouterMgr } from "@hadss/hmrouter";
+import { AppManager } from "../AppManager";
+import { HMRouterTransitions } from "@hadss/hmrouter-transitions";
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
@@ -26,7 +28,7 @@ export default class EntryAbility extends UIAbility {
     if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) return;
     let config = Manager.configs.get(inst_id)
     if (!config) return
-    if (!isGetLocPerm()) {
+    if (!AppManager.permission.isGetLocPerm()) {
       easytier.runNetworkInstance(objectToHomoTOML(config!))
       return
     }
@@ -77,8 +79,9 @@ export default class EntryAbility extends UIAbility {
       context: this.context
     })
     entry.hilogInit()
-    Logger.info("BuildTime:"+BUILD_TIME, this)
+    easytier.hilogGlobalOptions(0,"fhl")
     easytier.initPanicHook()
+    Logger.info("BuildTime:"+BUILD_TIME, this)
     this.start_bg_Listener()
     this.stop_bg_Listener()
     this.setup_tun_Listener()
@@ -167,7 +170,7 @@ export default class EntryAbility extends UIAbility {
       return;
     }
     Logger.info("prepare vpn", this)
-    requestVpnPerm(() => {
+    AppManager.permission.requestVpnPerm(() => {
       this.vpnConnection = vpnExtension.createVpnConnection(getContext(this) as vpnExtension.VpnExtensionContext)
       callback()
     })
@@ -175,6 +178,7 @@ export default class EntryAbility extends UIAbility {
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
     SpiderMan.init();
+    HMRouterTransitions.init(windowStage);
     windowStage.getMainWindowSync().on('windowSizeChange', (data) => {
       WindowUtil.update(data.width, data.height)
     });
@@ -191,6 +195,10 @@ export default class EntryAbility extends UIAbility {
         return;
       }
     });
+  }
+
+  onConfigurationUpdate(newConfig: Configuration): void {
+    AppManager.preference.color_mode = newConfig.colorMode!
   }
 
   onWindowStageDestroy(): void {

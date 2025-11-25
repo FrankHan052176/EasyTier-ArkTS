@@ -3,7 +3,6 @@ import { convertToProtocol, Protocol, protocolColor } from "../../util/ETConfig"
 import { FieldValue } from "./Basic"
 import { hdsEffect } from "@kit.UIDesignKit"
 import { deviceInfo } from "@kit.BasicServicesKit"
-import { Sfp2vp } from "../../ContextUtil"
 
 function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").test(value)

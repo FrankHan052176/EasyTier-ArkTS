@@ -3,7 +3,7 @@ import { hdsEffect } from '@kit.UIDesignKit';
 import { NetworkConfig } from '../../../protobuf/api_manage';
 import { uiAppearance } from '@kit.ArkUI';
 import { deviceInfo } from '@kit.BasicServicesKit';
-import { Spx2vp, Svp2fp } from '../../../ContextUtil';
+import { Spx2vp, Svp2fp } from '../../../AppManager';
 
 @Extend(TextInput)
 function fieldTextInput(onChange:EditableTextOnChangeCallback, editChange: OnSubmitCallback, ip: boolean, field: string) {

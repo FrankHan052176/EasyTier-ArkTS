@@ -1,9 +1,10 @@
 import { vibrator } from "@kit.SensorServiceKit"
-import { CompSize, LayoutUtil } from "../../LayoutUtil"
+import { AppManager } from "../../AppManager"
+import { CompSize, Position } from "../../LayoutUtil"
 import { lane } from "../../util/Conversion"
 import { EventHelper } from "../../util/EventHelper"
-import { Logger } from "../../util/Logger"
 import { UIType, WindowUtil } from "../../WindowUtil"
+import { MyFrameCallback } from "../HMRouterIndex"
 
 export const layoutAnimationParm: AnimateParam = {
   duration: 200,
@@ -111,6 +112,9 @@ struct ResizeBall {
     .width(!this.isHorizontal?this.length-36:18)
     .height(this.isHorizontal?this.length-36:18)
     .gesture(PanGesture({ direction: this.isHorizontal?PanDirection.Horizontal:PanDirection.Vertical, fingers: 1 })
+      .onActionStart(() => {
+        EventHelper.emitterPublish("resize_start")
+      })
       .onActionUpdate((event) => {
         animateToImmediately(layoutAnimationParm, () => {
           let offset = this.getOffset(event)
@@ -151,14 +155,10 @@ struct ResizeBall {
 @ComponentV2
 export struct ResizableComponent {
   @Param @Require comp_type: string
-  @Local comp_size: CompSize = LayoutUtil.getCompSize(this.comp_type)
-  @Local isResize: boolean = false
+  @Local comp_size: CompSize = AppManager.layout.getCompSize(this.comp_type)
   @BuilderParam content: ()=>void
-  @Local comp_scale: number = 1
   @Local pan_offset_x: number = 0
   @Local pan_offset_y: number = 0
-  @Local touch_x: number = 0
-  @Local touch_y: number = 0
 
   @Computed
   get offset_w() {
@@ -173,8 +173,8 @@ export struct ResizableComponent {
     return lane(1)
   }
   @Computed
-  get tempPosOffsetX() {
-    if (!this.comp_size.isFloating && this.comp_size.find_next_grid) {
+  get tempPosOffsetX(): number {
+    if (!this.comp_size.isDragging && this.comp_size.find_next_grid) {
       return (this.comp_size.next_grid_x - this.comp_size.grid_x)*(this.grid_size+10)
     }else {
       return 0
@@ -182,7 +182,7 @@ export struct ResizableComponent {
   }
   @Computed
   get tempPosOffsetY() {
-    if (!this.comp_size.isFloating && this.comp_size.find_next_grid) {
+    if (!this.comp_size.isDragging && this.comp_size.find_next_grid) {
       return (this.comp_size.next_grid_y - this.comp_size.grid_y)*(this.grid_size+10)
     }else {
       return 0
@@ -192,14 +192,23 @@ export struct ResizableComponent {
   aboutToAppear(): void {
     EventHelper.emitterListener("resize_off", () => {
       animateToImmediately(layoutAnimationParm, () => {
-        this.isResize = false
+        this.comp_size.isResize = false
+        this.comp_size.isOnOverlay = false
+        this.comp_size.isDragging = false
+      })
+    })
+    EventHelper.emitterListener("drag_overlay_cancel", () => {
+      animateToImmediately(layoutAnimationParm, () => {
+        this.comp_size.isResize = false
+        this.comp_size.isDragging = false
+        this.comp_size.find_next_grid = false
       })
     })
   }
 
   build() {
     Stack({alignContent: Alignment.Center}) {
-      if (this.comp_size.find_next_grid && this.comp_size.isFloating) {
+      if (this.comp_size.find_next_grid && this.comp_size.isDragging) {
         Column()
           .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
           .width(lane(this.comp_size.lane_w))
@@ -216,17 +225,132 @@ export struct ResizableComponent {
             TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.Ease }),
             TransitionEffect.OPACITY.animation({ duration: 1, curve: Curve.Ease })))
       }
-      Column() {
-        Stack({alignContent: Alignment.Center}) {
+      Stack() {
+        Column() {
           this.content()
-          if (this.isResize) {
+        }
+        .alignItems(HorizontalAlign.Center)
+        .justifyContent(FlexAlign.Center)
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+        .width(lane(this.comp_size.lane_w) + this.offset_w)
+        .height(lane(this.comp_size.lane_h) + this.offset_h)
+        .gesture(GestureGroup(GestureMode.Parallel,LongPressGesture({ repeat: false, fingers: 1, duration: 500 })
+          .onAction(() => {
+            vibrator.startVibration({
+              type: 'time',
+              duration: 1,
+            }, {
+              id: 0,
+              usage: 'touch'
+            }, () => {})
+          }),
+          PanGesture({direction: PanDirection.All, fingers: 1})
+            .onActionStart(() => {
+              this.comp_size.find_next_grid = true
+              this.pan_offset_x = 0
+              this.pan_offset_y = 0
+              this.comp_size.next_grid_x = this.comp_size.grid_x
+              this.comp_size.next_grid_y = this.comp_size.grid_y
+              this.comp_size.floatingX = this.comp_size.grid_x
+              this.comp_size.floatingY = this.comp_size.grid_y
+            })
+            .onActionUpdate((event) => {
+              if (Math.abs(event.offsetY - this.pan_offset_y) <= 30) {
+                this.pan_offset_x = event.offsetX
+                this.pan_offset_y = event.offsetY
+              }
+              this.comp_size.floatingX = this.comp_size.grid_x * this.grid_size + (this.comp_size.grid_x-1)*10 + this.pan_offset_x
+              this.comp_size.floatingY = this.comp_size.grid_y * this.grid_size + (this.comp_size.grid_y-1)*10 + this.pan_offset_y
+              let floatPos = AppManager.layout.updateGridPosition({
+                x: this.comp_size.floatingX,
+                y: this.comp_size.floatingY,
+              }, this.comp_size.lane_w, this.comp_size.lane_h)
+              // 位置合法
+              if (floatPos.x >= 0 && !AppManager.layout.isOutOfBounds(floatPos.x, floatPos.y, this.comp_size.lane_w, this.comp_size.lane_h)) {
+                if (this.comp_size.next_grid_x != floatPos.x || this.comp_size.next_grid_y != floatPos.y || !this.comp_size.find_next_grid) {
+                  this.comp_size.next_grid_x = floatPos.x
+                  this.comp_size.next_grid_y = floatPos.y
+                  this.comp_size.find_next_grid = true
+                  AppManager.layout.pushObstacle(this.comp_type, {
+                    x: this.comp_size.next_grid_x,
+                    y: this.comp_size.next_grid_y,
+                  }, this.comp_size.lane_w, this.comp_size.lane_h)
+                }
+              }else {
+                // 位置非法
+                AppManager.layout.cancelTempPos()
+              }
+            })
+            .onActionEnd(() => {
+              let old_grid: Position = {x:this.comp_size.grid_x, y: this.comp_size.grid_y}
+              AppManager.layout.confirmTempPos()
+              this.getUIContext()?.postFrameCallback(new MyFrameCallback(() => {
+                this.pan_offset_x -= (this.comp_size.grid_x - old_grid.x)*(this.grid_size+10)
+                this.pan_offset_y -= (this.comp_size.grid_y - old_grid.y)*(this.grid_size+10)
+                animateToImmediately(layoutAnimationParm, () => {
+                  this.pan_offset_x = 0
+                  this.pan_offset_y = 0
+                  this.comp_size.isResize = true
+                })
+                setTimeout(() => {
+                  this.comp_size.isDragging = false
+                }, 1)
+              }));
+              EventHelper.emitterPublish("drag_overlay_off")
+              setTimeout(() => {
+                AppManager.layout.updateSequence()
+              },10)
+            }))
+        )
+        .onGestureJudgeBegin((gestureInfo: GestureInfo) => {
+          if (gestureInfo.type == GestureControl.GestureType.LONG_PRESS_GESTURE) {
+            if (!this.comp_size.isResize) {
+              this.comp_size.isResize = true
+              EventHelper.emitterPublish("drag_overlay_on", {
+                data: {
+                  type: this.comp_type
+                }
+              })
+            }
+            if (this.comp_size.isResize) {
+              return GestureJudgeResult.CONTINUE;
+            }else {
+              return GestureJudgeResult.REJECT;
+            }
+          }
+          if (gestureInfo.type == GestureControl.GestureType.PAN_GESTURE) {
+            if (this.comp_size.isResize) {
+              if (!this.comp_size.isOnOverlay) {
+                EventHelper.emitterPublish("drag_overlay_only_drag", {
+                  data: {
+                    type: this.comp_type
+                  }
+                })
+              }else {
+                EventHelper.emitterPublish("drag_overlay_move")
+              }
+              animateToImmediately(layoutAnimationParm, () => {
+                this.comp_size.isResize = false
+              })
+              this.comp_size.isDragging = true
+            }
+            if (this.comp_size.isDragging) {
+              return GestureJudgeResult.CONTINUE;
+            }else {
+              return GestureJudgeResult.REJECT;
+            }
+          }
+          return GestureJudgeResult.CONTINUE;
+        })
+        if (this.comp_size.isResize) {
+          Stack({alignContent: Alignment.Center}) {
             ResizeBall({
               addDirection: PanDirection.Left,
               extra: this.comp_size.offset_l!!,
               isAddable: ()=>{return this.comp_size.grid_x > 0
-                && LayoutUtil.getObstacles(this.comp_type, {x:this.comp_size.grid_x-1,y:this.comp_size.grid_y}, this.comp_size.lane_w+1, this.comp_size.lane_h).length === 0},
+                && AppManager.layout.getObstacles(this.comp_type, {x:this.comp_size.grid_x-1,y:this.comp_size.grid_y}, this.comp_size.lane_w+1, this.comp_size.lane_h).length === 0},
               isDeletable: ()=>{return this.comp_size.lane_w > 1},
-              isResize: this.isResize,
+              isResize: this.comp_size.isResize,
               lane: this.comp_size.lane_w!!,
               length: lane(this.comp_size.lane_h) + this.offset_h,
               pos: this.comp_size.grid_x!!
@@ -239,38 +363,38 @@ export struct ResizableComponent {
               addDirection: PanDirection.Up,
               extra: this.comp_size.offset_u!!,
               isAddable: ()=>{return this.comp_size.grid_y > 0
-                && LayoutUtil.getObstacles(this.comp_type, {x:this.comp_size.grid_x,y:this.comp_size.grid_y-1}, this.comp_size.lane_w, this.comp_size.lane_h+1).length === 0},
+                && AppManager.layout.getObstacles(this.comp_type, {x:this.comp_size.grid_x,y:this.comp_size.grid_y-1}, this.comp_size.lane_w, this.comp_size.lane_h+1).length === 0},
               isDeletable: ()=>{return this.comp_size.lane_h > 1},
-              isResize: this.isResize,
+              isResize: this.comp_size.isResize,
               lane: this.comp_size.lane_h!!,
               length: lane(this.comp_size.lane_w) + this.offset_w,
               pos: this.comp_size.grid_y!!
             })
               .position({
                 x: 18,
-                y: -10
+                y: -8
               })
             ResizeBall({
               addDirection: PanDirection.Down,
               extra: this.comp_size.offset_d!!,
-              isAddable: ()=>{return this.comp_size.grid_y + this.comp_size.lane_h < LayoutUtil.LayoutHeight()
-                && LayoutUtil.getObstacles(this.comp_type, {x:this.comp_size.grid_x,y:this.comp_size.grid_y}, this.comp_size.lane_w, this.comp_size.lane_h+1).length === 0},
+              isAddable: ()=>{return this.comp_size.grid_y + this.comp_size.lane_h < AppManager.layout.LayoutHeight()
+                && AppManager.layout.getObstacles(this.comp_type, {x:this.comp_size.grid_x,y:this.comp_size.grid_y}, this.comp_size.lane_w, this.comp_size.lane_h+1).length === 0},
               isDeletable: ()=>{return this.comp_size.lane_h > 1},
-              isResize: this.isResize,
+              isResize: this.comp_size.isResize,
               lane: this.comp_size.lane_h!!,
               length: lane(this.comp_size.lane_w) + this.offset_w
             })
               .position({
                 x: 18,
-                y: lane(this.comp_size.lane_h) + this.comp_size.offset_d + this.comp_size.offset_u -12
+                y: lane(this.comp_size.lane_h) + this.comp_size.offset_d + this.comp_size.offset_u -10
               })
             ResizeBall({
               addDirection: PanDirection.Right,
               extra: this.comp_size.offset_r!!,
-              isAddable: ()=>{return this.comp_size.grid_x + this.comp_size.lane_w < LayoutUtil.LayoutWidth()
-                && LayoutUtil.getObstacles(this.comp_type, {x:this.comp_size.grid_x,y:this.comp_size.grid_y}, this.comp_size.lane_w+1, this.comp_size.lane_h).length === 0},
+              isAddable: ()=>{return this.comp_size.grid_x + this.comp_size.lane_w < AppManager.layout.LayoutWidth()
+                && AppManager.layout.getObstacles(this.comp_type, {x:this.comp_size.grid_x,y:this.comp_size.grid_y}, this.comp_size.lane_w+1, this.comp_size.lane_h).length === 0},
               isDeletable: ()=>{return this.comp_size.lane_w > 1},
-              isResize: this.isResize,
+              isResize: this.comp_size.isResize,
               lane: this.comp_size.lane_w!!,
               length: lane(this.comp_size.lane_h) + this.offset_h
             })
@@ -279,117 +403,38 @@ export struct ResizableComponent {
                 y: 18
               })
           }
+          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+          .width(lane(this.comp_size.lane_w) + this.offset_w)
+          .height(lane(this.comp_size.lane_h) + this.offset_h)
+          .borderWidth(this.comp_size.isResize?2:0)
+          .borderColor($r("sys.color.brand"))
+          .borderRadius(18)
+          .hitTestBehavior(HitTestMode.Transparent)
         }
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-        .gesture(GestureGroup(GestureMode.Sequence,LongPressGesture({ repeat: false, fingers: 1, duration: 300 })
-          .onAction(() => {
-            if(!this.isResize) {
-              vibrator.startVibration({
-                type: 'time',
-                duration: 1,
-              }, {
-                id: 0,
-                usage: 'touch'
-              }, () => {})
-              animateToImmediately(layoutAnimationParm, () => {
-                this.isResize = true
-                this.comp_scale = 1
-              })
-            }
-          }),
-          PanGesture({direction: PanDirection.All, fingers: 1})
-            .onActionStart((event) => {
-              this.comp_size.next_grid_x = this.comp_size.grid_x
-              this.comp_size.next_grid_y = this.comp_size.grid_y
-              animateToImmediately(layoutAnimationParm, () => {
-                this.isResize = false
-                this.comp_size.isFloating = true
-                this.touch_x = event.fingerList[0].localX
-                this.touch_y = event.fingerList[0].localY
-              })
-            })
-            .onActionUpdate((event) => {
-              this.pan_offset_x = event.offsetX
-              this.pan_offset_y = event.offsetY
-              let maxGridX = LayoutUtil.LayoutWidth() * this.grid_size + (LayoutUtil.LayoutWidth()-1)*10
-              let maxGridY = LayoutUtil.LayoutHeight() * this.grid_size + (LayoutUtil.LayoutHeight()-1)*10
-              this.comp_size.floatingX = this.comp_size.grid_x * this.grid_size + (this.comp_size.grid_x-1)*10 + this.pan_offset_x
-              this.comp_size.floatingY = this.comp_size.grid_y * this.grid_size + (this.comp_size.grid_y-1)*10 + this.pan_offset_y
-              // 越界
-              if (this.comp_size.floatingX < 0 && this.comp_size.floatingX > maxGridX && this.comp_size.floatingY < 0 && this.comp_size.floatingY > maxGridY) {
-                LayoutUtil.cancelTempPos()
-              }else {
-                let floatPos = LayoutUtil.updateGridPosition({
-                  x: this.comp_size.floatingX,
-                  y: this.comp_size.floatingY,
-                }, this.comp_size.lane_w, this.comp_size.lane_h)
-                // 位置合法
-                if (floatPos.x >= 0) {
-                  if (this.comp_size.next_grid_x != floatPos.x || this.comp_size.next_grid_y != floatPos.y || !this.comp_size.find_next_grid) {
-                    this.comp_size.next_grid_x = floatPos.x
-                    this.comp_size.next_grid_y = floatPos.y
-                    this.comp_size.find_next_grid = true
-                    LayoutUtil.pushObstacle(this.comp_type, {
-                      x: this.comp_size.next_grid_x,
-                      y: this.comp_size.next_grid_y,
-                    }, this.comp_size.lane_w, this.comp_size.lane_h)
-                  }
-                }else {
-                  // 位置非法
-                  LayoutUtil.cancelTempPos()
-                }
-              }
-            })
-            .onActionEnd(() => {
-              LayoutUtil.confirmTempPos()
-              animateToImmediately(layoutAnimationParm, () => {
-                this.comp_size.isFloating = false
-                this.isResize = true
-                this.pan_offset_x = 0
-                this.pan_offset_y = 0
-                this.comp_size.floatingX = this.comp_size.grid_x
-                this.comp_size.floatingY = this.comp_size.grid_y
-              })
-            })
-        ))
-        .width(lane(this.comp_size.lane_w) + this.offset_w)
-        .height(lane(this.comp_size.lane_h) + this.offset_h)
       }
+      .position({
+        x: -this.comp_size.offset_l + (this.comp_size.isDragging ? this.pan_offset_x : 0) + this.tempPosOffsetX,
+        y: -this.comp_size.offset_u + (this.comp_size.isDragging ? this.pan_offset_y : 0) + this.tempPosOffsetY
+      })
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .width(lane(this.comp_size.lane_w) + this.offset_w)
       .height(lane(this.comp_size.lane_h) + this.offset_h)
-      .borderWidth(this.isResize?2:0)
-      .borderColor($r("sys.color.brand"))
       .borderRadius(18)
-      .zIndex(this.comp_size.isFloating?999:1)
-      .position({
-        x: -this.comp_size.offset_l + (this.comp_size.isFloating ? this.pan_offset_x : 0) + this.tempPosOffsetX,
-        y: -this.comp_size.offset_u + (this.comp_size.isFloating ? this.pan_offset_y : 0) + this.tempPosOffsetY
-      })
-      .scale({
-        centerX: "50%",
-        centerY: "50%",
-        x: this.comp_scale,
-        y: this.comp_scale
-      })
-      .onTouch((event) => {
-        if (!this.isResize && !this.comp_size.isFloating) {
-          if (event.type === TouchType.Down) {
-            animateToImmediately(layoutAnimationParm, () => {
-              this.comp_scale = 0.9
-            })
-          }else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-            animateToImmediately(layoutAnimationParm, () => {
-              this.comp_scale = 1
-            })
-          }
-        }
-      })
+      .backgroundColor($r("sys.color.comp_background_primary"))
     }
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .backgroundColor(Color.Transparent)
     .width(lane(this.comp_size.lane_w))
     .height(lane(this.comp_size.lane_h))
     .clip(false)
     .id(this.comp_type)
+    .onTouch((event) => {
+      event.stopPropagation()
+      if (event.type == TouchType.Down) {
+        if (!this.comp_size.isResize) {
+          EventHelper.emitterPublish("resize_off")
+        }
+      }
+    })
   }
 }

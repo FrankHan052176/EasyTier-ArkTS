@@ -3,7 +3,7 @@ import { convertToProtocol, Protocol, protocolColor } from "../../util/ETConfig"
 import { FieldValue } from "./Basic"
 import { hdsEffect } from "@kit.UIDesignKit"
 import { deviceInfo } from "@kit.BasicServicesKit"
-import { Sfp2vp } from "../../ContextUtil"
+import { Sfp2vp } from "../../AppManager"
 
 function isDomainOrIP(value: string): boolean {
   return RegExp("^(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}|(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))").test(value)

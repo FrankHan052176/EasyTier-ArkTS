@@ -1,4 +1,4 @@
-import { Spx2vp } from "./ContextUtil"
+import { AppManager, Spx2vp } from "./AppManager"
 import { Logger, LogLocate } from "./util/Logger"
 
 export enum UIType {
@@ -8,11 +8,11 @@ export enum UIType {
 @LogLocate("WindowUtil")
 @ObservedV2
 export class WindowUtil {
+  public static statusBarHeight: number = 0
+  public static navigationBarHeight: number = 0
   @Trace public static width: number = 0
   @Trace public static height: number = 0
   @Trace public static uiType: UIType = UIType.Column_1
-  @Trace public static statusBarHeight: number = 0
-  @Trace public static navigationBarHeight: number = 0
 
   static set setStatusBarHeight(value: number) {
     WindowUtil.statusBarHeight = Spx2vp(value)
@@ -23,6 +23,7 @@ export class WindowUtil {
   }
 
   public static update(width: number, height: number) {
+    let oldType = WindowUtil.uiType
     animateToImmediately({
       duration: 300,
       curve: Curve.Friction
@@ -37,6 +38,9 @@ export class WindowUtil {
         WindowUtil.uiType = UIType.Column_2
       }
     })
+    if (WindowUtil.uiType != oldType) {
+      AppManager.layout.updateNewUIType()
+    }
     Logger.debug(`WindowUtil update.`, WindowUtil)
   }
 
