@@ -1,6 +1,7 @@
 import { AppManager } from "../../AppManager";
 import { CompSize } from "../../LayoutUtil";
 import { lane } from "../../util/Conversion";
+import { Logger } from "../../util/Logger";
 import { getCompNode } from "./CompNode";
 
 @ComponentV2
@@ -41,6 +42,8 @@ export struct DesktopLayout {
     .onAreaChange((a,b) => {
       AppManager.layout.desktopPosX = b.globalPosition.x!.valueOf() as number
       AppManager.layout.desktopPosY = b.globalPosition.y!.valueOf() as number
+      AppManager.layout.desktopWidth = b.width.valueOf() as number
+      AppManager.layout.desktopHeight = b.height.valueOf() as number
     })
   }
 }
