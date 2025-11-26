@@ -50,6 +50,8 @@ export interface CompSizeWithPos { type: string, x: number, y: number, width: nu
 export class LayoutUtil {
   @Trace desktopPosX: number = 0;
   @Trace desktopPosY: number = 0;
+  @Trace desktopWidth: number = 0;
+  @Trace desktopHeight: number = 0;
   @Trace comp_types: string[] = ["Instances", "Logs", "Favorite", "SharedPeers", "QQ"]
   @Trace comp_sequence: string[] = []
   @Trace compSizeMap: Map<string, CompSize> = new Map

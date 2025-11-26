@@ -46,7 +46,6 @@ export struct QQGroups {
     AppManager.web.updateQQGroups()
     EventHelper.emitterListener("update_qqgroups", (data) => {
       this.groups = data.data!.groups as string[]
-      Logger.debug("groups"+this.groups.join(","))
     })
   }
 
