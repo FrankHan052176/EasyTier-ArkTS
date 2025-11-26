@@ -65,25 +65,25 @@ export function lane(need: number): number {
     case UIType.Column_1: {
       let scale = Math.min(2,Math.max(1, need))
       if (scale == 2) {
-        return WindowUtil.width-20
+        return WindowUtil.width-30
       }else {
-        return (WindowUtil.width-30)/2
+        return (WindowUtil.width-40)/2
       }
     }
     case UIType.Column_2: {
       let scale = Math.min(4,Math.max(1, need))
       if (scale == 4) {
-        return WindowUtil.width-20
+        return WindowUtil.width-30
       }else {
-        return (WindowUtil.width-50)/4*scale+(scale-1)*10
+        return (WindowUtil.width-60)/4*scale+(scale-1)*10
       }
     }
     case UIType.Column_3: {
       let scale = Math.min(6,Math.max(1, need))
       if (scale == 6) {
-        return WindowUtil.width-20
+        return WindowUtil.width-30
       }else {
-        return (WindowUtil.width-70)/6*scale+(scale-1)*10
+        return (WindowUtil.width-80)/6*scale+(scale-1)*10
       }
     }
     default: {

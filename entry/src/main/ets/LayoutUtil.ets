@@ -50,14 +50,9 @@ export interface CompSizeWithPos { type: string, x: number, y: number, width: nu
 export class LayoutUtil {
   @Trace desktopPosX: number = 0;
   @Trace desktopPosY: number = 0;
-  @Trace comp_types: string[] = ["Instances", "Logs", "Last", "SharedPeers", "QQ"]
+  @Trace comp_types: string[] = ["Instances", "Logs", "Favorite", "SharedPeers", "QQ"]
   @Trace comp_sequence: string[] = []
   @Trace compSizeMap: Map<string, CompSize> = new Map
-  @Trace InstancesSize: CompSize = new CompSize().withType("Instances")
-  @Trace LastSize: CompSize = new CompSize().setPos(1,0).withType("Last")
-  @Trace LogsSize: CompSize = new CompSize().setPos(0,1).withType("Logs")
-  @Trace QQGSize: CompSize = new CompSize().setPos(1,2).withType("QQ")
-  @Trace SharedPeersSize: CompSize = new CompSize().setPos(1,1).withType("SharedPeers")
   @Trace MaxHeight: number = 0
   @Trace MaxWidth: number = 0
 
@@ -230,10 +225,12 @@ export class LayoutUtil {
     for (const comp of this.comp_sequence) {
       if (comp === comp_name) continue
       let size = this.getCompSize(comp)
-      const overlapLeft = Math.max(pos.x, size.grid_x);
-      const overlapRight = Math.min(pos.x+width, size.grid_x+size.lane_w);
-      const overlapBottom = Math.max(pos.y, size.grid_y);
-      const overlapTop = Math.min(pos.y+height, size.grid_y+size.lane_h);
+      let grid_x = size.find_next_grid?size.next_grid_x:size.grid_x
+      let grid_y = size.find_next_grid?size.next_grid_y:size.grid_y
+      const overlapLeft = Math.max(pos.x, grid_x);
+      const overlapRight = Math.min(pos.x+width, grid_x+size.lane_w);
+      const overlapBottom = Math.max(pos.y, grid_y);
+      const overlapTop = Math.min(pos.y+height, grid_y+size.lane_h);
       if (overlapLeft < overlapRight && overlapBottom < overlapTop) {
         overlapComps.push(comp)
       }

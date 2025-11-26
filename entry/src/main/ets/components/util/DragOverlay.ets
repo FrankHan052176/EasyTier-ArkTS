@@ -30,8 +30,8 @@ export struct DragOverlay {
   get compPos(): Position {
     let size = AppManager.layout.getCompSize(this.type!)
     return {
-      x: 10 + size.grid_x * this.GridSize,
-      y: 10 + size.grid_y * this.GridSize
+      x: 15 + size.grid_x * this.GridSize,
+      y: 15 + size.grid_y * this.GridSize
     }
   }
 

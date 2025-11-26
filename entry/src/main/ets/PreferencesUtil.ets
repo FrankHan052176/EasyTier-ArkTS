@@ -5,7 +5,7 @@ import { CompSizeWithPos } from "./LayoutUtil";
 import { Logger, LogLocate } from "./util/Logger";
 import { ConfigurationConstant } from "@kit.AbilityKit";
 
-const defaultSequence = 'Instances_0_0_1_1|Last_1_0_1_1|Logs_0_1_1_1|SharedPeers_1_1_1_2|QQ_0_2_1_1'
+const defaultSequence = 'Instances_0_0_1_1|Favorite_1_0_1_1|Logs_0_1_1_1|SharedPeers_1_1_1_2|QQ_0_2_1_1'
 
 @LogLocate("PreferenceUtil")
 @ObservedV2

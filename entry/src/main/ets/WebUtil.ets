@@ -1,11 +1,15 @@
 import { rcp } from '@kit.RemoteCommunicationKit'
+import { AppManager } from './AppManager';
 import Manager from './Manager'
 import { SharedPeer } from './util/ETConfig';
+import { EventHelper } from './util/EventHelper';
 import { Logger, LogLocate } from './util/Logger'
 
 @LogLocate("WebUtil")
+@ObservedV2
 export class WebUtil {
-  public static async updateSharedPeers(page: number = 1): Promise<void> {
+  @Trace qqgroups: string[] = []
+  public async updateSharedPeers(page: number = 1): Promise<void> {
     const request = new rcp.Request("https://uptime.easytier.cn/api/nodes?per_page=50&tags=%E5%9B%BD%E5%86%85&page="+page, 'GET');
     try {
       const session = rcp.createSession({
@@ -28,21 +32,21 @@ export class WebUtil {
           Manager.sharedPeers.add(peer)
         })
         if (total_pages > 1 && page == 1) {
-          Logger.info("sharedPeers total pages:"+total_pages, WebUtil)
+          Logger.info("sharedPeers total pages:"+total_pages, this)
           for (let index = 2; index <= total_pages; index++) {
-            Logger.info("read page "+index, WebUtil)
-            WebUtil.updateSharedPeers(index)
+            Logger.info("read page "+index, this)
+            this.updateSharedPeers(index)
           }
         }
       }).catch(() => {
-        Logger.error(`updateSharedPeers()::An unexpected error occurred.`, WebUtil);
+        Logger.error(`updateSharedPeers()::An unexpected error occurred.`, this);
       })
     } catch (e) {
-      Logger.error(`An unexpected error occurred. Code:${e.code},message:${e.message}`, WebUtil);
+      Logger.error(`An unexpected error occurred. Code:${e.code},message:${e.message}`, this);
     }
     return Promise.resolve()
   }
-  public static async updateQQGroups(): Promise<void> {
+  public async updateQQGroups() {
     const request = new rcp.Request("https://easytier.cn/", 'GET');
     try {
       const session = rcp.createSession();
@@ -61,14 +65,18 @@ export class WebUtil {
             }
           }
         }
-        Manager.qqgroups = texts;
-        Logger.info("Update QQ Groups:"+JSON.stringify(Manager.qqgroups), WebUtil)
+        AppManager.web.qqgroups = texts
+        Logger.debug("Update QQ Groups:"+JSON.stringify(AppManager.web.qqgroups), WebUtil)
+        EventHelper.emitterPublish("update_qqgroups", {
+          data: {
+            groups: texts
+          }
+        })
       }).catch(() => {
         Logger.error(`updateQQGroups()::An unexpected error occurred.`, WebUtil);
       })
     } catch (e) {
       Logger.error(`An unexpected error occurred. Code:${e.code},message:${e.message}`, WebUtil);
     }
-    return Promise.resolve()
   }
 }

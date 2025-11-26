@@ -36,7 +36,7 @@ export struct DesktopLayout {
     }
     .width("100%")
     .height(this.LayoutHeight)
-    .padding({top: 10, left: 10})
+    .padding({top: 15, left: 15})
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .onAreaChange((a,b) => {
       AppManager.layout.desktopPosX = b.globalPosition.x!.valueOf() as number

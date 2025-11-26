@@ -7,6 +7,7 @@ import { preferences } from "@kit.ArkData";
 import { PermissionUtil } from "./PermissionUtil";
 import { PreferenceUtil } from "./PreferencesUtil";
 import { LayoutUtil } from "./LayoutUtil";
+import { WebUtil } from "./WebUtil";
 
 @LogLocate("AppManager")
 export class AppManager {
@@ -16,6 +17,7 @@ export class AppManager {
   public static permission: PermissionUtil = new PermissionUtil()
   public static preference: PreferenceUtil = new PreferenceUtil()
   public static layout: LayoutUtil = new LayoutUtil()
+  public static web: WebUtil = new WebUtil()
 
   static init(uiContext: UIContext) {
     AppManager.data.init()

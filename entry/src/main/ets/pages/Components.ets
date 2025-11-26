@@ -198,7 +198,7 @@ export function SharedPeersTitle() {
     })
       .margin({right: 10})
       .onClick(() => {
-        WebUtil.updateSharedPeers()
+        AppManager.web.updateSharedPeers()
       })
   }
   .alignItems(VerticalAlign.Center)

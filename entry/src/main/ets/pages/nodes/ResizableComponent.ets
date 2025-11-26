@@ -74,6 +74,13 @@ struct ResizeBall {
       }
       this.$lane(this.getPreLane())
     }
+    let sequenceData = ""
+    AppManager.layout.comp_sequence.forEach((value) => {
+      let size = AppManager.layout.getCompSize(value)
+      AppManager.layout.MaxHeight = Math.max(AppManager.layout.MaxHeight, size.grid_y+size.lane_h)
+      sequenceData += `${value}_${size.grid_x}_${size.grid_y}_${size.lane_w}_${size.lane_h}|`
+    })
+    AppManager.preference.updateSequence(sequenceData.length>0?sequenceData.substring(0,sequenceData.length-1):sequenceData)
   }
 
   getNextLane(): number {
@@ -107,10 +114,14 @@ struct ResizeBall {
           .fill($r("sys.color.brand"))
       }
     }
-    .alignItems(VerticalAlign.Center)
-    .justifyContent(FlexAlign.Center)
-    .width(!this.isHorizontal?this.length-36:18)
-    .height(this.isHorizontal?this.length-36:18)
+    .alignItems((!this.isHorizontal)?(this.addDirection == PanDirection.Up?VerticalAlign.Top:VerticalAlign.Bottom):VerticalAlign.Center)
+    .justifyContent(this.isHorizontal?(this.addDirection == PanDirection.Left?FlexAlign.Start:FlexAlign.End):FlexAlign.Center)
+    .width((!this.isHorizontal)?this.length-56:28)
+    .height(this.isHorizontal?this.length-56:28)
+    .offset({
+      x: this.addDirection == PanDirection.Right?-10:0,
+      y: this.addDirection == PanDirection.Down?-10:0
+    })
     .gesture(PanGesture({ direction: this.isHorizontal?PanDirection.Horizontal:PanDirection.Vertical, fingers: 1 })
       .onActionStart(() => {
         EventHelper.emitterPublish("resize_start")
@@ -148,7 +159,7 @@ struct ResizeBall {
           this.disable_d = false
         })
       }))
-    .hitTestBehavior(this.isResize ? HitTestMode.Block : HitTestMode.Default)
+    .hitTestBehavior(HitTestMode.Block)
   }
 }
 
@@ -267,7 +278,7 @@ export struct ResizableComponent {
               }, this.comp_size.lane_w, this.comp_size.lane_h)
               // 位置合法
               if (floatPos.x >= 0 && !AppManager.layout.isOutOfBounds(floatPos.x, floatPos.y, this.comp_size.lane_w, this.comp_size.lane_h)) {
-                if (this.comp_size.next_grid_x != floatPos.x || this.comp_size.next_grid_y != floatPos.y || !this.comp_size.find_next_grid) {
+                if (this.comp_size.next_grid_x != floatPos.x || this.comp_size.next_grid_y != floatPos.y) {
                   this.comp_size.next_grid_x = floatPos.x
                   this.comp_size.next_grid_y = floatPos.y
                   this.comp_size.find_next_grid = true
@@ -277,7 +288,6 @@ export struct ResizableComponent {
                   }, this.comp_size.lane_w, this.comp_size.lane_h)
                 }
               }else {
-                // 位置非法
                 AppManager.layout.cancelTempPos()
               }
             })
@@ -357,7 +367,7 @@ export struct ResizableComponent {
             })
               .position({
                 x: -8,
-                y: 18
+                y: 28
               })
             ResizeBall({
               addDirection: PanDirection.Up,
@@ -371,7 +381,7 @@ export struct ResizableComponent {
               pos: this.comp_size.grid_y!!
             })
               .position({
-                x: 18,
+                x: 28,
                 y: -8
               })
             ResizeBall({
@@ -385,7 +395,7 @@ export struct ResizableComponent {
               length: lane(this.comp_size.lane_w) + this.offset_w
             })
               .position({
-                x: 18,
+                x: 28,
                 y: lane(this.comp_size.lane_h) + this.comp_size.offset_d + this.comp_size.offset_u -10
               })
             ResizeBall({
@@ -400,7 +410,7 @@ export struct ResizableComponent {
             })
               .position({
                 x: lane(this.comp_size.lane_w) + this.comp_size.offset_r + this.comp_size.offset_l -10,
-                y: 18
+                y: 28
               })
           }
           .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])

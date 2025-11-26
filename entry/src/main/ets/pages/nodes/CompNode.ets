@@ -17,7 +17,7 @@ function buildComp(params: Params) {
   ResizableComponent({comp_type: params.comp}) {
     if (params.comp == "Instances") {
       Instances()
-    }else if (params.comp === "Last") {
+    }else if (params.comp === "Favorite") {
       Favorite()
     }else if (params.comp === "Logs") {
       Logs()
