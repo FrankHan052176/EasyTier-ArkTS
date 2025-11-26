@@ -126,7 +126,6 @@ export struct HomePage {
             }
           }
         })
-        .systemBarStyle({statusBarContentColor: AppManager.preference.color_mode > 0?"#000000":"#FFFFFF"},{statusBarContentColor: AppManager.preference.color_mode > 0?"#000000":"#FFFFFF"})
         .mode(NavigationMode.Stack)
         .titleMode(HdsNavigationTitleMode.FREE)
         .hideBackButton(true)

@@ -1,5 +1,5 @@
 import { AppManager } from '../../AppManager'
-import { Position } from '../../LayoutUtil'
+import { CompSize, Position } from '../../LayoutUtil'
 import { getCompNode } from '../../pages/nodes/CompNode'
 import { lane } from '../../util/Conversion'
 import { AddFormMenuItem } from '@kit.ArkUI'
@@ -9,14 +9,15 @@ import { layoutAnimationParm } from '../../pages/nodes/ResizableComponent'
 import { Logger } from '../../util/Logger'
 
 @Builder
-export function DragOverlayBuilder(type: string | undefined, onlyDrag: boolean = false) {
-  DragOverlay({type: type, onlyDrag: onlyDrag})
+export function DragOverlayBuilder(type: string | undefined, onlyDrag: boolean = false, compPos: Position | undefined) {
+  DragOverlay({type: type, onlyDrag: onlyDrag, comp_pos: compPos})
     .width('100%')
     .height('100%')
 }
 
 @ComponentV2
 export struct DragOverlay {
+  @Param @Require comp_pos: Position | undefined
   @Param @Require type: string | undefined
   @Param @Require onlyDrag: boolean
   @Local openMenu: boolean = false
@@ -36,12 +37,8 @@ export struct DragOverlay {
   }
 
   @Computed
-  get compSize(): Size {
-    let size = AppManager.layout.getCompSize(this.type!)
-    return {
-      width: lane(size.lane_w),
-      height: lane(size.lane_h)
-    }
+  get compSize(): CompSize {
+    return AppManager.layout.getCompSize(this.type!)
   }
 
   @Builder
@@ -83,30 +80,28 @@ export struct DragOverlay {
 
   build() {
     Stack({alignContent:Alignment.TopStart}) {
-      RelativeContainer(){
-        NodeContainer(getCompNode(this.type))
-          .bindContextMenu(this.openMenu, this.MyMenu, {
-            placement: Placement.TopRight,
-            onDisappear: () => {
-              animateToImmediately({
-                duration: 300,
-                curve: Curve.Friction
-              }, () => {
-                this.openMenu = false
-              })
+      NodeContainer(getCompNode(this.type))
+        .bindContextMenu(this.openMenu, this.MyMenu, {
+          placement: Placement.TopRight,
+          onDisappear: () => {
+            animateToImmediately({
+              duration: 300,
+              curve: Curve.Friction
+            }, () => {
+              this.openMenu = false
+            })
+            if (!this.compSize.isDragging) {
+              EventHelper.emitterPublish("drag_overlay_off")
             }
-          })
-          .onTouch((event) => {
-            event.stopPropagation()
-          })
-      }
-      .size(this.compSize)
-      .backgroundColor(Color.Transparent)
-      .clip(false)
-      .offset({
-        x: AppManager.layout.desktopPosX + this.compPos.x,
-        y: AppManager.layout.desktopPosY + this.compPos.y
-      })
+          }
+        })
+        .onTouch((event) => {
+          event.stopPropagation()
+        })
+        .offset({
+          x: this.comp_pos!.x,
+          y: this.comp_pos!.y
+        })
     }
     .backgroundColor(Color.Transparent)
     .backdropBlur(this.openMenu?20:0)

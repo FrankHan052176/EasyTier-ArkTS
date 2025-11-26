@@ -139,42 +139,55 @@ export class LayoutUtil {
       comp1Bottom > comp2.grid_y;
   }
 
-  updateGridPosition(pos: Position, width: number, height: number): Position {
+  findGridPosition(pos: Position, width: number, height: number): Position {
     const a = lane(1);
     const period = a + 10;
+
     const regionWidth = width * a + (width - 1) * 10;
     const regionHeight = height * a + (height - 1) * 10;
+
+    // 区域中心点
+    const centerX = pos.x + regionWidth / 2;
+    const centerY = pos.y + regionHeight / 2;
+
+    // 最可能的主网格
+    const baseGridX = Math.round(centerX / period);
+    const baseGridY = Math.round(centerY / period);
+
+    // 组件范围
     const floatLeft = pos.x;
     const floatRight = pos.x + regionWidth;
     const floatBottom = pos.y;
     const floatTop = pos.y + regionHeight;
-    const startX = Math.floor(floatLeft / period) * period;
-    const endX = Math.ceil(floatRight / period) * period;
-    const startY = Math.floor(floatBottom / period) * period;
-    const endY = Math.ceil(floatTop / period) * period;
-    for (let baseX = startX; baseX <= endX; baseX += period) {
-      for (let baseY = startY; baseY <= endY; baseY += period) {
-        const targetLeft = baseX;
-        const targetRight = baseX + regionWidth;
-        const targetBottom = baseY;
-        const targetTop = baseY + regionHeight;
+    const totalArea = regionWidth * regionHeight;
+
+    // 枚举 9 个候选格子
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const gx = baseGridX + dx;
+        const gy = baseGridY + dy;
+
+        const targetLeft = gx * period;
+        const targetBottom = gy * period;
+        const targetRight = targetLeft + regionWidth;
+        const targetTop = targetBottom + regionHeight;
+
         const overlapLeft = Math.max(floatLeft, targetLeft);
         const overlapRight = Math.min(floatRight, targetRight);
         const overlapBottom = Math.max(floatBottom, targetBottom);
         const overlapTop = Math.min(floatTop, targetTop);
+
         if (overlapLeft < overlapRight && overlapBottom < overlapTop) {
-          const overlapWidth = overlapRight - overlapLeft;
-          const overlapHeight = overlapTop - overlapBottom;
-          const overlapArea = overlapWidth * overlapHeight;
-          const totalArea = regionWidth * regionHeight;
+          const overlapArea =
+            (overlapRight - overlapLeft) * (overlapTop - overlapBottom);
+
           if (overlapArea >= 0.6 * totalArea) {
-            const baseGridX = preciseIntegerDivision(baseX, period);
-            const baseGridY = preciseIntegerDivision(baseY, period);
-            return { x: baseGridX, y: baseGridY };
+            return { x: gx, y: gy };
           }
         }
       }
     }
+
     return { x: -1, y: -1 };
   }
 

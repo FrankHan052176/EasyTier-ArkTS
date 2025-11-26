@@ -6,8 +6,7 @@ import { EnvironmentCallback } from "@kit.AbilityKit";
 import { AppManager } from "../AppManager";
 import { DragOverlayBuilder } from "../components/util/DragOverlay";
 import { NodeNameMap } from "./nodes/CompNode";
-import { Logger } from "../util/Logger";
-import { SheetContent, SheetTitle } from "../components/sheet/Basic";
+import { Position } from "../LayoutUtil"
 
 class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
   initializeModifier(instance: NavigationAttribute): void {
@@ -31,6 +30,7 @@ export class MyFrameCallback extends FrameCallback {
 export struct HMRouterIndex {
   modifier: MyNavModifier = new MyNavModifier();
   @Local dragOverlay: boolean = false
+  compPos: Position | undefined
   dragType: string | undefined
   onlyDrag: boolean = false
 
@@ -38,11 +38,13 @@ export struct HMRouterIndex {
     AppManager.init(this.getUIContext())
     EventHelper.emitterListener("drag_overlay_on", (data) => {
       this.dragType = data.data!.type
+      this.compPos = data.data!.pos
       this.dragOverlay = true
       AppManager.layout.getCompSize(this.dragType!).isOnOverlay = true
     })
     EventHelper.emitterListener("drag_overlay_only_drag", (data) => {
       this.dragType = data.data!.type
+      this.compPos = data.data!.pos
       this.onlyDrag = true
       this.dragOverlay = true
       AppManager.layout.getCompSize(this.dragType!).isOnOverlay = true
@@ -82,7 +84,7 @@ export struct HMRouterIndex {
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .height('100%')
       .width('100%')
-      .bindContentCover($$this.dragOverlay, DragOverlayBuilder(this.dragType, this.onlyDrag), {
+      .bindContentCover($$this.dragOverlay, DragOverlayBuilder(this.dragType, this.onlyDrag, this.compPos), {
         modalTransition: ModalTransition.NONE,
         onWillDisappear: () => {
           this.onlyDrag = false

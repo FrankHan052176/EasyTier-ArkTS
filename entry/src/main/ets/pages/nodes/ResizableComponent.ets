@@ -5,6 +5,7 @@ import { lane } from "../../util/Conversion"
 import { EventHelper } from "../../util/EventHelper"
 import { UIType, WindowUtil } from "../../WindowUtil"
 import { MyFrameCallback } from "../HMRouterIndex"
+import { getCompNode } from "./CompNode"
 
 export const layoutAnimationParm: AnimateParam = {
   duration: 200,
@@ -218,7 +219,7 @@ export struct ResizableComponent {
   }
 
   build() {
-    Stack({alignContent: Alignment.Center}) {
+    Stack({alignContent: Alignment.TopStart}) {
       if (this.comp_size.find_next_grid && this.comp_size.isDragging) {
         Column()
           .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
@@ -245,7 +246,7 @@ export struct ResizableComponent {
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
         .width(lane(this.comp_size.lane_w) + this.offset_w)
         .height(lane(this.comp_size.lane_h) + this.offset_h)
-        .gesture(GestureGroup(GestureMode.Parallel,LongPressGesture({ repeat: false, fingers: 1, duration: 500 })
+        .gesture(GestureGroup(GestureMode.Parallel,LongPressGesture({ repeat: false, fingers: 1, duration: 300 })
           .onAction(() => {
             vibrator.startVibration({
               type: 'time',
@@ -272,7 +273,7 @@ export struct ResizableComponent {
               }
               this.comp_size.floatingX = this.comp_size.grid_x * this.grid_size + (this.comp_size.grid_x-1)*10 + this.pan_offset_x
               this.comp_size.floatingY = this.comp_size.grid_y * this.grid_size + (this.comp_size.grid_y-1)*10 + this.pan_offset_y
-              let floatPos = AppManager.layout.updateGridPosition({
+              let floatPos = AppManager.layout.findGridPosition({
                 x: this.comp_size.floatingX,
                 y: this.comp_size.floatingY,
               }, this.comp_size.lane_w, this.comp_size.lane_h)
@@ -316,9 +317,14 @@ export struct ResizableComponent {
           if (gestureInfo.type == GestureControl.GestureType.LONG_PRESS_GESTURE) {
             if (!this.comp_size.isResize) {
               this.comp_size.isResize = true
+              let pos = getCompNode(this.comp_type)?.node?.getFrameNode()?.getPositionToWindow()
               EventHelper.emitterPublish("drag_overlay_on", {
                 data: {
-                  type: this.comp_type
+                  type: this.comp_type,
+                  pos: {
+                    x: pos!.x,
+                    y: pos!.y
+                  } as Position
                 }
               })
             }
@@ -330,10 +336,16 @@ export struct ResizableComponent {
           }
           if (gestureInfo.type == GestureControl.GestureType.PAN_GESTURE) {
             if (this.comp_size.isResize) {
+              this.comp_size.isDragging = true
               if (!this.comp_size.isOnOverlay) {
+                let pos = getCompNode(this.comp_type)?.node?.getFrameNode()?.getPositionToWindow()
                 EventHelper.emitterPublish("drag_overlay_only_drag", {
                   data: {
-                    type: this.comp_type
+                    type: this.comp_type,
+                    pos: {
+                      x: pos!.x,
+                      y: pos!.y
+                    } as Position
                   }
                 })
               }else {
@@ -342,7 +354,6 @@ export struct ResizableComponent {
               animateToImmediately(layoutAnimationParm, () => {
                 this.comp_size.isResize = false
               })
-              this.comp_size.isDragging = true
             }
             if (this.comp_size.isDragging) {
               return GestureJudgeResult.CONTINUE;
