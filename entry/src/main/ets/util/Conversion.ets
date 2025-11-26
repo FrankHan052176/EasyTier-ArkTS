@@ -67,7 +67,7 @@ export function lane(need: number): number {
       if (scale == 2) {
         return WindowUtil.width-30
       }else {
-        return (WindowUtil.width-40)/2
+        return preciseIntegerDivision(WindowUtil.width-40,2)
       }
     }
     case UIType.Column_2: {
@@ -75,7 +75,7 @@ export function lane(need: number): number {
       if (scale == 4) {
         return WindowUtil.width-30
       }else {
-        return (WindowUtil.width-60)/4*scale+(scale-1)*10
+        return preciseIntegerDivision((WindowUtil.width-60)*scale,4)+(scale-1)*10
       }
     }
     case UIType.Column_3: {
@@ -83,7 +83,7 @@ export function lane(need: number): number {
       if (scale == 6) {
         return WindowUtil.width-30
       }else {
-        return (WindowUtil.width-80)/6*scale+(scale-1)*10
+        return preciseIntegerDivision((WindowUtil.width-80)*scale,6)+(scale-1)*10
       }
     }
     default: {

@@ -1,5 +1,5 @@
 import { AppManager } from '../../AppManager'
-import { CompSize, Position } from '../../LayoutUtil'
+import { Position } from '../../LayoutUtil'
 import { getCompNode } from '../../pages/nodes/CompNode'
 import { lane } from '../../util/Conversion'
 import { AddFormMenuItem } from '@kit.ArkUI'
@@ -9,15 +9,14 @@ import { layoutAnimationParm } from '../../pages/nodes/ResizableComponent'
 import { Logger } from '../../util/Logger'
 
 @Builder
-export function DragOverlayBuilder(type: string | undefined, onlyDrag: boolean = false, compPos: Position | undefined) {
-  DragOverlay({type: type, onlyDrag: onlyDrag, comp_pos: compPos})
+export function DragOverlayBuilder(type: string | undefined, onlyDrag: boolean = false) {
+  DragOverlay({type: type, onlyDrag: onlyDrag})
     .width('100%')
     .height('100%')
 }
 
 @ComponentV2
 export struct DragOverlay {
-  @Param @Require comp_pos: Position | undefined
   @Param @Require type: string | undefined
   @Param @Require onlyDrag: boolean
   @Local openMenu: boolean = false
