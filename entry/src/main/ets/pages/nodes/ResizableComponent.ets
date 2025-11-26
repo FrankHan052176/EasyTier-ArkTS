@@ -3,6 +3,7 @@ import { AppManager } from "../../AppManager"
 import { CompSize, Position } from "../../LayoutUtil"
 import { lane } from "../../util/Conversion"
 import { EventHelper } from "../../util/EventHelper"
+import { Logger } from "../../util/Logger"
 import { UIType, WindowUtil } from "../../WindowUtil"
 import { MyFrameCallback } from "../HMRouterIndex"
 import { getCompNode } from "./CompNode"
@@ -267,10 +268,8 @@ export struct ResizableComponent {
               this.comp_size.floatingY = this.comp_size.grid_y
             })
             .onActionUpdate((event) => {
-              if (Math.abs(event.offsetY - this.pan_offset_y) <= 30) {
-                this.pan_offset_x = event.offsetX
-                this.pan_offset_y = event.offsetY
-              }
+              this.pan_offset_x = event.offsetX
+              this.pan_offset_y = event.offsetY
               this.comp_size.floatingX = this.comp_size.grid_x * this.grid_size + (this.comp_size.grid_x-1)*10 + this.pan_offset_x
               this.comp_size.floatingY = this.comp_size.grid_y * this.grid_size + (this.comp_size.grid_y-1)*10 + this.pan_offset_y
               let floatPos = AppManager.layout.findGridPosition({
