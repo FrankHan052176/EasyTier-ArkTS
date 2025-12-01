@@ -3,11 +3,12 @@ import { NetworkConfig } from '../../protobuf/api_manage'
 import { FieldEdit } from '../../components/edit/FieldEdit'
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
-import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode, ScrollEffectType, HdsNavigationAttribute } from '@kit.UIDesignKit'
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
-import { symbolWithSize } from './HomePage'
 import { AppManager } from '../../AppManager'
 import { HdsMenuButton, MenuButton } from '../Components'
+import { SheetContentBuilder, SheetTitleBuilder } from '../../components/sheet/Basic'
+import { EventHelper } from '../../util/EventHelper'
 
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
@@ -16,11 +17,20 @@ export struct EditPage {
   @Local name: string | null = null;
   @Local config: NetworkConfig | null = null;
   scroller: Scroller = new Scroller();
+  @Local sheet: boolean = false
+  @Local sheet_type: string = ""
 
   aboutToAppear(): void {
     this.uuid = HMRouterMgr.getCurrentParam() as string;
     this.name = AppManager.data.configUUIDNameMap.get(this.uuid)!
     this.config = AppManager.data.configUUIDMap.get(this.uuid)!
+    EventHelper.emitterListener("edit_open_sheet", (data) => {
+      this.sheet_type = data.data!.type as string
+      this.sheet = true
+    })
+    EventHelper.emitterListener("edit_close_sheet", () => {
+      this.sheet = false
+    })
   }
 
   @Builder
@@ -138,5 +148,17 @@ export struct EditPage {
     }
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .bindSheet(this.sheet, SheetContentBuilder(this.sheet_type), {
+      height: SheetSize.FIT_CONTENT,
+      preferType: SheetType.CENTER,
+      showClose: false,
+      dragBar: false,
+      blurStyle: BlurStyle.Thin,
+      title: SheetTitleBuilder(this.sheet_type),
+      onWillDismiss: () => {
+        this.sheet = false
+        EventHelper.emitterPublish("edit_action")
+      }
+    })
   }
 }

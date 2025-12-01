@@ -1,6 +1,6 @@
 import { FieldValue } from "../../class/config/Basic";
 import { NetworkConfig } from "../../protobuf/api_manage";
-import { Cidr, CidrBuilder } from "../../class/config/Cidr";
+import { Cidr, CidrBuilder, setEditValue_Cidr } from "../../class/config/Cidr";
 import { hdsEffect } from "@kit.UIDesignKit";
 import { uiAppearance } from "@kit.ArkUI";
 import { lane } from "../../util/Conversion";
@@ -8,13 +8,12 @@ import { deviceInfo } from "@kit.BasicServicesKit";
 import { ContentUtil } from "../../ContentUtil";
 import { ToolButton } from "../../pages/Components";
 import { EventHelper } from "../../util/EventHelper";
-import { DataUtil } from "../../DataUtil";
-import { Url, UrlBuilder } from "../../class/config/Url";
-import { IP, IPBuilder } from "../../class/config/IP";
-import { NetworkName, NetworkNameBuilder } from "../../class/config/NetworkName";
+import { setEditValue_Url, Url, UrlBuilder } from "../../class/config/Url";
+import { IP, IPBuilder, setEditValue_IP } from "../../class/config/IP";
+import {
+  NetworkName, NetworkNameBuilder, setEditValue_NetworkName } from "../../class/config/NetworkName";
 import { PortForward, PortForwardBuilder } from "../../class/config/PortForward";
 import { AppManager } from "../../AppManager";
-import { Logger } from "../../util/Logger";
 
 @Extend(Row)
 function LightEffect() {
@@ -120,6 +119,21 @@ export struct ListFieldValue {
     this.intensity = this.enable?1:0
   }
 
+  delete() {
+    const pos = (this.config[ContentUtil.safeFieldName(this.field)] as string[]).indexOf(this.item.toString())
+    if (pos >= 0) {
+      (this.config[ContentUtil.safeFieldName(this.field)] as string[]).splice(pos, 1)
+    }
+    this.enable = false
+    this.intensity = 0
+    animateToImmediately({
+      curve: Curve.Ease,
+      duration: 300
+    }, () => {
+      AppManager.data.getDataSource(this.type).del(this.item)
+    })
+  }
+
   @Builder
   rightButton() {
     Row() {
@@ -127,24 +141,46 @@ export struct ListFieldValue {
         .margin({
           left: 10
         })
+        .onClick(() => {
+          switch (this.type) {
+            case "route":
+            case "cidr": {
+              setEditValue_Cidr(this.item as Cidr)
+              break;
+            }
+            case "mappedListener":
+            case "listener":
+            case "peer": {
+              setEditValue_Url(this.item as Url)
+              break;
+            }
+            case "ip": {
+              setEditValue_IP(this.item as IP)
+              break;
+            }
+            case "string": {
+              setEditValue_NetworkName(this.item as NetworkName)
+              break;
+            }
+            case "port_forward": {
+              // TODO 端口转发
+              break;
+            }
+          }
+          this.scroller.closeAllSwipeActions();
+          EventHelper.emitterPublish("edit_open_sheet",{
+            data: {
+              type: "edit_"+this.type+"_"+this.field
+            }
+          })
+        })
       ToolButton({symbol: $r("sys.symbol.trash"), buttonSize: (lane(1)-20)/3-10, symbolColor: [$r("sys.color.warning")]})
         .margin({
           left: 10,
           right: 10
         })
         .onClick(() => {
-          const pos = (this.config[ContentUtil.safeFieldName(this.field)] as string[]).indexOf(this.item.toString())
-          if (pos >= 0) {
-            (this.config[ContentUtil.safeFieldName(this.field)] as string[]).splice(pos, 1)
-          }
-          this.enable = false
-          this.intensity = 0
-          animateToImmediately({
-            curve: Curve.Ease,
-            duration: 300
-          }, () => {
-            AppManager.data.getDataSource(this.type).del(this.item)
-          })
+          this.delete()
         })
     }
   }

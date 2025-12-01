@@ -3,7 +3,6 @@ import { EditableLeftIconType, EditableTitleBar, ExceptionPrompt, LengthMetrics,
 import { ToolButtonWithPaste } from "../util/ToolButtons";
 import { url } from "@kit.ArkTS";
 import { Logger } from "../../util/Logger";
-import { readConfig } from "../../util/Compress";
 import { EventHelper } from "../../util/EventHelper";
 import { hdsEffect } from "@kit.UIDesignKit";
 import { deviceInfo } from "@kit.BasicServicesKit";
@@ -25,20 +24,12 @@ export struct NewConfig_Title {
       },
       onCancel: () => {
         config_name = undefined
-        EventHelper.emitterPublish("close_sheet", {
-          data: {
-            type: "new"
-          }
-        })
+        EventHelper.emitterPublish("home_close_sheet")
       },
       onSave: () => {
         if (config_name !== undefined && config_name.length > 0) {
           AppManager.data.newConfig(config_name)
-          EventHelper.emitterPublish("close_sheet", {
-            data: {
-              type: "new"
-            }
-          })
+          EventHelper.emitterPublish("home_close_sheet")
         }else {
           EventHelper.emitterPublish("new_config_popup")
         }
@@ -163,8 +154,7 @@ export struct NewConfig_Content {
                   let urlObject = url.URL.parseURL(value);
                   let cfg = urlObject.params.get("cfg")
                   if (cfg) {
-                    Logger.info("[EntryAbi] get cfg:"+cfg)
-                    readConfig(cfg)
+                    // TODO 解压缩配置
                   }
                 } catch (err) {
                   // TODO Toml转NetworkConfig

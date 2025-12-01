@@ -1,5 +1,3 @@
-import { Logger } from "../../util/Logger"
-
 export class CircleArray<T> {
   arr: Array<T>
   private index: number = 0

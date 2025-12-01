@@ -7,7 +7,7 @@ import { ColorMetrics, LengthMetrics, SymbolGlyphModifier } from "@kit.ArkUI";
 import { AppManager } from "../../AppManager";
 import { DesktopLayout } from "../nodes/DesktopLayout";
 import { EventHelper } from "../../util/EventHelper";
-import { SheetContent, SheetTitle } from "../../components/sheet/Basic";
+import { SheetContentBuilder, SheetTitleBuilder } from "../../components/sheet/Basic";
 import { HdsActionBar, ActionBarButton, ActionBarStyle } from "@kit.UIDesignKit";
 import { sendToast } from "../../ToastUtil";
 import { BottomAnimator } from "../../class/animator/BottomAnimator";
@@ -30,12 +30,7 @@ export struct HomePage {
   @Local actionBar: boolean = true
 
   aboutToAppear(): void {
-    EventHelper.emitterListener("open_sheet", (data) => {
-      let type = data.data!.type as string
-      this.sheet_type = type
-      this.sheet = true
-    })
-    EventHelper.emitterListener("close_sheet", () => {
+    EventHelper.emitterListener("home_close_sheet", () => {
       this.sheet = false
     })
   }
@@ -165,19 +160,13 @@ export struct HomePage {
               value: [
                 HdsMenuButton("new", $r("sys.symbol.plus"), () => {
                   AppManager.permission.requestDistributePerm(false).then(() => {
-                    EventHelper.emitterPublish("open_sheet",{
-                      data: {
-                        type: "new"
-                      }
-                    })
+                    this.sheet_type = "new"
+                    this.sheet = true
                   })
                 }),
                 HdsMenuButton("setting", $r("sys.symbol.gearshape"), () => {
-                  EventHelper.emitterPublish("open_sheet",{
-                    data: {
-                      type: "setting"
-                    }
-                  })
+                  this.sheet_type = "setting"
+                  this.sheet = true
                 })
               ]
             }
@@ -205,19 +194,13 @@ export struct HomePage {
         .menus([
           MenuButton("new", $r("sys.symbol.plus"), () => {
             AppManager.permission.requestDistributePerm(false).then(() => {
-              EventHelper.emitterPublish("open_sheet",{
-                data: {
-                  type: "new"
-                }
-              })
+              this.sheet_type = "new"
+              this.sheet = true
             })
           }),
           MenuButton("setting", $r("sys.symbol.gearshape"), () => {
-            EventHelper.emitterPublish("open_sheet",{
-              data: {
-                type: "setting"
-              }
-            })
+            this.sheet_type = "setting"
+            this.sheet = true
           }),
         ])
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
@@ -226,13 +209,13 @@ export struct HomePage {
     .height('100%')
     .width('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    .bindSheet(this.sheet, SheetContent(this.sheet_type), {
+    .bindSheet(this.sheet, SheetContentBuilder(this.sheet_type), {
       height: this.sheet_type === "setting"?SheetSize.LARGE:SheetSize.FIT_CONTENT,
       preferType: SheetType.CENTER,
       showClose: false,
       dragBar: false,
       blurStyle: BlurStyle.Thin,
-      title: SheetTitle(this.sheet_type),
+      title: SheetTitleBuilder(this.sheet_type),
       onWillDismiss: () => {
         this.sheet = false
       }

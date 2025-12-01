@@ -11,6 +11,12 @@ import { Svp2fp } from '../../AppManager'
 import { EnableField } from './field/EnableField'
 import { ToolButton } from '../util/ToolButtons'
 import { CidrField } from './field/CidrField'
+import { EventHelper } from '../../util/EventHelper'
+import { Cidr, setEditValue_Cidr } from '../../class/config/Cidr'
+import { setEditValue_Url, Url } from '../../class/config/Url'
+import { IP, setEditValue_IP } from '../../class/config/IP'
+import { NetworkName, setEditValue_NetworkName } from '../../class/config/NetworkName'
+import { Logger } from '../../util/Logger'
 
 @Extend(Column)
 function ColumnLightEffect() {
@@ -86,6 +92,43 @@ export struct FieldEdit {
           EnableField({config: this.config, field: this.enableField, bind: this.enable!!})
         }else if (this.isLisType(this.field)) {
           ToolButton({symbol: $r("sys.symbol.plus"), buttonSize: 26, symbolScale: 0.8})
+            .onClick(() => {
+              switch ((this.field.type as string).slice(0, this.field.type.length-2)) {
+                case "route":
+                case "cidr": {
+                  setEditValue_Cidr(new Cidr())
+                  break;
+                }
+                case "mappedListener":
+                case "listener": {
+                  let value = new Url()
+                  value.domain = "0.0.0.0"
+                  setEditValue_Url(value)
+                  break;
+                }
+                case "peer": {
+                  setEditValue_Url(new Url())
+                  break;
+                }
+                case "ip": {
+                  setEditValue_IP(new IP())
+                  break;
+                }
+                case "string": {
+                  setEditValue_NetworkName(new NetworkName())
+                  break;
+                }
+                case "port_forward": {
+                  // TODO 端口转发
+                  break;
+                }
+              }
+              EventHelper.emitterPublish("edit_open_sheet",{
+                data: {
+                  type: "add_"+(this.field.type as string).slice(0, this.field.type.length-2)+"_"+this.field.name
+                }
+              })
+            })
         }
       }
       .width('100%')

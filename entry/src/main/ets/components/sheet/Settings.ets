@@ -17,11 +17,7 @@ export struct Setting_Title {
       },
       isSaveIconRequired: false,
       onCancel: () => {
-        EventHelper.emitterPublish("close_sheet", {
-          data: {
-            type: "setting"
-          }
-        })
+        EventHelper.emitterPublish("home_close_sheet")
       }
     })
   }

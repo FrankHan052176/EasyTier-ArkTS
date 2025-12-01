@@ -2,7 +2,6 @@ import { abilityAccessCtrl, bundleManager, Permissions } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { vpnExtension } from '@kit.NetworkKit';
 import { AppManager } from './AppManager';
-import Manager from './Manager';
 import { Logger, LogLocate } from './util/Logger';
 
 const permissions: Array<Permissions> =
@@ -91,7 +90,7 @@ export class PermissionUtil {
   }
 
   async requestLocPermFromSetting(): Promise<boolean> {
-    if (Manager.locPerm != abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
+    if (AppManager.permission.isGetLocPerm()) {
       Logger.debug("[Permission] LocPerm request again", PermissionUtil)
       let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
       let rst = await atManager.requestPermissionOnSetting(AppManager.content.context, ["ohos.permission.APPROXIMATELY_LOCATION"])
@@ -103,7 +102,7 @@ export class PermissionUtil {
   }
 
   async requestDistributePermFromSetting(): Promise<boolean> {
-    if (Manager.distributePerm != abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
+    if (AppManager.permission.isGetDistributePerm()) {
       Logger.debug("[Permission] DistributePerm request again", PermissionUtil)
       let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
       let rst = await atManager.requestPermissionOnSetting(AppManager.content.context, ["ohos.permission.DISTRIBUTED_DATASYNC"])

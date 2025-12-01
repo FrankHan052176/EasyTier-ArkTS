@@ -152,4 +152,7 @@ export class PortForward implements FieldValue {
   toString(): string {
     return this.proto+"://"+this.from+":"+this.from_port+"/"+this.to+":"+this.to_port
   }
+  checkValid(): boolean {
+    return isIpAddr(this.from) && isIpAddr(this.to) && isPort(this.from_port) && isPort(this.to_port)
+  }
 }

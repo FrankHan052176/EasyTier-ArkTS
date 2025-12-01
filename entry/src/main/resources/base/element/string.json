@@ -22,39 +22,11 @@
     },
     {
       "name": "i18_add",
-      "value": "Add "
-    },
-    {
-      "name": "i18_type_peer",
-      "value": "Peer"
-    },
-    {
-      "name": "i18_type_profile",
-      "value": "Credentials"
-    },
-    {
-      "name": "i18_type_cidr",
-      "value": "Proxy CIDR"
-    },
-    {
-      "name": "i18_type_listener",
-      "value": "Listener URL"
-    },
-    {
-      "name": "i18_type_whitelist",
-      "value": "Network Whitelist"
-    },
-    {
-      "name": "i18_type_route",
-      "value": "Manual Route"
-    },
-    {
-      "name": "i18_type_exit_node",
-      "value": "Exit Node"
+      "value": "Add %s"
     },
     {
       "name": "i18_edit",
-      "value": "Edit "
+      "value": "Edit %s"
     },
     {
       "name": "i18_total",

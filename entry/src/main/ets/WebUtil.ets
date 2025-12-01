@@ -1,7 +1,5 @@
 import { rcp } from '@kit.RemoteCommunicationKit'
 import { AppManager } from './AppManager';
-import Manager from './Manager'
-import { SharedPeer } from './util/ETConfig';
 import { EventHelper } from './util/EventHelper';
 import { Logger, LogLocate } from './util/Logger'
 
@@ -28,8 +26,7 @@ export class WebUtil {
         let items: Array<object> = data["items"]
         Logger.info("sharedPeers total peers:"+total)
         items.forEach((item: object) => {
-          let peer = new SharedPeer(item)
-          Manager.sharedPeers.add(peer)
+
         })
         if (total_pages > 1 && page == 1) {
           Logger.info("sharedPeers total pages:"+total_pages, this)

@@ -7,9 +7,7 @@ import { Logger, LogLocate } from "../util/Logger";
 import { BusinessError, deviceInfo, emitter } from "@kit.BasicServicesKit";
 import easytier from "easytier-ohrs"
 import { vpnExtension } from "@kit.NetworkKit";
-import Manager from "../Manager";
-import { objectToHomoTOML, stringArr2RouteArr } from "../util/Conversion";
-import { readConfig } from "../util/Compress";
+import { stringArr2RouteArr } from "../util/Conversion";
 import { url } from "@kit.ArkTS";
 import entry from 'libentry.so'
 import { BUILD_TIME } from "../util/info/BuildTime";
@@ -107,7 +105,7 @@ export default class EntryAbility extends UIAbility {
         let urlObject = url.URL.parseURL(uri);
         let cfg = urlObject.params.get("cfg")
         if (cfg) {
-          readConfig(cfg)
+          // TODO 解压缩配置
         }
       } catch (err) {
         let error = err as BusinessError;

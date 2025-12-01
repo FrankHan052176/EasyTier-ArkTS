@@ -10,39 +10,11 @@
     },
     {
       "name": "i18_add",
-      "value": "新增 "
-    },
-    {
-      "name": "i18_type_peer",
-      "value": "对端(Peer)"
-    },
-    {
-      "name": "i18_type_profile",
-      "value": "凭证"
-    },
-    {
-      "name": "i18_type_cidr",
-      "value": "子网代理"
-    },
-    {
-      "name": "i18_type_listener",
-      "value": "监听地址"
-    },
-    {
-      "name": "i18_type_whitelist",
-      "value": "网络白名单"
-    },
-    {
-      "name": "i18_type_route",
-      "value": "自定义路由"
-    },
-    {
-      "name": "i18_type_exit_node",
-      "value": "出口节点"
+      "value": "新增 %s"
     },
     {
       "name": "i18_edit",
-      "value": "编辑 "
+      "value": "编辑 %s"
     },
     {
       "name": "i18_total",
