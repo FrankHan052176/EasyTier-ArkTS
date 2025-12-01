@@ -112,6 +112,14 @@ function convertToI18nFormat(flatObject: Record<string, any>): { string: Array<{
     processObject(flatObject);
     return { string: strings };
 }
+function fixFieldName(field: string): string {
+    let snake = field.replace(/([A-Z])/g, '_$1').toLowerCase()
+    if (field.startsWith("_")) {
+        return snake.substring(1)
+    }else {
+        return snake
+    }
+}
 async function downloadProtoFile(fileName: string): Promise<boolean> {
     try {
         const dir = path.resolve(__dirname, "./proto");
@@ -171,7 +179,8 @@ hvigor.nodesEvaluated(() => {
                         for (const [fieldName, field] of Object.entries(message.fields)) {
                             const tsType = scalarTypeMap[field.type] || field.type;
                             const finalType = field.rule === "repeated" ? `${tsType}[]` : tsType;
-                            mapping[fieldName] = finalType;
+                            const finalName = fixFieldName(fieldName);
+                            mapping[finalName] = finalType;
                         }
                         fs.writeFileSync(
                             "./entry/src/main/ets/protobuf/proto-type-map.ts",

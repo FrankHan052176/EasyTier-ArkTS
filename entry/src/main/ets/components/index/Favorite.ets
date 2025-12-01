@@ -1,8 +1,7 @@
-import { AppManager, Sfp2px, Sfp2vp, Svp2fp } from '../../AppManager'
-import { lane } from '../../util/Conversion'
-import { EventHelper } from '../../util/EventHelper'
+import { AppManager, Svp2fp } from '../../AppManager'
 import { CompTitle } from './Basic'
 import { LengthMetrics } from '@kit.ArkUI'
+import { sendToast } from '../../ToastUtil'
 
 @Extend(Column)
 function comp_bg() {
@@ -13,24 +12,19 @@ function comp_bg() {
 
 @ComponentV2
 export struct Favorite {
-  @Local name: string | undefined
-  @Local instanceId: string | undefined
   @Local text_height: number = 0
   @Local comp_width: number = 0
   @Local comp_height: number = 0
-
-  aboutToAppear(): void {
-    this.instanceId = AppManager.data.favoriteInstance
-    this.name = AppManager.data.configUUIDNameMap.get(this.instanceId ?? "")
-    EventHelper.emitterListener("favorite_update", () => {
-      this.instanceId = AppManager.data.favoriteInstance
-      this.name = AppManager.data.configUUIDNameMap.get(this.instanceId ?? "")
-    })
-  }
+  @Local trigger: number = 0
 
   @Computed
   get CompSize() {
     return AppManager.layout.getCompSize("Favorite")
+  }
+
+  @Computed
+  get isRunning() {
+    return AppManager.easytier.runningNetworks.has(AppManager.data.favoriteInstance ?? "") ?1:0
   }
 
   build() {
@@ -40,19 +34,35 @@ export struct Favorite {
         main: LengthMetrics.vp(10),
         cross: LengthMetrics.vp(10)
       }, alignItems: ItemAlign.Center, alignContent: FlexAlign.Center, direction: FlexDirection.Column}) {
-        if (this.instanceId !== undefined) {
+        if (AppManager.data.favoriteInstance !== undefined) {
           Row() {
-            SymbolGlyph($r("sys.symbol.play_round_triangle_fill"))
+            SymbolGlyph(this.isRunning?$r("sys.symbol.pause_round_triangle_fill"):$r("sys.symbol.play_round_triangle_fill"))
               .align(Alignment.Center)
               .fontSize(Svp2fp(this.CompSize.lane_w==1?(this.CompSize.lane_h==2?this.comp_height*0.3:this.comp_height*0.5):Math.min(this.comp_height*0.8,this.comp_width*0.4)))
               .fontColor(['rgba(255,200,50,1)'])
+              .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), this.isRunning + this.trigger)
+              .onClick(() => {
+                if (this.isRunning) {
+                  AppManager.easytier.stop()
+                }else {
+                  if (AppManager.easytier.runningNetworks.size > 0) {
+                    AppManager.easytier.stop()
+                  }
+                  if (!AppManager.easytier.start(AppManager.data.favoriteInstance)) {
+                    sendToast("Amazing! 收藏的实例不存在", $r("sys.symbol.exclamationmark_circle"), 1)
+                  }
+                }
+                if (this.trigger === 0) {
+                  this.trigger = 1
+                }
+              })
           }
           .width(this.CompSize.lane_w==1?'100%':this.comp_width*0.4)
           .height(this.CompSize.lane_w==2?"100%":this.comp_height*0.5)
           .alignItems(VerticalAlign.Center)
           .justifyContent(FlexAlign.Center)
           Column() {
-            Text(this.name)
+            Text(AppManager.data.configUUIDNameMap.get(AppManager.data.favoriteInstance))
               .width('100%')
               .textAlign(this.CompSize.lane_w==2?TextAlign.Start:TextAlign.Center)
               .fontSize(this.CompSize.lane_w==1 && this.CompSize.lane_h==1?Svp2fp(this.text_height-8):Svp2fp(this.text_height*0.2))
@@ -60,7 +70,7 @@ export struct Favorite {
               .textOverflow({
                 overflow: TextOverflow.Ellipsis
               })
-            Text(this.instanceId)
+            Text(AppManager.data.favoriteInstance)
               .width('100%')
               .textAlign(this.CompSize.lane_w==2?TextAlign.Start:TextAlign.Center)
               .maxFontSize(12)

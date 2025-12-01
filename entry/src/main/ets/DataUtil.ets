@@ -10,7 +10,7 @@ import { PortForward } from "./class/config/PortForward";
 import { NetworkConfig } from "./protobuf/api_manage";
 import { ContentUtil } from "./ContentUtil";
 import { AppManager } from "./AppManager";
-import { EventHelper } from "./util/EventHelper";
+import { getHostname } from "./util/Conversion";
 
 @LogLocate("DataUtil")
 @ObservedV2
@@ -22,7 +22,7 @@ export class DataUtil {
   @Trace favoriteInstance: string | undefined
 
   public isFavorite(uuid: string) {
-    return this.favoriteInstance !== undefined && uuid === this.favoriteInstance
+    return uuid === this.favoriteInstance
   }
 
   public changeFavorite(uuid: string) {
@@ -31,7 +31,6 @@ export class DataUtil {
     }else {
       this.favoriteInstance = uuid
     }
-    EventHelper.emitterPublish("favorite_update")
   }
 
   public getDataSource(type: string): FieldValueDataSource {
@@ -42,8 +41,18 @@ export class DataUtil {
       if (type === "cidr" || type === "route") {
         dataSource.add(new Cidr())
       }else if (type === "peer" || type === "listener" || type === "mappedListener") {
+        if (type === "peer") {
+          let data = new Url()
+          if (data.fromString("tcp://frankhan.top:22345")) {
+            dataSource.add(data)
+          }
+        }
         dataSource.add(new Url())
       }else if (type === "ip") {
+        let data = new IP()
+        if (data.fromString("10.53.176.1")) {
+          dataSource.add(data)
+        }
         dataSource.add(new IP())
       }else if (type === "string") {
         dataSource.add(new NetworkName())
@@ -66,7 +75,7 @@ export class DataUtil {
     } catch (e) {
       Logger.info(`Failed to create KVManager. \n${JSON.stringify(e)}`, DataUtil);
     }
-    this.favoriteInstance = this.newConfig("测试Ⅰ").instanceId
+    this.favoriteInstance = this.newConfig("测试Ⅰ").instance_id
     this.newConfig("测试Ⅱ")
     this.newConfig("测试Ⅲ")
   }
@@ -80,11 +89,23 @@ export class DataUtil {
   }
 
   public newConfig(name: string): NetworkConfig {
-    let config = ContentUtil.getDefaultConfig()
-    config.instanceId = this.safeUUID()
-    this.configUUIDMap.set(config.instanceId, config)
-    this.configNameUUIDMap.set(name, config.instanceId)
-    this.configUUIDNameMap.set(config.instanceId, name)
+    let config = ContentUtil.getDefaultConfig(getHostname())
+    config.instance_id = this.safeUUID()
+    this.configUUIDMap.set(config.instance_id, config)
+    this.configNameUUIDMap.set(name, config.instance_id)
+    this.configUUIDNameMap.set(config.instance_id, name)
     return config
+  }
+
+  public delConfig(uuid: string): boolean {
+    if (AppManager.data.favoriteInstance === uuid) {
+      AppManager.data.favoriteInstance = undefined
+    }
+    if (this.configUUIDMap.has(uuid)) {
+      let name = this.configUUIDNameMap.get(uuid)
+      return this.configUUIDMap.delete(uuid) && this.configNameUUIDMap.delete(name ?? "") && this.configUUIDNameMap.delete(uuid)
+    }else {
+      return false
+    }
   }
 }

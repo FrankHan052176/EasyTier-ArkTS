@@ -4,7 +4,9 @@ import { deviceInfo } from "@kit.BasicServicesKit";
 import { uiAppearance } from "@kit.ArkUI";
 import { ContentUtil } from "../../../ContentUtil";
 import { getFieldI18Name } from "../FieldEdit";
-import { Spx2vp } from "../../../AppManager";
+import { AppManager, Spx2vp } from "../../../AppManager";
+import { getHostname } from "../../../util/Conversion";
+import { Logger } from "../../../util/Logger";
 
 @Extend(TextInput)
 function fieldTextInput(onChange:EditableTextOnChangeCallback, inputType: InputType, enterKeyType: EnterKeyType, id: string, submit: OnSubmitCallback) {
@@ -29,6 +31,7 @@ export struct StringField {
   comp_height: number = 0;
   controller: TextInputController = new TextInputController()
   @Local offsetX: number = 0;
+  @Local suggest: boolean = false;
 
   @Builder
   LightPoint() {
@@ -72,6 +75,24 @@ export struct StringField {
     }else {
       return EnterKeyType.Done
     }
+  }
+
+  @Computed
+  get hasSuggest() {
+    return ContentUtil.hasTag(this.field, "suggest")
+  }
+
+  @Builder
+  suggestion() {
+    Text("替换设备名")
+      .onClick(() => {
+        Logger.debug("click")
+        AppManager.permission.requestDistributePerm(true).then(() => {
+          this.value = getHostname()
+          this.config[ContentUtil.safeFieldName(this.field)] = this.value
+        })
+      })
+      .padding(10)
   }
 
   build() {
@@ -122,9 +143,23 @@ export struct StringField {
             })
             .onEditChange((isEdit) => {
               this.intensity = isEdit?1:0
+              if (this.hasSuggest) {
+                this.suggest = isEdit
+              }
             })
             .onAreaChange((_a,b) => {
               this.comp_height = b.height.valueOf() as number
+            })
+            .bindPopup(this.suggest, {
+              builder: this.suggestion(),
+              placement: Placement.Top,
+              targetSpace: 10,
+              enableArrow: false,
+              onStateChange: (e) => {
+                if (!e.isVisible) {
+                  this.suggest = false
+                }
+              }
             })
         }
         .borderWidth(0)

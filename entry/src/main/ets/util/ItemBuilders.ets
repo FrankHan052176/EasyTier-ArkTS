@@ -9,7 +9,6 @@ import { cidr,
   SharedPeer,
   WrappedString } from "./ETConfig";
 import { convertAddrToIp, safePassword } from "./Conversion";
-import { Svp2fp } from "../ContextUtil";
 import { PeerRoutePair } from "../protobuf/api_instance";
 
 function getObj(item: itemType): object {
@@ -66,13 +65,11 @@ export struct ItemBuilder {
                 .maxLines(1)
                 .width('80%')
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
-                .fontSize(Svp2fp((this.itemHeight-18)/2.5))
                 .fontColor($r("sys.color.font_primary"))
               Text(this.item.instance_id)
                 .maxLines(1)
                 .textOverflow({ overflow: TextOverflow.Ellipsis })
                 .width('80%')
-                .fontSize(Svp2fp((this.itemHeight-18)/5))
                 .fontColor($r("sys.color.font_secondary"))
                 .margin({top: 2})
             }
@@ -304,72 +301,6 @@ export struct PeerBuilder {
   }
 
   build() {
-    Stack({alignContent: Alignment.TopStart}) {
-      Row() {
-        Row() {
-          if (this.isSharedPeer()) {
-            Text(this.isAllowRelay()?"可转发":"禁转发")
-              .fontColor($r("sys.color.font_on_primary"))
-              .fontSize(Svp2fp(this.font_size_12))
-              .width(this.font_size_12*4)
-              .borderRadius(this.border_radius_8)
-              .backgroundColor(this.isAllowRelay()?$r("sys.color.confirm"):$r("sys.color.warning"))
-              .padding({top: this.padding_3, bottom: this.padding_3, right: this.padding_5, left: this.padding_5})
-              .textAlign(TextAlign.Center)
-              .margin({right: this.padding_5})
-          }
-          Text(this.item._protocol.toUpperCase())
-            .fontColor($r("sys.color.font_on_primary"))
-            .fontSize(Svp2fp(this.font_size_12))
-            .width(this.font_size_12*4)
-            .borderRadius(this.border_radius_8)
-            .backgroundColor(protocolColor(this.item._protocol))
-            .padding({top: this.padding_3, bottom: this.padding_3, right: this.padding_5, left: this.padding_5})
-            .textAlign(TextAlign.Center)
-        }
-        Row() {
-          if (!this.isSharedPeer()) {
-            Text() {
-              SymbolSpan($r('sys.symbol.position'))
-                .fontColor([$r("sys.color.font_primary")])
-                .fontSize(Svp2fp(this.font_size_14))
-            }
-            Text(this.item._port.toString())
-              .fontColor($r("sys.color.font_primary"))
-              .fontSize(Svp2fp(this.font_size_14))
-              .padding({top: this.padding_3, bottom: this.padding_3, right: this.padding_5, left: this.padding_5})
-              .textAlign(TextAlign.Center)
-          }
-        }
-      }
-      .alignItems(VerticalAlign.Top)
-      .justifyContent(FlexAlign.SpaceBetween)
-      .width('100%')
-      .padding({top: this.padding_5, left: this.padding_5, right: this.padding_5})
-      Row() {
-        Row() {
-          Text() {
-            SymbolSpan($r('sys.symbol.worldclock'))
-              .fontColor([$r("sys.color.font_primary")])
-              .fontSize(Svp2fp(this.font_size_14))
-          }
-          .margin({right: this.padding_5})
-          Text(this.getPeerText())
-            .maxLines(1)
-            .fontSize(Svp2fp(this.font_size_14))
-            .fontColor($r("sys.color.font_primary"))
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .layoutWeight(100)
-        }
-        .width('88%')
-      }
-      .alignItems(VerticalAlign.Center)
-      .justifyContent(FlexAlign.Center)
-      .height('100%')
-      .width('100%')
-    }
-    .width('100%')
-    .height('100%')
   }
 }
 
@@ -538,7 +469,6 @@ function getProtocol(value: PeerRoutePair): Protocol[] {
   if (value.peer) {
     value.peer.conns.forEach((conn) => {
       if (conn.tunnel) {
-        arr.push(conn.tunnel.tunnelType as Protocol)
       }
     })
   }
@@ -596,13 +526,6 @@ export function RemotePeerBuilder(value: PeerRoutePair) {
     })
     Column() {
       Text(value.route!.hostname)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .fontSize(14)
-        .fontColor($r("sys.color.font_primary"))
-        .textAlign(TextAlign.Center)
-        .padding({left: 10, right: 10})
-      Text(value.route!.ipv4Addr?convertAddrToIp(value.route!.ipv4Addr!.address!.addr):"")
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
         .fontSize(14)

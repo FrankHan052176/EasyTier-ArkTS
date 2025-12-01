@@ -51,86 +51,86 @@ export function networkingMethodToJSON(object: NetworkingMethod): string {
 }
 
 export interface NetworkConfig {
-  instanceId?: string | undefined;
+  instance_id?: string | undefined;
   dhcp?: boolean | undefined;
-  virtualIpv4?: string | undefined;
-  networkLength?: number | undefined;
+  virtual_ipv4?: string | undefined;
+  network_length?: number | undefined;
   hostname?: string | undefined;
-  networkName?: string | undefined;
-  networkSecret?: string | undefined;
-  networkingMethod?: NetworkingMethod | undefined;
-  publicServerUrl?: string | undefined;
-  peerUrls: string[];
-  proxyCidrs: string[];
-  enableVpnPortal?: boolean | undefined;
-  vpnPortalListenPort?: number | undefined;
-  vpnPortalClientNetworkAddr?: string | undefined;
-  vpnPortalClientNetworkLen?: number | undefined;
-  advancedSettings?: boolean | undefined;
-  listenerUrls: string[];
+  network_name?: string | undefined;
+  network_secret?: string | undefined;
+  networking_method?: NetworkingMethod | undefined;
+  public_server_url?: string | undefined;
+  peer_urls: string[];
+  proxy_cidrs: string[];
+  enable_vpn_portal?: boolean | undefined;
+  vpn_portal_listen_port?: number | undefined;
+  vpn_portal_client_network_addr?: string | undefined;
+  vpn_portal_client_network_len?: number | undefined;
+  advanced_settings?: boolean | undefined;
+  listener_urls: string[];
   /** optional int32 rpc_port = 18; */
-  latencyFirst?: boolean | undefined;
-  devName?: string | undefined;
-  useSmoltcp?: boolean | undefined;
-  disableIpv6?: boolean | undefined;
-  enableKcpProxy?: boolean | undefined;
-  disableKcpInput?: boolean | undefined;
-  disableP2p?: boolean | undefined;
-  bindDevice?: boolean | undefined;
-  noTun?: boolean | undefined;
-  enableExitNode?: boolean | undefined;
-  relayAllPeerRpc?: boolean | undefined;
-  multiThread?: boolean | undefined;
-  enableRelayNetworkWhitelist?: boolean | undefined;
-  relayNetworkWhitelist: string[];
-  enableManualRoutes?: boolean | undefined;
+  latency_first?: boolean | undefined;
+  dev_name?: string | undefined;
+  use_smoltcp?: boolean | undefined;
+  disable_ipv6?: boolean | undefined;
+  enable_kcp_proxy?: boolean | undefined;
+  disable_kcp_input?: boolean | undefined;
+  disable_p2p?: boolean | undefined;
+  bind_device?: boolean | undefined;
+  no_tun?: boolean | undefined;
+  enable_exit_node?: boolean | undefined;
+  relay_all_peer_rpc?: boolean | undefined;
+  multi_thread?: boolean | undefined;
+  enable_relay_network_whitelist?: boolean | undefined;
+  relay_network_whitelist: string[];
+  enable_manual_routes?: boolean | undefined;
   routes: string[];
-  exitNodes: string[];
-  proxyForwardBySystem?: boolean | undefined;
-  disableEncryption?: boolean | undefined;
-  enableSocks5?: boolean | undefined;
-  socks5Port?: number | undefined;
-  disableUdpHolePunching?: boolean | undefined;
+  exit_nodes: string[];
+  proxy_forward_by_system?: boolean | undefined;
+  disable_encryption?: boolean | undefined;
+  enable_socks5?: boolean | undefined;
+  socks5_port?: number | undefined;
+  disable_udp_hole_punching?: boolean | undefined;
   mtu?: number | undefined;
-  mappedListeners: string[];
-  enableMagicDns?: boolean | undefined;
-  enablePrivateMode?: boolean | undefined;
-  enableQuicProxy?: boolean | undefined;
-  disableQuicInput?: boolean | undefined;
-  quicListenPort?: number | undefined;
-  portForwards: PortForwardConfig[];
-  disableSymHolePunching?: boolean | undefined;
-  p2pOnly?: boolean | undefined;
+  mapped_listeners: string[];
+  enable_magic_dns?: boolean | undefined;
+  enable_private_mode?: boolean | undefined;
+  enable_quic_proxy?: boolean | undefined;
+  disable_quic_input?: boolean | undefined;
+  quic_listen_port?: number | undefined;
+  port_forwards: PortForwardConfig[];
+  disable_sym_hole_punching?: boolean | undefined;
+  p2p_only?: boolean | undefined;
 }
 
 export interface PortForwardConfig {
-  bindIp: string;
-  bindPort: number;
-  dstIp: string;
-  dstPort: number;
+  bind_ip: string;
+  bind_port: number;
+  dst_ip: string;
+  dst_port: number;
   proto: string;
 }
 
 export interface MyNodeInfo {
-  virtualIpv4: Ipv4Inet | undefined;
+  virtual_ipv4: Ipv4Inet | undefined;
   hostname: string;
   version: string;
   ips: GetIpListResponse | undefined;
-  stunInfo: StunInfo | undefined;
+  stun_info: StunInfo | undefined;
   listeners: Url[];
-  vpnPortalCfg?: string | undefined;
+  vpn_portal_cfg?: string | undefined;
 }
 
 export interface NetworkInstanceRunningInfo {
-  devName: string;
-  myNodeInfo: MyNodeInfo | undefined;
+  dev_name: string;
+  my_node_info: MyNodeInfo | undefined;
   events: string[];
   routes: Route[];
   peers: PeerInfo[];
-  peerRoutePairs: PeerRoutePair[];
+  peer_route_pairs: PeerRoutePair[];
   running: boolean;
-  errorMsg?: string | undefined;
-  foreignNetworkSummary: RouteForeignNetworkSummary | undefined;
+  error_msg?: string | undefined;
+  foreign_network_summary: RouteForeignNetworkSummary | undefined;
 }
 
 export interface NetworkInstanceRunningInfoMap {
@@ -143,9 +143,9 @@ export interface NetworkInstanceRunningInfoMap_MapEntry {
 }
 
 export interface NetworkMeta {
-  instId: UUID | undefined;
-  networkName: string;
-  configPermission: number;
+  inst_id: UUID | undefined;
+  network_name: string;
+  config_permission: number;
 }
 
 export interface ValidateConfigRequest {
@@ -153,29 +153,29 @@ export interface ValidateConfigRequest {
 }
 
 export interface ValidateConfigResponse {
-  tomlConfig: string;
+  toml_config: string;
 }
 
 export interface RunNetworkInstanceRequest {
-  instId: UUID | undefined;
+  inst_id: UUID | undefined;
   config: NetworkConfig | undefined;
   overwrite: boolean;
 }
 
 export interface RunNetworkInstanceResponse {
-  instId: UUID | undefined;
+  inst_id: UUID | undefined;
 }
 
 export interface RetainNetworkInstanceRequest {
-  instIds: UUID[];
+  inst_ids: UUID[];
 }
 
 export interface RetainNetworkInstanceResponse {
-  remainInstIds: UUID[];
+  remain_inst_ids: UUID[];
 }
 
 export interface CollectNetworkInfoRequest {
-  instIds: UUID[];
+  inst_ids: UUID[];
 }
 
 export interface CollectNetworkInfoResponse {
@@ -186,19 +186,19 @@ export interface ListNetworkInstanceRequest {
 }
 
 export interface ListNetworkInstanceResponse {
-  instIds: UUID[];
+  inst_ids: UUID[];
 }
 
 export interface DeleteNetworkInstanceRequest {
-  instIds: UUID[];
+  inst_ids: UUID[];
 }
 
 export interface DeleteNetworkInstanceResponse {
-  remainInstIds: UUID[];
+  remain_inst_ids: UUID[];
 }
 
 export interface GetNetworkInstanceConfigRequest {
-  instId: UUID | undefined;
+  inst_id: UUID | undefined;
 }
 
 export interface GetNetworkInstanceConfigResponse {
@@ -206,7 +206,7 @@ export interface GetNetworkInstanceConfigResponse {
 }
 
 export interface ListNetworkInstanceMetaRequest {
-  instIds: UUID[];
+  inst_ids: UUID[];
 }
 
 export interface ListNetworkInstanceMetaResponse {
@@ -215,287 +215,297 @@ export interface ListNetworkInstanceMetaResponse {
 
 function createBaseNetworkConfig(): NetworkConfig {
   return {
-    instanceId: undefined,
+    instance_id: undefined,
     dhcp: undefined,
-    virtualIpv4: undefined,
-    networkLength: undefined,
+    virtual_ipv4: undefined,
+    network_length: undefined,
     hostname: undefined,
-    networkName: undefined,
-    networkSecret: undefined,
-    networkingMethod: undefined,
-    publicServerUrl: undefined,
-    peerUrls: [],
-    proxyCidrs: [],
-    enableVpnPortal: undefined,
-    vpnPortalListenPort: undefined,
-    vpnPortalClientNetworkAddr: undefined,
-    vpnPortalClientNetworkLen: undefined,
-    advancedSettings: undefined,
-    listenerUrls: [],
-    latencyFirst: undefined,
-    devName: undefined,
-    useSmoltcp: undefined,
-    disableIpv6: undefined,
-    enableKcpProxy: undefined,
-    disableKcpInput: undefined,
-    disableP2p: undefined,
-    bindDevice: undefined,
-    noTun: undefined,
-    enableExitNode: undefined,
-    relayAllPeerRpc: undefined,
-    multiThread: undefined,
-    enableRelayNetworkWhitelist: undefined,
-    relayNetworkWhitelist: [],
-    enableManualRoutes: undefined,
+    network_name: undefined,
+    network_secret: undefined,
+    networking_method: undefined,
+    public_server_url: undefined,
+    peer_urls: [],
+    proxy_cidrs: [],
+    enable_vpn_portal: undefined,
+    vpn_portal_listen_port: undefined,
+    vpn_portal_client_network_addr: undefined,
+    vpn_portal_client_network_len: undefined,
+    advanced_settings: undefined,
+    listener_urls: [],
+    latency_first: undefined,
+    dev_name: undefined,
+    use_smoltcp: undefined,
+    disable_ipv6: undefined,
+    enable_kcp_proxy: undefined,
+    disable_kcp_input: undefined,
+    disable_p2p: undefined,
+    bind_device: undefined,
+    no_tun: undefined,
+    enable_exit_node: undefined,
+    relay_all_peer_rpc: undefined,
+    multi_thread: undefined,
+    enable_relay_network_whitelist: undefined,
+    relay_network_whitelist: [],
+    enable_manual_routes: undefined,
     routes: [],
-    exitNodes: [],
-    proxyForwardBySystem: undefined,
-    disableEncryption: undefined,
-    enableSocks5: undefined,
-    socks5Port: undefined,
-    disableUdpHolePunching: undefined,
+    exit_nodes: [],
+    proxy_forward_by_system: undefined,
+    disable_encryption: undefined,
+    enable_socks5: undefined,
+    socks5_port: undefined,
+    disable_udp_hole_punching: undefined,
     mtu: undefined,
-    mappedListeners: [],
-    enableMagicDns: undefined,
-    enablePrivateMode: undefined,
-    enableQuicProxy: undefined,
-    disableQuicInput: undefined,
-    quicListenPort: undefined,
-    portForwards: [],
-    disableSymHolePunching: undefined,
-    p2pOnly: undefined,
+    mapped_listeners: [],
+    enable_magic_dns: undefined,
+    enable_private_mode: undefined,
+    enable_quic_proxy: undefined,
+    disable_quic_input: undefined,
+    quic_listen_port: undefined,
+    port_forwards: [],
+    disable_sym_hole_punching: undefined,
+    p2p_only: undefined,
   };
 }
 
 export const NetworkConfig: MessageFns<NetworkConfig> = {
   fromJSON(object: any): NetworkConfig {
     return {
-      instanceId: isSet(object.instanceId) ? globalThis.String(object.instanceId) : undefined,
+      instance_id: isSet(object.instance_id) ? globalThis.String(object.instance_id) : undefined,
       dhcp: isSet(object.dhcp) ? globalThis.Boolean(object.dhcp) : undefined,
-      virtualIpv4: isSet(object.virtualIpv4) ? globalThis.String(object.virtualIpv4) : undefined,
-      networkLength: isSet(object.networkLength) ? globalThis.Number(object.networkLength) : undefined,
+      virtual_ipv4: isSet(object.virtual_ipv4) ? globalThis.String(object.virtual_ipv4) : undefined,
+      network_length: isSet(object.network_length) ? globalThis.Number(object.network_length) : undefined,
       hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : undefined,
-      networkName: isSet(object.networkName) ? globalThis.String(object.networkName) : undefined,
-      networkSecret: isSet(object.networkSecret) ? globalThis.String(object.networkSecret) : undefined,
-      networkingMethod: isSet(object.networkingMethod) ? networkingMethodFromJSON(object.networkingMethod) : undefined,
-      publicServerUrl: isSet(object.publicServerUrl) ? globalThis.String(object.publicServerUrl) : undefined,
-      peerUrls: globalThis.Array.isArray(object?.peerUrls) ? object.peerUrls.map((e: any) => globalThis.String(e)) : [],
-      proxyCidrs: globalThis.Array.isArray(object?.proxyCidrs)
-        ? object.proxyCidrs.map((e: any) => globalThis.String(e))
+      network_name: isSet(object.network_name) ? globalThis.String(object.network_name) : undefined,
+      network_secret: isSet(object.network_secret) ? globalThis.String(object.network_secret) : undefined,
+      networking_method: isSet(object.networking_method)
+        ? networkingMethodFromJSON(object.networking_method)
+        : undefined,
+      public_server_url: isSet(object.public_server_url) ? globalThis.String(object.public_server_url) : undefined,
+      peer_urls: globalThis.Array.isArray(object?.peer_urls)
+        ? object.peer_urls.map((e: any) => globalThis.String(e))
         : [],
-      enableVpnPortal: isSet(object.enableVpnPortal) ? globalThis.Boolean(object.enableVpnPortal) : undefined,
-      vpnPortalListenPort: isSet(object.vpnPortalListenPort)
-        ? globalThis.Number(object.vpnPortalListenPort)
-        : undefined,
-      vpnPortalClientNetworkAddr: isSet(object.vpnPortalClientNetworkAddr)
-        ? globalThis.String(object.vpnPortalClientNetworkAddr)
-        : undefined,
-      vpnPortalClientNetworkLen: isSet(object.vpnPortalClientNetworkLen)
-        ? globalThis.Number(object.vpnPortalClientNetworkLen)
-        : undefined,
-      advancedSettings: isSet(object.advancedSettings) ? globalThis.Boolean(object.advancedSettings) : undefined,
-      listenerUrls: globalThis.Array.isArray(object?.listenerUrls)
-        ? object.listenerUrls.map((e: any) => globalThis.String(e))
+      proxy_cidrs: globalThis.Array.isArray(object?.proxy_cidrs)
+        ? object.proxy_cidrs.map((e: any) => globalThis.String(e))
         : [],
-      latencyFirst: isSet(object.latencyFirst) ? globalThis.Boolean(object.latencyFirst) : undefined,
-      devName: isSet(object.devName) ? globalThis.String(object.devName) : undefined,
-      useSmoltcp: isSet(object.useSmoltcp) ? globalThis.Boolean(object.useSmoltcp) : undefined,
-      disableIpv6: isSet(object.disableIpv6) ? globalThis.Boolean(object.disableIpv6) : undefined,
-      enableKcpProxy: isSet(object.enableKcpProxy) ? globalThis.Boolean(object.enableKcpProxy) : undefined,
-      disableKcpInput: isSet(object.disableKcpInput) ? globalThis.Boolean(object.disableKcpInput) : undefined,
-      disableP2p: isSet(object.disableP2p) ? globalThis.Boolean(object.disableP2p) : undefined,
-      bindDevice: isSet(object.bindDevice) ? globalThis.Boolean(object.bindDevice) : undefined,
-      noTun: isSet(object.noTun) ? globalThis.Boolean(object.noTun) : undefined,
-      enableExitNode: isSet(object.enableExitNode) ? globalThis.Boolean(object.enableExitNode) : undefined,
-      relayAllPeerRpc: isSet(object.relayAllPeerRpc) ? globalThis.Boolean(object.relayAllPeerRpc) : undefined,
-      multiThread: isSet(object.multiThread) ? globalThis.Boolean(object.multiThread) : undefined,
-      enableRelayNetworkWhitelist: isSet(object.enableRelayNetworkWhitelist)
-        ? globalThis.Boolean(object.enableRelayNetworkWhitelist)
+      enable_vpn_portal: isSet(object.enable_vpn_portal) ? globalThis.Boolean(object.enable_vpn_portal) : undefined,
+      vpn_portal_listen_port: isSet(object.vpn_portal_listen_port)
+        ? globalThis.Number(object.vpn_portal_listen_port)
         : undefined,
-      relayNetworkWhitelist: globalThis.Array.isArray(object?.relayNetworkWhitelist)
-        ? object.relayNetworkWhitelist.map((e: any) => globalThis.String(e))
-        : [],
-      enableManualRoutes: isSet(object.enableManualRoutes) ? globalThis.Boolean(object.enableManualRoutes) : undefined,
-      routes: globalThis.Array.isArray(object?.routes) ? object.routes.map((e: any) => globalThis.String(e)) : [],
-      exitNodes: globalThis.Array.isArray(object?.exitNodes)
-        ? object.exitNodes.map((e: any) => globalThis.String(e))
-        : [],
-      proxyForwardBySystem: isSet(object.proxyForwardBySystem)
-        ? globalThis.Boolean(object.proxyForwardBySystem)
+      vpn_portal_client_network_addr: isSet(object.vpn_portal_client_network_addr)
+        ? globalThis.String(object.vpn_portal_client_network_addr)
         : undefined,
-      disableEncryption: isSet(object.disableEncryption) ? globalThis.Boolean(object.disableEncryption) : undefined,
-      enableSocks5: isSet(object.enableSocks5) ? globalThis.Boolean(object.enableSocks5) : undefined,
-      socks5Port: isSet(object.socks5Port) ? globalThis.Number(object.socks5Port) : undefined,
-      disableUdpHolePunching: isSet(object.disableUdpHolePunching)
-        ? globalThis.Boolean(object.disableUdpHolePunching)
+      vpn_portal_client_network_len: isSet(object.vpn_portal_client_network_len)
+        ? globalThis.Number(object.vpn_portal_client_network_len)
+        : undefined,
+      advanced_settings: isSet(object.advanced_settings) ? globalThis.Boolean(object.advanced_settings) : undefined,
+      listener_urls: globalThis.Array.isArray(object?.listener_urls)
+        ? object.listener_urls.map((e: any) => globalThis.String(e))
+        : [],
+      latency_first: isSet(object.latency_first) ? globalThis.Boolean(object.latency_first) : undefined,
+      dev_name: isSet(object.dev_name) ? globalThis.String(object.dev_name) : undefined,
+      use_smoltcp: isSet(object.use_smoltcp) ? globalThis.Boolean(object.use_smoltcp) : undefined,
+      disable_ipv6: isSet(object.disable_ipv6) ? globalThis.Boolean(object.disable_ipv6) : undefined,
+      enable_kcp_proxy: isSet(object.enable_kcp_proxy) ? globalThis.Boolean(object.enable_kcp_proxy) : undefined,
+      disable_kcp_input: isSet(object.disable_kcp_input) ? globalThis.Boolean(object.disable_kcp_input) : undefined,
+      disable_p2p: isSet(object.disable_p2p) ? globalThis.Boolean(object.disable_p2p) : undefined,
+      bind_device: isSet(object.bind_device) ? globalThis.Boolean(object.bind_device) : undefined,
+      no_tun: isSet(object.no_tun) ? globalThis.Boolean(object.no_tun) : undefined,
+      enable_exit_node: isSet(object.enable_exit_node) ? globalThis.Boolean(object.enable_exit_node) : undefined,
+      relay_all_peer_rpc: isSet(object.relay_all_peer_rpc) ? globalThis.Boolean(object.relay_all_peer_rpc) : undefined,
+      multi_thread: isSet(object.multi_thread) ? globalThis.Boolean(object.multi_thread) : undefined,
+      enable_relay_network_whitelist: isSet(object.enable_relay_network_whitelist)
+        ? globalThis.Boolean(object.enable_relay_network_whitelist)
+        : undefined,
+      relay_network_whitelist: globalThis.Array.isArray(object?.relay_network_whitelist)
+        ? object.relay_network_whitelist.map((e: any) => globalThis.String(e))
+        : [],
+      enable_manual_routes: isSet(object.enable_manual_routes)
+        ? globalThis.Boolean(object.enable_manual_routes)
+        : undefined,
+      routes: globalThis.Array.isArray(object?.routes)
+        ? object.routes.map((e: any) => globalThis.String(e))
+        : [],
+      exit_nodes: globalThis.Array.isArray(object?.exit_nodes)
+        ? object.exit_nodes.map((e: any) => globalThis.String(e))
+        : [],
+      proxy_forward_by_system: isSet(object.proxy_forward_by_system)
+        ? globalThis.Boolean(object.proxy_forward_by_system)
+        : undefined,
+      disable_encryption: isSet(object.disable_encryption) ? globalThis.Boolean(object.disable_encryption) : undefined,
+      enable_socks5: isSet(object.enable_socks5) ? globalThis.Boolean(object.enable_socks5) : undefined,
+      socks5_port: isSet(object.socks5_port) ? globalThis.Number(object.socks5_port) : undefined,
+      disable_udp_hole_punching: isSet(object.disable_udp_hole_punching)
+        ? globalThis.Boolean(object.disable_udp_hole_punching)
         : undefined,
       mtu: isSet(object.mtu) ? globalThis.Number(object.mtu) : undefined,
-      mappedListeners: globalThis.Array.isArray(object?.mappedListeners)
-        ? object.mappedListeners.map((e: any) => globalThis.String(e))
+      mapped_listeners: globalThis.Array.isArray(object?.mapped_listeners)
+        ? object.mapped_listeners.map((e: any) => globalThis.String(e))
         : [],
-      enableMagicDns: isSet(object.enableMagicDns) ? globalThis.Boolean(object.enableMagicDns) : undefined,
-      enablePrivateMode: isSet(object.enablePrivateMode) ? globalThis.Boolean(object.enablePrivateMode) : undefined,
-      enableQuicProxy: isSet(object.enableQuicProxy) ? globalThis.Boolean(object.enableQuicProxy) : undefined,
-      disableQuicInput: isSet(object.disableQuicInput) ? globalThis.Boolean(object.disableQuicInput) : undefined,
-      quicListenPort: isSet(object.quicListenPort) ? globalThis.Number(object.quicListenPort) : undefined,
-      portForwards: globalThis.Array.isArray(object?.portForwards)
-        ? object.portForwards.map((e: any) => PortForwardConfig.fromJSON(e))
-        : [],
-      disableSymHolePunching: isSet(object.disableSymHolePunching)
-        ? globalThis.Boolean(object.disableSymHolePunching)
+      enable_magic_dns: isSet(object.enable_magic_dns) ? globalThis.Boolean(object.enable_magic_dns) : undefined,
+      enable_private_mode: isSet(object.enable_private_mode)
+        ? globalThis.Boolean(object.enable_private_mode)
         : undefined,
-      p2pOnly: isSet(object.p2pOnly) ? globalThis.Boolean(object.p2pOnly) : undefined,
+      enable_quic_proxy: isSet(object.enable_quic_proxy) ? globalThis.Boolean(object.enable_quic_proxy) : undefined,
+      disable_quic_input: isSet(object.disable_quic_input) ? globalThis.Boolean(object.disable_quic_input) : undefined,
+      quic_listen_port: isSet(object.quic_listen_port) ? globalThis.Number(object.quic_listen_port) : undefined,
+      port_forwards: globalThis.Array.isArray(object?.port_forwards)
+        ? object.port_forwards.map((e: any) => PortForwardConfig.fromJSON(e))
+        : [],
+      disable_sym_hole_punching: isSet(object.disable_sym_hole_punching)
+        ? globalThis.Boolean(object.disable_sym_hole_punching)
+        : undefined,
+      p2p_only: isSet(object.p2p_only) ? globalThis.Boolean(object.p2p_only) : undefined,
     };
   },
 
   toJSON(message: NetworkConfig): unknown {
     const obj: any = {};
-    if (message.instanceId !== undefined) {
-      obj.instanceId = message.instanceId;
+    if (message.instance_id !== undefined) {
+      obj.instance_id = message.instance_id;
     }
     if (message.dhcp !== undefined) {
       obj.dhcp = message.dhcp;
     }
-    if (message.virtualIpv4 !== undefined) {
-      obj.virtualIpv4 = message.virtualIpv4;
+    if (message.virtual_ipv4 !== undefined) {
+      obj.virtual_ipv4 = message.virtual_ipv4;
     }
-    if (message.networkLength !== undefined) {
-      obj.networkLength = Math.round(message.networkLength);
+    if (message.network_length !== undefined) {
+      obj.network_length = Math.round(message.network_length);
     }
     if (message.hostname !== undefined) {
       obj.hostname = message.hostname;
     }
-    if (message.networkName !== undefined) {
-      obj.networkName = message.networkName;
+    if (message.network_name !== undefined) {
+      obj.network_name = message.network_name;
     }
-    if (message.networkSecret !== undefined) {
-      obj.networkSecret = message.networkSecret;
+    if (message.network_secret !== undefined) {
+      obj.network_secret = message.network_secret;
     }
-    if (message.networkingMethod !== undefined) {
-      obj.networkingMethod = networkingMethodToJSON(message.networkingMethod);
+    if (message.networking_method !== undefined) {
+      obj.networking_method = networkingMethodToJSON(message.networking_method);
     }
-    if (message.publicServerUrl !== undefined) {
-      obj.publicServerUrl = message.publicServerUrl;
+    if (message.public_server_url !== undefined) {
+      obj.public_server_url = message.public_server_url;
     }
-    if (message.peerUrls?.length) {
-      obj.peerUrls = message.peerUrls;
+    if (message.peer_urls?.length) {
+      obj.peer_urls = message.peer_urls;
     }
-    if (message.proxyCidrs?.length) {
-      obj.proxyCidrs = message.proxyCidrs;
+    if (message.proxy_cidrs?.length) {
+      obj.proxy_cidrs = message.proxy_cidrs;
     }
-    if (message.enableVpnPortal !== undefined) {
-      obj.enableVpnPortal = message.enableVpnPortal;
+    if (message.enable_vpn_portal !== undefined) {
+      obj.enable_vpn_portal = message.enable_vpn_portal;
     }
-    if (message.vpnPortalListenPort !== undefined) {
-      obj.vpnPortalListenPort = Math.round(message.vpnPortalListenPort);
+    if (message.vpn_portal_listen_port !== undefined) {
+      obj.vpn_portal_listen_port = Math.round(message.vpn_portal_listen_port);
     }
-    if (message.vpnPortalClientNetworkAddr !== undefined) {
-      obj.vpnPortalClientNetworkAddr = message.vpnPortalClientNetworkAddr;
+    if (message.vpn_portal_client_network_addr !== undefined) {
+      obj.vpn_portal_client_network_addr = message.vpn_portal_client_network_addr;
     }
-    if (message.vpnPortalClientNetworkLen !== undefined) {
-      obj.vpnPortalClientNetworkLen = Math.round(message.vpnPortalClientNetworkLen);
+    if (message.vpn_portal_client_network_len !== undefined) {
+      obj.vpn_portal_client_network_len = Math.round(message.vpn_portal_client_network_len);
     }
-    if (message.advancedSettings !== undefined) {
-      obj.advancedSettings = message.advancedSettings;
+    if (message.advanced_settings !== undefined) {
+      obj.advanced_settings = message.advanced_settings;
     }
-    if (message.listenerUrls?.length) {
-      obj.listenerUrls = message.listenerUrls;
+    if (message.listener_urls?.length) {
+      obj.listener_urls = message.listener_urls;
     }
-    if (message.latencyFirst !== undefined) {
-      obj.latencyFirst = message.latencyFirst;
+    if (message.latency_first !== undefined) {
+      obj.latency_first = message.latency_first;
     }
-    if (message.devName !== undefined) {
-      obj.devName = message.devName;
+    if (message.dev_name !== undefined) {
+      obj.dev_name = message.dev_name;
     }
-    if (message.useSmoltcp !== undefined) {
-      obj.useSmoltcp = message.useSmoltcp;
+    if (message.use_smoltcp !== undefined) {
+      obj.use_smoltcp = message.use_smoltcp;
     }
-    if (message.disableIpv6 !== undefined) {
-      obj.disableIpv6 = message.disableIpv6;
+    if (message.disable_ipv6 !== undefined) {
+      obj.disable_ipv6 = message.disable_ipv6;
     }
-    if (message.enableKcpProxy !== undefined) {
-      obj.enableKcpProxy = message.enableKcpProxy;
+    if (message.enable_kcp_proxy !== undefined) {
+      obj.enable_kcp_proxy = message.enable_kcp_proxy;
     }
-    if (message.disableKcpInput !== undefined) {
-      obj.disableKcpInput = message.disableKcpInput;
+    if (message.disable_kcp_input !== undefined) {
+      obj.disable_kcp_input = message.disable_kcp_input;
     }
-    if (message.disableP2p !== undefined) {
-      obj.disableP2p = message.disableP2p;
+    if (message.disable_p2p !== undefined) {
+      obj.disable_p2p = message.disable_p2p;
     }
-    if (message.bindDevice !== undefined) {
-      obj.bindDevice = message.bindDevice;
+    if (message.bind_device !== undefined) {
+      obj.bind_device = message.bind_device;
     }
-    if (message.noTun !== undefined) {
-      obj.noTun = message.noTun;
+    if (message.no_tun !== undefined) {
+      obj.no_tun = message.no_tun;
     }
-    if (message.enableExitNode !== undefined) {
-      obj.enableExitNode = message.enableExitNode;
+    if (message.enable_exit_node !== undefined) {
+      obj.enable_exit_node = message.enable_exit_node;
     }
-    if (message.relayAllPeerRpc !== undefined) {
-      obj.relayAllPeerRpc = message.relayAllPeerRpc;
+    if (message.relay_all_peer_rpc !== undefined) {
+      obj.relay_all_peer_rpc = message.relay_all_peer_rpc;
     }
-    if (message.multiThread !== undefined) {
-      obj.multiThread = message.multiThread;
+    if (message.multi_thread !== undefined) {
+      obj.multi_thread = message.multi_thread;
     }
-    if (message.enableRelayNetworkWhitelist !== undefined) {
-      obj.enableRelayNetworkWhitelist = message.enableRelayNetworkWhitelist;
+    if (message.enable_relay_network_whitelist !== undefined) {
+      obj.enable_relay_network_whitelist = message.enable_relay_network_whitelist;
     }
-    if (message.relayNetworkWhitelist?.length) {
-      obj.relayNetworkWhitelist = message.relayNetworkWhitelist;
+    if (message.relay_network_whitelist?.length) {
+      obj.relay_network_whitelist = message.relay_network_whitelist;
     }
-    if (message.enableManualRoutes !== undefined) {
-      obj.enableManualRoutes = message.enableManualRoutes;
+    if (message.enable_manual_routes !== undefined) {
+      obj.enable_manual_routes = message.enable_manual_routes;
     }
     if (message.routes?.length) {
       obj.routes = message.routes;
     }
-    if (message.exitNodes?.length) {
-      obj.exitNodes = message.exitNodes;
+    if (message.exit_nodes?.length) {
+      obj.exit_nodes = message.exit_nodes;
     }
-    if (message.proxyForwardBySystem !== undefined) {
-      obj.proxyForwardBySystem = message.proxyForwardBySystem;
+    if (message.proxy_forward_by_system !== undefined) {
+      obj.proxy_forward_by_system = message.proxy_forward_by_system;
     }
-    if (message.disableEncryption !== undefined) {
-      obj.disableEncryption = message.disableEncryption;
+    if (message.disable_encryption !== undefined) {
+      obj.disable_encryption = message.disable_encryption;
     }
-    if (message.enableSocks5 !== undefined) {
-      obj.enableSocks5 = message.enableSocks5;
+    if (message.enable_socks5 !== undefined) {
+      obj.enable_socks5 = message.enable_socks5;
     }
-    if (message.socks5Port !== undefined) {
-      obj.socks5Port = Math.round(message.socks5Port);
+    if (message.socks5_port !== undefined) {
+      obj.socks5_port = Math.round(message.socks5_port);
     }
-    if (message.disableUdpHolePunching !== undefined) {
-      obj.disableUdpHolePunching = message.disableUdpHolePunching;
+    if (message.disable_udp_hole_punching !== undefined) {
+      obj.disable_udp_hole_punching = message.disable_udp_hole_punching;
     }
     if (message.mtu !== undefined) {
       obj.mtu = Math.round(message.mtu);
     }
-    if (message.mappedListeners?.length) {
-      obj.mappedListeners = message.mappedListeners;
+    if (message.mapped_listeners?.length) {
+      obj.mapped_listeners = message.mapped_listeners;
     }
-    if (message.enableMagicDns !== undefined) {
-      obj.enableMagicDns = message.enableMagicDns;
+    if (message.enable_magic_dns !== undefined) {
+      obj.enable_magic_dns = message.enable_magic_dns;
     }
-    if (message.enablePrivateMode !== undefined) {
-      obj.enablePrivateMode = message.enablePrivateMode;
+    if (message.enable_private_mode !== undefined) {
+      obj.enable_private_mode = message.enable_private_mode;
     }
-    if (message.enableQuicProxy !== undefined) {
-      obj.enableQuicProxy = message.enableQuicProxy;
+    if (message.enable_quic_proxy !== undefined) {
+      obj.enable_quic_proxy = message.enable_quic_proxy;
     }
-    if (message.disableQuicInput !== undefined) {
-      obj.disableQuicInput = message.disableQuicInput;
+    if (message.disable_quic_input !== undefined) {
+      obj.disable_quic_input = message.disable_quic_input;
     }
-    if (message.quicListenPort !== undefined) {
-      obj.quicListenPort = Math.round(message.quicListenPort);
+    if (message.quic_listen_port !== undefined) {
+      obj.quic_listen_port = Math.round(message.quic_listen_port);
     }
-    if (message.portForwards?.length) {
-      obj.portForwards = message.portForwards.map((e) => PortForwardConfig.toJSON(e));
+    if (message.port_forwards?.length) {
+      obj.port_forwards = message.port_forwards.map((e) => PortForwardConfig.toJSON(e));
     }
-    if (message.disableSymHolePunching !== undefined) {
-      obj.disableSymHolePunching = message.disableSymHolePunching;
+    if (message.disable_sym_hole_punching !== undefined) {
+      obj.disable_sym_hole_punching = message.disable_sym_hole_punching;
     }
-    if (message.p2pOnly !== undefined) {
-      obj.p2pOnly = message.p2pOnly;
+    if (message.p2p_only !== undefined) {
+      obj.p2p_only = message.p2p_only;
     }
     return obj;
   },
@@ -505,87 +515,87 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
   },
   fromPartial<I extends Exact<DeepPartial<NetworkConfig>, I>>(object: I): NetworkConfig {
     const message = createBaseNetworkConfig();
-    message.instanceId = object.instanceId ?? undefined;
+    message.instance_id = object.instance_id ?? undefined;
     message.dhcp = object.dhcp ?? undefined;
-    message.virtualIpv4 = object.virtualIpv4 ?? undefined;
-    message.networkLength = object.networkLength ?? undefined;
+    message.virtual_ipv4 = object.virtual_ipv4 ?? undefined;
+    message.network_length = object.network_length ?? undefined;
     message.hostname = object.hostname ?? undefined;
-    message.networkName = object.networkName ?? undefined;
-    message.networkSecret = object.networkSecret ?? undefined;
-    message.networkingMethod = object.networkingMethod ?? undefined;
-    message.publicServerUrl = object.publicServerUrl ?? undefined;
-    message.peerUrls = object.peerUrls?.map((e) => e) || [];
-    message.proxyCidrs = object.proxyCidrs?.map((e) => e) || [];
-    message.enableVpnPortal = object.enableVpnPortal ?? undefined;
-    message.vpnPortalListenPort = object.vpnPortalListenPort ?? undefined;
-    message.vpnPortalClientNetworkAddr = object.vpnPortalClientNetworkAddr ?? undefined;
-    message.vpnPortalClientNetworkLen = object.vpnPortalClientNetworkLen ?? undefined;
-    message.advancedSettings = object.advancedSettings ?? undefined;
-    message.listenerUrls = object.listenerUrls?.map((e) => e) || [];
-    message.latencyFirst = object.latencyFirst ?? undefined;
-    message.devName = object.devName ?? undefined;
-    message.useSmoltcp = object.useSmoltcp ?? undefined;
-    message.disableIpv6 = object.disableIpv6 ?? undefined;
-    message.enableKcpProxy = object.enableKcpProxy ?? undefined;
-    message.disableKcpInput = object.disableKcpInput ?? undefined;
-    message.disableP2p = object.disableP2p ?? undefined;
-    message.bindDevice = object.bindDevice ?? undefined;
-    message.noTun = object.noTun ?? undefined;
-    message.enableExitNode = object.enableExitNode ?? undefined;
-    message.relayAllPeerRpc = object.relayAllPeerRpc ?? undefined;
-    message.multiThread = object.multiThread ?? undefined;
-    message.enableRelayNetworkWhitelist = object.enableRelayNetworkWhitelist ?? undefined;
-    message.relayNetworkWhitelist = object.relayNetworkWhitelist?.map((e) => e) || [];
-    message.enableManualRoutes = object.enableManualRoutes ?? undefined;
+    message.network_name = object.network_name ?? undefined;
+    message.network_secret = object.network_secret ?? undefined;
+    message.networking_method = object.networking_method ?? undefined;
+    message.public_server_url = object.public_server_url ?? undefined;
+    message.peer_urls = object.peer_urls?.map((e) => e) || [];
+    message.proxy_cidrs = object.proxy_cidrs?.map((e) => e) || [];
+    message.enable_vpn_portal = object.enable_vpn_portal ?? undefined;
+    message.vpn_portal_listen_port = object.vpn_portal_listen_port ?? undefined;
+    message.vpn_portal_client_network_addr = object.vpn_portal_client_network_addr ?? undefined;
+    message.vpn_portal_client_network_len = object.vpn_portal_client_network_len ?? undefined;
+    message.advanced_settings = object.advanced_settings ?? undefined;
+    message.listener_urls = object.listener_urls?.map((e) => e) || [];
+    message.latency_first = object.latency_first ?? undefined;
+    message.dev_name = object.dev_name ?? undefined;
+    message.use_smoltcp = object.use_smoltcp ?? undefined;
+    message.disable_ipv6 = object.disable_ipv6 ?? undefined;
+    message.enable_kcp_proxy = object.enable_kcp_proxy ?? undefined;
+    message.disable_kcp_input = object.disable_kcp_input ?? undefined;
+    message.disable_p2p = object.disable_p2p ?? undefined;
+    message.bind_device = object.bind_device ?? undefined;
+    message.no_tun = object.no_tun ?? undefined;
+    message.enable_exit_node = object.enable_exit_node ?? undefined;
+    message.relay_all_peer_rpc = object.relay_all_peer_rpc ?? undefined;
+    message.multi_thread = object.multi_thread ?? undefined;
+    message.enable_relay_network_whitelist = object.enable_relay_network_whitelist ?? undefined;
+    message.relay_network_whitelist = object.relay_network_whitelist?.map((e) => e) || [];
+    message.enable_manual_routes = object.enable_manual_routes ?? undefined;
     message.routes = object.routes?.map((e) => e) || [];
-    message.exitNodes = object.exitNodes?.map((e) => e) || [];
-    message.proxyForwardBySystem = object.proxyForwardBySystem ?? undefined;
-    message.disableEncryption = object.disableEncryption ?? undefined;
-    message.enableSocks5 = object.enableSocks5 ?? undefined;
-    message.socks5Port = object.socks5Port ?? undefined;
-    message.disableUdpHolePunching = object.disableUdpHolePunching ?? undefined;
+    message.exit_nodes = object.exit_nodes?.map((e) => e) || [];
+    message.proxy_forward_by_system = object.proxy_forward_by_system ?? undefined;
+    message.disable_encryption = object.disable_encryption ?? undefined;
+    message.enable_socks5 = object.enable_socks5 ?? undefined;
+    message.socks5_port = object.socks5_port ?? undefined;
+    message.disable_udp_hole_punching = object.disable_udp_hole_punching ?? undefined;
     message.mtu = object.mtu ?? undefined;
-    message.mappedListeners = object.mappedListeners?.map((e) => e) || [];
-    message.enableMagicDns = object.enableMagicDns ?? undefined;
-    message.enablePrivateMode = object.enablePrivateMode ?? undefined;
-    message.enableQuicProxy = object.enableQuicProxy ?? undefined;
-    message.disableQuicInput = object.disableQuicInput ?? undefined;
-    message.quicListenPort = object.quicListenPort ?? undefined;
-    message.portForwards = object.portForwards?.map((e) => PortForwardConfig.fromPartial(e)) || [];
-    message.disableSymHolePunching = object.disableSymHolePunching ?? undefined;
-    message.p2pOnly = object.p2pOnly ?? undefined;
+    message.mapped_listeners = object.mapped_listeners?.map((e) => e) || [];
+    message.enable_magic_dns = object.enable_magic_dns ?? undefined;
+    message.enable_private_mode = object.enable_private_mode ?? undefined;
+    message.enable_quic_proxy = object.enable_quic_proxy ?? undefined;
+    message.disable_quic_input = object.disable_quic_input ?? undefined;
+    message.quic_listen_port = object.quic_listen_port ?? undefined;
+    message.port_forwards = object.port_forwards?.map((e) => PortForwardConfig.fromPartial(e)) || [];
+    message.disable_sym_hole_punching = object.disable_sym_hole_punching ?? undefined;
+    message.p2p_only = object.p2p_only ?? undefined;
     return message;
   },
 };
 
 function createBasePortForwardConfig(): PortForwardConfig {
-  return { bindIp: "", bindPort: 0, dstIp: "", dstPort: 0, proto: "" };
+  return { bind_ip: "", bind_port: 0, dst_ip: "", dst_port: 0, proto: "" };
 }
 
 export const PortForwardConfig: MessageFns<PortForwardConfig> = {
   fromJSON(object: any): PortForwardConfig {
     return {
-      bindIp: isSet(object.bindIp) ? globalThis.String(object.bindIp) : "",
-      bindPort: isSet(object.bindPort) ? globalThis.Number(object.bindPort) : 0,
-      dstIp: isSet(object.dstIp) ? globalThis.String(object.dstIp) : "",
-      dstPort: isSet(object.dstPort) ? globalThis.Number(object.dstPort) : 0,
+      bind_ip: isSet(object.bind_ip) ? globalThis.String(object.bind_ip) : "",
+      bind_port: isSet(object.bind_port) ? globalThis.Number(object.bind_port) : 0,
+      dst_ip: isSet(object.dst_ip) ? globalThis.String(object.dst_ip) : "",
+      dst_port: isSet(object.dst_port) ? globalThis.Number(object.dst_port) : 0,
       proto: isSet(object.proto) ? globalThis.String(object.proto) : "",
     };
   },
 
   toJSON(message: PortForwardConfig): unknown {
     const obj: any = {};
-    if (message.bindIp !== "") {
-      obj.bindIp = message.bindIp;
+    if (message.bind_ip !== "") {
+      obj.bind_ip = message.bind_ip;
     }
-    if (message.bindPort !== 0) {
-      obj.bindPort = Math.round(message.bindPort);
+    if (message.bind_port !== 0) {
+      obj.bind_port = Math.round(message.bind_port);
     }
-    if (message.dstIp !== "") {
-      obj.dstIp = message.dstIp;
+    if (message.dst_ip !== "") {
+      obj.dst_ip = message.dst_ip;
     }
-    if (message.dstPort !== 0) {
-      obj.dstPort = Math.round(message.dstPort);
+    if (message.dst_port !== 0) {
+      obj.dst_port = Math.round(message.dst_port);
     }
     if (message.proto !== "") {
       obj.proto = message.proto;
@@ -598,10 +608,10 @@ export const PortForwardConfig: MessageFns<PortForwardConfig> = {
   },
   fromPartial<I extends Exact<DeepPartial<PortForwardConfig>, I>>(object: I): PortForwardConfig {
     const message = createBasePortForwardConfig();
-    message.bindIp = object.bindIp ?? "";
-    message.bindPort = object.bindPort ?? 0;
-    message.dstIp = object.dstIp ?? "";
-    message.dstPort = object.dstPort ?? 0;
+    message.bind_ip = object.bind_ip ?? "";
+    message.bind_port = object.bind_port ?? 0;
+    message.dst_ip = object.dst_ip ?? "";
+    message.dst_port = object.dst_port ?? 0;
     message.proto = object.proto ?? "";
     return message;
   },
@@ -609,33 +619,33 @@ export const PortForwardConfig: MessageFns<PortForwardConfig> = {
 
 function createBaseMyNodeInfo(): MyNodeInfo {
   return {
-    virtualIpv4: undefined,
+    virtual_ipv4: undefined,
     hostname: "",
     version: "",
     ips: undefined,
-    stunInfo: undefined,
+    stun_info: undefined,
     listeners: [],
-    vpnPortalCfg: undefined,
+    vpn_portal_cfg: undefined,
   };
 }
 
 export const MyNodeInfo: MessageFns<MyNodeInfo> = {
   fromJSON(object: any): MyNodeInfo {
     return {
-      virtualIpv4: isSet(object.virtualIpv4) ? Ipv4Inet.fromJSON(object.virtualIpv4) : undefined,
+      virtual_ipv4: isSet(object.virtual_ipv4) ? Ipv4Inet.fromJSON(object.virtual_ipv4) : undefined,
       hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : "",
       version: isSet(object.version) ? globalThis.String(object.version) : "",
       ips: isSet(object.ips) ? GetIpListResponse.fromJSON(object.ips) : undefined,
-      stunInfo: isSet(object.stunInfo) ? StunInfo.fromJSON(object.stunInfo) : undefined,
+      stun_info: isSet(object.stun_info) ? StunInfo.fromJSON(object.stun_info) : undefined,
       listeners: globalThis.Array.isArray(object?.listeners) ? object.listeners.map((e: any) => Url.fromJSON(e)) : [],
-      vpnPortalCfg: isSet(object.vpnPortalCfg) ? globalThis.String(object.vpnPortalCfg) : undefined,
+      vpn_portal_cfg: isSet(object.vpn_portal_cfg) ? globalThis.String(object.vpn_portal_cfg) : undefined,
     };
   },
 
   toJSON(message: MyNodeInfo): unknown {
     const obj: any = {};
-    if (message.virtualIpv4 !== undefined) {
-      obj.virtualIpv4 = Ipv4Inet.toJSON(message.virtualIpv4);
+    if (message.virtual_ipv4 !== undefined) {
+      obj.virtual_ipv4 = Ipv4Inet.toJSON(message.virtual_ipv4);
     }
     if (message.hostname !== "") {
       obj.hostname = message.hostname;
@@ -646,14 +656,14 @@ export const MyNodeInfo: MessageFns<MyNodeInfo> = {
     if (message.ips !== undefined) {
       obj.ips = GetIpListResponse.toJSON(message.ips);
     }
-    if (message.stunInfo !== undefined) {
-      obj.stunInfo = StunInfo.toJSON(message.stunInfo);
+    if (message.stun_info !== undefined) {
+      obj.stun_info = StunInfo.toJSON(message.stun_info);
     }
     if (message.listeners?.length) {
       obj.listeners = message.listeners.map((e) => Url.toJSON(e));
     }
-    if (message.vpnPortalCfg !== undefined) {
-      obj.vpnPortalCfg = message.vpnPortalCfg;
+    if (message.vpn_portal_cfg !== undefined) {
+      obj.vpn_portal_cfg = message.vpn_portal_cfg;
     }
     return obj;
   },
@@ -663,65 +673,65 @@ export const MyNodeInfo: MessageFns<MyNodeInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<MyNodeInfo>, I>>(object: I): MyNodeInfo {
     const message = createBaseMyNodeInfo();
-    message.virtualIpv4 = (object.virtualIpv4 !== undefined && object.virtualIpv4 !== null)
-      ? Ipv4Inet.fromPartial(object.virtualIpv4)
+    message.virtual_ipv4 = (object.virtual_ipv4 !== undefined && object.virtual_ipv4 !== null)
+      ? Ipv4Inet.fromPartial(object.virtual_ipv4)
       : undefined;
     message.hostname = object.hostname ?? "";
     message.version = object.version ?? "";
     message.ips = (object.ips !== undefined && object.ips !== null)
       ? GetIpListResponse.fromPartial(object.ips)
       : undefined;
-    message.stunInfo = (object.stunInfo !== undefined && object.stunInfo !== null)
-      ? StunInfo.fromPartial(object.stunInfo)
+    message.stun_info = (object.stun_info !== undefined && object.stun_info !== null)
+      ? StunInfo.fromPartial(object.stun_info)
       : undefined;
     message.listeners = object.listeners?.map((e) => Url.fromPartial(e)) || [];
-    message.vpnPortalCfg = object.vpnPortalCfg ?? undefined;
+    message.vpn_portal_cfg = object.vpn_portal_cfg ?? undefined;
     return message;
   },
 };
 
 function createBaseNetworkInstanceRunningInfo(): NetworkInstanceRunningInfo {
   return {
-    devName: "",
-    myNodeInfo: undefined,
+    dev_name: "",
+    my_node_info: undefined,
     events: [],
     routes: [],
     peers: [],
-    peerRoutePairs: [],
+    peer_route_pairs: [],
     running: false,
-    errorMsg: undefined,
-    foreignNetworkSummary: undefined,
+    error_msg: undefined,
+    foreign_network_summary: undefined,
   };
 }
 
 export const NetworkInstanceRunningInfo: MessageFns<NetworkInstanceRunningInfo> = {
   fromJSON(object: any): NetworkInstanceRunningInfo {
     return {
-      devName: isSet(object.devName) ? globalThis.String(object.devName) : "",
-      myNodeInfo: isSet(object.myNodeInfo) ? MyNodeInfo.fromJSON(object.myNodeInfo) : undefined,
+      dev_name: isSet(object.dev_name) ? globalThis.String(object.dev_name) : "",
+      my_node_info: isSet(object.my_node_info) ? MyNodeInfo.fromJSON(object.my_node_info) : undefined,
       events: globalThis.Array.isArray(object?.events)
         ? object.events.map((e: any) => globalThis.String(e))
         : [],
       routes: globalThis.Array.isArray(object?.routes) ? object.routes.map((e: any) => Route.fromJSON(e)) : [],
       peers: globalThis.Array.isArray(object?.peers) ? object.peers.map((e: any) => PeerInfo.fromJSON(e)) : [],
-      peerRoutePairs: globalThis.Array.isArray(object?.peerRoutePairs)
-        ? object.peerRoutePairs.map((e: any) => PeerRoutePair.fromJSON(e))
+      peer_route_pairs: globalThis.Array.isArray(object?.peer_route_pairs)
+        ? object.peer_route_pairs.map((e: any) => PeerRoutePair.fromJSON(e))
         : [],
       running: isSet(object.running) ? globalThis.Boolean(object.running) : false,
-      errorMsg: isSet(object.errorMsg) ? globalThis.String(object.errorMsg) : undefined,
-      foreignNetworkSummary: isSet(object.foreignNetworkSummary)
-        ? RouteForeignNetworkSummary.fromJSON(object.foreignNetworkSummary)
+      error_msg: isSet(object.error_msg) ? globalThis.String(object.error_msg) : undefined,
+      foreign_network_summary: isSet(object.foreign_network_summary)
+        ? RouteForeignNetworkSummary.fromJSON(object.foreign_network_summary)
         : undefined,
     };
   },
 
   toJSON(message: NetworkInstanceRunningInfo): unknown {
     const obj: any = {};
-    if (message.devName !== "") {
-      obj.devName = message.devName;
+    if (message.dev_name !== "") {
+      obj.dev_name = message.dev_name;
     }
-    if (message.myNodeInfo !== undefined) {
-      obj.myNodeInfo = MyNodeInfo.toJSON(message.myNodeInfo);
+    if (message.my_node_info !== undefined) {
+      obj.my_node_info = MyNodeInfo.toJSON(message.my_node_info);
     }
     if (message.events?.length) {
       obj.events = message.events;
@@ -732,17 +742,17 @@ export const NetworkInstanceRunningInfo: MessageFns<NetworkInstanceRunningInfo> 
     if (message.peers?.length) {
       obj.peers = message.peers.map((e) => PeerInfo.toJSON(e));
     }
-    if (message.peerRoutePairs?.length) {
-      obj.peerRoutePairs = message.peerRoutePairs.map((e) => PeerRoutePair.toJSON(e));
+    if (message.peer_route_pairs?.length) {
+      obj.peer_route_pairs = message.peer_route_pairs.map((e) => PeerRoutePair.toJSON(e));
     }
     if (message.running !== false) {
       obj.running = message.running;
     }
-    if (message.errorMsg !== undefined) {
-      obj.errorMsg = message.errorMsg;
+    if (message.error_msg !== undefined) {
+      obj.error_msg = message.error_msg;
     }
-    if (message.foreignNetworkSummary !== undefined) {
-      obj.foreignNetworkSummary = RouteForeignNetworkSummary.toJSON(message.foreignNetworkSummary);
+    if (message.foreign_network_summary !== undefined) {
+      obj.foreign_network_summary = RouteForeignNetworkSummary.toJSON(message.foreign_network_summary);
     }
     return obj;
   },
@@ -752,19 +762,19 @@ export const NetworkInstanceRunningInfo: MessageFns<NetworkInstanceRunningInfo> 
   },
   fromPartial<I extends Exact<DeepPartial<NetworkInstanceRunningInfo>, I>>(object: I): NetworkInstanceRunningInfo {
     const message = createBaseNetworkInstanceRunningInfo();
-    message.devName = object.devName ?? "";
-    message.myNodeInfo = (object.myNodeInfo !== undefined && object.myNodeInfo !== null)
-      ? MyNodeInfo.fromPartial(object.myNodeInfo)
+    message.dev_name = object.dev_name ?? "";
+    message.my_node_info = (object.my_node_info !== undefined && object.my_node_info !== null)
+      ? MyNodeInfo.fromPartial(object.my_node_info)
       : undefined;
     message.events = object.events?.map((e) => e) || [];
     message.routes = object.routes?.map((e) => Route.fromPartial(e)) || [];
     message.peers = object.peers?.map((e) => PeerInfo.fromPartial(e)) || [];
-    message.peerRoutePairs = object.peerRoutePairs?.map((e) => PeerRoutePair.fromPartial(e)) || [];
+    message.peer_route_pairs = object.peer_route_pairs?.map((e) => PeerRoutePair.fromPartial(e)) || [];
     message.running = object.running ?? false;
-    message.errorMsg = object.errorMsg ?? undefined;
-    message.foreignNetworkSummary =
-      (object.foreignNetworkSummary !== undefined && object.foreignNetworkSummary !== null)
-        ? RouteForeignNetworkSummary.fromPartial(object.foreignNetworkSummary)
+    message.error_msg = object.error_msg ?? undefined;
+    message.foreign_network_summary =
+      (object.foreign_network_summary !== undefined && object.foreign_network_summary !== null)
+        ? RouteForeignNetworkSummary.fromPartial(object.foreign_network_summary)
         : undefined;
     return message;
   },
@@ -861,28 +871,28 @@ export const NetworkInstanceRunningInfoMap_MapEntry: MessageFns<NetworkInstanceR
 };
 
 function createBaseNetworkMeta(): NetworkMeta {
-  return { instId: undefined, networkName: "", configPermission: 0 };
+  return { inst_id: undefined, network_name: "", config_permission: 0 };
 }
 
 export const NetworkMeta: MessageFns<NetworkMeta> = {
   fromJSON(object: any): NetworkMeta {
     return {
-      instId: isSet(object.instId) ? UUID.fromJSON(object.instId) : undefined,
-      networkName: isSet(object.networkName) ? globalThis.String(object.networkName) : "",
-      configPermission: isSet(object.configPermission) ? globalThis.Number(object.configPermission) : 0,
+      inst_id: isSet(object.inst_id) ? UUID.fromJSON(object.inst_id) : undefined,
+      network_name: isSet(object.network_name) ? globalThis.String(object.network_name) : "",
+      config_permission: isSet(object.config_permission) ? globalThis.Number(object.config_permission) : 0,
     };
   },
 
   toJSON(message: NetworkMeta): unknown {
     const obj: any = {};
-    if (message.instId !== undefined) {
-      obj.instId = UUID.toJSON(message.instId);
+    if (message.inst_id !== undefined) {
+      obj.inst_id = UUID.toJSON(message.inst_id);
     }
-    if (message.networkName !== "") {
-      obj.networkName = message.networkName;
+    if (message.network_name !== "") {
+      obj.network_name = message.network_name;
     }
-    if (message.configPermission !== 0) {
-      obj.configPermission = Math.round(message.configPermission);
+    if (message.config_permission !== 0) {
+      obj.config_permission = Math.round(message.config_permission);
     }
     return obj;
   },
@@ -892,11 +902,11 @@ export const NetworkMeta: MessageFns<NetworkMeta> = {
   },
   fromPartial<I extends Exact<DeepPartial<NetworkMeta>, I>>(object: I): NetworkMeta {
     const message = createBaseNetworkMeta();
-    message.instId = (object.instId !== undefined && object.instId !== null)
-      ? UUID.fromPartial(object.instId)
+    message.inst_id = (object.inst_id !== undefined && object.inst_id !== null)
+      ? UUID.fromPartial(object.inst_id)
       : undefined;
-    message.networkName = object.networkName ?? "";
-    message.configPermission = object.configPermission ?? 0;
+    message.network_name = object.network_name ?? "";
+    message.config_permission = object.config_permission ?? 0;
     return message;
   },
 };
@@ -931,18 +941,18 @@ export const ValidateConfigRequest: MessageFns<ValidateConfigRequest> = {
 };
 
 function createBaseValidateConfigResponse(): ValidateConfigResponse {
-  return { tomlConfig: "" };
+  return { toml_config: "" };
 }
 
 export const ValidateConfigResponse: MessageFns<ValidateConfigResponse> = {
   fromJSON(object: any): ValidateConfigResponse {
-    return { tomlConfig: isSet(object.tomlConfig) ? globalThis.String(object.tomlConfig) : "" };
+    return { toml_config: isSet(object.toml_config) ? globalThis.String(object.toml_config) : "" };
   },
 
   toJSON(message: ValidateConfigResponse): unknown {
     const obj: any = {};
-    if (message.tomlConfig !== "") {
-      obj.tomlConfig = message.tomlConfig;
+    if (message.toml_config !== "") {
+      obj.toml_config = message.toml_config;
     }
     return obj;
   },
@@ -952,19 +962,19 @@ export const ValidateConfigResponse: MessageFns<ValidateConfigResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<ValidateConfigResponse>, I>>(object: I): ValidateConfigResponse {
     const message = createBaseValidateConfigResponse();
-    message.tomlConfig = object.tomlConfig ?? "";
+    message.toml_config = object.toml_config ?? "";
     return message;
   },
 };
 
 function createBaseRunNetworkInstanceRequest(): RunNetworkInstanceRequest {
-  return { instId: undefined, config: undefined, overwrite: false };
+  return { inst_id: undefined, config: undefined, overwrite: false };
 }
 
 export const RunNetworkInstanceRequest: MessageFns<RunNetworkInstanceRequest> = {
   fromJSON(object: any): RunNetworkInstanceRequest {
     return {
-      instId: isSet(object.instId) ? UUID.fromJSON(object.instId) : undefined,
+      inst_id: isSet(object.inst_id) ? UUID.fromJSON(object.inst_id) : undefined,
       config: isSet(object.config) ? NetworkConfig.fromJSON(object.config) : undefined,
       overwrite: isSet(object.overwrite) ? globalThis.Boolean(object.overwrite) : false,
     };
@@ -972,8 +982,8 @@ export const RunNetworkInstanceRequest: MessageFns<RunNetworkInstanceRequest> = 
 
   toJSON(message: RunNetworkInstanceRequest): unknown {
     const obj: any = {};
-    if (message.instId !== undefined) {
-      obj.instId = UUID.toJSON(message.instId);
+    if (message.inst_id !== undefined) {
+      obj.inst_id = UUID.toJSON(message.inst_id);
     }
     if (message.config !== undefined) {
       obj.config = NetworkConfig.toJSON(message.config);
@@ -989,8 +999,8 @@ export const RunNetworkInstanceRequest: MessageFns<RunNetworkInstanceRequest> = 
   },
   fromPartial<I extends Exact<DeepPartial<RunNetworkInstanceRequest>, I>>(object: I): RunNetworkInstanceRequest {
     const message = createBaseRunNetworkInstanceRequest();
-    message.instId = (object.instId !== undefined && object.instId !== null)
-      ? UUID.fromPartial(object.instId)
+    message.inst_id = (object.inst_id !== undefined && object.inst_id !== null)
+      ? UUID.fromPartial(object.inst_id)
       : undefined;
     message.config = (object.config !== undefined && object.config !== null)
       ? NetworkConfig.fromPartial(object.config)
@@ -1001,18 +1011,18 @@ export const RunNetworkInstanceRequest: MessageFns<RunNetworkInstanceRequest> = 
 };
 
 function createBaseRunNetworkInstanceResponse(): RunNetworkInstanceResponse {
-  return { instId: undefined };
+  return { inst_id: undefined };
 }
 
 export const RunNetworkInstanceResponse: MessageFns<RunNetworkInstanceResponse> = {
   fromJSON(object: any): RunNetworkInstanceResponse {
-    return { instId: isSet(object.instId) ? UUID.fromJSON(object.instId) : undefined };
+    return { inst_id: isSet(object.inst_id) ? UUID.fromJSON(object.inst_id) : undefined };
   },
 
   toJSON(message: RunNetworkInstanceResponse): unknown {
     const obj: any = {};
-    if (message.instId !== undefined) {
-      obj.instId = UUID.toJSON(message.instId);
+    if (message.inst_id !== undefined) {
+      obj.inst_id = UUID.toJSON(message.inst_id);
     }
     return obj;
   },
@@ -1022,28 +1032,30 @@ export const RunNetworkInstanceResponse: MessageFns<RunNetworkInstanceResponse> 
   },
   fromPartial<I extends Exact<DeepPartial<RunNetworkInstanceResponse>, I>>(object: I): RunNetworkInstanceResponse {
     const message = createBaseRunNetworkInstanceResponse();
-    message.instId = (object.instId !== undefined && object.instId !== null)
-      ? UUID.fromPartial(object.instId)
+    message.inst_id = (object.inst_id !== undefined && object.inst_id !== null)
+      ? UUID.fromPartial(object.inst_id)
       : undefined;
     return message;
   },
 };
 
 function createBaseRetainNetworkInstanceRequest(): RetainNetworkInstanceRequest {
-  return { instIds: [] };
+  return { inst_ids: [] };
 }
 
 export const RetainNetworkInstanceRequest: MessageFns<RetainNetworkInstanceRequest> = {
   fromJSON(object: any): RetainNetworkInstanceRequest {
     return {
-      instIds: globalThis.Array.isArray(object?.instIds) ? object.instIds.map((e: any) => UUID.fromJSON(e)) : [],
+      inst_ids: globalThis.Array.isArray(object?.inst_ids)
+        ? object.inst_ids.map((e: any) => UUID.fromJSON(e))
+        : [],
     };
   },
 
   toJSON(message: RetainNetworkInstanceRequest): unknown {
     const obj: any = {};
-    if (message.instIds?.length) {
-      obj.instIds = message.instIds.map((e) => UUID.toJSON(e));
+    if (message.inst_ids?.length) {
+      obj.inst_ids = message.inst_ids.map((e) => UUID.toJSON(e));
     }
     return obj;
   },
@@ -1053,28 +1065,28 @@ export const RetainNetworkInstanceRequest: MessageFns<RetainNetworkInstanceReque
   },
   fromPartial<I extends Exact<DeepPartial<RetainNetworkInstanceRequest>, I>>(object: I): RetainNetworkInstanceRequest {
     const message = createBaseRetainNetworkInstanceRequest();
-    message.instIds = object.instIds?.map((e) => UUID.fromPartial(e)) || [];
+    message.inst_ids = object.inst_ids?.map((e) => UUID.fromPartial(e)) || [];
     return message;
   },
 };
 
 function createBaseRetainNetworkInstanceResponse(): RetainNetworkInstanceResponse {
-  return { remainInstIds: [] };
+  return { remain_inst_ids: [] };
 }
 
 export const RetainNetworkInstanceResponse: MessageFns<RetainNetworkInstanceResponse> = {
   fromJSON(object: any): RetainNetworkInstanceResponse {
     return {
-      remainInstIds: globalThis.Array.isArray(object?.remainInstIds)
-        ? object.remainInstIds.map((e: any) => UUID.fromJSON(e))
+      remain_inst_ids: globalThis.Array.isArray(object?.remain_inst_ids)
+        ? object.remain_inst_ids.map((e: any) => UUID.fromJSON(e))
         : [],
     };
   },
 
   toJSON(message: RetainNetworkInstanceResponse): unknown {
     const obj: any = {};
-    if (message.remainInstIds?.length) {
-      obj.remainInstIds = message.remainInstIds.map((e) => UUID.toJSON(e));
+    if (message.remain_inst_ids?.length) {
+      obj.remain_inst_ids = message.remain_inst_ids.map((e) => UUID.toJSON(e));
     }
     return obj;
   },
@@ -1086,26 +1098,28 @@ export const RetainNetworkInstanceResponse: MessageFns<RetainNetworkInstanceResp
     object: I,
   ): RetainNetworkInstanceResponse {
     const message = createBaseRetainNetworkInstanceResponse();
-    message.remainInstIds = object.remainInstIds?.map((e) => UUID.fromPartial(e)) || [];
+    message.remain_inst_ids = object.remain_inst_ids?.map((e) => UUID.fromPartial(e)) || [];
     return message;
   },
 };
 
 function createBaseCollectNetworkInfoRequest(): CollectNetworkInfoRequest {
-  return { instIds: [] };
+  return { inst_ids: [] };
 }
 
 export const CollectNetworkInfoRequest: MessageFns<CollectNetworkInfoRequest> = {
   fromJSON(object: any): CollectNetworkInfoRequest {
     return {
-      instIds: globalThis.Array.isArray(object?.instIds) ? object.instIds.map((e: any) => UUID.fromJSON(e)) : [],
+      inst_ids: globalThis.Array.isArray(object?.inst_ids)
+        ? object.inst_ids.map((e: any) => UUID.fromJSON(e))
+        : [],
     };
   },
 
   toJSON(message: CollectNetworkInfoRequest): unknown {
     const obj: any = {};
-    if (message.instIds?.length) {
-      obj.instIds = message.instIds.map((e) => UUID.toJSON(e));
+    if (message.inst_ids?.length) {
+      obj.inst_ids = message.inst_ids.map((e) => UUID.toJSON(e));
     }
     return obj;
   },
@@ -1115,7 +1129,7 @@ export const CollectNetworkInfoRequest: MessageFns<CollectNetworkInfoRequest> = 
   },
   fromPartial<I extends Exact<DeepPartial<CollectNetworkInfoRequest>, I>>(object: I): CollectNetworkInfoRequest {
     const message = createBaseCollectNetworkInfoRequest();
-    message.instIds = object.instIds?.map((e) => UUID.fromPartial(e)) || [];
+    message.inst_ids = object.inst_ids?.map((e) => UUID.fromPartial(e)) || [];
     return message;
   },
 };
@@ -1173,20 +1187,22 @@ export const ListNetworkInstanceRequest: MessageFns<ListNetworkInstanceRequest> 
 };
 
 function createBaseListNetworkInstanceResponse(): ListNetworkInstanceResponse {
-  return { instIds: [] };
+  return { inst_ids: [] };
 }
 
 export const ListNetworkInstanceResponse: MessageFns<ListNetworkInstanceResponse> = {
   fromJSON(object: any): ListNetworkInstanceResponse {
     return {
-      instIds: globalThis.Array.isArray(object?.instIds) ? object.instIds.map((e: any) => UUID.fromJSON(e)) : [],
+      inst_ids: globalThis.Array.isArray(object?.inst_ids)
+        ? object.inst_ids.map((e: any) => UUID.fromJSON(e))
+        : [],
     };
   },
 
   toJSON(message: ListNetworkInstanceResponse): unknown {
     const obj: any = {};
-    if (message.instIds?.length) {
-      obj.instIds = message.instIds.map((e) => UUID.toJSON(e));
+    if (message.inst_ids?.length) {
+      obj.inst_ids = message.inst_ids.map((e) => UUID.toJSON(e));
     }
     return obj;
   },
@@ -1196,26 +1212,28 @@ export const ListNetworkInstanceResponse: MessageFns<ListNetworkInstanceResponse
   },
   fromPartial<I extends Exact<DeepPartial<ListNetworkInstanceResponse>, I>>(object: I): ListNetworkInstanceResponse {
     const message = createBaseListNetworkInstanceResponse();
-    message.instIds = object.instIds?.map((e) => UUID.fromPartial(e)) || [];
+    message.inst_ids = object.inst_ids?.map((e) => UUID.fromPartial(e)) || [];
     return message;
   },
 };
 
 function createBaseDeleteNetworkInstanceRequest(): DeleteNetworkInstanceRequest {
-  return { instIds: [] };
+  return { inst_ids: [] };
 }
 
 export const DeleteNetworkInstanceRequest: MessageFns<DeleteNetworkInstanceRequest> = {
   fromJSON(object: any): DeleteNetworkInstanceRequest {
     return {
-      instIds: globalThis.Array.isArray(object?.instIds) ? object.instIds.map((e: any) => UUID.fromJSON(e)) : [],
+      inst_ids: globalThis.Array.isArray(object?.inst_ids)
+        ? object.inst_ids.map((e: any) => UUID.fromJSON(e))
+        : [],
     };
   },
 
   toJSON(message: DeleteNetworkInstanceRequest): unknown {
     const obj: any = {};
-    if (message.instIds?.length) {
-      obj.instIds = message.instIds.map((e) => UUID.toJSON(e));
+    if (message.inst_ids?.length) {
+      obj.inst_ids = message.inst_ids.map((e) => UUID.toJSON(e));
     }
     return obj;
   },
@@ -1225,28 +1243,28 @@ export const DeleteNetworkInstanceRequest: MessageFns<DeleteNetworkInstanceReque
   },
   fromPartial<I extends Exact<DeepPartial<DeleteNetworkInstanceRequest>, I>>(object: I): DeleteNetworkInstanceRequest {
     const message = createBaseDeleteNetworkInstanceRequest();
-    message.instIds = object.instIds?.map((e) => UUID.fromPartial(e)) || [];
+    message.inst_ids = object.inst_ids?.map((e) => UUID.fromPartial(e)) || [];
     return message;
   },
 };
 
 function createBaseDeleteNetworkInstanceResponse(): DeleteNetworkInstanceResponse {
-  return { remainInstIds: [] };
+  return { remain_inst_ids: [] };
 }
 
 export const DeleteNetworkInstanceResponse: MessageFns<DeleteNetworkInstanceResponse> = {
   fromJSON(object: any): DeleteNetworkInstanceResponse {
     return {
-      remainInstIds: globalThis.Array.isArray(object?.remainInstIds)
-        ? object.remainInstIds.map((e: any) => UUID.fromJSON(e))
+      remain_inst_ids: globalThis.Array.isArray(object?.remain_inst_ids)
+        ? object.remain_inst_ids.map((e: any) => UUID.fromJSON(e))
         : [],
     };
   },
 
   toJSON(message: DeleteNetworkInstanceResponse): unknown {
     const obj: any = {};
-    if (message.remainInstIds?.length) {
-      obj.remainInstIds = message.remainInstIds.map((e) => UUID.toJSON(e));
+    if (message.remain_inst_ids?.length) {
+      obj.remain_inst_ids = message.remain_inst_ids.map((e) => UUID.toJSON(e));
     }
     return obj;
   },
@@ -1258,24 +1276,24 @@ export const DeleteNetworkInstanceResponse: MessageFns<DeleteNetworkInstanceResp
     object: I,
   ): DeleteNetworkInstanceResponse {
     const message = createBaseDeleteNetworkInstanceResponse();
-    message.remainInstIds = object.remainInstIds?.map((e) => UUID.fromPartial(e)) || [];
+    message.remain_inst_ids = object.remain_inst_ids?.map((e) => UUID.fromPartial(e)) || [];
     return message;
   },
 };
 
 function createBaseGetNetworkInstanceConfigRequest(): GetNetworkInstanceConfigRequest {
-  return { instId: undefined };
+  return { inst_id: undefined };
 }
 
 export const GetNetworkInstanceConfigRequest: MessageFns<GetNetworkInstanceConfigRequest> = {
   fromJSON(object: any): GetNetworkInstanceConfigRequest {
-    return { instId: isSet(object.instId) ? UUID.fromJSON(object.instId) : undefined };
+    return { inst_id: isSet(object.inst_id) ? UUID.fromJSON(object.inst_id) : undefined };
   },
 
   toJSON(message: GetNetworkInstanceConfigRequest): unknown {
     const obj: any = {};
-    if (message.instId !== undefined) {
-      obj.instId = UUID.toJSON(message.instId);
+    if (message.inst_id !== undefined) {
+      obj.inst_id = UUID.toJSON(message.inst_id);
     }
     return obj;
   },
@@ -1287,8 +1305,8 @@ export const GetNetworkInstanceConfigRequest: MessageFns<GetNetworkInstanceConfi
     object: I,
   ): GetNetworkInstanceConfigRequest {
     const message = createBaseGetNetworkInstanceConfigRequest();
-    message.instId = (object.instId !== undefined && object.instId !== null)
-      ? UUID.fromPartial(object.instId)
+    message.inst_id = (object.inst_id !== undefined && object.inst_id !== null)
+      ? UUID.fromPartial(object.inst_id)
       : undefined;
     return message;
   },
@@ -1328,20 +1346,22 @@ export const GetNetworkInstanceConfigResponse: MessageFns<GetNetworkInstanceConf
 };
 
 function createBaseListNetworkInstanceMetaRequest(): ListNetworkInstanceMetaRequest {
-  return { instIds: [] };
+  return { inst_ids: [] };
 }
 
 export const ListNetworkInstanceMetaRequest: MessageFns<ListNetworkInstanceMetaRequest> = {
   fromJSON(object: any): ListNetworkInstanceMetaRequest {
     return {
-      instIds: globalThis.Array.isArray(object?.instIds) ? object.instIds.map((e: any) => UUID.fromJSON(e)) : [],
+      inst_ids: globalThis.Array.isArray(object?.inst_ids)
+        ? object.inst_ids.map((e: any) => UUID.fromJSON(e))
+        : [],
     };
   },
 
   toJSON(message: ListNetworkInstanceMetaRequest): unknown {
     const obj: any = {};
-    if (message.instIds?.length) {
-      obj.instIds = message.instIds.map((e) => UUID.toJSON(e));
+    if (message.inst_ids?.length) {
+      obj.inst_ids = message.inst_ids.map((e) => UUID.toJSON(e));
     }
     return obj;
   },
@@ -1353,7 +1373,7 @@ export const ListNetworkInstanceMetaRequest: MessageFns<ListNetworkInstanceMetaR
     object: I,
   ): ListNetworkInstanceMetaRequest {
     const message = createBaseListNetworkInstanceMetaRequest();
-    message.instIds = object.instIds?.map((e) => UUID.fromPartial(e)) || [];
+    message.inst_ids = object.inst_ids?.map((e) => UUID.fromPartial(e)) || [];
     return message;
   },
 };

@@ -115,11 +115,11 @@ export class PermissionUtil {
   }
 
   isGetDistributePerm(): boolean {
-    return Manager.distributePerm == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
+    return this.distributePerm == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
   }
 
   isGetLocPerm(): boolean {
-    return Manager.locPerm == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
+    return this.locPerm == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
   }
 
   requestVpnPerm(callback: () => void, finallyCallback: () => void = () => {}) {

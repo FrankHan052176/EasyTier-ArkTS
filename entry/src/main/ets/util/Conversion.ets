@@ -24,6 +24,7 @@ import { SafeLightWeightSet } from "./SafeLightWeightSet";
 import { display } from "@kit.ArkUI"
 import { UIType, WindowUtil } from "../WindowUtil"
 import { AppManager } from "../AppManager"
+import { connection } from "@kit.NetworkKit"
 
 export function tomlToConfig(toml: string): Config | undefined {
   try {
@@ -422,4 +423,57 @@ export function flattenConfig(obj: object): Config {
   }
   config._disableUpdate = false
   return config
+}
+
+export function stringArr2RouteArr(gateway: string, magicDNS: boolean, needExitNode: boolean): connection.RouteInfo[] {
+  let result:connection.RouteInfo[] = []
+  AppManager.easytier.tunRoutes.forEach((route) => {
+    result.push({
+      interface: "vpn-tun",
+      destination: {
+        address: {
+          address: route.networkAddress
+        },
+        prefixLength: route.prefix
+      },
+      gateway: {
+        address: gateway
+      },
+      hasGateway: true,
+      isDefaultRoute: false,
+    })
+  })
+  if (magicDNS) {
+    result.push({
+      interface: "vpn-tun",
+      destination: {
+        address: {
+          address: "100.100.100.101"
+        },
+        prefixLength: 32
+      },
+      gateway: {
+        address: gateway
+      },
+      hasGateway: true,
+      isDefaultRoute: false,
+    })
+  }
+  if (needExitNode) {
+    result.push({
+      interface: "vpn-tun",
+      destination: {
+        address: {
+          address: "0.0.0.0"
+        },
+        prefixLength: 0
+      },
+      gateway: {
+        address: gateway
+      },
+      hasGateway: true,
+      isDefaultRoute: false,
+    })
+  }
+  return result
 }

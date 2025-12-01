@@ -170,7 +170,7 @@ export function tcpProxyEntryStateToJSON(object: TcpProxyEntryState): string {
 
 export interface InstanceIdentifier {
   id?: UUID | undefined;
-  instanceSelector?: InstanceIdentifier_InstanceSelector | undefined;
+  instance_selector?: InstanceIdentifier_InstanceSelector | undefined;
 }
 
 export interface InstanceIdentifier_InstanceSelector {
@@ -183,31 +183,31 @@ export interface Status {
 }
 
 export interface PeerConnStats {
-  rxBytes: number;
-  txBytes: number;
-  rxPackets: number;
-  txPackets: number;
-  latencyUs: number;
+  rx_bytes: number;
+  tx_bytes: number;
+  rx_packets: number;
+  tx_packets: number;
+  latency_us: number;
 }
 
 export interface PeerConnInfo {
-  connId: string;
-  myPeerId: number;
-  peerId: number;
+  conn_id: string;
+  my_peer_id: number;
+  peer_id: number;
   features: string[];
   tunnel: TunnelInfo | undefined;
   stats: PeerConnStats | undefined;
-  lossRate: number;
-  isClient: boolean;
-  networkName: string;
-  isClosed: boolean;
+  loss_rate: number;
+  is_client: boolean;
+  network_name: string;
+  is_closed: boolean;
 }
 
 export interface PeerInfo {
-  peerId: number;
+  peer_id: number;
   conns: PeerConnInfo[];
-  defaultConnId: UUID | undefined;
-  directlyConnectedConns: UUID[];
+  default_conn_id: UUID | undefined;
+  directly_connected_conns: UUID[];
 }
 
 export interface ListPeerRequest {
@@ -215,26 +215,26 @@ export interface ListPeerRequest {
 }
 
 export interface ListPeerResponse {
-  peerInfos: PeerInfo[];
-  myInfo: NodeInfo | undefined;
+  peer_infos: PeerInfo[];
+  my_info: NodeInfo | undefined;
 }
 
 export interface Route {
-  peerId: number;
-  ipv4Addr: Ipv4Inet | undefined;
-  nextHopPeerId: number;
+  peer_id: number;
+  ipv4_addr: Ipv4Inet | undefined;
+  next_hop_peer_id: number;
   cost: number;
-  pathLatency: number;
-  proxyCidrs: string[];
+  path_latency: number;
+  proxy_cidrs: string[];
   hostname: string;
-  stunInfo: StunInfo | undefined;
-  instId: string;
+  stun_info: StunInfo | undefined;
+  inst_id: string;
   version: string;
-  featureFlag: PeerFeatureFlag | undefined;
-  nextHopPeerIdLatencyFirst?: number | undefined;
-  costLatencyFirst?: number | undefined;
-  pathLatencyLatencyFirst?: number | undefined;
-  ipv6Addr: Ipv6Inet | undefined;
+  feature_flag: PeerFeatureFlag | undefined;
+  next_hop_peer_id_latency_first?: number | undefined;
+  cost_latency_first?: number | undefined;
+  path_latency_latency_first?: number | undefined;
+  ipv6_addr: Ipv6Inet | undefined;
 }
 
 export interface PeerRoutePair {
@@ -243,17 +243,17 @@ export interface PeerRoutePair {
 }
 
 export interface NodeInfo {
-  peerId: number;
-  ipv4Addr: string;
-  proxyCidrs: string[];
+  peer_id: number;
+  ipv4_addr: string;
+  proxy_cidrs: string[];
   hostname: string;
-  stunInfo: StunInfo | undefined;
-  instId: string;
+  stun_info: StunInfo | undefined;
+  inst_id: string;
   listeners: string[];
   config: string;
   version: string;
-  featureFlag: PeerFeatureFlag | undefined;
-  ipList: GetIpListResponse | undefined;
+  feature_flag: PeerFeatureFlag | undefined;
+  ip_list: GetIpListResponse | undefined;
 }
 
 export interface ShowNodeInfoRequest {
@@ -261,7 +261,7 @@ export interface ShowNodeInfoRequest {
 }
 
 export interface ShowNodeInfoResponse {
-  nodeInfo: NodeInfo | undefined;
+  node_info: NodeInfo | undefined;
 }
 
 export interface ListRouteRequest {
@@ -286,13 +286,13 @@ export interface ListForeignNetworkRequest {
 
 export interface ForeignNetworkEntryPb {
   peers: PeerInfo[];
-  networkSecretDigest: Uint8Array;
-  myPeerIdForThisNetwork: number;
+  network_secret_digest: Uint8Array;
+  my_peer_id_for_this_network: number;
 }
 
 export interface ListForeignNetworkResponse {
   /** foreign network in local */
-  foreignNetworks: { [key: string]: ForeignNetworkEntryPb };
+  foreign_networks: { [key: string]: ForeignNetworkEntryPb };
 }
 
 export interface ListForeignNetworkResponse_ForeignNetworksEntry {
@@ -305,19 +305,19 @@ export interface ListGlobalForeignNetworkRequest {
 }
 
 export interface ListGlobalForeignNetworkResponse {
-  foreignNetworks: { [key: number]: ListGlobalForeignNetworkResponse_ForeignNetworks };
+  foreign_networks: { [key: number]: ListGlobalForeignNetworkResponse_ForeignNetworks };
 }
 
 /** foreign network in the entire network */
 export interface ListGlobalForeignNetworkResponse_OneForeignNetwork {
-  networkName: string;
-  peerIds: number[];
-  lastUpdated: string;
+  network_name: string;
+  peer_ids: number[];
+  last_updated: string;
   version: number;
 }
 
 export interface ListGlobalForeignNetworkResponse_ForeignNetworks {
-  foreignNetworks: ListGlobalForeignNetworkResponse_OneForeignNetwork[];
+  foreign_networks: ListGlobalForeignNetworkResponse_OneForeignNetwork[];
 }
 
 export interface ListGlobalForeignNetworkResponse_ForeignNetworksEntry {
@@ -359,9 +359,9 @@ export interface ListMappedListenerResponse {
 }
 
 export interface VpnPortalInfo {
-  vpnType: string;
-  clientConfig: string;
-  connectedClients: string[];
+  vpn_type: string;
+  client_config: string;
+  connected_clients: string[];
 }
 
 export interface GetVpnPortalInfoRequest {
@@ -369,15 +369,15 @@ export interface GetVpnPortalInfoRequest {
 }
 
 export interface GetVpnPortalInfoResponse {
-  vpnPortalInfo: VpnPortalInfo | undefined;
+  vpn_portal_info: VpnPortalInfo | undefined;
 }
 
 export interface TcpProxyEntry {
   src: SocketAddr | undefined;
   dst: SocketAddr | undefined;
-  startTime: number;
+  start_time: number;
   state: TcpProxyEntryState;
-  transportType: TcpProxyEntryTransportType;
+  transport_type: TcpProxyEntryTransportType;
 }
 
 export interface ListTcpProxyEntryRequest {
@@ -393,7 +393,7 @@ export interface GetAclStatsRequest {
 }
 
 export interface GetAclStatsResponse {
-  aclStats: AclStats | undefined;
+  acl_stats: AclStats | undefined;
 }
 
 export interface GetWhitelistRequest {
@@ -401,8 +401,8 @@ export interface GetWhitelistRequest {
 }
 
 export interface GetWhitelistResponse {
-  tcpPorts: string[];
-  udpPorts: string[];
+  tcp_ports: string[];
+  udp_ports: string[];
 }
 
 export interface ListPortForwardRequest {
@@ -437,19 +437,19 @@ export interface GetPrometheusStatsRequest {
 }
 
 export interface GetPrometheusStatsResponse {
-  prometheusText: string;
+  prometheus_text: string;
 }
 
 function createBaseInstanceIdentifier(): InstanceIdentifier {
-  return { id: undefined, instanceSelector: undefined };
+  return { id: undefined, instance_selector: undefined };
 }
 
 export const InstanceIdentifier: MessageFns<InstanceIdentifier> = {
   fromJSON(object: any): InstanceIdentifier {
     return {
       id: isSet(object.id) ? UUID.fromJSON(object.id) : undefined,
-      instanceSelector: isSet(object.instanceSelector)
-        ? InstanceIdentifier_InstanceSelector.fromJSON(object.instanceSelector)
+      instance_selector: isSet(object.instance_selector)
+        ? InstanceIdentifier_InstanceSelector.fromJSON(object.instance_selector)
         : undefined,
     };
   },
@@ -459,8 +459,8 @@ export const InstanceIdentifier: MessageFns<InstanceIdentifier> = {
     if (message.id !== undefined) {
       obj.id = UUID.toJSON(message.id);
     }
-    if (message.instanceSelector !== undefined) {
-      obj.instanceSelector = InstanceIdentifier_InstanceSelector.toJSON(message.instanceSelector);
+    if (message.instance_selector !== undefined) {
+      obj.instance_selector = InstanceIdentifier_InstanceSelector.toJSON(message.instance_selector);
     }
     return obj;
   },
@@ -471,8 +471,8 @@ export const InstanceIdentifier: MessageFns<InstanceIdentifier> = {
   fromPartial<I extends Exact<DeepPartial<InstanceIdentifier>, I>>(object: I): InstanceIdentifier {
     const message = createBaseInstanceIdentifier();
     message.id = (object.id !== undefined && object.id !== null) ? UUID.fromPartial(object.id) : undefined;
-    message.instanceSelector = (object.instanceSelector !== undefined && object.instanceSelector !== null)
-      ? InstanceIdentifier_InstanceSelector.fromPartial(object.instanceSelector)
+    message.instance_selector = (object.instance_selector !== undefined && object.instance_selector !== null)
+      ? InstanceIdentifier_InstanceSelector.fromPartial(object.instance_selector)
       : undefined;
     return message;
   },
@@ -544,36 +544,36 @@ export const Status: MessageFns<Status> = {
 };
 
 function createBasePeerConnStats(): PeerConnStats {
-  return { rxBytes: 0, txBytes: 0, rxPackets: 0, txPackets: 0, latencyUs: 0 };
+  return { rx_bytes: 0, tx_bytes: 0, rx_packets: 0, tx_packets: 0, latency_us: 0 };
 }
 
 export const PeerConnStats: MessageFns<PeerConnStats> = {
   fromJSON(object: any): PeerConnStats {
     return {
-      rxBytes: isSet(object.rxBytes) ? globalThis.Number(object.rxBytes) : 0,
-      txBytes: isSet(object.txBytes) ? globalThis.Number(object.txBytes) : 0,
-      rxPackets: isSet(object.rxPackets) ? globalThis.Number(object.rxPackets) : 0,
-      txPackets: isSet(object.txPackets) ? globalThis.Number(object.txPackets) : 0,
-      latencyUs: isSet(object.latencyUs) ? globalThis.Number(object.latencyUs) : 0,
+      rx_bytes: isSet(object.rx_bytes) ? globalThis.Number(object.rx_bytes) : 0,
+      tx_bytes: isSet(object.tx_bytes) ? globalThis.Number(object.tx_bytes) : 0,
+      rx_packets: isSet(object.rx_packets) ? globalThis.Number(object.rx_packets) : 0,
+      tx_packets: isSet(object.tx_packets) ? globalThis.Number(object.tx_packets) : 0,
+      latency_us: isSet(object.latency_us) ? globalThis.Number(object.latency_us) : 0,
     };
   },
 
   toJSON(message: PeerConnStats): unknown {
     const obj: any = {};
-    if (message.rxBytes !== 0) {
-      obj.rxBytes = Math.round(message.rxBytes);
+    if (message.rx_bytes !== 0) {
+      obj.rx_bytes = Math.round(message.rx_bytes);
     }
-    if (message.txBytes !== 0) {
-      obj.txBytes = Math.round(message.txBytes);
+    if (message.tx_bytes !== 0) {
+      obj.tx_bytes = Math.round(message.tx_bytes);
     }
-    if (message.rxPackets !== 0) {
-      obj.rxPackets = Math.round(message.rxPackets);
+    if (message.rx_packets !== 0) {
+      obj.rx_packets = Math.round(message.rx_packets);
     }
-    if (message.txPackets !== 0) {
-      obj.txPackets = Math.round(message.txPackets);
+    if (message.tx_packets !== 0) {
+      obj.tx_packets = Math.round(message.tx_packets);
     }
-    if (message.latencyUs !== 0) {
-      obj.latencyUs = Math.round(message.latencyUs);
+    if (message.latency_us !== 0) {
+      obj.latency_us = Math.round(message.latency_us);
     }
     return obj;
   },
@@ -583,56 +583,56 @@ export const PeerConnStats: MessageFns<PeerConnStats> = {
   },
   fromPartial<I extends Exact<DeepPartial<PeerConnStats>, I>>(object: I): PeerConnStats {
     const message = createBasePeerConnStats();
-    message.rxBytes = object.rxBytes ?? 0;
-    message.txBytes = object.txBytes ?? 0;
-    message.rxPackets = object.rxPackets ?? 0;
-    message.txPackets = object.txPackets ?? 0;
-    message.latencyUs = object.latencyUs ?? 0;
+    message.rx_bytes = object.rx_bytes ?? 0;
+    message.tx_bytes = object.tx_bytes ?? 0;
+    message.rx_packets = object.rx_packets ?? 0;
+    message.tx_packets = object.tx_packets ?? 0;
+    message.latency_us = object.latency_us ?? 0;
     return message;
   },
 };
 
 function createBasePeerConnInfo(): PeerConnInfo {
   return {
-    connId: "",
-    myPeerId: 0,
-    peerId: 0,
+    conn_id: "",
+    my_peer_id: 0,
+    peer_id: 0,
     features: [],
     tunnel: undefined,
     stats: undefined,
-    lossRate: 0,
-    isClient: false,
-    networkName: "",
-    isClosed: false,
+    loss_rate: 0,
+    is_client: false,
+    network_name: "",
+    is_closed: false,
   };
 }
 
 export const PeerConnInfo: MessageFns<PeerConnInfo> = {
   fromJSON(object: any): PeerConnInfo {
     return {
-      connId: isSet(object.connId) ? globalThis.String(object.connId) : "",
-      myPeerId: isSet(object.myPeerId) ? globalThis.Number(object.myPeerId) : 0,
-      peerId: isSet(object.peerId) ? globalThis.Number(object.peerId) : 0,
+      conn_id: isSet(object.conn_id) ? globalThis.String(object.conn_id) : "",
+      my_peer_id: isSet(object.my_peer_id) ? globalThis.Number(object.my_peer_id) : 0,
+      peer_id: isSet(object.peer_id) ? globalThis.Number(object.peer_id) : 0,
       features: globalThis.Array.isArray(object?.features) ? object.features.map((e: any) => globalThis.String(e)) : [],
       tunnel: isSet(object.tunnel) ? TunnelInfo.fromJSON(object.tunnel) : undefined,
       stats: isSet(object.stats) ? PeerConnStats.fromJSON(object.stats) : undefined,
-      lossRate: isSet(object.lossRate) ? globalThis.Number(object.lossRate) : 0,
-      isClient: isSet(object.isClient) ? globalThis.Boolean(object.isClient) : false,
-      networkName: isSet(object.networkName) ? globalThis.String(object.networkName) : "",
-      isClosed: isSet(object.isClosed) ? globalThis.Boolean(object.isClosed) : false,
+      loss_rate: isSet(object.loss_rate) ? globalThis.Number(object.loss_rate) : 0,
+      is_client: isSet(object.is_client) ? globalThis.Boolean(object.is_client) : false,
+      network_name: isSet(object.network_name) ? globalThis.String(object.network_name) : "",
+      is_closed: isSet(object.is_closed) ? globalThis.Boolean(object.is_closed) : false,
     };
   },
 
   toJSON(message: PeerConnInfo): unknown {
     const obj: any = {};
-    if (message.connId !== "") {
-      obj.connId = message.connId;
+    if (message.conn_id !== "") {
+      obj.conn_id = message.conn_id;
     }
-    if (message.myPeerId !== 0) {
-      obj.myPeerId = Math.round(message.myPeerId);
+    if (message.my_peer_id !== 0) {
+      obj.my_peer_id = Math.round(message.my_peer_id);
     }
-    if (message.peerId !== 0) {
-      obj.peerId = Math.round(message.peerId);
+    if (message.peer_id !== 0) {
+      obj.peer_id = Math.round(message.peer_id);
     }
     if (message.features?.length) {
       obj.features = message.features;
@@ -643,17 +643,17 @@ export const PeerConnInfo: MessageFns<PeerConnInfo> = {
     if (message.stats !== undefined) {
       obj.stats = PeerConnStats.toJSON(message.stats);
     }
-    if (message.lossRate !== 0) {
-      obj.lossRate = message.lossRate;
+    if (message.loss_rate !== 0) {
+      obj.loss_rate = message.loss_rate;
     }
-    if (message.isClient !== false) {
-      obj.isClient = message.isClient;
+    if (message.is_client !== false) {
+      obj.is_client = message.is_client;
     }
-    if (message.networkName !== "") {
-      obj.networkName = message.networkName;
+    if (message.network_name !== "") {
+      obj.network_name = message.network_name;
     }
-    if (message.isClosed !== false) {
-      obj.isClosed = message.isClosed;
+    if (message.is_closed !== false) {
+      obj.is_closed = message.is_closed;
     }
     return obj;
   },
@@ -663,9 +663,9 @@ export const PeerConnInfo: MessageFns<PeerConnInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<PeerConnInfo>, I>>(object: I): PeerConnInfo {
     const message = createBasePeerConnInfo();
-    message.connId = object.connId ?? "";
-    message.myPeerId = object.myPeerId ?? 0;
-    message.peerId = object.peerId ?? 0;
+    message.conn_id = object.conn_id ?? "";
+    message.my_peer_id = object.my_peer_id ?? 0;
+    message.peer_id = object.peer_id ?? 0;
     message.features = object.features?.map((e) => e) || [];
     message.tunnel = (object.tunnel !== undefined && object.tunnel !== null)
       ? TunnelInfo.fromPartial(object.tunnel)
@@ -673,43 +673,43 @@ export const PeerConnInfo: MessageFns<PeerConnInfo> = {
     message.stats = (object.stats !== undefined && object.stats !== null)
       ? PeerConnStats.fromPartial(object.stats)
       : undefined;
-    message.lossRate = object.lossRate ?? 0;
-    message.isClient = object.isClient ?? false;
-    message.networkName = object.networkName ?? "";
-    message.isClosed = object.isClosed ?? false;
+    message.loss_rate = object.loss_rate ?? 0;
+    message.is_client = object.is_client ?? false;
+    message.network_name = object.network_name ?? "";
+    message.is_closed = object.is_closed ?? false;
     return message;
   },
 };
 
 function createBasePeerInfo(): PeerInfo {
-  return { peerId: 0, conns: [], defaultConnId: undefined, directlyConnectedConns: [] };
+  return { peer_id: 0, conns: [], default_conn_id: undefined, directly_connected_conns: [] };
 }
 
 export const PeerInfo: MessageFns<PeerInfo> = {
   fromJSON(object: any): PeerInfo {
     return {
-      peerId: isSet(object.peerId) ? globalThis.Number(object.peerId) : 0,
+      peer_id: isSet(object.peer_id) ? globalThis.Number(object.peer_id) : 0,
       conns: globalThis.Array.isArray(object?.conns) ? object.conns.map((e: any) => PeerConnInfo.fromJSON(e)) : [],
-      defaultConnId: isSet(object.defaultConnId) ? UUID.fromJSON(object.defaultConnId) : undefined,
-      directlyConnectedConns: globalThis.Array.isArray(object?.directlyConnectedConns)
-        ? object.directlyConnectedConns.map((e: any) => UUID.fromJSON(e))
+      default_conn_id: isSet(object.default_conn_id) ? UUID.fromJSON(object.default_conn_id) : undefined,
+      directly_connected_conns: globalThis.Array.isArray(object?.directly_connected_conns)
+        ? object.directly_connected_conns.map((e: any) => UUID.fromJSON(e))
         : [],
     };
   },
 
   toJSON(message: PeerInfo): unknown {
     const obj: any = {};
-    if (message.peerId !== 0) {
-      obj.peerId = Math.round(message.peerId);
+    if (message.peer_id !== 0) {
+      obj.peer_id = Math.round(message.peer_id);
     }
     if (message.conns?.length) {
       obj.conns = message.conns.map((e) => PeerConnInfo.toJSON(e));
     }
-    if (message.defaultConnId !== undefined) {
-      obj.defaultConnId = UUID.toJSON(message.defaultConnId);
+    if (message.default_conn_id !== undefined) {
+      obj.default_conn_id = UUID.toJSON(message.default_conn_id);
     }
-    if (message.directlyConnectedConns?.length) {
-      obj.directlyConnectedConns = message.directlyConnectedConns.map((e) => UUID.toJSON(e));
+    if (message.directly_connected_conns?.length) {
+      obj.directly_connected_conns = message.directly_connected_conns.map((e) => UUID.toJSON(e));
     }
     return obj;
   },
@@ -719,12 +719,12 @@ export const PeerInfo: MessageFns<PeerInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<PeerInfo>, I>>(object: I): PeerInfo {
     const message = createBasePeerInfo();
-    message.peerId = object.peerId ?? 0;
+    message.peer_id = object.peer_id ?? 0;
     message.conns = object.conns?.map((e) => PeerConnInfo.fromPartial(e)) || [];
-    message.defaultConnId = (object.defaultConnId !== undefined && object.defaultConnId !== null)
-      ? UUID.fromPartial(object.defaultConnId)
+    message.default_conn_id = (object.default_conn_id !== undefined && object.default_conn_id !== null)
+      ? UUID.fromPartial(object.default_conn_id)
       : undefined;
-    message.directlyConnectedConns = object.directlyConnectedConns?.map((e) => UUID.fromPartial(e)) || [];
+    message.directly_connected_conns = object.directly_connected_conns?.map((e) => UUID.fromPartial(e)) || [];
     return message;
   },
 };
@@ -759,26 +759,26 @@ export const ListPeerRequest: MessageFns<ListPeerRequest> = {
 };
 
 function createBaseListPeerResponse(): ListPeerResponse {
-  return { peerInfos: [], myInfo: undefined };
+  return { peer_infos: [], my_info: undefined };
 }
 
 export const ListPeerResponse: MessageFns<ListPeerResponse> = {
   fromJSON(object: any): ListPeerResponse {
     return {
-      peerInfos: globalThis.Array.isArray(object?.peerInfos)
-        ? object.peerInfos.map((e: any) => PeerInfo.fromJSON(e))
+      peer_infos: globalThis.Array.isArray(object?.peer_infos)
+        ? object.peer_infos.map((e: any) => PeerInfo.fromJSON(e))
         : [],
-      myInfo: isSet(object.myInfo) ? NodeInfo.fromJSON(object.myInfo) : undefined,
+      my_info: isSet(object.my_info) ? NodeInfo.fromJSON(object.my_info) : undefined,
     };
   },
 
   toJSON(message: ListPeerResponse): unknown {
     const obj: any = {};
-    if (message.peerInfos?.length) {
-      obj.peerInfos = message.peerInfos.map((e) => PeerInfo.toJSON(e));
+    if (message.peer_infos?.length) {
+      obj.peer_infos = message.peer_infos.map((e) => PeerInfo.toJSON(e));
     }
-    if (message.myInfo !== undefined) {
-      obj.myInfo = NodeInfo.toJSON(message.myInfo);
+    if (message.my_info !== undefined) {
+      obj.my_info = NodeInfo.toJSON(message.my_info);
     }
     return obj;
   },
@@ -788,9 +788,9 @@ export const ListPeerResponse: MessageFns<ListPeerResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<ListPeerResponse>, I>>(object: I): ListPeerResponse {
     const message = createBaseListPeerResponse();
-    message.peerInfos = object.peerInfos?.map((e) => PeerInfo.fromPartial(e)) || [];
-    message.myInfo = (object.myInfo !== undefined && object.myInfo !== null)
-      ? NodeInfo.fromPartial(object.myInfo)
+    message.peer_infos = object.peer_infos?.map((e) => PeerInfo.fromPartial(e)) || [];
+    message.my_info = (object.my_info !== undefined && object.my_info !== null)
+      ? NodeInfo.fromPartial(object.my_info)
       : undefined;
     return message;
   },
@@ -798,97 +798,97 @@ export const ListPeerResponse: MessageFns<ListPeerResponse> = {
 
 function createBaseRoute(): Route {
   return {
-    peerId: 0,
-    ipv4Addr: undefined,
-    nextHopPeerId: 0,
+    peer_id: 0,
+    ipv4_addr: undefined,
+    next_hop_peer_id: 0,
     cost: 0,
-    pathLatency: 0,
-    proxyCidrs: [],
+    path_latency: 0,
+    proxy_cidrs: [],
     hostname: "",
-    stunInfo: undefined,
-    instId: "",
+    stun_info: undefined,
+    inst_id: "",
     version: "",
-    featureFlag: undefined,
-    nextHopPeerIdLatencyFirst: undefined,
-    costLatencyFirst: undefined,
-    pathLatencyLatencyFirst: undefined,
-    ipv6Addr: undefined,
+    feature_flag: undefined,
+    next_hop_peer_id_latency_first: undefined,
+    cost_latency_first: undefined,
+    path_latency_latency_first: undefined,
+    ipv6_addr: undefined,
   };
 }
 
 export const Route: MessageFns<Route> = {
   fromJSON(object: any): Route {
     return {
-      peerId: isSet(object.peerId) ? globalThis.Number(object.peerId) : 0,
-      ipv4Addr: isSet(object.ipv4Addr) ? Ipv4Inet.fromJSON(object.ipv4Addr) : undefined,
-      nextHopPeerId: isSet(object.nextHopPeerId) ? globalThis.Number(object.nextHopPeerId) : 0,
+      peer_id: isSet(object.peer_id) ? globalThis.Number(object.peer_id) : 0,
+      ipv4_addr: isSet(object.ipv4_addr) ? Ipv4Inet.fromJSON(object.ipv4_addr) : undefined,
+      next_hop_peer_id: isSet(object.next_hop_peer_id) ? globalThis.Number(object.next_hop_peer_id) : 0,
       cost: isSet(object.cost) ? globalThis.Number(object.cost) : 0,
-      pathLatency: isSet(object.pathLatency) ? globalThis.Number(object.pathLatency) : 0,
-      proxyCidrs: globalThis.Array.isArray(object?.proxyCidrs)
-        ? object.proxyCidrs.map((e: any) => globalThis.String(e))
+      path_latency: isSet(object.path_latency) ? globalThis.Number(object.path_latency) : 0,
+      proxy_cidrs: globalThis.Array.isArray(object?.proxy_cidrs)
+        ? object.proxy_cidrs.map((e: any) => globalThis.String(e))
         : [],
       hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : "",
-      stunInfo: isSet(object.stunInfo) ? StunInfo.fromJSON(object.stunInfo) : undefined,
-      instId: isSet(object.instId) ? globalThis.String(object.instId) : "",
+      stun_info: isSet(object.stun_info) ? StunInfo.fromJSON(object.stun_info) : undefined,
+      inst_id: isSet(object.inst_id) ? globalThis.String(object.inst_id) : "",
       version: isSet(object.version) ? globalThis.String(object.version) : "",
-      featureFlag: isSet(object.featureFlag) ? PeerFeatureFlag.fromJSON(object.featureFlag) : undefined,
-      nextHopPeerIdLatencyFirst: isSet(object.nextHopPeerIdLatencyFirst)
-        ? globalThis.Number(object.nextHopPeerIdLatencyFirst)
+      feature_flag: isSet(object.feature_flag) ? PeerFeatureFlag.fromJSON(object.feature_flag) : undefined,
+      next_hop_peer_id_latency_first: isSet(object.next_hop_peer_id_latency_first)
+        ? globalThis.Number(object.next_hop_peer_id_latency_first)
         : undefined,
-      costLatencyFirst: isSet(object.costLatencyFirst) ? globalThis.Number(object.costLatencyFirst) : undefined,
-      pathLatencyLatencyFirst: isSet(object.pathLatencyLatencyFirst)
-        ? globalThis.Number(object.pathLatencyLatencyFirst)
+      cost_latency_first: isSet(object.cost_latency_first) ? globalThis.Number(object.cost_latency_first) : undefined,
+      path_latency_latency_first: isSet(object.path_latency_latency_first)
+        ? globalThis.Number(object.path_latency_latency_first)
         : undefined,
-      ipv6Addr: isSet(object.ipv6Addr) ? Ipv6Inet.fromJSON(object.ipv6Addr) : undefined,
+      ipv6_addr: isSet(object.ipv6_addr) ? Ipv6Inet.fromJSON(object.ipv6_addr) : undefined,
     };
   },
 
   toJSON(message: Route): unknown {
     const obj: any = {};
-    if (message.peerId !== 0) {
-      obj.peerId = Math.round(message.peerId);
+    if (message.peer_id !== 0) {
+      obj.peer_id = Math.round(message.peer_id);
     }
-    if (message.ipv4Addr !== undefined) {
-      obj.ipv4Addr = Ipv4Inet.toJSON(message.ipv4Addr);
+    if (message.ipv4_addr !== undefined) {
+      obj.ipv4_addr = Ipv4Inet.toJSON(message.ipv4_addr);
     }
-    if (message.nextHopPeerId !== 0) {
-      obj.nextHopPeerId = Math.round(message.nextHopPeerId);
+    if (message.next_hop_peer_id !== 0) {
+      obj.next_hop_peer_id = Math.round(message.next_hop_peer_id);
     }
     if (message.cost !== 0) {
       obj.cost = Math.round(message.cost);
     }
-    if (message.pathLatency !== 0) {
-      obj.pathLatency = Math.round(message.pathLatency);
+    if (message.path_latency !== 0) {
+      obj.path_latency = Math.round(message.path_latency);
     }
-    if (message.proxyCidrs?.length) {
-      obj.proxyCidrs = message.proxyCidrs;
+    if (message.proxy_cidrs?.length) {
+      obj.proxy_cidrs = message.proxy_cidrs;
     }
     if (message.hostname !== "") {
       obj.hostname = message.hostname;
     }
-    if (message.stunInfo !== undefined) {
-      obj.stunInfo = StunInfo.toJSON(message.stunInfo);
+    if (message.stun_info !== undefined) {
+      obj.stun_info = StunInfo.toJSON(message.stun_info);
     }
-    if (message.instId !== "") {
-      obj.instId = message.instId;
+    if (message.inst_id !== "") {
+      obj.inst_id = message.inst_id;
     }
     if (message.version !== "") {
       obj.version = message.version;
     }
-    if (message.featureFlag !== undefined) {
-      obj.featureFlag = PeerFeatureFlag.toJSON(message.featureFlag);
+    if (message.feature_flag !== undefined) {
+      obj.feature_flag = PeerFeatureFlag.toJSON(message.feature_flag);
     }
-    if (message.nextHopPeerIdLatencyFirst !== undefined) {
-      obj.nextHopPeerIdLatencyFirst = Math.round(message.nextHopPeerIdLatencyFirst);
+    if (message.next_hop_peer_id_latency_first !== undefined) {
+      obj.next_hop_peer_id_latency_first = Math.round(message.next_hop_peer_id_latency_first);
     }
-    if (message.costLatencyFirst !== undefined) {
-      obj.costLatencyFirst = Math.round(message.costLatencyFirst);
+    if (message.cost_latency_first !== undefined) {
+      obj.cost_latency_first = Math.round(message.cost_latency_first);
     }
-    if (message.pathLatencyLatencyFirst !== undefined) {
-      obj.pathLatencyLatencyFirst = Math.round(message.pathLatencyLatencyFirst);
+    if (message.path_latency_latency_first !== undefined) {
+      obj.path_latency_latency_first = Math.round(message.path_latency_latency_first);
     }
-    if (message.ipv6Addr !== undefined) {
-      obj.ipv6Addr = Ipv6Inet.toJSON(message.ipv6Addr);
+    if (message.ipv6_addr !== undefined) {
+      obj.ipv6_addr = Ipv6Inet.toJSON(message.ipv6_addr);
     }
     return obj;
   },
@@ -898,28 +898,28 @@ export const Route: MessageFns<Route> = {
   },
   fromPartial<I extends Exact<DeepPartial<Route>, I>>(object: I): Route {
     const message = createBaseRoute();
-    message.peerId = object.peerId ?? 0;
-    message.ipv4Addr = (object.ipv4Addr !== undefined && object.ipv4Addr !== null)
-      ? Ipv4Inet.fromPartial(object.ipv4Addr)
+    message.peer_id = object.peer_id ?? 0;
+    message.ipv4_addr = (object.ipv4_addr !== undefined && object.ipv4_addr !== null)
+      ? Ipv4Inet.fromPartial(object.ipv4_addr)
       : undefined;
-    message.nextHopPeerId = object.nextHopPeerId ?? 0;
+    message.next_hop_peer_id = object.next_hop_peer_id ?? 0;
     message.cost = object.cost ?? 0;
-    message.pathLatency = object.pathLatency ?? 0;
-    message.proxyCidrs = object.proxyCidrs?.map((e) => e) || [];
+    message.path_latency = object.path_latency ?? 0;
+    message.proxy_cidrs = object.proxy_cidrs?.map((e) => e) || [];
     message.hostname = object.hostname ?? "";
-    message.stunInfo = (object.stunInfo !== undefined && object.stunInfo !== null)
-      ? StunInfo.fromPartial(object.stunInfo)
+    message.stun_info = (object.stun_info !== undefined && object.stun_info !== null)
+      ? StunInfo.fromPartial(object.stun_info)
       : undefined;
-    message.instId = object.instId ?? "";
+    message.inst_id = object.inst_id ?? "";
     message.version = object.version ?? "";
-    message.featureFlag = (object.featureFlag !== undefined && object.featureFlag !== null)
-      ? PeerFeatureFlag.fromPartial(object.featureFlag)
+    message.feature_flag = (object.feature_flag !== undefined && object.feature_flag !== null)
+      ? PeerFeatureFlag.fromPartial(object.feature_flag)
       : undefined;
-    message.nextHopPeerIdLatencyFirst = object.nextHopPeerIdLatencyFirst ?? undefined;
-    message.costLatencyFirst = object.costLatencyFirst ?? undefined;
-    message.pathLatencyLatencyFirst = object.pathLatencyLatencyFirst ?? undefined;
-    message.ipv6Addr = (object.ipv6Addr !== undefined && object.ipv6Addr !== null)
-      ? Ipv6Inet.fromPartial(object.ipv6Addr)
+    message.next_hop_peer_id_latency_first = object.next_hop_peer_id_latency_first ?? undefined;
+    message.cost_latency_first = object.cost_latency_first ?? undefined;
+    message.path_latency_latency_first = object.path_latency_latency_first ?? undefined;
+    message.ipv6_addr = (object.ipv6_addr !== undefined && object.ipv6_addr !== null)
+      ? Ipv6Inet.fromPartial(object.ipv6_addr)
       : undefined;
     return message;
   },
@@ -961,60 +961,60 @@ export const PeerRoutePair: MessageFns<PeerRoutePair> = {
 
 function createBaseNodeInfo(): NodeInfo {
   return {
-    peerId: 0,
-    ipv4Addr: "",
-    proxyCidrs: [],
+    peer_id: 0,
+    ipv4_addr: "",
+    proxy_cidrs: [],
     hostname: "",
-    stunInfo: undefined,
-    instId: "",
+    stun_info: undefined,
+    inst_id: "",
     listeners: [],
     config: "",
     version: "",
-    featureFlag: undefined,
-    ipList: undefined,
+    feature_flag: undefined,
+    ip_list: undefined,
   };
 }
 
 export const NodeInfo: MessageFns<NodeInfo> = {
   fromJSON(object: any): NodeInfo {
     return {
-      peerId: isSet(object.peerId) ? globalThis.Number(object.peerId) : 0,
-      ipv4Addr: isSet(object.ipv4Addr) ? globalThis.String(object.ipv4Addr) : "",
-      proxyCidrs: globalThis.Array.isArray(object?.proxyCidrs)
-        ? object.proxyCidrs.map((e: any) => globalThis.String(e))
+      peer_id: isSet(object.peer_id) ? globalThis.Number(object.peer_id) : 0,
+      ipv4_addr: isSet(object.ipv4_addr) ? globalThis.String(object.ipv4_addr) : "",
+      proxy_cidrs: globalThis.Array.isArray(object?.proxy_cidrs)
+        ? object.proxy_cidrs.map((e: any) => globalThis.String(e))
         : [],
       hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : "",
-      stunInfo: isSet(object.stunInfo) ? StunInfo.fromJSON(object.stunInfo) : undefined,
-      instId: isSet(object.instId) ? globalThis.String(object.instId) : "",
+      stun_info: isSet(object.stun_info) ? StunInfo.fromJSON(object.stun_info) : undefined,
+      inst_id: isSet(object.inst_id) ? globalThis.String(object.inst_id) : "",
       listeners: globalThis.Array.isArray(object?.listeners)
         ? object.listeners.map((e: any) => globalThis.String(e))
         : [],
       config: isSet(object.config) ? globalThis.String(object.config) : "",
       version: isSet(object.version) ? globalThis.String(object.version) : "",
-      featureFlag: isSet(object.featureFlag) ? PeerFeatureFlag.fromJSON(object.featureFlag) : undefined,
-      ipList: isSet(object.ipList) ? GetIpListResponse.fromJSON(object.ipList) : undefined,
+      feature_flag: isSet(object.feature_flag) ? PeerFeatureFlag.fromJSON(object.feature_flag) : undefined,
+      ip_list: isSet(object.ip_list) ? GetIpListResponse.fromJSON(object.ip_list) : undefined,
     };
   },
 
   toJSON(message: NodeInfo): unknown {
     const obj: any = {};
-    if (message.peerId !== 0) {
-      obj.peerId = Math.round(message.peerId);
+    if (message.peer_id !== 0) {
+      obj.peer_id = Math.round(message.peer_id);
     }
-    if (message.ipv4Addr !== "") {
-      obj.ipv4Addr = message.ipv4Addr;
+    if (message.ipv4_addr !== "") {
+      obj.ipv4_addr = message.ipv4_addr;
     }
-    if (message.proxyCidrs?.length) {
-      obj.proxyCidrs = message.proxyCidrs;
+    if (message.proxy_cidrs?.length) {
+      obj.proxy_cidrs = message.proxy_cidrs;
     }
     if (message.hostname !== "") {
       obj.hostname = message.hostname;
     }
-    if (message.stunInfo !== undefined) {
-      obj.stunInfo = StunInfo.toJSON(message.stunInfo);
+    if (message.stun_info !== undefined) {
+      obj.stun_info = StunInfo.toJSON(message.stun_info);
     }
-    if (message.instId !== "") {
-      obj.instId = message.instId;
+    if (message.inst_id !== "") {
+      obj.inst_id = message.inst_id;
     }
     if (message.listeners?.length) {
       obj.listeners = message.listeners;
@@ -1025,11 +1025,11 @@ export const NodeInfo: MessageFns<NodeInfo> = {
     if (message.version !== "") {
       obj.version = message.version;
     }
-    if (message.featureFlag !== undefined) {
-      obj.featureFlag = PeerFeatureFlag.toJSON(message.featureFlag);
+    if (message.feature_flag !== undefined) {
+      obj.feature_flag = PeerFeatureFlag.toJSON(message.feature_flag);
     }
-    if (message.ipList !== undefined) {
-      obj.ipList = GetIpListResponse.toJSON(message.ipList);
+    if (message.ip_list !== undefined) {
+      obj.ip_list = GetIpListResponse.toJSON(message.ip_list);
     }
     return obj;
   },
@@ -1039,22 +1039,22 @@ export const NodeInfo: MessageFns<NodeInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<NodeInfo>, I>>(object: I): NodeInfo {
     const message = createBaseNodeInfo();
-    message.peerId = object.peerId ?? 0;
-    message.ipv4Addr = object.ipv4Addr ?? "";
-    message.proxyCidrs = object.proxyCidrs?.map((e) => e) || [];
+    message.peer_id = object.peer_id ?? 0;
+    message.ipv4_addr = object.ipv4_addr ?? "";
+    message.proxy_cidrs = object.proxy_cidrs?.map((e) => e) || [];
     message.hostname = object.hostname ?? "";
-    message.stunInfo = (object.stunInfo !== undefined && object.stunInfo !== null)
-      ? StunInfo.fromPartial(object.stunInfo)
+    message.stun_info = (object.stun_info !== undefined && object.stun_info !== null)
+      ? StunInfo.fromPartial(object.stun_info)
       : undefined;
-    message.instId = object.instId ?? "";
+    message.inst_id = object.inst_id ?? "";
     message.listeners = object.listeners?.map((e) => e) || [];
     message.config = object.config ?? "";
     message.version = object.version ?? "";
-    message.featureFlag = (object.featureFlag !== undefined && object.featureFlag !== null)
-      ? PeerFeatureFlag.fromPartial(object.featureFlag)
+    message.feature_flag = (object.feature_flag !== undefined && object.feature_flag !== null)
+      ? PeerFeatureFlag.fromPartial(object.feature_flag)
       : undefined;
-    message.ipList = (object.ipList !== undefined && object.ipList !== null)
-      ? GetIpListResponse.fromPartial(object.ipList)
+    message.ip_list = (object.ip_list !== undefined && object.ip_list !== null)
+      ? GetIpListResponse.fromPartial(object.ip_list)
       : undefined;
     return message;
   },
@@ -1090,18 +1090,18 @@ export const ShowNodeInfoRequest: MessageFns<ShowNodeInfoRequest> = {
 };
 
 function createBaseShowNodeInfoResponse(): ShowNodeInfoResponse {
-  return { nodeInfo: undefined };
+  return { node_info: undefined };
 }
 
 export const ShowNodeInfoResponse: MessageFns<ShowNodeInfoResponse> = {
   fromJSON(object: any): ShowNodeInfoResponse {
-    return { nodeInfo: isSet(object.nodeInfo) ? NodeInfo.fromJSON(object.nodeInfo) : undefined };
+    return { node_info: isSet(object.node_info) ? NodeInfo.fromJSON(object.node_info) : undefined };
   },
 
   toJSON(message: ShowNodeInfoResponse): unknown {
     const obj: any = {};
-    if (message.nodeInfo !== undefined) {
-      obj.nodeInfo = NodeInfo.toJSON(message.nodeInfo);
+    if (message.node_info !== undefined) {
+      obj.node_info = NodeInfo.toJSON(message.node_info);
     }
     return obj;
   },
@@ -1111,8 +1111,8 @@ export const ShowNodeInfoResponse: MessageFns<ShowNodeInfoResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<ShowNodeInfoResponse>, I>>(object: I): ShowNodeInfoResponse {
     const message = createBaseShowNodeInfoResponse();
-    message.nodeInfo = (object.nodeInfo !== undefined && object.nodeInfo !== null)
-      ? NodeInfo.fromPartial(object.nodeInfo)
+    message.node_info = (object.node_info !== undefined && object.node_info !== null)
+      ? NodeInfo.fromPartial(object.node_info)
       : undefined;
     return message;
   },
@@ -1260,18 +1260,18 @@ export const ListForeignNetworkRequest: MessageFns<ListForeignNetworkRequest> = 
 };
 
 function createBaseForeignNetworkEntryPb(): ForeignNetworkEntryPb {
-  return { peers: [], networkSecretDigest: new Uint8Array(0), myPeerIdForThisNetwork: 0 };
+  return { peers: [], network_secret_digest: new Uint8Array(0), my_peer_id_for_this_network: 0 };
 }
 
 export const ForeignNetworkEntryPb: MessageFns<ForeignNetworkEntryPb> = {
   fromJSON(object: any): ForeignNetworkEntryPb {
     return {
       peers: globalThis.Array.isArray(object?.peers) ? object.peers.map((e: any) => PeerInfo.fromJSON(e)) : [],
-      networkSecretDigest: isSet(object.networkSecretDigest)
-        ? bytesFromBase64(object.networkSecretDigest)
+      network_secret_digest: isSet(object.network_secret_digest)
+        ? bytesFromBase64(object.network_secret_digest)
         : new Uint8Array(0),
-      myPeerIdForThisNetwork: isSet(object.myPeerIdForThisNetwork)
-        ? globalThis.Number(object.myPeerIdForThisNetwork)
+      my_peer_id_for_this_network: isSet(object.my_peer_id_for_this_network)
+        ? globalThis.Number(object.my_peer_id_for_this_network)
         : 0,
     };
   },
@@ -1281,11 +1281,11 @@ export const ForeignNetworkEntryPb: MessageFns<ForeignNetworkEntryPb> = {
     if (message.peers?.length) {
       obj.peers = message.peers.map((e) => PeerInfo.toJSON(e));
     }
-    if (message.networkSecretDigest.length !== 0) {
-      obj.networkSecretDigest = base64FromBytes(message.networkSecretDigest);
+    if (message.network_secret_digest.length !== 0) {
+      obj.network_secret_digest = base64FromBytes(message.network_secret_digest);
     }
-    if (message.myPeerIdForThisNetwork !== 0) {
-      obj.myPeerIdForThisNetwork = Math.round(message.myPeerIdForThisNetwork);
+    if (message.my_peer_id_for_this_network !== 0) {
+      obj.my_peer_id_for_this_network = Math.round(message.my_peer_id_for_this_network);
     }
     return obj;
   },
@@ -1296,21 +1296,21 @@ export const ForeignNetworkEntryPb: MessageFns<ForeignNetworkEntryPb> = {
   fromPartial<I extends Exact<DeepPartial<ForeignNetworkEntryPb>, I>>(object: I): ForeignNetworkEntryPb {
     const message = createBaseForeignNetworkEntryPb();
     message.peers = object.peers?.map((e) => PeerInfo.fromPartial(e)) || [];
-    message.networkSecretDigest = object.networkSecretDigest ?? new Uint8Array(0);
-    message.myPeerIdForThisNetwork = object.myPeerIdForThisNetwork ?? 0;
+    message.network_secret_digest = object.network_secret_digest ?? new Uint8Array(0);
+    message.my_peer_id_for_this_network = object.my_peer_id_for_this_network ?? 0;
     return message;
   },
 };
 
 function createBaseListForeignNetworkResponse(): ListForeignNetworkResponse {
-  return { foreignNetworks: {} };
+  return { foreign_networks: {} };
 }
 
 export const ListForeignNetworkResponse: MessageFns<ListForeignNetworkResponse> = {
   fromJSON(object: any): ListForeignNetworkResponse {
     return {
-      foreignNetworks: isObject(object.foreignNetworks)
-        ? Object.entries(object.foreignNetworks).reduce<{ [key: string]: ForeignNetworkEntryPb }>(
+      foreign_networks: isObject(object.foreign_networks)
+        ? Object.entries(object.foreign_networks).reduce<{ [key: string]: ForeignNetworkEntryPb }>(
           (acc, [key, value]) => {
             acc[key] = ForeignNetworkEntryPb.fromJSON(value);
             return acc;
@@ -1323,12 +1323,12 @@ export const ListForeignNetworkResponse: MessageFns<ListForeignNetworkResponse> 
 
   toJSON(message: ListForeignNetworkResponse): unknown {
     const obj: any = {};
-    if (message.foreignNetworks) {
-      const entries = Object.entries(message.foreignNetworks);
+    if (message.foreign_networks) {
+      const entries = Object.entries(message.foreign_networks);
       if (entries.length > 0) {
-        obj.foreignNetworks = {};
+        obj.foreign_networks = {};
         entries.forEach(([k, v]) => {
-          obj.foreignNetworks[k] = ForeignNetworkEntryPb.toJSON(v);
+          obj.foreign_networks[k] = ForeignNetworkEntryPb.toJSON(v);
         });
       }
     }
@@ -1340,7 +1340,7 @@ export const ListForeignNetworkResponse: MessageFns<ListForeignNetworkResponse> 
   },
   fromPartial<I extends Exact<DeepPartial<ListForeignNetworkResponse>, I>>(object: I): ListForeignNetworkResponse {
     const message = createBaseListForeignNetworkResponse();
-    message.foreignNetworks = Object.entries(object.foreignNetworks ?? {}).reduce<
+    message.foreign_networks = Object.entries(object.foreign_networks ?? {}).reduce<
       { [key: string]: ForeignNetworkEntryPb }
     >((acc, [key, value]) => {
       if (value !== undefined) {
@@ -1426,14 +1426,14 @@ export const ListGlobalForeignNetworkRequest: MessageFns<ListGlobalForeignNetwor
 };
 
 function createBaseListGlobalForeignNetworkResponse(): ListGlobalForeignNetworkResponse {
-  return { foreignNetworks: {} };
+  return { foreign_networks: {} };
 }
 
 export const ListGlobalForeignNetworkResponse: MessageFns<ListGlobalForeignNetworkResponse> = {
   fromJSON(object: any): ListGlobalForeignNetworkResponse {
     return {
-      foreignNetworks: isObject(object.foreignNetworks)
-        ? Object.entries(object.foreignNetworks).reduce<
+      foreign_networks: isObject(object.foreign_networks)
+        ? Object.entries(object.foreign_networks).reduce<
           { [key: number]: ListGlobalForeignNetworkResponse_ForeignNetworks }
         >((acc, [key, value]) => {
           acc[globalThis.Number(key)] = ListGlobalForeignNetworkResponse_ForeignNetworks.fromJSON(value);
@@ -1445,12 +1445,12 @@ export const ListGlobalForeignNetworkResponse: MessageFns<ListGlobalForeignNetwo
 
   toJSON(message: ListGlobalForeignNetworkResponse): unknown {
     const obj: any = {};
-    if (message.foreignNetworks) {
-      const entries = Object.entries(message.foreignNetworks);
+    if (message.foreign_networks) {
+      const entries = Object.entries(message.foreign_networks);
       if (entries.length > 0) {
-        obj.foreignNetworks = {};
+        obj.foreign_networks = {};
         entries.forEach(([k, v]) => {
-          obj.foreignNetworks[k] = ListGlobalForeignNetworkResponse_ForeignNetworks.toJSON(v);
+          obj.foreign_networks[k] = ListGlobalForeignNetworkResponse_ForeignNetworks.toJSON(v);
         });
       }
     }
@@ -1466,7 +1466,7 @@ export const ListGlobalForeignNetworkResponse: MessageFns<ListGlobalForeignNetwo
     object: I,
   ): ListGlobalForeignNetworkResponse {
     const message = createBaseListGlobalForeignNetworkResponse();
-    message.foreignNetworks = Object.entries(object.foreignNetworks ?? {}).reduce<
+    message.foreign_networks = Object.entries(object.foreign_networks ?? {}).reduce<
       { [key: number]: ListGlobalForeignNetworkResponse_ForeignNetworks }
     >((acc, [key, value]) => {
       if (value !== undefined) {
@@ -1479,7 +1479,7 @@ export const ListGlobalForeignNetworkResponse: MessageFns<ListGlobalForeignNetwo
 };
 
 function createBaseListGlobalForeignNetworkResponse_OneForeignNetwork(): ListGlobalForeignNetworkResponse_OneForeignNetwork {
-  return { networkName: "", peerIds: [], lastUpdated: "", version: 0 };
+  return { network_name: "", peer_ids: [], last_updated: "", version: 0 };
 }
 
 export const ListGlobalForeignNetworkResponse_OneForeignNetwork: MessageFns<
@@ -1487,23 +1487,23 @@ export const ListGlobalForeignNetworkResponse_OneForeignNetwork: MessageFns<
 > = {
   fromJSON(object: any): ListGlobalForeignNetworkResponse_OneForeignNetwork {
     return {
-      networkName: isSet(object.networkName) ? globalThis.String(object.networkName) : "",
-      peerIds: globalThis.Array.isArray(object?.peerIds) ? object.peerIds.map((e: any) => globalThis.Number(e)) : [],
-      lastUpdated: isSet(object.lastUpdated) ? globalThis.String(object.lastUpdated) : "",
+      network_name: isSet(object.network_name) ? globalThis.String(object.network_name) : "",
+      peer_ids: globalThis.Array.isArray(object?.peer_ids) ? object.peer_ids.map((e: any) => globalThis.Number(e)) : [],
+      last_updated: isSet(object.last_updated) ? globalThis.String(object.last_updated) : "",
       version: isSet(object.version) ? globalThis.Number(object.version) : 0,
     };
   },
 
   toJSON(message: ListGlobalForeignNetworkResponse_OneForeignNetwork): unknown {
     const obj: any = {};
-    if (message.networkName !== "") {
-      obj.networkName = message.networkName;
+    if (message.network_name !== "") {
+      obj.network_name = message.network_name;
     }
-    if (message.peerIds?.length) {
-      obj.peerIds = message.peerIds.map((e) => Math.round(e));
+    if (message.peer_ids?.length) {
+      obj.peer_ids = message.peer_ids.map((e) => Math.round(e));
     }
-    if (message.lastUpdated !== "") {
-      obj.lastUpdated = message.lastUpdated;
+    if (message.last_updated !== "") {
+      obj.last_updated = message.last_updated;
     }
     if (message.version !== 0) {
       obj.version = Math.round(message.version);
@@ -1520,16 +1520,16 @@ export const ListGlobalForeignNetworkResponse_OneForeignNetwork: MessageFns<
     object: I,
   ): ListGlobalForeignNetworkResponse_OneForeignNetwork {
     const message = createBaseListGlobalForeignNetworkResponse_OneForeignNetwork();
-    message.networkName = object.networkName ?? "";
-    message.peerIds = object.peerIds?.map((e) => e) || [];
-    message.lastUpdated = object.lastUpdated ?? "";
+    message.network_name = object.network_name ?? "";
+    message.peer_ids = object.peer_ids?.map((e) => e) || [];
+    message.last_updated = object.last_updated ?? "";
     message.version = object.version ?? 0;
     return message;
   },
 };
 
 function createBaseListGlobalForeignNetworkResponse_ForeignNetworks(): ListGlobalForeignNetworkResponse_ForeignNetworks {
-  return { foreignNetworks: [] };
+  return { foreign_networks: [] };
 }
 
 export const ListGlobalForeignNetworkResponse_ForeignNetworks: MessageFns<
@@ -1537,16 +1537,16 @@ export const ListGlobalForeignNetworkResponse_ForeignNetworks: MessageFns<
 > = {
   fromJSON(object: any): ListGlobalForeignNetworkResponse_ForeignNetworks {
     return {
-      foreignNetworks: globalThis.Array.isArray(object?.foreignNetworks)
-        ? object.foreignNetworks.map((e: any) => ListGlobalForeignNetworkResponse_OneForeignNetwork.fromJSON(e))
+      foreign_networks: globalThis.Array.isArray(object?.foreign_networks)
+        ? object.foreign_networks.map((e: any) => ListGlobalForeignNetworkResponse_OneForeignNetwork.fromJSON(e))
         : [],
     };
   },
 
   toJSON(message: ListGlobalForeignNetworkResponse_ForeignNetworks): unknown {
     const obj: any = {};
-    if (message.foreignNetworks?.length) {
-      obj.foreignNetworks = message.foreignNetworks.map((e) =>
+    if (message.foreign_networks?.length) {
+      obj.foreign_networks = message.foreign_networks.map((e) =>
         ListGlobalForeignNetworkResponse_OneForeignNetwork.toJSON(e)
       );
     }
@@ -1562,8 +1562,8 @@ export const ListGlobalForeignNetworkResponse_ForeignNetworks: MessageFns<
     object: I,
   ): ListGlobalForeignNetworkResponse_ForeignNetworks {
     const message = createBaseListGlobalForeignNetworkResponse_ForeignNetworks();
-    message.foreignNetworks =
-      object.foreignNetworks?.map((e) => ListGlobalForeignNetworkResponse_OneForeignNetwork.fromPartial(e)) || [];
+    message.foreign_networks =
+      object.foreign_networks?.map((e) => ListGlobalForeignNetworkResponse_OneForeignNetwork.fromPartial(e)) || [];
     return message;
   },
 };
@@ -1856,30 +1856,30 @@ export const ListMappedListenerResponse: MessageFns<ListMappedListenerResponse> 
 };
 
 function createBaseVpnPortalInfo(): VpnPortalInfo {
-  return { vpnType: "", clientConfig: "", connectedClients: [] };
+  return { vpn_type: "", client_config: "", connected_clients: [] };
 }
 
 export const VpnPortalInfo: MessageFns<VpnPortalInfo> = {
   fromJSON(object: any): VpnPortalInfo {
     return {
-      vpnType: isSet(object.vpnType) ? globalThis.String(object.vpnType) : "",
-      clientConfig: isSet(object.clientConfig) ? globalThis.String(object.clientConfig) : "",
-      connectedClients: globalThis.Array.isArray(object?.connectedClients)
-        ? object.connectedClients.map((e: any) => globalThis.String(e))
+      vpn_type: isSet(object.vpn_type) ? globalThis.String(object.vpn_type) : "",
+      client_config: isSet(object.client_config) ? globalThis.String(object.client_config) : "",
+      connected_clients: globalThis.Array.isArray(object?.connected_clients)
+        ? object.connected_clients.map((e: any) => globalThis.String(e))
         : [],
     };
   },
 
   toJSON(message: VpnPortalInfo): unknown {
     const obj: any = {};
-    if (message.vpnType !== "") {
-      obj.vpnType = message.vpnType;
+    if (message.vpn_type !== "") {
+      obj.vpn_type = message.vpn_type;
     }
-    if (message.clientConfig !== "") {
-      obj.clientConfig = message.clientConfig;
+    if (message.client_config !== "") {
+      obj.client_config = message.client_config;
     }
-    if (message.connectedClients?.length) {
-      obj.connectedClients = message.connectedClients;
+    if (message.connected_clients?.length) {
+      obj.connected_clients = message.connected_clients;
     }
     return obj;
   },
@@ -1889,9 +1889,9 @@ export const VpnPortalInfo: MessageFns<VpnPortalInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<VpnPortalInfo>, I>>(object: I): VpnPortalInfo {
     const message = createBaseVpnPortalInfo();
-    message.vpnType = object.vpnType ?? "";
-    message.clientConfig = object.clientConfig ?? "";
-    message.connectedClients = object.connectedClients?.map((e) => e) || [];
+    message.vpn_type = object.vpn_type ?? "";
+    message.client_config = object.client_config ?? "";
+    message.connected_clients = object.connected_clients?.map((e) => e) || [];
     return message;
   },
 };
@@ -1926,18 +1926,20 @@ export const GetVpnPortalInfoRequest: MessageFns<GetVpnPortalInfoRequest> = {
 };
 
 function createBaseGetVpnPortalInfoResponse(): GetVpnPortalInfoResponse {
-  return { vpnPortalInfo: undefined };
+  return { vpn_portal_info: undefined };
 }
 
 export const GetVpnPortalInfoResponse: MessageFns<GetVpnPortalInfoResponse> = {
   fromJSON(object: any): GetVpnPortalInfoResponse {
-    return { vpnPortalInfo: isSet(object.vpnPortalInfo) ? VpnPortalInfo.fromJSON(object.vpnPortalInfo) : undefined };
+    return {
+      vpn_portal_info: isSet(object.vpn_portal_info) ? VpnPortalInfo.fromJSON(object.vpn_portal_info) : undefined,
+    };
   },
 
   toJSON(message: GetVpnPortalInfoResponse): unknown {
     const obj: any = {};
-    if (message.vpnPortalInfo !== undefined) {
-      obj.vpnPortalInfo = VpnPortalInfo.toJSON(message.vpnPortalInfo);
+    if (message.vpn_portal_info !== undefined) {
+      obj.vpn_portal_info = VpnPortalInfo.toJSON(message.vpn_portal_info);
     }
     return obj;
   },
@@ -1947,15 +1949,15 @@ export const GetVpnPortalInfoResponse: MessageFns<GetVpnPortalInfoResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<GetVpnPortalInfoResponse>, I>>(object: I): GetVpnPortalInfoResponse {
     const message = createBaseGetVpnPortalInfoResponse();
-    message.vpnPortalInfo = (object.vpnPortalInfo !== undefined && object.vpnPortalInfo !== null)
-      ? VpnPortalInfo.fromPartial(object.vpnPortalInfo)
+    message.vpn_portal_info = (object.vpn_portal_info !== undefined && object.vpn_portal_info !== null)
+      ? VpnPortalInfo.fromPartial(object.vpn_portal_info)
       : undefined;
     return message;
   },
 };
 
 function createBaseTcpProxyEntry(): TcpProxyEntry {
-  return { src: undefined, dst: undefined, startTime: 0, state: 0, transportType: 0 };
+  return { src: undefined, dst: undefined, start_time: 0, state: 0, transport_type: 0 };
 }
 
 export const TcpProxyEntry: MessageFns<TcpProxyEntry> = {
@@ -1963,9 +1965,9 @@ export const TcpProxyEntry: MessageFns<TcpProxyEntry> = {
     return {
       src: isSet(object.src) ? SocketAddr.fromJSON(object.src) : undefined,
       dst: isSet(object.dst) ? SocketAddr.fromJSON(object.dst) : undefined,
-      startTime: isSet(object.startTime) ? globalThis.Number(object.startTime) : 0,
+      start_time: isSet(object.start_time) ? globalThis.Number(object.start_time) : 0,
       state: isSet(object.state) ? tcpProxyEntryStateFromJSON(object.state) : 0,
-      transportType: isSet(object.transportType) ? tcpProxyEntryTransportTypeFromJSON(object.transportType) : 0,
+      transport_type: isSet(object.transport_type) ? tcpProxyEntryTransportTypeFromJSON(object.transport_type) : 0,
     };
   },
 
@@ -1977,14 +1979,14 @@ export const TcpProxyEntry: MessageFns<TcpProxyEntry> = {
     if (message.dst !== undefined) {
       obj.dst = SocketAddr.toJSON(message.dst);
     }
-    if (message.startTime !== 0) {
-      obj.startTime = Math.round(message.startTime);
+    if (message.start_time !== 0) {
+      obj.start_time = Math.round(message.start_time);
     }
     if (message.state !== 0) {
       obj.state = tcpProxyEntryStateToJSON(message.state);
     }
-    if (message.transportType !== 0) {
-      obj.transportType = tcpProxyEntryTransportTypeToJSON(message.transportType);
+    if (message.transport_type !== 0) {
+      obj.transport_type = tcpProxyEntryTransportTypeToJSON(message.transport_type);
     }
     return obj;
   },
@@ -1996,9 +1998,9 @@ export const TcpProxyEntry: MessageFns<TcpProxyEntry> = {
     const message = createBaseTcpProxyEntry();
     message.src = (object.src !== undefined && object.src !== null) ? SocketAddr.fromPartial(object.src) : undefined;
     message.dst = (object.dst !== undefined && object.dst !== null) ? SocketAddr.fromPartial(object.dst) : undefined;
-    message.startTime = object.startTime ?? 0;
+    message.start_time = object.start_time ?? 0;
     message.state = object.state ?? 0;
-    message.transportType = object.transportType ?? 0;
+    message.transport_type = object.transport_type ?? 0;
     return message;
   },
 };
@@ -2093,18 +2095,18 @@ export const GetAclStatsRequest: MessageFns<GetAclStatsRequest> = {
 };
 
 function createBaseGetAclStatsResponse(): GetAclStatsResponse {
-  return { aclStats: undefined };
+  return { acl_stats: undefined };
 }
 
 export const GetAclStatsResponse: MessageFns<GetAclStatsResponse> = {
   fromJSON(object: any): GetAclStatsResponse {
-    return { aclStats: isSet(object.aclStats) ? AclStats.fromJSON(object.aclStats) : undefined };
+    return { acl_stats: isSet(object.acl_stats) ? AclStats.fromJSON(object.acl_stats) : undefined };
   },
 
   toJSON(message: GetAclStatsResponse): unknown {
     const obj: any = {};
-    if (message.aclStats !== undefined) {
-      obj.aclStats = AclStats.toJSON(message.aclStats);
+    if (message.acl_stats !== undefined) {
+      obj.acl_stats = AclStats.toJSON(message.acl_stats);
     }
     return obj;
   },
@@ -2114,8 +2116,8 @@ export const GetAclStatsResponse: MessageFns<GetAclStatsResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<GetAclStatsResponse>, I>>(object: I): GetAclStatsResponse {
     const message = createBaseGetAclStatsResponse();
-    message.aclStats = (object.aclStats !== undefined && object.aclStats !== null)
-      ? AclStats.fromPartial(object.aclStats)
+    message.acl_stats = (object.acl_stats !== undefined && object.acl_stats !== null)
+      ? AclStats.fromPartial(object.acl_stats)
       : undefined;
     return message;
   },
@@ -2151,24 +2153,28 @@ export const GetWhitelistRequest: MessageFns<GetWhitelistRequest> = {
 };
 
 function createBaseGetWhitelistResponse(): GetWhitelistResponse {
-  return { tcpPorts: [], udpPorts: [] };
+  return { tcp_ports: [], udp_ports: [] };
 }
 
 export const GetWhitelistResponse: MessageFns<GetWhitelistResponse> = {
   fromJSON(object: any): GetWhitelistResponse {
     return {
-      tcpPorts: globalThis.Array.isArray(object?.tcpPorts) ? object.tcpPorts.map((e: any) => globalThis.String(e)) : [],
-      udpPorts: globalThis.Array.isArray(object?.udpPorts) ? object.udpPorts.map((e: any) => globalThis.String(e)) : [],
+      tcp_ports: globalThis.Array.isArray(object?.tcp_ports)
+        ? object.tcp_ports.map((e: any) => globalThis.String(e))
+        : [],
+      udp_ports: globalThis.Array.isArray(object?.udp_ports)
+        ? object.udp_ports.map((e: any) => globalThis.String(e))
+        : [],
     };
   },
 
   toJSON(message: GetWhitelistResponse): unknown {
     const obj: any = {};
-    if (message.tcpPorts?.length) {
-      obj.tcpPorts = message.tcpPorts;
+    if (message.tcp_ports?.length) {
+      obj.tcp_ports = message.tcp_ports;
     }
-    if (message.udpPorts?.length) {
-      obj.udpPorts = message.udpPorts;
+    if (message.udp_ports?.length) {
+      obj.udp_ports = message.udp_ports;
     }
     return obj;
   },
@@ -2178,8 +2184,8 @@ export const GetWhitelistResponse: MessageFns<GetWhitelistResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<GetWhitelistResponse>, I>>(object: I): GetWhitelistResponse {
     const message = createBaseGetWhitelistResponse();
-    message.tcpPorts = object.tcpPorts?.map((e) => e) || [];
-    message.udpPorts = object.udpPorts?.map((e) => e) || [];
+    message.tcp_ports = object.tcp_ports?.map((e) => e) || [];
+    message.udp_ports = object.udp_ports?.map((e) => e) || [];
     return message;
   },
 };
@@ -2423,18 +2429,18 @@ export const GetPrometheusStatsRequest: MessageFns<GetPrometheusStatsRequest> = 
 };
 
 function createBaseGetPrometheusStatsResponse(): GetPrometheusStatsResponse {
-  return { prometheusText: "" };
+  return { prometheus_text: "" };
 }
 
 export const GetPrometheusStatsResponse: MessageFns<GetPrometheusStatsResponse> = {
   fromJSON(object: any): GetPrometheusStatsResponse {
-    return { prometheusText: isSet(object.prometheusText) ? globalThis.String(object.prometheusText) : "" };
+    return { prometheus_text: isSet(object.prometheus_text) ? globalThis.String(object.prometheus_text) : "" };
   },
 
   toJSON(message: GetPrometheusStatsResponse): unknown {
     const obj: any = {};
-    if (message.prometheusText !== "") {
-      obj.prometheusText = message.prometheusText;
+    if (message.prometheus_text !== "") {
+      obj.prometheus_text = message.prometheus_text;
     }
     return obj;
   },
@@ -2444,7 +2450,7 @@ export const GetPrometheusStatsResponse: MessageFns<GetPrometheusStatsResponse> 
   },
   fromPartial<I extends Exact<DeepPartial<GetPrometheusStatsResponse>, I>>(object: I): GetPrometheusStatsResponse {
     const message = createBaseGetPrometheusStatsResponse();
-    message.prometheusText = object.prometheusText ?? "";
+    message.prometheus_text = object.prometheus_text ?? "";
     return message;
   },
 };

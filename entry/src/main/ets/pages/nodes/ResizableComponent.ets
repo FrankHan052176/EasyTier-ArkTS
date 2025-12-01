@@ -3,9 +3,7 @@ import { AppManager } from "../../AppManager"
 import { CompSize, Position } from "../../LayoutUtil"
 import { lane } from "../../util/Conversion"
 import { EventHelper } from "../../util/EventHelper"
-import { Logger } from "../../util/Logger"
 import { UIType, WindowUtil } from "../../WindowUtil"
-import { MyFrameCallback } from "../HMRouterIndex"
 import { getCompNode } from "./CompNode"
 
 export const layoutAnimationParm: AnimateParam = {
@@ -170,8 +168,6 @@ export struct ResizableComponent {
   @Param @Require comp_type: string
   @Local comp_size: CompSize = AppManager.layout.getCompSize(this.comp_type)
   @BuilderParam content: ()=>void
-  @Local pan_offset_x: number = 0
-  @Local pan_offset_y: number = 0
 
   @Computed
   get offset_w() {
@@ -260,18 +256,18 @@ export struct ResizableComponent {
           PanGesture({direction: PanDirection.All, fingers: 1})
             .onActionStart(() => {
               this.comp_size.find_next_grid = true
-              this.pan_offset_x = 0
-              this.pan_offset_y = 0
+              this.comp_size.pan_offset_x = 0
+              this.comp_size.pan_offset_y = 0
               this.comp_size.next_grid_x = this.comp_size.grid_x
               this.comp_size.next_grid_y = this.comp_size.grid_y
               this.comp_size.floatingX = this.comp_size.grid_x
               this.comp_size.floatingY = this.comp_size.grid_y
             })
             .onActionUpdate((event) => {
-              this.pan_offset_x = event.offsetX
-              this.pan_offset_y = event.offsetY
-              this.comp_size.floatingX = this.comp_size.grid_x * this.grid_size + (this.comp_size.grid_x-1)*10 + this.pan_offset_x
-              this.comp_size.floatingY = this.comp_size.grid_y * this.grid_size + (this.comp_size.grid_y-1)*10 + this.pan_offset_y
+              this.comp_size.pan_offset_x = event.offsetX
+              this.comp_size.pan_offset_y = event.offsetY
+              this.comp_size.floatingX = this.comp_size.grid_x * this.grid_size + (this.comp_size.grid_x-1)*10 + this.comp_size.pan_offset_x
+              this.comp_size.floatingY = this.comp_size.grid_y * this.grid_size + (this.comp_size.grid_y-1)*10 + this.comp_size.pan_offset_y
               let floatPos = AppManager.layout.findGridPosition({
                 x: this.comp_size.floatingX,
                 y: this.comp_size.floatingY,
@@ -292,24 +288,7 @@ export struct ResizableComponent {
               }
             })
             .onActionEnd(() => {
-              let old_grid: Position = {x:this.comp_size.grid_x, y: this.comp_size.grid_y}
-              AppManager.layout.confirmTempPos()
-              this.getUIContext()?.postFrameCallback(new MyFrameCallback(() => {
-                this.pan_offset_x -= (this.comp_size.grid_x - old_grid.x)*(this.grid_size+10)
-                this.pan_offset_y -= (this.comp_size.grid_y - old_grid.y)*(this.grid_size+10)
-                animateToImmediately(layoutAnimationParm, () => {
-                  this.pan_offset_x = 0
-                  this.pan_offset_y = 0
-                  this.comp_size.isResize = true
-                })
-                setTimeout(() => {
-                  this.comp_size.isDragging = false
-                }, 1)
-              }));
-              EventHelper.emitterPublish("drag_overlay_off")
-              setTimeout(() => {
-                AppManager.layout.updateSequence()
-              },10)
+              AppManager.layout.confirmTempPos(this.grid_size)
             }))
         )
         .onGestureJudgeBegin((gestureInfo: GestureInfo) => {
@@ -430,11 +409,12 @@ export struct ResizableComponent {
           .borderColor($r("sys.color.brand"))
           .borderRadius(18)
           .hitTestBehavior(HitTestMode.Transparent)
+          .animation(layoutAnimationParm)
         }
       }
       .position({
-        x: -this.comp_size.offset_l + (this.comp_size.isDragging ? this.pan_offset_x : 0) + this.tempPosOffsetX,
-        y: -this.comp_size.offset_u + (this.comp_size.isDragging ? this.pan_offset_y : 0) + this.tempPosOffsetY
+        x: -this.comp_size.offset_l + (this.comp_size.isDragging ? this.comp_size.pan_offset_x : 0) + this.tempPosOffsetX,
+        y: -this.comp_size.offset_u + (this.comp_size.isDragging ? this.comp_size.pan_offset_y : 0) + this.tempPosOffsetY
       })
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .width(lane(this.comp_size.lane_w) + this.offset_w)

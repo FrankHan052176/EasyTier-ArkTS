@@ -3,17 +3,10 @@ import { BusinessError, pasteboard } from "@kit.BasicServicesKit"
 import Manager from "../Manager"
 import { protocolColor, SharedPeer } from "../util/ETConfig"
 import { Logger } from "../util/Logger"
-import { PermissionUtil } from "../PermissionUtil"
 import { abilityAccessCtrl } from "@kit.AbilityKit"
-import { EventHelper } from "../util/EventHelper"
-import { WebUtil } from "../WebUtil"
-import { vibrator } from "@kit.SensorServiceKit"
-import { PreferenceUtil } from "../PreferencesUtil"
-import { UIType, WindowUtil } from "../WindowUtil"
-import { ContextUtil } from "../ContextUtil"
-import { lane } from "../util/Conversion"
 import { HdsNavigationIconOptions, HdsNavigationMenuItemOptions, IconStyleMode } from "@kit.UIDesignKit"
 import { AppManager } from "../AppManager"
+import { symbolWithSize } from "./hmrouter/HomePage"
 
 interface color {
   r: number
@@ -403,7 +396,7 @@ export function MenuButton(value: string | Resource, symbol: Resource, callback:
 export function HdsMenuButton(value: ResourceStr, symbol: Resource, callback: () => void): HdsNavigationMenuItemOptions {
   return {
     content: {
-      icon: new SymbolGlyphModifier(symbol),
+      icon: symbolWithSize(symbol, 24),
       label: value,
       action: ()=>{
         callback()

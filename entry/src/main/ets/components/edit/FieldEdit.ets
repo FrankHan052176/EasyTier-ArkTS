@@ -20,12 +20,7 @@ function ColumnLightEffect() {
 }
 
 export function getFieldI18Name(field: string): Resource {
-  let snake = field.replace(/([A-Z])/g, '_$1').toLowerCase()
-  if (field.startsWith("_")) {
-    return $r("app.string."+snake.substring(1))
-  }else {
-    return $r("app.string."+snake)
-  }
+  return $r("app.string."+field)
 }
 
 @ComponentV2

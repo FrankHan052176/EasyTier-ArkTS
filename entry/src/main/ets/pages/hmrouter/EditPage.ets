@@ -7,7 +7,7 @@ import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode, ScrollEffectType,
 import { LengthMetrics } from '@kit.ArkUI'
 import { symbolWithSize } from './HomePage'
 import { AppManager } from '../../AppManager'
-import { MenuButton } from '../Components'
+import { HdsMenuButton, MenuButton } from '../Components'
 
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
@@ -18,23 +18,28 @@ export struct EditPage {
   scroller: Scroller = new Scroller();
 
   aboutToAppear(): void {
-    this.name = HMRouterMgr.getCurrentParam() as string;
-    this.uuid = AppManager.data.configNameUUIDMap.get(this.name)!
+    this.uuid = HMRouterMgr.getCurrentParam() as string;
+    this.name = AppManager.data.configUUIDNameMap.get(this.uuid)!
     this.config = AppManager.data.configUUIDMap.get(this.uuid)!
   }
 
   @Builder
   content() {
     List({space: 10, scroller: this.scroller}) {
-      ListItem()
-        .width('100%')
-        .height(138)
+      if (deviceInfo.sdkApiVersion >= 20) {
+        ListItem()
+          .width('100%')
+          .height(138)
+      }
       ForEach(ContentUtil.fieldList, (field: ConfigField) => {
         ListItem(){
           FieldEdit({config: this.config!, field: field})
             .width('100%')
         }
       })
+      ListItem()
+        .width('100%')
+        .height(150)
     }
     .scrollBar(BarState.Off)
     .chainAnimation(true)
@@ -43,6 +48,7 @@ export struct EditPage {
     .width('100%')
     .height('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .id("edit_content")
   }
 
   build() {
@@ -78,45 +84,25 @@ export struct EditPage {
               subTitle: this.uuid!
             },
             menu: {
+              maxCount: 4,
               value: [
-                {
-                  content: {
-                    icon: symbolWithSize(AppManager.data.isFavorite(this.uuid!)?$r("sys.symbol.star_fill"):$r("sys.symbol.star"), 24),
-                    label: "favorite",
-                    isEnabled: true,
-                    action: ()=>{
-                      AppManager.data.changeFavorite(this.uuid!)
-                    },
-                    type: IconStyleMode.LARGE
-                  }
-                },
-                {
-                  content: {
-                    icon: symbolWithSize($r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), 24),
-                    label: "share",
-                    isEnabled: true,
-                    action: ()=>{
-
-                    },
-                    type: IconStyleMode.LARGE
-                  }
-                },
-                {
-                  content: {
-                    icon: symbolWithSize($r("sys.symbol.trash"), 24),
-                    label: "delete",
-                    isEnabled: true,
-                    action: ()=>{
-
-                    },
-                    type: IconStyleMode.LARGE
-                  }
-                }
+                HdsMenuButton("favorite", AppManager.data.isFavorite(this.uuid!)?$r("sys.symbol.star_fill"):$r("sys.symbol.star"), () => {
+                  AppManager.data.changeFavorite(this.uuid!)
+                }),
+                HdsMenuButton("share", $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), () => {
+                  // TODO 分享
+                }),
+                HdsMenuButton("delete", $r("sys.symbol.trash"), () => {
+                  HMRouterMgr.pop()
+                  AppManager.data.delConfig(this.uuid!)
+                }),
+                HdsMenuButton("toml", $r("sys.symbol.doc_plaintext"), () => {
+                  // TODO 输出Toml
+                })
               ]
             }
           }
         })
-        .systemBarStyle({statusBarContentColor: AppManager.preference.color_mode > 0?"#000000":"#FFFFFF"},{statusBarContentColor: AppManager.preference.color_mode > 0?"#000000":"#FFFFFF"})
         .mode(NavigationMode.Stack)
         .titleMode(HdsNavigationTitleMode.FREE)
         .hideBackButton(true)
@@ -138,10 +124,14 @@ export struct EditPage {
             AppManager.data.changeFavorite(this.uuid!)
           }),
           MenuButton("share", $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), () => {
-            AppManager.data.isFavorite(this.uuid!)?$r("sys.symbol.star_fill"):$r("sys.symbol.star")
+            // TODO 分享
           }),
           MenuButton("delete", $r("sys.symbol.trash"), () => {
-
+            HMRouterMgr.pop()
+            AppManager.data.delConfig(this.uuid!)
+          }),
+          MenuButton("toml", $r("sys.symbol.doc_plaintext"), () => {
+            // TODO 输出Toml
           }),
         ])
       }

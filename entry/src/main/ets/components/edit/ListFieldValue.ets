@@ -14,6 +14,7 @@ import { IP, IPBuilder } from "../../class/config/IP";
 import { NetworkName, NetworkNameBuilder } from "../../class/config/NetworkName";
 import { PortForward, PortForwardBuilder } from "../../class/config/PortForward";
 import { AppManager } from "../../AppManager";
+import { Logger } from "../../util/Logger";
 
 @Extend(Row)
 function LightEffect() {
@@ -54,7 +55,7 @@ export struct ListFieldValue {
   private scroller: ListScroller = new ListScroller();
 
   aboutToAppear(): void {
-    this.enable = (this.config[ContentUtil.safeFieldName(this.field)] as string[]).indexOf(this.item.toString()) > 0
+    this.enable = (this.config[ContentUtil.safeFieldName(this.field)] as string[]).indexOf(this.item.toString()) >= 0
     this.intensity = this.enable?1:0
     EventHelper.emitterListener("click_edit", () => {
       try {

@@ -1,7 +1,8 @@
 import { AppManager } from "./AppManager"
 import { MyFrameCallback } from "./pages/HMRouterIndex"
 import { layoutAnimationParm } from "./pages/nodes/ResizableComponent"
-import { lane, preciseIntegerDivision } from "./util/Conversion"
+import { lane } from "./util/Conversion"
+import { EventHelper } from "./util/EventHelper"
 import { Logger } from "./util/Logger"
 import { WindowUtil } from "./WindowUtil"
 
@@ -21,9 +22,12 @@ export class CompSize {
   @Trace isDragging: boolean = false
   @Trace floatingX: number = 0
   @Trace floatingY: number = 0
+  @Trace pan_offset_x: number = 0
+  @Trace pan_offset_y: number = 0
   @Trace next_grid_x: number = 0
   @Trace next_grid_y: number = 0
   @Trace find_next_grid: boolean = false
+  @Trace zIndex: number = 1
 
   setPos(x: number, y: number): CompSize {
     this.grid_x = x;
@@ -193,15 +197,51 @@ export class LayoutUtil {
     return { x: -1, y: -1 };
   }
 
-  confirmTempPos() {
-    this.comp_sequence.forEach((comp) => {
+  confirmTempPos(grid_size: number) {
+    this.comp_sequence.forEach((comp, index) => {
       let compSize = this.getCompSize(comp)
-      if (compSize.find_next_grid) {
-        AppManager.content.uiContext?.postFrameCallback(new MyFrameCallback(() => {
+      if (compSize.isDragging) {
+        compSize.zIndex = 99
+        EventHelper.emitterPublish("drag_overlay_off")
+        animateToImmediately({
+          duration: 200,
+          curve: Curve.Friction,
+          onFinish: () => {
+            AppManager.content.uiContext?.postFrameCallback(new MyFrameCallback(() => {
+              compSize.grid_x = compSize.next_grid_x
+              compSize.grid_y = compSize.next_grid_y
+              compSize.find_next_grid = false
+              compSize.pan_offset_x = 0
+              compSize.pan_offset_y = 0
+            }))
+            animateToImmediately(layoutAnimationParm, () => {
+              compSize.isResize = true
+            })
+            compSize.isDragging = false
+            compSize.zIndex = 1
+          }
+        }, () => {
+          compSize.pan_offset_x = (compSize.next_grid_x-compSize.grid_x)*(grid_size+10)
+          compSize.pan_offset_y = (compSize.next_grid_y-compSize.grid_y)*(grid_size+10)
+        })
+      }else if (compSize.find_next_grid) {
+        compSize.zIndex = 88
+        animateToImmediately({
+          duration: 200,
+          curve: Curve.Friction,
+          onFinish: () => {
+            compSize.zIndex = 1
+          }
+        }, () => {
           compSize.find_next_grid = false
           compSize.grid_x = compSize.next_grid_x
           compSize.grid_y = compSize.next_grid_y
-        }));
+        })
+      }
+      if (index == this.comp_sequence.length - 1) {
+        setTimeout(() => {
+          AppManager.layout.updateSequence()
+        }, 1000)
       }
     })
   }
@@ -267,7 +307,14 @@ export class LayoutUtil {
       let compSize = this.getCompSize(comp)
       let tempPos = this.findFreeSpace(compSize.lane_w, compSize.lane_h)
       if (tempPos.x >= 0) {
-        animateToImmediately(layoutAnimationParm, () => {
+        compSize.zIndex = 88
+        animateToImmediately({
+          duration: 200,
+          curve: Curve.Friction,
+          onFinish: () => {
+            compSize.zIndex = 1
+          }
+        }, () => {
           compSize.find_next_grid = true
           compSize.next_grid_x = tempPos.x
           compSize.next_grid_y = tempPos.y

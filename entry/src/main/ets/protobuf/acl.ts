@@ -203,12 +203,12 @@ export function connStateToJSON(object: ConnState): string {
 /** Time-based access control */
 export interface TimeWindow {
   /** Days of week: 0=Sunday, 1=Monday, ..., 6=Saturday */
-  daysOfWeek: number[];
+  days_of_week: number[];
   /** Time in minutes from midnight (0-1439) */
-  startTime: number;
-  endTime: number;
+  start_time: number;
+  end_time: number;
   /** Timezone offset in minutes from UTC */
-  timezoneOffset: number;
+  timezone_offset: number;
 }
 
 /** Enhanced rule with priority and metadata */
@@ -225,29 +225,29 @@ export interface Rule {
   protocol: Protocol;
   ports: string[];
   /** Source IP ranges */
-  sourceIps: string[];
+  source_ips: string[];
   /** Destination IP ranges */
-  destinationIps: string[];
+  destination_ips: string[];
   /** Enhanced matching criteria */
-  sourcePorts: string[];
+  source_ports: string[];
   /** Action and logging */
   action: Action;
   /** Rate limiting (packets per second) */
-  rateLimit: number;
+  rate_limit: number;
   /** Burst allowance */
-  burstLimit: number;
+  burst_limit: number;
   /** Connection tracking */
   stateful: boolean;
   /** Group matching criteria */
-  sourceGroups: string[];
-  destinationGroups: string[];
+  source_groups: string[];
+  destination_groups: string[];
 }
 
 /** Rule chain with metadata and optimization hints */
 export interface Chain {
   /** Chain identification */
   name: string;
-  chainType: ChainType;
+  chain_type: ChainType;
   /** Chain description */
   description: string;
   /** Chain enabled/disabled state */
@@ -255,7 +255,7 @@ export interface Chain {
   /** Rules in priority order (highest priority first) */
   rules: Rule[];
   /** Default action when no rules match */
-  defaultAction: Action;
+  default_action: Action;
 }
 
 export interface GroupInfo {
@@ -264,8 +264,8 @@ export interface GroupInfo {
 }
 
 export interface GroupIdentity {
-  groupName: string;
-  groupSecret: string;
+  group_name: string;
+  group_secret: string;
 }
 
 export interface AclV1 {
@@ -275,29 +275,29 @@ export interface AclV1 {
 
 /** Connection tracking entry for stateful ACLs */
 export interface ConnTrackEntry {
-  srcAddr: SocketAddr | undefined;
-  dstAddr:
+  src_addr: SocketAddr | undefined;
+  dst_addr:
     | SocketAddr
     | undefined;
   /** IP protocol number (e.g., 6 = TCP, 17 = UDP) */
   protocol: Protocol;
   state: ConnState;
   /** Unix timestamp (seconds) */
-  createdAt: number;
+  created_at: number;
   /** Unix timestamp (seconds) */
-  lastSeen: number;
-  packetCount: number;
-  byteCount: number;
+  last_seen: number;
+  packet_count: number;
+  byte_count: number;
 }
 
 /** Top-level ACL configuration */
 export interface Acl {
-  aclV1: AclV1 | undefined;
+  acl_v1: AclV1 | undefined;
 }
 
 export interface StatItem {
-  packetCount: number;
-  byteCount: number;
+  packet_count: number;
+  byte_count: number;
 }
 
 export interface RuleStats {
@@ -307,7 +307,7 @@ export interface RuleStats {
 
 export interface AclStats {
   rules: RuleStats[];
-  connTrack: ConnTrackEntry[];
+  conn_track: ConnTrackEntry[];
   global: { [key: string]: number };
 }
 
@@ -317,34 +317,34 @@ export interface AclStats_GlobalEntry {
 }
 
 function createBaseTimeWindow(): TimeWindow {
-  return { daysOfWeek: [], startTime: 0, endTime: 0, timezoneOffset: 0 };
+  return { days_of_week: [], start_time: 0, end_time: 0, timezone_offset: 0 };
 }
 
 export const TimeWindow: MessageFns<TimeWindow> = {
   fromJSON(object: any): TimeWindow {
     return {
-      daysOfWeek: globalThis.Array.isArray(object?.daysOfWeek)
-        ? object.daysOfWeek.map((e: any) => globalThis.Number(e))
+      days_of_week: globalThis.Array.isArray(object?.days_of_week)
+        ? object.days_of_week.map((e: any) => globalThis.Number(e))
         : [],
-      startTime: isSet(object.startTime) ? globalThis.Number(object.startTime) : 0,
-      endTime: isSet(object.endTime) ? globalThis.Number(object.endTime) : 0,
-      timezoneOffset: isSet(object.timezoneOffset) ? globalThis.Number(object.timezoneOffset) : 0,
+      start_time: isSet(object.start_time) ? globalThis.Number(object.start_time) : 0,
+      end_time: isSet(object.end_time) ? globalThis.Number(object.end_time) : 0,
+      timezone_offset: isSet(object.timezone_offset) ? globalThis.Number(object.timezone_offset) : 0,
     };
   },
 
   toJSON(message: TimeWindow): unknown {
     const obj: any = {};
-    if (message.daysOfWeek?.length) {
-      obj.daysOfWeek = message.daysOfWeek.map((e) => Math.round(e));
+    if (message.days_of_week?.length) {
+      obj.days_of_week = message.days_of_week.map((e) => Math.round(e));
     }
-    if (message.startTime !== 0) {
-      obj.startTime = Math.round(message.startTime);
+    if (message.start_time !== 0) {
+      obj.start_time = Math.round(message.start_time);
     }
-    if (message.endTime !== 0) {
-      obj.endTime = Math.round(message.endTime);
+    if (message.end_time !== 0) {
+      obj.end_time = Math.round(message.end_time);
     }
-    if (message.timezoneOffset !== 0) {
-      obj.timezoneOffset = Math.round(message.timezoneOffset);
+    if (message.timezone_offset !== 0) {
+      obj.timezone_offset = Math.round(message.timezone_offset);
     }
     return obj;
   },
@@ -354,10 +354,10 @@ export const TimeWindow: MessageFns<TimeWindow> = {
   },
   fromPartial<I extends Exact<DeepPartial<TimeWindow>, I>>(object: I): TimeWindow {
     const message = createBaseTimeWindow();
-    message.daysOfWeek = object.daysOfWeek?.map((e) => e) || [];
-    message.startTime = object.startTime ?? 0;
-    message.endTime = object.endTime ?? 0;
-    message.timezoneOffset = object.timezoneOffset ?? 0;
+    message.days_of_week = object.days_of_week?.map((e) => e) || [];
+    message.start_time = object.start_time ?? 0;
+    message.end_time = object.end_time ?? 0;
+    message.timezone_offset = object.timezone_offset ?? 0;
     return message;
   },
 };
@@ -370,15 +370,15 @@ function createBaseRule(): Rule {
     enabled: false,
     protocol: 0,
     ports: [],
-    sourceIps: [],
-    destinationIps: [],
-    sourcePorts: [],
+    source_ips: [],
+    destination_ips: [],
+    source_ports: [],
     action: 0,
-    rateLimit: 0,
-    burstLimit: 0,
+    rate_limit: 0,
+    burst_limit: 0,
     stateful: false,
-    sourceGroups: [],
-    destinationGroups: [],
+    source_groups: [],
+    destination_groups: [],
   };
 }
 
@@ -391,24 +391,24 @@ export const Rule: MessageFns<Rule> = {
       enabled: isSet(object.enabled) ? globalThis.Boolean(object.enabled) : false,
       protocol: isSet(object.protocol) ? protocolFromJSON(object.protocol) : 0,
       ports: globalThis.Array.isArray(object?.ports) ? object.ports.map((e: any) => globalThis.String(e)) : [],
-      sourceIps: globalThis.Array.isArray(object?.sourceIps)
-        ? object.sourceIps.map((e: any) => globalThis.String(e))
+      source_ips: globalThis.Array.isArray(object?.source_ips)
+        ? object.source_ips.map((e: any) => globalThis.String(e))
         : [],
-      destinationIps: globalThis.Array.isArray(object?.destinationIps)
-        ? object.destinationIps.map((e: any) => globalThis.String(e))
+      destination_ips: globalThis.Array.isArray(object?.destination_ips)
+        ? object.destination_ips.map((e: any) => globalThis.String(e))
         : [],
-      sourcePorts: globalThis.Array.isArray(object?.sourcePorts)
-        ? object.sourcePorts.map((e: any) => globalThis.String(e))
+      source_ports: globalThis.Array.isArray(object?.source_ports)
+        ? object.source_ports.map((e: any) => globalThis.String(e))
         : [],
       action: isSet(object.action) ? actionFromJSON(object.action) : 0,
-      rateLimit: isSet(object.rateLimit) ? globalThis.Number(object.rateLimit) : 0,
-      burstLimit: isSet(object.burstLimit) ? globalThis.Number(object.burstLimit) : 0,
+      rate_limit: isSet(object.rate_limit) ? globalThis.Number(object.rate_limit) : 0,
+      burst_limit: isSet(object.burst_limit) ? globalThis.Number(object.burst_limit) : 0,
       stateful: isSet(object.stateful) ? globalThis.Boolean(object.stateful) : false,
-      sourceGroups: globalThis.Array.isArray(object?.sourceGroups)
-        ? object.sourceGroups.map((e: any) => globalThis.String(e))
+      source_groups: globalThis.Array.isArray(object?.source_groups)
+        ? object.source_groups.map((e: any) => globalThis.String(e))
         : [],
-      destinationGroups: globalThis.Array.isArray(object?.destinationGroups)
-        ? object.destinationGroups.map((e: any) => globalThis.String(e))
+      destination_groups: globalThis.Array.isArray(object?.destination_groups)
+        ? object.destination_groups.map((e: any) => globalThis.String(e))
         : [],
     };
   },
@@ -433,32 +433,32 @@ export const Rule: MessageFns<Rule> = {
     if (message.ports?.length) {
       obj.ports = message.ports;
     }
-    if (message.sourceIps?.length) {
-      obj.sourceIps = message.sourceIps;
+    if (message.source_ips?.length) {
+      obj.source_ips = message.source_ips;
     }
-    if (message.destinationIps?.length) {
-      obj.destinationIps = message.destinationIps;
+    if (message.destination_ips?.length) {
+      obj.destination_ips = message.destination_ips;
     }
-    if (message.sourcePorts?.length) {
-      obj.sourcePorts = message.sourcePorts;
+    if (message.source_ports?.length) {
+      obj.source_ports = message.source_ports;
     }
     if (message.action !== 0) {
       obj.action = actionToJSON(message.action);
     }
-    if (message.rateLimit !== 0) {
-      obj.rateLimit = Math.round(message.rateLimit);
+    if (message.rate_limit !== 0) {
+      obj.rate_limit = Math.round(message.rate_limit);
     }
-    if (message.burstLimit !== 0) {
-      obj.burstLimit = Math.round(message.burstLimit);
+    if (message.burst_limit !== 0) {
+      obj.burst_limit = Math.round(message.burst_limit);
     }
     if (message.stateful !== false) {
       obj.stateful = message.stateful;
     }
-    if (message.sourceGroups?.length) {
-      obj.sourceGroups = message.sourceGroups;
+    if (message.source_groups?.length) {
+      obj.source_groups = message.source_groups;
     }
-    if (message.destinationGroups?.length) {
-      obj.destinationGroups = message.destinationGroups;
+    if (message.destination_groups?.length) {
+      obj.destination_groups = message.destination_groups;
     }
     return obj;
   },
@@ -474,32 +474,32 @@ export const Rule: MessageFns<Rule> = {
     message.enabled = object.enabled ?? false;
     message.protocol = object.protocol ?? 0;
     message.ports = object.ports?.map((e) => e) || [];
-    message.sourceIps = object.sourceIps?.map((e) => e) || [];
-    message.destinationIps = object.destinationIps?.map((e) => e) || [];
-    message.sourcePorts = object.sourcePorts?.map((e) => e) || [];
+    message.source_ips = object.source_ips?.map((e) => e) || [];
+    message.destination_ips = object.destination_ips?.map((e) => e) || [];
+    message.source_ports = object.source_ports?.map((e) => e) || [];
     message.action = object.action ?? 0;
-    message.rateLimit = object.rateLimit ?? 0;
-    message.burstLimit = object.burstLimit ?? 0;
+    message.rate_limit = object.rate_limit ?? 0;
+    message.burst_limit = object.burst_limit ?? 0;
     message.stateful = object.stateful ?? false;
-    message.sourceGroups = object.sourceGroups?.map((e) => e) || [];
-    message.destinationGroups = object.destinationGroups?.map((e) => e) || [];
+    message.source_groups = object.source_groups?.map((e) => e) || [];
+    message.destination_groups = object.destination_groups?.map((e) => e) || [];
     return message;
   },
 };
 
 function createBaseChain(): Chain {
-  return { name: "", chainType: 0, description: "", enabled: false, rules: [], defaultAction: 0 };
+  return { name: "", chain_type: 0, description: "", enabled: false, rules: [], default_action: 0 };
 }
 
 export const Chain: MessageFns<Chain> = {
   fromJSON(object: any): Chain {
     return {
       name: isSet(object.name) ? globalThis.String(object.name) : "",
-      chainType: isSet(object.chainType) ? chainTypeFromJSON(object.chainType) : 0,
+      chain_type: isSet(object.chain_type) ? chainTypeFromJSON(object.chain_type) : 0,
       description: isSet(object.description) ? globalThis.String(object.description) : "",
       enabled: isSet(object.enabled) ? globalThis.Boolean(object.enabled) : false,
       rules: globalThis.Array.isArray(object?.rules) ? object.rules.map((e: any) => Rule.fromJSON(e)) : [],
-      defaultAction: isSet(object.defaultAction) ? actionFromJSON(object.defaultAction) : 0,
+      default_action: isSet(object.default_action) ? actionFromJSON(object.default_action) : 0,
     };
   },
 
@@ -508,8 +508,8 @@ export const Chain: MessageFns<Chain> = {
     if (message.name !== "") {
       obj.name = message.name;
     }
-    if (message.chainType !== 0) {
-      obj.chainType = chainTypeToJSON(message.chainType);
+    if (message.chain_type !== 0) {
+      obj.chain_type = chainTypeToJSON(message.chain_type);
     }
     if (message.description !== "") {
       obj.description = message.description;
@@ -520,8 +520,8 @@ export const Chain: MessageFns<Chain> = {
     if (message.rules?.length) {
       obj.rules = message.rules.map((e) => Rule.toJSON(e));
     }
-    if (message.defaultAction !== 0) {
-      obj.defaultAction = actionToJSON(message.defaultAction);
+    if (message.default_action !== 0) {
+      obj.default_action = actionToJSON(message.default_action);
     }
     return obj;
   },
@@ -532,11 +532,11 @@ export const Chain: MessageFns<Chain> = {
   fromPartial<I extends Exact<DeepPartial<Chain>, I>>(object: I): Chain {
     const message = createBaseChain();
     message.name = object.name ?? "";
-    message.chainType = object.chainType ?? 0;
+    message.chain_type = object.chain_type ?? 0;
     message.description = object.description ?? "";
     message.enabled = object.enabled ?? false;
     message.rules = object.rules?.map((e) => Rule.fromPartial(e)) || [];
-    message.defaultAction = object.defaultAction ?? 0;
+    message.default_action = object.default_action ?? 0;
     return message;
   },
 };
@@ -580,24 +580,24 @@ export const GroupInfo: MessageFns<GroupInfo> = {
 };
 
 function createBaseGroupIdentity(): GroupIdentity {
-  return { groupName: "", groupSecret: "" };
+  return { group_name: "", group_secret: "" };
 }
 
 export const GroupIdentity: MessageFns<GroupIdentity> = {
   fromJSON(object: any): GroupIdentity {
     return {
-      groupName: isSet(object.groupName) ? globalThis.String(object.groupName) : "",
-      groupSecret: isSet(object.groupSecret) ? globalThis.String(object.groupSecret) : "",
+      group_name: isSet(object.group_name) ? globalThis.String(object.group_name) : "",
+      group_secret: isSet(object.group_secret) ? globalThis.String(object.group_secret) : "",
     };
   },
 
   toJSON(message: GroupIdentity): unknown {
     const obj: any = {};
-    if (message.groupName !== "") {
-      obj.groupName = message.groupName;
+    if (message.group_name !== "") {
+      obj.group_name = message.group_name;
     }
-    if (message.groupSecret !== "") {
-      obj.groupSecret = message.groupSecret;
+    if (message.group_secret !== "") {
+      obj.group_secret = message.group_secret;
     }
     return obj;
   },
@@ -607,8 +607,8 @@ export const GroupIdentity: MessageFns<GroupIdentity> = {
   },
   fromPartial<I extends Exact<DeepPartial<GroupIdentity>, I>>(object: I): GroupIdentity {
     const message = createBaseGroupIdentity();
-    message.groupName = object.groupName ?? "";
-    message.groupSecret = object.groupSecret ?? "";
+    message.group_name = object.group_name ?? "";
+    message.group_secret = object.group_secret ?? "";
     return message;
   },
 };
@@ -651,38 +651,38 @@ export const AclV1: MessageFns<AclV1> = {
 
 function createBaseConnTrackEntry(): ConnTrackEntry {
   return {
-    srcAddr: undefined,
-    dstAddr: undefined,
+    src_addr: undefined,
+    dst_addr: undefined,
     protocol: 0,
     state: 0,
-    createdAt: 0,
-    lastSeen: 0,
-    packetCount: 0,
-    byteCount: 0,
+    created_at: 0,
+    last_seen: 0,
+    packet_count: 0,
+    byte_count: 0,
   };
 }
 
 export const ConnTrackEntry: MessageFns<ConnTrackEntry> = {
   fromJSON(object: any): ConnTrackEntry {
     return {
-      srcAddr: isSet(object.srcAddr) ? SocketAddr.fromJSON(object.srcAddr) : undefined,
-      dstAddr: isSet(object.dstAddr) ? SocketAddr.fromJSON(object.dstAddr) : undefined,
+      src_addr: isSet(object.src_addr) ? SocketAddr.fromJSON(object.src_addr) : undefined,
+      dst_addr: isSet(object.dst_addr) ? SocketAddr.fromJSON(object.dst_addr) : undefined,
       protocol: isSet(object.protocol) ? protocolFromJSON(object.protocol) : 0,
       state: isSet(object.state) ? connStateFromJSON(object.state) : 0,
-      createdAt: isSet(object.createdAt) ? globalThis.Number(object.createdAt) : 0,
-      lastSeen: isSet(object.lastSeen) ? globalThis.Number(object.lastSeen) : 0,
-      packetCount: isSet(object.packetCount) ? globalThis.Number(object.packetCount) : 0,
-      byteCount: isSet(object.byteCount) ? globalThis.Number(object.byteCount) : 0,
+      created_at: isSet(object.created_at) ? globalThis.Number(object.created_at) : 0,
+      last_seen: isSet(object.last_seen) ? globalThis.Number(object.last_seen) : 0,
+      packet_count: isSet(object.packet_count) ? globalThis.Number(object.packet_count) : 0,
+      byte_count: isSet(object.byte_count) ? globalThis.Number(object.byte_count) : 0,
     };
   },
 
   toJSON(message: ConnTrackEntry): unknown {
     const obj: any = {};
-    if (message.srcAddr !== undefined) {
-      obj.srcAddr = SocketAddr.toJSON(message.srcAddr);
+    if (message.src_addr !== undefined) {
+      obj.src_addr = SocketAddr.toJSON(message.src_addr);
     }
-    if (message.dstAddr !== undefined) {
-      obj.dstAddr = SocketAddr.toJSON(message.dstAddr);
+    if (message.dst_addr !== undefined) {
+      obj.dst_addr = SocketAddr.toJSON(message.dst_addr);
     }
     if (message.protocol !== 0) {
       obj.protocol = protocolToJSON(message.protocol);
@@ -690,17 +690,17 @@ export const ConnTrackEntry: MessageFns<ConnTrackEntry> = {
     if (message.state !== 0) {
       obj.state = connStateToJSON(message.state);
     }
-    if (message.createdAt !== 0) {
-      obj.createdAt = Math.round(message.createdAt);
+    if (message.created_at !== 0) {
+      obj.created_at = Math.round(message.created_at);
     }
-    if (message.lastSeen !== 0) {
-      obj.lastSeen = Math.round(message.lastSeen);
+    if (message.last_seen !== 0) {
+      obj.last_seen = Math.round(message.last_seen);
     }
-    if (message.packetCount !== 0) {
-      obj.packetCount = Math.round(message.packetCount);
+    if (message.packet_count !== 0) {
+      obj.packet_count = Math.round(message.packet_count);
     }
-    if (message.byteCount !== 0) {
-      obj.byteCount = Math.round(message.byteCount);
+    if (message.byte_count !== 0) {
+      obj.byte_count = Math.round(message.byte_count);
     }
     return obj;
   },
@@ -710,35 +710,35 @@ export const ConnTrackEntry: MessageFns<ConnTrackEntry> = {
   },
   fromPartial<I extends Exact<DeepPartial<ConnTrackEntry>, I>>(object: I): ConnTrackEntry {
     const message = createBaseConnTrackEntry();
-    message.srcAddr = (object.srcAddr !== undefined && object.srcAddr !== null)
-      ? SocketAddr.fromPartial(object.srcAddr)
+    message.src_addr = (object.src_addr !== undefined && object.src_addr !== null)
+      ? SocketAddr.fromPartial(object.src_addr)
       : undefined;
-    message.dstAddr = (object.dstAddr !== undefined && object.dstAddr !== null)
-      ? SocketAddr.fromPartial(object.dstAddr)
+    message.dst_addr = (object.dst_addr !== undefined && object.dst_addr !== null)
+      ? SocketAddr.fromPartial(object.dst_addr)
       : undefined;
     message.protocol = object.protocol ?? 0;
     message.state = object.state ?? 0;
-    message.createdAt = object.createdAt ?? 0;
-    message.lastSeen = object.lastSeen ?? 0;
-    message.packetCount = object.packetCount ?? 0;
-    message.byteCount = object.byteCount ?? 0;
+    message.created_at = object.created_at ?? 0;
+    message.last_seen = object.last_seen ?? 0;
+    message.packet_count = object.packet_count ?? 0;
+    message.byte_count = object.byte_count ?? 0;
     return message;
   },
 };
 
 function createBaseAcl(): Acl {
-  return { aclV1: undefined };
+  return { acl_v1: undefined };
 }
 
 export const Acl: MessageFns<Acl> = {
   fromJSON(object: any): Acl {
-    return { aclV1: isSet(object.aclV1) ? AclV1.fromJSON(object.aclV1) : undefined };
+    return { acl_v1: isSet(object.acl_v1) ? AclV1.fromJSON(object.acl_v1) : undefined };
   },
 
   toJSON(message: Acl): unknown {
     const obj: any = {};
-    if (message.aclV1 !== undefined) {
-      obj.aclV1 = AclV1.toJSON(message.aclV1);
+    if (message.acl_v1 !== undefined) {
+      obj.acl_v1 = AclV1.toJSON(message.acl_v1);
     }
     return obj;
   },
@@ -748,30 +748,32 @@ export const Acl: MessageFns<Acl> = {
   },
   fromPartial<I extends Exact<DeepPartial<Acl>, I>>(object: I): Acl {
     const message = createBaseAcl();
-    message.aclV1 = (object.aclV1 !== undefined && object.aclV1 !== null) ? AclV1.fromPartial(object.aclV1) : undefined;
+    message.acl_v1 = (object.acl_v1 !== undefined && object.acl_v1 !== null)
+      ? AclV1.fromPartial(object.acl_v1)
+      : undefined;
     return message;
   },
 };
 
 function createBaseStatItem(): StatItem {
-  return { packetCount: 0, byteCount: 0 };
+  return { packet_count: 0, byte_count: 0 };
 }
 
 export const StatItem: MessageFns<StatItem> = {
   fromJSON(object: any): StatItem {
     return {
-      packetCount: isSet(object.packetCount) ? globalThis.Number(object.packetCount) : 0,
-      byteCount: isSet(object.byteCount) ? globalThis.Number(object.byteCount) : 0,
+      packet_count: isSet(object.packet_count) ? globalThis.Number(object.packet_count) : 0,
+      byte_count: isSet(object.byte_count) ? globalThis.Number(object.byte_count) : 0,
     };
   },
 
   toJSON(message: StatItem): unknown {
     const obj: any = {};
-    if (message.packetCount !== 0) {
-      obj.packetCount = Math.round(message.packetCount);
+    if (message.packet_count !== 0) {
+      obj.packet_count = Math.round(message.packet_count);
     }
-    if (message.byteCount !== 0) {
-      obj.byteCount = Math.round(message.byteCount);
+    if (message.byte_count !== 0) {
+      obj.byte_count = Math.round(message.byte_count);
     }
     return obj;
   },
@@ -781,8 +783,8 @@ export const StatItem: MessageFns<StatItem> = {
   },
   fromPartial<I extends Exact<DeepPartial<StatItem>, I>>(object: I): StatItem {
     const message = createBaseStatItem();
-    message.packetCount = object.packetCount ?? 0;
-    message.byteCount = object.byteCount ?? 0;
+    message.packet_count = object.packet_count ?? 0;
+    message.byte_count = object.byte_count ?? 0;
     return message;
   },
 };
@@ -822,15 +824,15 @@ export const RuleStats: MessageFns<RuleStats> = {
 };
 
 function createBaseAclStats(): AclStats {
-  return { rules: [], connTrack: [], global: {} };
+  return { rules: [], conn_track: [], global: {} };
 }
 
 export const AclStats: MessageFns<AclStats> = {
   fromJSON(object: any): AclStats {
     return {
       rules: globalThis.Array.isArray(object?.rules) ? object.rules.map((e: any) => RuleStats.fromJSON(e)) : [],
-      connTrack: globalThis.Array.isArray(object?.connTrack)
-        ? object.connTrack.map((e: any) => ConnTrackEntry.fromJSON(e))
+      conn_track: globalThis.Array.isArray(object?.conn_track)
+        ? object.conn_track.map((e: any) => ConnTrackEntry.fromJSON(e))
         : [],
       global: isObject(object.global)
         ? Object.entries(object.global).reduce<{ [key: string]: number }>((acc, [key, value]) => {
@@ -846,8 +848,8 @@ export const AclStats: MessageFns<AclStats> = {
     if (message.rules?.length) {
       obj.rules = message.rules.map((e) => RuleStats.toJSON(e));
     }
-    if (message.connTrack?.length) {
-      obj.connTrack = message.connTrack.map((e) => ConnTrackEntry.toJSON(e));
+    if (message.conn_track?.length) {
+      obj.conn_track = message.conn_track.map((e) => ConnTrackEntry.toJSON(e));
     }
     if (message.global) {
       const entries = Object.entries(message.global);
@@ -867,7 +869,7 @@ export const AclStats: MessageFns<AclStats> = {
   fromPartial<I extends Exact<DeepPartial<AclStats>, I>>(object: I): AclStats {
     const message = createBaseAclStats();
     message.rules = object.rules?.map((e) => RuleStats.fromPartial(e)) || [];
-    message.connTrack = object.connTrack?.map((e) => ConnTrackEntry.fromPartial(e)) || [];
+    message.conn_track = object.conn_track?.map((e) => ConnTrackEntry.fromPartial(e)) || [];
     message.global = Object.entries(object.global ?? {}).reduce<{ [key: string]: number }>((acc, [key, value]) => {
       if (value !== undefined) {
         acc[key] = globalThis.Number(value);

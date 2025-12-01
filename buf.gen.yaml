@@ -12,5 +12,6 @@ plugins:
       - outputServices=none
       - useExactTypes=true
       - eslintDisable=false
+      - snakeToCamel=false
 inputs:
   - directory: proto

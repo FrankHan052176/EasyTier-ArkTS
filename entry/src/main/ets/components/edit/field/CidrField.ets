@@ -4,6 +4,7 @@ import { NetworkConfig } from '../../../protobuf/api_manage';
 import { uiAppearance } from '@kit.ArkUI';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { Spx2vp, Svp2fp } from '../../../AppManager';
+import { Logger } from '../../../util/Logger';
 
 @Extend(TextInput)
 function fieldTextInput(onChange:EditableTextOnChangeCallback, editChange: OnSubmitCallback, ip: boolean, field: string) {
@@ -27,7 +28,7 @@ export  struct CidrField {
   @Param @Require field: string;
   @Param @Require text: ResourceStr;
   @Local value_ip: string = this.config[ContentUtil.safeFieldName(this.ipField)] || "";
-  @Local value_mask: string = this.config[ContentUtil.safeFieldName(this.maskField)] || "";
+  @Local value_mask: string = ""+(this.config[ContentUtil.safeFieldName(this.maskField)] || 24);
   @Local intensity_ip: number = 0;
   @Local intensity_mask: number = 0;
   controller_ip: TextInputController = new TextInputController()
@@ -114,7 +115,7 @@ export  struct CidrField {
           Row() {
             TextInput({text: this.value_mask!!, controller: this.controller_mask})
               .fieldTextInput((value) => {
-                this.config[ContentUtil.safeFieldName(this.maskField)] = value
+                this.config[ContentUtil.safeFieldName(this.maskField)] = Number.parseInt(value)
               }, () => {}, false, this.field)
               .overlay(this.LightPoint(false),{
                 align: Alignment.Start,
@@ -160,7 +161,7 @@ export  struct CidrField {
             .layoutWeight(100)
           TextInput({text: this.value_mask!!})
             .fieldTextInput((value) => {
-              this.config[ContentUtil.safeFieldName(this.maskField)] = value
+              this.config[ContentUtil.safeFieldName(this.maskField)] = Number.parseInt(value)
             }, () => {}, false, this.field)
             .width(44)
         }

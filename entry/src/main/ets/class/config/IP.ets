@@ -1,7 +1,7 @@
 import { lane } from "../../util/Conversion"
 import { FieldValue } from "./Basic"
 
-function isIpAddr(value: string): boolean {
+export function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").test(value)
 }
 

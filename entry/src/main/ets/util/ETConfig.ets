@@ -58,29 +58,48 @@ export enum Protocol {
   UDP = "udp",
   UDP6 = "udp6",
   QUIC = "quic",
+  QUIC6 = "quic6",
   WS = "ws",
+  WS6 = "ws6",
   WSS = "wss",
+  WSS6 = "wss6",
   WG = "wg",
+  WG6 = "wg6",
   UNKNOWN = ""
 }
 export function convertToProtocol(input: string): Protocol {
   switch (input) {
     case "udp": return Protocol.UDP;
+    case "udp6": return Protocol.UDP6;
     case "quic": return Protocol.QUIC;
+    case "quic6": return Protocol.QUIC6;
     case "ws": return Protocol.WS;
+    case "ws6": return Protocol.WS6;
     case "wss": return Protocol.WSS;
+    case "wss6": return Protocol.WSS6;
     case "wg": return Protocol.WG;
+    case "wg6": return Protocol.WG6;
     default : return Protocol.TCP;
   }
 }
 export function protocolColor(protocol:Protocol): ResourceColor {
   switch (protocol) {
     case Protocol.UDP: return "#ffd94838";
-    case Protocol.QUIC: return "#800080";
+    case Protocol.QUIC: return "#ff800080";
     case Protocol.WS: return "#ff64bb5c";
     case Protocol.WSS: return "#ff5ba854";
     case Protocol.WG: return "#ffed6f21";
     default : return "#ff0a59f7";
+  }
+}
+export function protocolBGColor(protocol:Protocol): ResourceColor {
+  switch (protocol) {
+    case Protocol.UDP: return "#33d94838";
+    case Protocol.QUIC: return "#33800080";
+    case Protocol.WS: return "#3364bb5c";
+    case Protocol.WSS: return "#335ba854";
+    case Protocol.WG: return "#33ed6f21";
+    default : return "#330a59f7";
   }
 }
 @ObservedV2
@@ -306,7 +325,7 @@ export class network_whitelist {
   @Trace whitelist: SafeSet<WrappedString>;
   constructor(config: Config) {
     this.config = config
-    this.whitelist = new SafeSet(config)
+    this.whitelist = new SafeSet()
   }
   fromString(string: string): network_whitelist {
     if (string.length > 0) string.split(" ").forEach((value) => {
@@ -546,15 +565,15 @@ export class Config {
   @Trace instance_id: string = util.generateRandomUUID(true);
   @Trace instance_name: string = this.instance_id.substring(0, 8);
   @Trace dhcp: dhcp = new dhcp();
-  @Trace listeners = new SafeSet<listener>(this);
+  @Trace listeners = new SafeSet<listener>();
   // @Trace mapped_listeners = new SafeLightWeightSet<listener>(this, () => {return new listener()});
-  @Trace exit_nodes = new SafeSet<exit_node>(this);
+  @Trace exit_nodes = new SafeSet<exit_node>();
   @Trace rpc_portal: string = "0.0.0.0:0";
-  @Trace routes = new SafeSet<route>(this);
+  @Trace routes = new SafeSet<route>();
   @Trace socks5_proxy : socks5_proxy | null = null;
   @Trace network_identity: network_identity = new network_identity(this);
-  @Trace peer = new SafeSet<peer>(this);
-  @Trace proxy_network = new SafeSet<cidr>(this);
+  @Trace peer = new SafeSet<peer>();
+  @Trace proxy_network = new SafeSet<cidr>();
   @Trace vpn_portal_config: vpn_portal_config_with_config | null = null;
   // @Trace port_forward = new SafeSet<port_forward>(this);
   @Trace flags: flags = new flags(this);

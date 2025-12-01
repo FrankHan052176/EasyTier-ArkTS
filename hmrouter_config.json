@@ -2,7 +2,7 @@
   "customPageTemplate": [
     {
       "srcPath": [
-        "**/InstancesPage.ets"
+        "**/EditPage.ets"
       ],
       "templatePath": "./oh_modules/@hadss/hmrouter-transitions/ets/template/CardLongTakeTemplate.ejs"
     }

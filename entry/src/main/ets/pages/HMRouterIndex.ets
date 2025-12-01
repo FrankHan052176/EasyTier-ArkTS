@@ -7,6 +7,7 @@ import { AppManager } from "../AppManager";
 import { DragOverlayBuilder } from "../components/util/DragOverlay";
 import { NodeNameMap } from "./nodes/CompNode";
 import { Position } from "../LayoutUtil"
+import { DialogHub, DialogMode } from "@hadss/dialoghub";
 
 class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
   initializeModifier(instance: NavigationAttribute): void {
@@ -35,6 +36,7 @@ export struct HMRouterIndex {
   onlyDrag: boolean = false
 
   aboutToAppear(): void {
+    DialogHub.init(this.getUIContext(), DialogMode.CUSTOM_DIALOG);
     AppManager.init(this.getUIContext())
     EventHelper.emitterListener("drag_overlay_on", (data) => {
       this.dragType = data.data!.type
@@ -69,32 +71,28 @@ export struct HMRouterIndex {
   }
 
   build() {
-    Column(){
-      Column() {
-        HMNavigation({
-          navigationId: 'MainNavigation', homePageUrl: 'HomePage',
-          options: {
-            standardAnimator: HMDefaultGlobalAnimator.STANDARD_ANIMATOR,
-            dialogAnimator: HMDefaultGlobalAnimator.DIALOG_ANIMATOR,
-            modifier: this.modifier
-          }
-        })
-          .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      }
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      .height('100%')
-      .width('100%')
-      .bindContentCover($$this.dragOverlay, DragOverlayBuilder(this.dragType, this.onlyDrag, this.compPos), {
-        modalTransition: ModalTransition.NONE,
-        onWillDisappear: () => {
-          this.onlyDrag = false
-          if (this.dragType) {
-            this.dragType = undefined
-            AppManager.layout.getCompSize(this.dragType!).isOnOverlay = false
-          }
+    Column() {
+      HMNavigation({
+        navigationId: 'MainNavigation', homePageUrl: 'HomePage',
+        options: {
+          dialogAnimator: HMDefaultGlobalAnimator.DIALOG_ANIMATOR,
+          modifier: this.modifier
         }
       })
+        .height('100%')
+        .width('100%')
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
+    .bindContentCover($$this.dragOverlay, DragOverlayBuilder(this.dragType, this.onlyDrag, this.compPos), {
+      modalTransition: ModalTransition.NONE,
+      onWillDisappear: () => {
+        this.onlyDrag = false
+        if (this.dragType) {
+          this.dragType = undefined
+          AppManager.layout.getCompSize(this.dragType!).isOnOverlay = false
+        }
+      }
+    })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .height('100%')
     .width('100%')

@@ -1,12 +1,12 @@
-import { NetworkConfig } from "./protobuf/api_manage";
+import { NetworkConfig, NetworkingMethod } from "./protobuf/api_manage";
 import { Logger, LogLocate } from "./util/Logger";
 import easytier from "easytier-ohrs"
 import { NetworkConfigTypeMap } from "./protobuf/proto-type-map";
 import { util } from "@kit.ArkTS";
 
 const ignoreField: Set<string> = new Set([
-  "networkingMethod", "publicServerUrl", "advancedSettings", "devName",
-  "mtu", "quicListenPort", "bindDevice", "enableRelayNetworkWhitelist", "enableManualRoutes", "instanceId"])
+  "networking_method", "public_server_url", "advanced_settings", "dev_name",
+  "mtu", "quic_listen_port", "bind_device", "enable_relay_network_whitelist", "enable_manual_routes", "instance_id"])
 type fieldType = string | ConfigField[]
 
 export class ConfigField {
@@ -24,39 +24,40 @@ export class ContentUtil {
   public static fieldList: ConfigField[] = []
   public static flagField: ConfigField = new ConfigField("flags_switch", [])
   public static combinedField: Record<string, string[]> = {
-    "virtual_ipv4_dhcp": ["dhcp", "virtual_ipv4"],
-    "identity": ["networkName", "networkSecret"],
-    "vpnPortal": ["enableVpnPortal",  "vpnPortalListenPort", "vpn_portal_client_network"],
-    "socks5": ["enableSocks5", "socks5Port"],
-    "virtual_ipv4": ["virtualIpv4", "networkLength"],
-    "vpn_portal_client_network": ["vpnPortalClientNetworkAddr", "vpnPortalClientNetworkLen"]
+    "virtual_ipv4_dhcp": ["dhcp", "virtual_ipv4_cidr"],
+    "identity": ["network_name", "network_secret"],
+    "vpn_portal": ["enable_vpn_portal",  "vpn_portal_listen_port", "vpn_portal_client_network"],
+    "socks5": ["enable_socks5", "socks5_port"],
+    "virtual_ipv4_cidr": ["virtual_ipv4", "network_length"],
+    "vpn_portal_client_network": ["vpn_portal_client_network_addr", "vpn_portal_client_network_len"]
   }
   public static renamedField: Record<string, string> = {
-    "routes": "manualRoutes",
+    "routes": "manual_routes",
   }
   public static overrideFieldType: Record<string, string> = {
-    "virtual_ipv4": "cidr",
-    "virtualIpv4": "cidr_ip",
-    "networkLength": "cidr_mask",
-    "vpnPortalListenPort": "port",
+    "virtual_ipv4_cidr": "cidr",
+    "virtual_ipv4": "cidr_ip",
+    "network_length": "cidr_mask",
+    "vpn_portal_listen_port": "port",
     "vpn_portal_client_network": "cidr",
-    "vpnPortalClientNetworkAddr": "cidr_ip",
-    "vpnPortalClientNetworkLen": "cidr_mask",
-    "socks5Port": "port",
-    "peerUrls": "peer[]",
-    "proxyCidrs": "cidr[]",
-    "listenerUrls": "listener[]",
-    "manualRoutes": "route[]",
-    "exitNodes": "ip[]",
-    "mappedListeners": "mappedListener[]",
-    "portForwards": "port_forward[]"
+    "vpn_portal_client_network_addr": "cidr_ip",
+    "vpn_portal_client_network_len": "cidr_mask",
+    "socks5_port": "port",
+    "peer_urls": "peer[]",
+    "proxy_cidrs": "cidr[]",
+    "listener_urls": "listener[]",
+    "manual_routes": "route[]",
+    "exit_nodes": "ip[]",
+    "mapped_listeners": "mappedListener[]",
+    "port_forwards": "port_forward[]"
   }
   public static fieldTag: Record<string, string> = {
     "dhcp": "inverse",
-    "vpnPortal": "hidable",
+    "vpn_portal": "hidable",
     "socks5": "hidable",
-    "networkName": "topFieldName username enter_next",
-    "networkSecret": "topFieldName password",
+    "hostname": "suggest",
+    "network_name": "topFieldName username enter_next",
+    "network_secret": "topFieldName password",
     "identity": "hideTitle"
   }
 
@@ -86,16 +87,24 @@ export class ContentUtil {
     return this.overrideFieldType[field] || NetworkConfigTypeMap[field]
   }
 
-  public static getDefaultConfig(): NetworkConfig {
+  public static getDefaultConfig(hostname: string): NetworkConfig {
     let cfg = NetworkConfig.fromJSON(easytier.defaultNetworkConfig())
-    cfg.enableRelayNetworkWhitelist = true
-    cfg.enableManualRoutes = true
+    cfg.networking_method = 1
+    cfg.enable_relay_network_whitelist = true
+    cfg.enable_manual_routes = true
+    cfg.dhcp = true
+    cfg.virtual_ipv4 = "10.0.0.1"
+    cfg.network_length = 24
+    cfg.hostname = hostname
+    cfg.network_name = "easytier"
+    cfg.network_secret = ""
+    cfg.multi_thread = true
     return cfg
   }
 
   public static initConfigFields() {
     let added: Set<string> = new Set()
-    Object.entries(this.getDefaultConfig()).forEach((pair:[string, any]) => {
+    Object.entries(this.getDefaultConfig("")).forEach((pair:[string, any]) => {
       let field = this.renamedField[pair[0]] || pair[0]
       if (ignoreField.has(field)) {}
       else {

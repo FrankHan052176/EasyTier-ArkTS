@@ -3,24 +3,22 @@ import { convertToProtocol, Protocol, protocolColor } from "../../util/ETConfig"
 import { FieldValue } from "./Basic"
 import { hdsEffect } from "@kit.UIDesignKit"
 import { deviceInfo } from "@kit.BasicServicesKit"
-import { Sfp2vp } from "../../AppManager"
 
 function isDomainOrIP(value: string): boolean {
-  return RegExp("^(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}|(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))").test(value)
+  return /^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,})$/.test(value)
 }
 
 function isPort(value: string): boolean {
-  if (Number.isInteger(value)) {
-    try {
-      let num = Number.parseInt(value)
-      if (num >= 0 && num <= 32) {
-        return true
-      }
-    }catch (e) {
+  try {
+    let num = Number.parseInt(value)
+    if (num >= 0 && num <= 65535) {
+      return true
+    }else {
       return false
     }
+  }catch (e) {
+    return false
   }
-  return false
 }
 
 @Builder
@@ -103,7 +101,7 @@ export function UrlBuilder(value: Url) {
 @ObservedV2
 export class Url implements FieldValue {
   @Trace proto: Protocol = Protocol.TCP
-  @Trace domain: string = "public.easytier.cn"
+  @Trace domain: string = "public.easytier.top"
   @Trace port: string = "11010"
   fromString(value: string): boolean {
     let arr = value.split("://")

@@ -4,12 +4,11 @@ import { geoLocationManager } from "@kit.LocationKit";
 import { window } from "@kit.ArkUI";
 import { EventHelper } from "../util/EventHelper";
 import { Logger, LogLocate } from "../util/Logger";
-import { BusinessError } from "@kit.BasicServicesKit";
+import { BusinessError, deviceInfo, emitter } from "@kit.BasicServicesKit";
 import easytier from "easytier-ohrs"
 import { vpnExtension } from "@kit.NetworkKit";
-import { PermissionUtil } from "../PermissionUtil";
 import Manager from "../Manager";
-import { objectToHomoTOML } from "../util/Conversion";
+import { objectToHomoTOML, stringArr2RouteArr } from "../util/Conversion";
 import { readConfig } from "../util/Compress";
 import { url } from "@kit.ArkTS";
 import entry from 'libentry.so'
@@ -19,17 +18,22 @@ import { WindowUtil } from "../WindowUtil";
 import { HMRouterMgr } from "@hadss/hmrouter";
 import { AppManager } from "../AppManager";
 import { HMRouterTransitions } from "@hadss/hmrouter-transitions";
+import { DialogHub } from "@hadss/dialoghub";
+import { sendToast } from "../ToastUtil";
+import { isIpAddr } from "../class/config/IP";
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
   vpnConnection: vpnExtension.VpnConnection | undefined
 
-  startContinuousTask(inst_id: string) {
-    if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) return;
-    let config = Manager.configs.get(inst_id)
-    if (!config) return
-    if (!AppManager.permission.isGetLocPerm()) {
-      easytier.runNetworkInstance(objectToHomoTOML(config!))
+  startContinuousTask(cfg: string) {
+    if (!AppManager.permission.isGetLocPerm() || !canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
+      if (easytier.runNetworkInstance(cfg)) {
+        sendToast("实例启动成功", $r("sys.symbol.wifi"))
+      }else {
+        sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
+        Logger.error("启动失败", this)
+      }
       return
     }
     Logger.info("[EntryAbi] start background alive")
@@ -50,11 +54,13 @@ export default class EntryAbility extends UIAbility {
       wantAgent.getWantAgent(wantAgentInfo).then((wantAgentObj: WantAgent) => {
         try {
           backgroundTaskManager.startBackgroundRunning(this.context, ["location"], wantAgentObj).then(() => {
-            if (easytier.runNetworkInstance(objectToHomoTOML(config!))) {
+            if (easytier.runNetworkInstance(cfg)) {
+              sendToast("实例启动成功", $r("sys.symbol.wifi"))
               geoLocationManager.on('locationChange', request, () => {
                 Logger.debug("GeoLoc alive", this)
               });
             }else {
+              sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
               Logger.error("启动失败", this)
               this.stopContinuousTask()
             }
@@ -120,17 +126,16 @@ export default class EntryAbility extends UIAbility {
     EventHelper.emitterListener("start_bg",(data) => {
       this.prepare_vpn(() => {
         Logger.info("start_bg_task", this)
-        this.startContinuousTask(data.data!.inst_id);
+        this.startContinuousTask(data.data!.cfg);
       })
     })
   }
 
   stop_bg_Listener() {
     Logger.debug("stop_bg_Listener", this)
-    EventHelper.emitterListener("stop_bg",(data) => {
+    EventHelper.emitterListener("stop_bg",() => {
       Logger.info("stop_bg_task", this)
       this.stopContinuousTask()
-      easytier.stopNetworkInstance([data.data!.inst_id])
     })
   }
 
@@ -140,27 +145,83 @@ export default class EntryAbility extends UIAbility {
       Logger.info("setup_tun", this)
       let ip = data.data!.ip as string
       let mask = data.data!.mask as number
-      let vpnConfig: vpnExtension.VpnConfig = {
-        addresses: [
-          {
-            address: {
-              address:ip,
-              family:1,
-            },
-            prefixLength:mask
-          }
-        ],
-        blockedApplications: [
-          "top.frankhan.easytier"
-        ],
-        dnsAddresses: data.data!.magicDNS?["100.100.100.101"]:undefined
-      }
-      if (this.vpnConnection === undefined) {
-        Logger.error("vpnConnection not found", this)
-      }
-      this.vpnConnection!.create(vpnConfig).then((fd) => {
-        easytier.setTunFd(data.data!.id as string, fd)
+      let magicDNS = data.data!.magicDNS as boolean
+      let inst_id = data.data!.id as string
+      let needExitNode = data.data!.needExitNode as boolean
+      this.setup_tun(ip, mask, magicDNS, inst_id, needExitNode)
+    })
+    let restart = (data: emitter.EventData) => {
+      this.vpnConnection?.destroy().catch(() => {
+      }).then(() => {
+        let ip = data.data!.ip as string
+        let mask = data.data!.mask as number
+        let magicDNS = data.data!.magicDNS as boolean
+        let inst_id = data.data!.id as string
+        let needExitNode = data.data!.needExitNode as boolean
+        this.setup_tun(ip, mask, magicDNS, inst_id, needExitNode)
       })
+    }
+    EventHelper.emitterListener("update_route", (data) => {
+      Logger.info("update_route", this)
+      restart(data)
+    })
+    EventHelper.emitterListener("change_ipv4", (data) => {
+      Logger.info("change_ipv4", this)
+      restart(data)
+    })
+  }
+
+  safeDns(): string {
+    if (isIpAddr(AppManager.preference.dns)) {
+      return AppManager.preference.dns
+    }else {
+      return "223.5.5.5"
+    }
+  }
+
+  setup_tun(ip: string, mask: number, magicDNS: boolean, inst_id: string, needExitNode: boolean) {
+    Logger.debug("[EntryAbi] 当前IP:"+ip)
+    Logger.debug("[EntryAbi] 当前路由表:"+Array.from(AppManager.easytier.tunRoutes).join(","))
+    let vpnConfig: vpnExtension.VpnConfig = AppManager.preference.vpn_routes || deviceInfo.sdkApiVersion >= 20?{
+      addresses: [
+        {
+          address: {
+            address:ip,
+            family:1,
+          },
+          prefixLength:mask
+        }
+      ],
+      blockedApplications: [
+        "top.frankhan.easytier"
+      ],
+      trustedApplications: [],
+      dnsAddresses: magicDNS?["100.100.100.101"]:(AppManager.preference.dev?[this.safeDns()]:["223.5.5.5"]),
+      mtu: 1380,
+      routes: stringArr2RouteArr(ip, magicDNS, needExitNode)
+    }:{
+      addresses: [
+        {
+          address: {
+            address:ip,
+            family:1,
+          },
+          prefixLength:mask
+        }
+      ],
+      blockedApplications: [
+        "top.frankhan.easytier"
+      ],
+      trustedApplications: [],
+      dnsAddresses: magicDNS?["100.100.100.101"]:(AppManager.preference.dev?[this.safeDns()]:["223.5.5.5"]),
+      mtu: 1380
+    }
+    if (this.vpnConnection === undefined) {
+      Logger.error("[EntryAbi] vpnConnection not found")
+    }
+    Logger.debug("[EntryAbi] VPN配置:"+JSON.stringify(vpnConfig))
+    this.vpnConnection!.create(vpnConfig).then((fd) => {
+      easytier.setTunFd(inst_id, fd)
     })
   }
 
@@ -194,6 +255,10 @@ export default class EntryAbility extends UIAbility {
         Logger.info('Failed to load the content. Cause: '+JSON.stringify(err), this);
         return;
       }
+      windowStage.getMainWindow().then((windowObj) => {
+        // getUIContext接口需要再loadContent调用后调用，否则获取的UIContext可能为空
+        DialogHub.init(windowObj.getUIContext());
+      })
     });
   }
 

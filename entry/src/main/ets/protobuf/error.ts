@@ -9,16 +9,16 @@
 export const protobufPackage = "error";
 
 export interface OtherError {
-  errorMessage: string;
+  error_message: string;
 }
 
 export interface InvalidMethodIndex {
-  serviceName: string;
-  methodIndex: number;
+  service_name: string;
+  method_index: number;
 }
 
 export interface InvalidService {
-  serviceName: string;
+  service_name: string;
 }
 
 export interface ProstDecodeError {
@@ -28,41 +28,41 @@ export interface ProstEncodeError {
 }
 
 export interface ExecuteError {
-  errorMessage: string;
+  error_message: string;
 }
 
 export interface MalformatRpcPacket {
-  errorMessage: string;
+  error_message: string;
 }
 
 export interface Timeout {
-  errorMessage: string;
+  error_message: string;
 }
 
 export interface Error {
-  otherError?: OtherError | undefined;
-  invalidMethodIndex?: InvalidMethodIndex | undefined;
-  invalidService?: InvalidService | undefined;
-  prostDecodeError?: ProstDecodeError | undefined;
-  prostEncodeError?: ProstEncodeError | undefined;
-  executeError?: ExecuteError | undefined;
-  malformatRpcPacket?: MalformatRpcPacket | undefined;
+  other_error?: OtherError | undefined;
+  invalid_method_index?: InvalidMethodIndex | undefined;
+  invalid_service?: InvalidService | undefined;
+  prost_decode_error?: ProstDecodeError | undefined;
+  prost_encode_error?: ProstEncodeError | undefined;
+  execute_error?: ExecuteError | undefined;
+  malformat_rpc_packet?: MalformatRpcPacket | undefined;
   timeout?: Timeout | undefined;
 }
 
 function createBaseOtherError(): OtherError {
-  return { errorMessage: "" };
+  return { error_message: "" };
 }
 
 export const OtherError: MessageFns<OtherError> = {
   fromJSON(object: any): OtherError {
-    return { errorMessage: isSet(object.errorMessage) ? globalThis.String(object.errorMessage) : "" };
+    return { error_message: isSet(object.error_message) ? globalThis.String(object.error_message) : "" };
   },
 
   toJSON(message: OtherError): unknown {
     const obj: any = {};
-    if (message.errorMessage !== "") {
-      obj.errorMessage = message.errorMessage;
+    if (message.error_message !== "") {
+      obj.error_message = message.error_message;
     }
     return obj;
   },
@@ -72,30 +72,30 @@ export const OtherError: MessageFns<OtherError> = {
   },
   fromPartial<I extends Exact<DeepPartial<OtherError>, I>>(object: I): OtherError {
     const message = createBaseOtherError();
-    message.errorMessage = object.errorMessage ?? "";
+    message.error_message = object.error_message ?? "";
     return message;
   },
 };
 
 function createBaseInvalidMethodIndex(): InvalidMethodIndex {
-  return { serviceName: "", methodIndex: 0 };
+  return { service_name: "", method_index: 0 };
 }
 
 export const InvalidMethodIndex: MessageFns<InvalidMethodIndex> = {
   fromJSON(object: any): InvalidMethodIndex {
     return {
-      serviceName: isSet(object.serviceName) ? globalThis.String(object.serviceName) : "",
-      methodIndex: isSet(object.methodIndex) ? globalThis.Number(object.methodIndex) : 0,
+      service_name: isSet(object.service_name) ? globalThis.String(object.service_name) : "",
+      method_index: isSet(object.method_index) ? globalThis.Number(object.method_index) : 0,
     };
   },
 
   toJSON(message: InvalidMethodIndex): unknown {
     const obj: any = {};
-    if (message.serviceName !== "") {
-      obj.serviceName = message.serviceName;
+    if (message.service_name !== "") {
+      obj.service_name = message.service_name;
     }
-    if (message.methodIndex !== 0) {
-      obj.methodIndex = Math.round(message.methodIndex);
+    if (message.method_index !== 0) {
+      obj.method_index = Math.round(message.method_index);
     }
     return obj;
   },
@@ -105,25 +105,25 @@ export const InvalidMethodIndex: MessageFns<InvalidMethodIndex> = {
   },
   fromPartial<I extends Exact<DeepPartial<InvalidMethodIndex>, I>>(object: I): InvalidMethodIndex {
     const message = createBaseInvalidMethodIndex();
-    message.serviceName = object.serviceName ?? "";
-    message.methodIndex = object.methodIndex ?? 0;
+    message.service_name = object.service_name ?? "";
+    message.method_index = object.method_index ?? 0;
     return message;
   },
 };
 
 function createBaseInvalidService(): InvalidService {
-  return { serviceName: "" };
+  return { service_name: "" };
 }
 
 export const InvalidService: MessageFns<InvalidService> = {
   fromJSON(object: any): InvalidService {
-    return { serviceName: isSet(object.serviceName) ? globalThis.String(object.serviceName) : "" };
+    return { service_name: isSet(object.service_name) ? globalThis.String(object.service_name) : "" };
   },
 
   toJSON(message: InvalidService): unknown {
     const obj: any = {};
-    if (message.serviceName !== "") {
-      obj.serviceName = message.serviceName;
+    if (message.service_name !== "") {
+      obj.service_name = message.service_name;
     }
     return obj;
   },
@@ -133,7 +133,7 @@ export const InvalidService: MessageFns<InvalidService> = {
   },
   fromPartial<I extends Exact<DeepPartial<InvalidService>, I>>(object: I): InvalidService {
     const message = createBaseInvalidService();
-    message.serviceName = object.serviceName ?? "";
+    message.service_name = object.service_name ?? "";
     return message;
   },
 };
@@ -185,18 +185,18 @@ export const ProstEncodeError: MessageFns<ProstEncodeError> = {
 };
 
 function createBaseExecuteError(): ExecuteError {
-  return { errorMessage: "" };
+  return { error_message: "" };
 }
 
 export const ExecuteError: MessageFns<ExecuteError> = {
   fromJSON(object: any): ExecuteError {
-    return { errorMessage: isSet(object.errorMessage) ? globalThis.String(object.errorMessage) : "" };
+    return { error_message: isSet(object.error_message) ? globalThis.String(object.error_message) : "" };
   },
 
   toJSON(message: ExecuteError): unknown {
     const obj: any = {};
-    if (message.errorMessage !== "") {
-      obj.errorMessage = message.errorMessage;
+    if (message.error_message !== "") {
+      obj.error_message = message.error_message;
     }
     return obj;
   },
@@ -206,24 +206,24 @@ export const ExecuteError: MessageFns<ExecuteError> = {
   },
   fromPartial<I extends Exact<DeepPartial<ExecuteError>, I>>(object: I): ExecuteError {
     const message = createBaseExecuteError();
-    message.errorMessage = object.errorMessage ?? "";
+    message.error_message = object.error_message ?? "";
     return message;
   },
 };
 
 function createBaseMalformatRpcPacket(): MalformatRpcPacket {
-  return { errorMessage: "" };
+  return { error_message: "" };
 }
 
 export const MalformatRpcPacket: MessageFns<MalformatRpcPacket> = {
   fromJSON(object: any): MalformatRpcPacket {
-    return { errorMessage: isSet(object.errorMessage) ? globalThis.String(object.errorMessage) : "" };
+    return { error_message: isSet(object.error_message) ? globalThis.String(object.error_message) : "" };
   },
 
   toJSON(message: MalformatRpcPacket): unknown {
     const obj: any = {};
-    if (message.errorMessage !== "") {
-      obj.errorMessage = message.errorMessage;
+    if (message.error_message !== "") {
+      obj.error_message = message.error_message;
     }
     return obj;
   },
@@ -233,24 +233,24 @@ export const MalformatRpcPacket: MessageFns<MalformatRpcPacket> = {
   },
   fromPartial<I extends Exact<DeepPartial<MalformatRpcPacket>, I>>(object: I): MalformatRpcPacket {
     const message = createBaseMalformatRpcPacket();
-    message.errorMessage = object.errorMessage ?? "";
+    message.error_message = object.error_message ?? "";
     return message;
   },
 };
 
 function createBaseTimeout(): Timeout {
-  return { errorMessage: "" };
+  return { error_message: "" };
 }
 
 export const Timeout: MessageFns<Timeout> = {
   fromJSON(object: any): Timeout {
-    return { errorMessage: isSet(object.errorMessage) ? globalThis.String(object.errorMessage) : "" };
+    return { error_message: isSet(object.error_message) ? globalThis.String(object.error_message) : "" };
   },
 
   toJSON(message: Timeout): unknown {
     const obj: any = {};
-    if (message.errorMessage !== "") {
-      obj.errorMessage = message.errorMessage;
+    if (message.error_message !== "") {
+      obj.error_message = message.error_message;
     }
     return obj;
   },
@@ -260,20 +260,20 @@ export const Timeout: MessageFns<Timeout> = {
   },
   fromPartial<I extends Exact<DeepPartial<Timeout>, I>>(object: I): Timeout {
     const message = createBaseTimeout();
-    message.errorMessage = object.errorMessage ?? "";
+    message.error_message = object.error_message ?? "";
     return message;
   },
 };
 
 function createBaseError(): Error {
   return {
-    otherError: undefined,
-    invalidMethodIndex: undefined,
-    invalidService: undefined,
-    prostDecodeError: undefined,
-    prostEncodeError: undefined,
-    executeError: undefined,
-    malformatRpcPacket: undefined,
+    other_error: undefined,
+    invalid_method_index: undefined,
+    invalid_service: undefined,
+    prost_decode_error: undefined,
+    prost_encode_error: undefined,
+    execute_error: undefined,
+    malformat_rpc_packet: undefined,
     timeout: undefined,
   };
 }
@@ -281,16 +281,20 @@ function createBaseError(): Error {
 export const Error: MessageFns<Error> = {
   fromJSON(object: any): Error {
     return {
-      otherError: isSet(object.otherError) ? OtherError.fromJSON(object.otherError) : undefined,
-      invalidMethodIndex: isSet(object.invalidMethodIndex)
-        ? InvalidMethodIndex.fromJSON(object.invalidMethodIndex)
+      other_error: isSet(object.other_error) ? OtherError.fromJSON(object.other_error) : undefined,
+      invalid_method_index: isSet(object.invalid_method_index)
+        ? InvalidMethodIndex.fromJSON(object.invalid_method_index)
         : undefined,
-      invalidService: isSet(object.invalidService) ? InvalidService.fromJSON(object.invalidService) : undefined,
-      prostDecodeError: isSet(object.prostDecodeError) ? ProstDecodeError.fromJSON(object.prostDecodeError) : undefined,
-      prostEncodeError: isSet(object.prostEncodeError) ? ProstEncodeError.fromJSON(object.prostEncodeError) : undefined,
-      executeError: isSet(object.executeError) ? ExecuteError.fromJSON(object.executeError) : undefined,
-      malformatRpcPacket: isSet(object.malformatRpcPacket)
-        ? MalformatRpcPacket.fromJSON(object.malformatRpcPacket)
+      invalid_service: isSet(object.invalid_service) ? InvalidService.fromJSON(object.invalid_service) : undefined,
+      prost_decode_error: isSet(object.prost_decode_error)
+        ? ProstDecodeError.fromJSON(object.prost_decode_error)
+        : undefined,
+      prost_encode_error: isSet(object.prost_encode_error)
+        ? ProstEncodeError.fromJSON(object.prost_encode_error)
+        : undefined,
+      execute_error: isSet(object.execute_error) ? ExecuteError.fromJSON(object.execute_error) : undefined,
+      malformat_rpc_packet: isSet(object.malformat_rpc_packet)
+        ? MalformatRpcPacket.fromJSON(object.malformat_rpc_packet)
         : undefined,
       timeout: isSet(object.timeout) ? Timeout.fromJSON(object.timeout) : undefined,
     };
@@ -298,26 +302,26 @@ export const Error: MessageFns<Error> = {
 
   toJSON(message: Error): unknown {
     const obj: any = {};
-    if (message.otherError !== undefined) {
-      obj.otherError = OtherError.toJSON(message.otherError);
+    if (message.other_error !== undefined) {
+      obj.other_error = OtherError.toJSON(message.other_error);
     }
-    if (message.invalidMethodIndex !== undefined) {
-      obj.invalidMethodIndex = InvalidMethodIndex.toJSON(message.invalidMethodIndex);
+    if (message.invalid_method_index !== undefined) {
+      obj.invalid_method_index = InvalidMethodIndex.toJSON(message.invalid_method_index);
     }
-    if (message.invalidService !== undefined) {
-      obj.invalidService = InvalidService.toJSON(message.invalidService);
+    if (message.invalid_service !== undefined) {
+      obj.invalid_service = InvalidService.toJSON(message.invalid_service);
     }
-    if (message.prostDecodeError !== undefined) {
-      obj.prostDecodeError = ProstDecodeError.toJSON(message.prostDecodeError);
+    if (message.prost_decode_error !== undefined) {
+      obj.prost_decode_error = ProstDecodeError.toJSON(message.prost_decode_error);
     }
-    if (message.prostEncodeError !== undefined) {
-      obj.prostEncodeError = ProstEncodeError.toJSON(message.prostEncodeError);
+    if (message.prost_encode_error !== undefined) {
+      obj.prost_encode_error = ProstEncodeError.toJSON(message.prost_encode_error);
     }
-    if (message.executeError !== undefined) {
-      obj.executeError = ExecuteError.toJSON(message.executeError);
+    if (message.execute_error !== undefined) {
+      obj.execute_error = ExecuteError.toJSON(message.execute_error);
     }
-    if (message.malformatRpcPacket !== undefined) {
-      obj.malformatRpcPacket = MalformatRpcPacket.toJSON(message.malformatRpcPacket);
+    if (message.malformat_rpc_packet !== undefined) {
+      obj.malformat_rpc_packet = MalformatRpcPacket.toJSON(message.malformat_rpc_packet);
     }
     if (message.timeout !== undefined) {
       obj.timeout = Timeout.toJSON(message.timeout);
@@ -330,26 +334,26 @@ export const Error: MessageFns<Error> = {
   },
   fromPartial<I extends Exact<DeepPartial<Error>, I>>(object: I): Error {
     const message = createBaseError();
-    message.otherError = (object.otherError !== undefined && object.otherError !== null)
-      ? OtherError.fromPartial(object.otherError)
+    message.other_error = (object.other_error !== undefined && object.other_error !== null)
+      ? OtherError.fromPartial(object.other_error)
       : undefined;
-    message.invalidMethodIndex = (object.invalidMethodIndex !== undefined && object.invalidMethodIndex !== null)
-      ? InvalidMethodIndex.fromPartial(object.invalidMethodIndex)
+    message.invalid_method_index = (object.invalid_method_index !== undefined && object.invalid_method_index !== null)
+      ? InvalidMethodIndex.fromPartial(object.invalid_method_index)
       : undefined;
-    message.invalidService = (object.invalidService !== undefined && object.invalidService !== null)
-      ? InvalidService.fromPartial(object.invalidService)
+    message.invalid_service = (object.invalid_service !== undefined && object.invalid_service !== null)
+      ? InvalidService.fromPartial(object.invalid_service)
       : undefined;
-    message.prostDecodeError = (object.prostDecodeError !== undefined && object.prostDecodeError !== null)
-      ? ProstDecodeError.fromPartial(object.prostDecodeError)
+    message.prost_decode_error = (object.prost_decode_error !== undefined && object.prost_decode_error !== null)
+      ? ProstDecodeError.fromPartial(object.prost_decode_error)
       : undefined;
-    message.prostEncodeError = (object.prostEncodeError !== undefined && object.prostEncodeError !== null)
-      ? ProstEncodeError.fromPartial(object.prostEncodeError)
+    message.prost_encode_error = (object.prost_encode_error !== undefined && object.prost_encode_error !== null)
+      ? ProstEncodeError.fromPartial(object.prost_encode_error)
       : undefined;
-    message.executeError = (object.executeError !== undefined && object.executeError !== null)
-      ? ExecuteError.fromPartial(object.executeError)
+    message.execute_error = (object.execute_error !== undefined && object.execute_error !== null)
+      ? ExecuteError.fromPartial(object.execute_error)
       : undefined;
-    message.malformatRpcPacket = (object.malformatRpcPacket !== undefined && object.malformatRpcPacket !== null)
-      ? MalformatRpcPacket.fromPartial(object.malformatRpcPacket)
+    message.malformat_rpc_packet = (object.malformat_rpc_packet !== undefined && object.malformat_rpc_packet !== null)
+      ? MalformatRpcPacket.fromPartial(object.malformat_rpc_packet)
       : undefined;
     message.timeout = (object.timeout !== undefined && object.timeout !== null)
       ? Timeout.fromPartial(object.timeout)

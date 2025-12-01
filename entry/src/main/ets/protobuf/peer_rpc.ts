@@ -56,41 +56,41 @@ export function syncRouteInfoErrorToJSON(object: SyncRouteInfoError): string {
 
 export interface RoutePeerInfo {
   /** means next hop in route table. */
-  peerId: number;
-  instId: UUID | undefined;
+  peer_id: number;
+  inst_id: UUID | undefined;
   cost: number;
-  ipv4Addr?: Ipv4Addr | undefined;
-  proxyCidrs: string[];
+  ipv4_addr?: Ipv4Addr | undefined;
+  proxy_cidrs: string[];
   hostname?: string | undefined;
-  udpStunInfo: NatType;
-  lastUpdate: Date | undefined;
+  udp_stun_info: NatType;
+  last_update: Date | undefined;
   version: number;
-  easytierVersion: string;
-  featureFlag: PeerFeatureFlag | undefined;
-  peerRouteId: number;
-  networkLength: number;
-  quicPort?: number | undefined;
-  ipv6Addr?: Ipv6Inet | undefined;
+  easytier_version: string;
+  feature_flag: PeerFeatureFlag | undefined;
+  peer_route_id: number;
+  network_length: number;
+  quic_port?: number | undefined;
+  ipv6_addr?: Ipv6Inet | undefined;
   groups: PeerGroupInfo[];
 }
 
 export interface PeerIdVersion {
-  peerId: number;
+  peer_id: number;
   version: number;
 }
 
 export interface RouteConnBitmap {
-  peerIds: PeerIdVersion[];
+  peer_ids: PeerIdVersion[];
   bitmap: Uint8Array;
 }
 
 export interface RouteConnPeerList {
-  peerConnInfos: RouteConnPeerList_PeerConnInfo[];
+  peer_conn_infos: RouteConnPeerList_PeerConnInfo[];
 }
 
 export interface RouteConnPeerList_PeerConnInfo {
-  peerId: PeerIdVersion | undefined;
-  connectedPeerIds: number[];
+  peer_id: PeerIdVersion | undefined;
+  connected_peer_ids: number[];
 }
 
 export interface RoutePeerInfos {
@@ -98,16 +98,16 @@ export interface RoutePeerInfos {
 }
 
 export interface ForeignNetworkRouteInfoKey {
-  peerId: number;
-  networkName: string;
+  peer_id: number;
+  network_name: string;
 }
 
 export interface ForeignNetworkRouteInfoEntry {
-  foreignPeerIds: number[];
-  lastUpdate: Date | undefined;
+  foreign_peer_ids: number[];
+  last_update: Date | undefined;
   version: number;
-  networkSecretDigest: Uint8Array;
-  myPeerIdForThisNetwork: number;
+  network_secret_digest: Uint8Array;
+  my_peer_id_for_this_network: number;
 }
 
 export interface RouteForeignNetworkInfos {
@@ -120,13 +120,13 @@ export interface RouteForeignNetworkInfos_Info {
 }
 
 export interface RouteForeignNetworkSummary {
-  infoMap: { [key: number]: RouteForeignNetworkSummary_Info };
+  info_map: { [key: number]: RouteForeignNetworkSummary_Info };
 }
 
 export interface RouteForeignNetworkSummary_Info {
-  peerId: number;
-  networkCount: number;
-  peerCount: number;
+  peer_id: number;
+  network_count: number;
+  peer_count: number;
 }
 
 export interface RouteForeignNetworkSummary_InfoMapEntry {
@@ -135,23 +135,23 @@ export interface RouteForeignNetworkSummary_InfoMapEntry {
 }
 
 export interface PeerGroupInfo {
-  groupName: string;
-  groupProof: Uint8Array;
+  group_name: string;
+  group_proof: Uint8Array;
 }
 
 export interface SyncRouteInfoRequest {
-  myPeerId: number;
-  mySessionId: number;
-  isInitiator: boolean;
-  peerInfos: RoutePeerInfos | undefined;
-  connBitmap?: RouteConnBitmap | undefined;
-  connPeerList?: RouteConnPeerList | undefined;
-  foreignNetworkInfos: RouteForeignNetworkInfos | undefined;
+  my_peer_id: number;
+  my_session_id: number;
+  is_initiator: boolean;
+  peer_infos: RoutePeerInfos | undefined;
+  conn_bitmap?: RouteConnBitmap | undefined;
+  conn_peer_list?: RouteConnPeerList | undefined;
+  foreign_network_infos: RouteForeignNetworkInfos | undefined;
 }
 
 export interface SyncRouteInfoResponse {
-  isInitiator: boolean;
-  sessionId: number;
+  is_initiator: boolean;
+  session_id: number;
   error?: SyncRouteInfoError | undefined;
 }
 
@@ -159,79 +159,79 @@ export interface GetIpListRequest {
 }
 
 export interface GetIpListResponse {
-  publicIpv4: Ipv4Addr | undefined;
-  interfaceIpv4s: Ipv4Addr[];
-  publicIpv6: Ipv6Addr | undefined;
-  interfaceIpv6s: Ipv6Addr[];
+  public_ipv4: Ipv4Addr | undefined;
+  interface_ipv4s: Ipv4Addr[];
+  public_ipv6: Ipv6Addr | undefined;
+  interface_ipv6s: Ipv6Addr[];
   listeners: Url[];
 }
 
 export interface SendV6HolePunchPacketRequest {
-  connectorAddr: SocketAddr | undefined;
-  listenerPort: number;
+  connector_addr: SocketAddr | undefined;
+  listener_port: number;
 }
 
 export interface SelectPunchListenerRequest {
-  forceNew: boolean;
+  force_new: boolean;
 }
 
 export interface SelectPunchListenerResponse {
-  listenerMappedAddr: SocketAddr | undefined;
+  listener_mapped_addr: SocketAddr | undefined;
 }
 
 export interface SendPunchPacketConeRequest {
-  listenerMappedAddr: SocketAddr | undefined;
-  destAddr: SocketAddr | undefined;
-  transactionId: number;
+  listener_mapped_addr: SocketAddr | undefined;
+  dest_addr: SocketAddr | undefined;
+  transaction_id: number;
   /** send this many packets in a batch */
-  packetCountPerBatch: number;
+  packet_count_per_batch: number;
   /** send total this batch count, total packet count = packet_batch_size * packet_batch_count */
-  packetBatchCount: number;
+  packet_batch_count: number;
   /** interval between each batch */
-  packetIntervalMs: number;
+  packet_interval_ms: number;
 }
 
 export interface SendPunchPacketHardSymRequest {
-  listenerMappedAddr: SocketAddr | undefined;
-  publicIps: Ipv4Addr[];
-  transactionId: number;
-  portIndex: number;
+  listener_mapped_addr: SocketAddr | undefined;
+  public_ips: Ipv4Addr[];
+  transaction_id: number;
+  port_index: number;
   round: number;
 }
 
 export interface SendPunchPacketHardSymResponse {
-  nextPortIndex: number;
+  next_port_index: number;
 }
 
 export interface SendPunchPacketEasySymRequest {
-  listenerMappedAddr: SocketAddr | undefined;
-  publicIps: Ipv4Addr[];
-  transactionId: number;
-  basePortNum: number;
-  maxPortNum: number;
-  isIncremental: boolean;
+  listener_mapped_addr: SocketAddr | undefined;
+  public_ips: Ipv4Addr[];
+  transaction_id: number;
+  base_port_num: number;
+  max_port_num: number;
+  is_incremental: boolean;
 }
 
 export interface SendPunchPacketBothEasySymRequest {
-  udpSocketCount: number;
-  publicIp: Ipv4Addr | undefined;
-  transactionId: number;
-  dstPortNum: number;
-  waitTimeMs: number;
+  udp_socket_count: number;
+  public_ip: Ipv4Addr | undefined;
+  transaction_id: number;
+  dst_port_num: number;
+  wait_time_ms: number;
 }
 
 export interface SendPunchPacketBothEasySymResponse {
   /** is doing punch with other peer */
-  isBusy: boolean;
-  baseMappedAddr: SocketAddr | undefined;
+  is_busy: boolean;
+  base_mapped_addr: SocketAddr | undefined;
 }
 
 export interface DirectConnectedPeerInfo {
-  latencyMs: number;
+  latency_ms: number;
 }
 
 export interface PeerInfoForGlobalMap {
-  directPeers: { [key: number]: DirectConnectedPeerInfo };
+  direct_peers: { [key: number]: DirectConnectedPeerInfo };
 }
 
 export interface PeerInfoForGlobalMap_DirectPeersEntry {
@@ -240,8 +240,8 @@ export interface PeerInfoForGlobalMap_DirectPeersEntry {
 }
 
 export interface ReportPeersRequest {
-  myPeerId: number;
-  peerInfos: PeerInfoForGlobalMap | undefined;
+  my_peer_id: number;
+  peer_infos: PeerInfoForGlobalMap | undefined;
 }
 
 export interface ReportPeersResponse {
@@ -261,7 +261,7 @@ export interface GetGlobalPeerMapRequest {
 }
 
 export interface GetGlobalPeerMapResponse {
-  globalPeerMap: { [key: number]: PeerInfoForGlobalMap };
+  global_peer_map: { [key: number]: PeerInfoForGlobalMap };
   digest?: number | undefined;
 }
 
@@ -272,11 +272,11 @@ export interface GetGlobalPeerMapResponse_GlobalPeerMapEntry {
 
 export interface HandshakeRequest {
   magic: number;
-  myPeerId: number;
+  my_peer_id: number;
   version: number;
   features: string[];
-  networkName: string;
-  networkSecretDigrest: Uint8Array;
+  network_name: string;
+  network_secret_digrest: Uint8Array;
 }
 
 export interface KcpConnData {
@@ -286,21 +286,21 @@ export interface KcpConnData {
 
 function createBaseRoutePeerInfo(): RoutePeerInfo {
   return {
-    peerId: 0,
-    instId: undefined,
+    peer_id: 0,
+    inst_id: undefined,
     cost: 0,
-    ipv4Addr: undefined,
-    proxyCidrs: [],
+    ipv4_addr: undefined,
+    proxy_cidrs: [],
     hostname: undefined,
-    udpStunInfo: 0,
-    lastUpdate: undefined,
+    udp_stun_info: 0,
+    last_update: undefined,
     version: 0,
-    easytierVersion: "",
-    featureFlag: undefined,
-    peerRouteId: 0,
-    networkLength: 0,
-    quicPort: undefined,
-    ipv6Addr: undefined,
+    easytier_version: "",
+    feature_flag: undefined,
+    peer_route_id: 0,
+    network_length: 0,
+    quic_port: undefined,
+    ipv6_addr: undefined,
     groups: [],
   };
 }
@@ -308,23 +308,23 @@ function createBaseRoutePeerInfo(): RoutePeerInfo {
 export const RoutePeerInfo: MessageFns<RoutePeerInfo> = {
   fromJSON(object: any): RoutePeerInfo {
     return {
-      peerId: isSet(object.peerId) ? globalThis.Number(object.peerId) : 0,
-      instId: isSet(object.instId) ? UUID.fromJSON(object.instId) : undefined,
+      peer_id: isSet(object.peer_id) ? globalThis.Number(object.peer_id) : 0,
+      inst_id: isSet(object.inst_id) ? UUID.fromJSON(object.inst_id) : undefined,
       cost: isSet(object.cost) ? globalThis.Number(object.cost) : 0,
-      ipv4Addr: isSet(object.ipv4Addr) ? Ipv4Addr.fromJSON(object.ipv4Addr) : undefined,
-      proxyCidrs: globalThis.Array.isArray(object?.proxyCidrs)
-        ? object.proxyCidrs.map((e: any) => globalThis.String(e))
+      ipv4_addr: isSet(object.ipv4_addr) ? Ipv4Addr.fromJSON(object.ipv4_addr) : undefined,
+      proxy_cidrs: globalThis.Array.isArray(object?.proxy_cidrs)
+        ? object.proxy_cidrs.map((e: any) => globalThis.String(e))
         : [],
       hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : undefined,
-      udpStunInfo: isSet(object.udpStunInfo) ? natTypeFromJSON(object.udpStunInfo) : 0,
-      lastUpdate: isSet(object.lastUpdate) ? fromJsonTimestamp(object.lastUpdate) : undefined,
+      udp_stun_info: isSet(object.udp_stun_info) ? natTypeFromJSON(object.udp_stun_info) : 0,
+      last_update: isSet(object.last_update) ? fromJsonTimestamp(object.last_update) : undefined,
       version: isSet(object.version) ? globalThis.Number(object.version) : 0,
-      easytierVersion: isSet(object.easytierVersion) ? globalThis.String(object.easytierVersion) : "",
-      featureFlag: isSet(object.featureFlag) ? PeerFeatureFlag.fromJSON(object.featureFlag) : undefined,
-      peerRouteId: isSet(object.peerRouteId) ? globalThis.Number(object.peerRouteId) : 0,
-      networkLength: isSet(object.networkLength) ? globalThis.Number(object.networkLength) : 0,
-      quicPort: isSet(object.quicPort) ? globalThis.Number(object.quicPort) : undefined,
-      ipv6Addr: isSet(object.ipv6Addr) ? Ipv6Inet.fromJSON(object.ipv6Addr) : undefined,
+      easytier_version: isSet(object.easytier_version) ? globalThis.String(object.easytier_version) : "",
+      feature_flag: isSet(object.feature_flag) ? PeerFeatureFlag.fromJSON(object.feature_flag) : undefined,
+      peer_route_id: isSet(object.peer_route_id) ? globalThis.Number(object.peer_route_id) : 0,
+      network_length: isSet(object.network_length) ? globalThis.Number(object.network_length) : 0,
+      quic_port: isSet(object.quic_port) ? globalThis.Number(object.quic_port) : undefined,
+      ipv6_addr: isSet(object.ipv6_addr) ? Ipv6Inet.fromJSON(object.ipv6_addr) : undefined,
       groups: globalThis.Array.isArray(object?.groups)
         ? object.groups.map((e: any) => PeerGroupInfo.fromJSON(e))
         : [],
@@ -333,50 +333,50 @@ export const RoutePeerInfo: MessageFns<RoutePeerInfo> = {
 
   toJSON(message: RoutePeerInfo): unknown {
     const obj: any = {};
-    if (message.peerId !== 0) {
-      obj.peerId = Math.round(message.peerId);
+    if (message.peer_id !== 0) {
+      obj.peer_id = Math.round(message.peer_id);
     }
-    if (message.instId !== undefined) {
-      obj.instId = UUID.toJSON(message.instId);
+    if (message.inst_id !== undefined) {
+      obj.inst_id = UUID.toJSON(message.inst_id);
     }
     if (message.cost !== 0) {
       obj.cost = Math.round(message.cost);
     }
-    if (message.ipv4Addr !== undefined) {
-      obj.ipv4Addr = Ipv4Addr.toJSON(message.ipv4Addr);
+    if (message.ipv4_addr !== undefined) {
+      obj.ipv4_addr = Ipv4Addr.toJSON(message.ipv4_addr);
     }
-    if (message.proxyCidrs?.length) {
-      obj.proxyCidrs = message.proxyCidrs;
+    if (message.proxy_cidrs?.length) {
+      obj.proxy_cidrs = message.proxy_cidrs;
     }
     if (message.hostname !== undefined) {
       obj.hostname = message.hostname;
     }
-    if (message.udpStunInfo !== 0) {
-      obj.udpStunInfo = natTypeToJSON(message.udpStunInfo);
+    if (message.udp_stun_info !== 0) {
+      obj.udp_stun_info = natTypeToJSON(message.udp_stun_info);
     }
-    if (message.lastUpdate !== undefined) {
-      obj.lastUpdate = message.lastUpdate.toISOString();
+    if (message.last_update !== undefined) {
+      obj.last_update = message.last_update.toISOString();
     }
     if (message.version !== 0) {
       obj.version = Math.round(message.version);
     }
-    if (message.easytierVersion !== "") {
-      obj.easytierVersion = message.easytierVersion;
+    if (message.easytier_version !== "") {
+      obj.easytier_version = message.easytier_version;
     }
-    if (message.featureFlag !== undefined) {
-      obj.featureFlag = PeerFeatureFlag.toJSON(message.featureFlag);
+    if (message.feature_flag !== undefined) {
+      obj.feature_flag = PeerFeatureFlag.toJSON(message.feature_flag);
     }
-    if (message.peerRouteId !== 0) {
-      obj.peerRouteId = Math.round(message.peerRouteId);
+    if (message.peer_route_id !== 0) {
+      obj.peer_route_id = Math.round(message.peer_route_id);
     }
-    if (message.networkLength !== 0) {
-      obj.networkLength = Math.round(message.networkLength);
+    if (message.network_length !== 0) {
+      obj.network_length = Math.round(message.network_length);
     }
-    if (message.quicPort !== undefined) {
-      obj.quicPort = Math.round(message.quicPort);
+    if (message.quic_port !== undefined) {
+      obj.quic_port = Math.round(message.quic_port);
     }
-    if (message.ipv6Addr !== undefined) {
-      obj.ipv6Addr = Ipv6Inet.toJSON(message.ipv6Addr);
+    if (message.ipv6_addr !== undefined) {
+      obj.ipv6_addr = Ipv6Inet.toJSON(message.ipv6_addr);
     }
     if (message.groups?.length) {
       obj.groups = message.groups.map((e) => PeerGroupInfo.toJSON(e));
@@ -389,28 +389,28 @@ export const RoutePeerInfo: MessageFns<RoutePeerInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<RoutePeerInfo>, I>>(object: I): RoutePeerInfo {
     const message = createBaseRoutePeerInfo();
-    message.peerId = object.peerId ?? 0;
-    message.instId = (object.instId !== undefined && object.instId !== null)
-      ? UUID.fromPartial(object.instId)
+    message.peer_id = object.peer_id ?? 0;
+    message.inst_id = (object.inst_id !== undefined && object.inst_id !== null)
+      ? UUID.fromPartial(object.inst_id)
       : undefined;
     message.cost = object.cost ?? 0;
-    message.ipv4Addr = (object.ipv4Addr !== undefined && object.ipv4Addr !== null)
-      ? Ipv4Addr.fromPartial(object.ipv4Addr)
+    message.ipv4_addr = (object.ipv4_addr !== undefined && object.ipv4_addr !== null)
+      ? Ipv4Addr.fromPartial(object.ipv4_addr)
       : undefined;
-    message.proxyCidrs = object.proxyCidrs?.map((e) => e) || [];
+    message.proxy_cidrs = object.proxy_cidrs?.map((e) => e) || [];
     message.hostname = object.hostname ?? undefined;
-    message.udpStunInfo = object.udpStunInfo ?? 0;
-    message.lastUpdate = object.lastUpdate ?? undefined;
+    message.udp_stun_info = object.udp_stun_info ?? 0;
+    message.last_update = object.last_update ?? undefined;
     message.version = object.version ?? 0;
-    message.easytierVersion = object.easytierVersion ?? "";
-    message.featureFlag = (object.featureFlag !== undefined && object.featureFlag !== null)
-      ? PeerFeatureFlag.fromPartial(object.featureFlag)
+    message.easytier_version = object.easytier_version ?? "";
+    message.feature_flag = (object.feature_flag !== undefined && object.feature_flag !== null)
+      ? PeerFeatureFlag.fromPartial(object.feature_flag)
       : undefined;
-    message.peerRouteId = object.peerRouteId ?? 0;
-    message.networkLength = object.networkLength ?? 0;
-    message.quicPort = object.quicPort ?? undefined;
-    message.ipv6Addr = (object.ipv6Addr !== undefined && object.ipv6Addr !== null)
-      ? Ipv6Inet.fromPartial(object.ipv6Addr)
+    message.peer_route_id = object.peer_route_id ?? 0;
+    message.network_length = object.network_length ?? 0;
+    message.quic_port = object.quic_port ?? undefined;
+    message.ipv6_addr = (object.ipv6_addr !== undefined && object.ipv6_addr !== null)
+      ? Ipv6Inet.fromPartial(object.ipv6_addr)
       : undefined;
     message.groups = object.groups?.map((e) => PeerGroupInfo.fromPartial(e)) || [];
     return message;
@@ -418,21 +418,21 @@ export const RoutePeerInfo: MessageFns<RoutePeerInfo> = {
 };
 
 function createBasePeerIdVersion(): PeerIdVersion {
-  return { peerId: 0, version: 0 };
+  return { peer_id: 0, version: 0 };
 }
 
 export const PeerIdVersion: MessageFns<PeerIdVersion> = {
   fromJSON(object: any): PeerIdVersion {
     return {
-      peerId: isSet(object.peerId) ? globalThis.Number(object.peerId) : 0,
+      peer_id: isSet(object.peer_id) ? globalThis.Number(object.peer_id) : 0,
       version: isSet(object.version) ? globalThis.Number(object.version) : 0,
     };
   },
 
   toJSON(message: PeerIdVersion): unknown {
     const obj: any = {};
-    if (message.peerId !== 0) {
-      obj.peerId = Math.round(message.peerId);
+    if (message.peer_id !== 0) {
+      obj.peer_id = Math.round(message.peer_id);
     }
     if (message.version !== 0) {
       obj.version = Math.round(message.version);
@@ -445,21 +445,21 @@ export const PeerIdVersion: MessageFns<PeerIdVersion> = {
   },
   fromPartial<I extends Exact<DeepPartial<PeerIdVersion>, I>>(object: I): PeerIdVersion {
     const message = createBasePeerIdVersion();
-    message.peerId = object.peerId ?? 0;
+    message.peer_id = object.peer_id ?? 0;
     message.version = object.version ?? 0;
     return message;
   },
 };
 
 function createBaseRouteConnBitmap(): RouteConnBitmap {
-  return { peerIds: [], bitmap: new Uint8Array(0) };
+  return { peer_ids: [], bitmap: new Uint8Array(0) };
 }
 
 export const RouteConnBitmap: MessageFns<RouteConnBitmap> = {
   fromJSON(object: any): RouteConnBitmap {
     return {
-      peerIds: globalThis.Array.isArray(object?.peerIds)
-        ? object.peerIds.map((e: any) => PeerIdVersion.fromJSON(e))
+      peer_ids: globalThis.Array.isArray(object?.peer_ids)
+        ? object.peer_ids.map((e: any) => PeerIdVersion.fromJSON(e))
         : [],
       bitmap: isSet(object.bitmap) ? bytesFromBase64(object.bitmap) : new Uint8Array(0),
     };
@@ -467,8 +467,8 @@ export const RouteConnBitmap: MessageFns<RouteConnBitmap> = {
 
   toJSON(message: RouteConnBitmap): unknown {
     const obj: any = {};
-    if (message.peerIds?.length) {
-      obj.peerIds = message.peerIds.map((e) => PeerIdVersion.toJSON(e));
+    if (message.peer_ids?.length) {
+      obj.peer_ids = message.peer_ids.map((e) => PeerIdVersion.toJSON(e));
     }
     if (message.bitmap.length !== 0) {
       obj.bitmap = base64FromBytes(message.bitmap);
@@ -481,29 +481,29 @@ export const RouteConnBitmap: MessageFns<RouteConnBitmap> = {
   },
   fromPartial<I extends Exact<DeepPartial<RouteConnBitmap>, I>>(object: I): RouteConnBitmap {
     const message = createBaseRouteConnBitmap();
-    message.peerIds = object.peerIds?.map((e) => PeerIdVersion.fromPartial(e)) || [];
+    message.peer_ids = object.peer_ids?.map((e) => PeerIdVersion.fromPartial(e)) || [];
     message.bitmap = object.bitmap ?? new Uint8Array(0);
     return message;
   },
 };
 
 function createBaseRouteConnPeerList(): RouteConnPeerList {
-  return { peerConnInfos: [] };
+  return { peer_conn_infos: [] };
 }
 
 export const RouteConnPeerList: MessageFns<RouteConnPeerList> = {
   fromJSON(object: any): RouteConnPeerList {
     return {
-      peerConnInfos: globalThis.Array.isArray(object?.peerConnInfos)
-        ? object.peerConnInfos.map((e: any) => RouteConnPeerList_PeerConnInfo.fromJSON(e))
+      peer_conn_infos: globalThis.Array.isArray(object?.peer_conn_infos)
+        ? object.peer_conn_infos.map((e: any) => RouteConnPeerList_PeerConnInfo.fromJSON(e))
         : [],
     };
   },
 
   toJSON(message: RouteConnPeerList): unknown {
     const obj: any = {};
-    if (message.peerConnInfos?.length) {
-      obj.peerConnInfos = message.peerConnInfos.map((e) => RouteConnPeerList_PeerConnInfo.toJSON(e));
+    if (message.peer_conn_infos?.length) {
+      obj.peer_conn_infos = message.peer_conn_infos.map((e) => RouteConnPeerList_PeerConnInfo.toJSON(e));
     }
     return obj;
   },
@@ -513,32 +513,32 @@ export const RouteConnPeerList: MessageFns<RouteConnPeerList> = {
   },
   fromPartial<I extends Exact<DeepPartial<RouteConnPeerList>, I>>(object: I): RouteConnPeerList {
     const message = createBaseRouteConnPeerList();
-    message.peerConnInfos = object.peerConnInfos?.map((e) => RouteConnPeerList_PeerConnInfo.fromPartial(e)) || [];
+    message.peer_conn_infos = object.peer_conn_infos?.map((e) => RouteConnPeerList_PeerConnInfo.fromPartial(e)) || [];
     return message;
   },
 };
 
 function createBaseRouteConnPeerList_PeerConnInfo(): RouteConnPeerList_PeerConnInfo {
-  return { peerId: undefined, connectedPeerIds: [] };
+  return { peer_id: undefined, connected_peer_ids: [] };
 }
 
 export const RouteConnPeerList_PeerConnInfo: MessageFns<RouteConnPeerList_PeerConnInfo> = {
   fromJSON(object: any): RouteConnPeerList_PeerConnInfo {
     return {
-      peerId: isSet(object.peerId) ? PeerIdVersion.fromJSON(object.peerId) : undefined,
-      connectedPeerIds: globalThis.Array.isArray(object?.connectedPeerIds)
-        ? object.connectedPeerIds.map((e: any) => globalThis.Number(e))
+      peer_id: isSet(object.peer_id) ? PeerIdVersion.fromJSON(object.peer_id) : undefined,
+      connected_peer_ids: globalThis.Array.isArray(object?.connected_peer_ids)
+        ? object.connected_peer_ids.map((e: any) => globalThis.Number(e))
         : [],
     };
   },
 
   toJSON(message: RouteConnPeerList_PeerConnInfo): unknown {
     const obj: any = {};
-    if (message.peerId !== undefined) {
-      obj.peerId = PeerIdVersion.toJSON(message.peerId);
+    if (message.peer_id !== undefined) {
+      obj.peer_id = PeerIdVersion.toJSON(message.peer_id);
     }
-    if (message.connectedPeerIds?.length) {
-      obj.connectedPeerIds = message.connectedPeerIds.map((e) => Math.round(e));
+    if (message.connected_peer_ids?.length) {
+      obj.connected_peer_ids = message.connected_peer_ids.map((e) => Math.round(e));
     }
     return obj;
   },
@@ -550,10 +550,10 @@ export const RouteConnPeerList_PeerConnInfo: MessageFns<RouteConnPeerList_PeerCo
     object: I,
   ): RouteConnPeerList_PeerConnInfo {
     const message = createBaseRouteConnPeerList_PeerConnInfo();
-    message.peerId = (object.peerId !== undefined && object.peerId !== null)
-      ? PeerIdVersion.fromPartial(object.peerId)
+    message.peer_id = (object.peer_id !== undefined && object.peer_id !== null)
+      ? PeerIdVersion.fromPartial(object.peer_id)
       : undefined;
-    message.connectedPeerIds = object.connectedPeerIds?.map((e) => e) || [];
+    message.connected_peer_ids = object.connected_peer_ids?.map((e) => e) || [];
     return message;
   },
 };
@@ -588,24 +588,24 @@ export const RoutePeerInfos: MessageFns<RoutePeerInfos> = {
 };
 
 function createBaseForeignNetworkRouteInfoKey(): ForeignNetworkRouteInfoKey {
-  return { peerId: 0, networkName: "" };
+  return { peer_id: 0, network_name: "" };
 }
 
 export const ForeignNetworkRouteInfoKey: MessageFns<ForeignNetworkRouteInfoKey> = {
   fromJSON(object: any): ForeignNetworkRouteInfoKey {
     return {
-      peerId: isSet(object.peerId) ? globalThis.Number(object.peerId) : 0,
-      networkName: isSet(object.networkName) ? globalThis.String(object.networkName) : "",
+      peer_id: isSet(object.peer_id) ? globalThis.Number(object.peer_id) : 0,
+      network_name: isSet(object.network_name) ? globalThis.String(object.network_name) : "",
     };
   },
 
   toJSON(message: ForeignNetworkRouteInfoKey): unknown {
     const obj: any = {};
-    if (message.peerId !== 0) {
-      obj.peerId = Math.round(message.peerId);
+    if (message.peer_id !== 0) {
+      obj.peer_id = Math.round(message.peer_id);
     }
-    if (message.networkName !== "") {
-      obj.networkName = message.networkName;
+    if (message.network_name !== "") {
+      obj.network_name = message.network_name;
     }
     return obj;
   },
@@ -615,55 +615,55 @@ export const ForeignNetworkRouteInfoKey: MessageFns<ForeignNetworkRouteInfoKey> 
   },
   fromPartial<I extends Exact<DeepPartial<ForeignNetworkRouteInfoKey>, I>>(object: I): ForeignNetworkRouteInfoKey {
     const message = createBaseForeignNetworkRouteInfoKey();
-    message.peerId = object.peerId ?? 0;
-    message.networkName = object.networkName ?? "";
+    message.peer_id = object.peer_id ?? 0;
+    message.network_name = object.network_name ?? "";
     return message;
   },
 };
 
 function createBaseForeignNetworkRouteInfoEntry(): ForeignNetworkRouteInfoEntry {
   return {
-    foreignPeerIds: [],
-    lastUpdate: undefined,
+    foreign_peer_ids: [],
+    last_update: undefined,
     version: 0,
-    networkSecretDigest: new Uint8Array(0),
-    myPeerIdForThisNetwork: 0,
+    network_secret_digest: new Uint8Array(0),
+    my_peer_id_for_this_network: 0,
   };
 }
 
 export const ForeignNetworkRouteInfoEntry: MessageFns<ForeignNetworkRouteInfoEntry> = {
   fromJSON(object: any): ForeignNetworkRouteInfoEntry {
     return {
-      foreignPeerIds: globalThis.Array.isArray(object?.foreignPeerIds)
-        ? object.foreignPeerIds.map((e: any) => globalThis.Number(e))
+      foreign_peer_ids: globalThis.Array.isArray(object?.foreign_peer_ids)
+        ? object.foreign_peer_ids.map((e: any) => globalThis.Number(e))
         : [],
-      lastUpdate: isSet(object.lastUpdate) ? fromJsonTimestamp(object.lastUpdate) : undefined,
+      last_update: isSet(object.last_update) ? fromJsonTimestamp(object.last_update) : undefined,
       version: isSet(object.version) ? globalThis.Number(object.version) : 0,
-      networkSecretDigest: isSet(object.networkSecretDigest)
-        ? bytesFromBase64(object.networkSecretDigest)
+      network_secret_digest: isSet(object.network_secret_digest)
+        ? bytesFromBase64(object.network_secret_digest)
         : new Uint8Array(0),
-      myPeerIdForThisNetwork: isSet(object.myPeerIdForThisNetwork)
-        ? globalThis.Number(object.myPeerIdForThisNetwork)
+      my_peer_id_for_this_network: isSet(object.my_peer_id_for_this_network)
+        ? globalThis.Number(object.my_peer_id_for_this_network)
         : 0,
     };
   },
 
   toJSON(message: ForeignNetworkRouteInfoEntry): unknown {
     const obj: any = {};
-    if (message.foreignPeerIds?.length) {
-      obj.foreignPeerIds = message.foreignPeerIds.map((e) => Math.round(e));
+    if (message.foreign_peer_ids?.length) {
+      obj.foreign_peer_ids = message.foreign_peer_ids.map((e) => Math.round(e));
     }
-    if (message.lastUpdate !== undefined) {
-      obj.lastUpdate = message.lastUpdate.toISOString();
+    if (message.last_update !== undefined) {
+      obj.last_update = message.last_update.toISOString();
     }
     if (message.version !== 0) {
       obj.version = Math.round(message.version);
     }
-    if (message.networkSecretDigest.length !== 0) {
-      obj.networkSecretDigest = base64FromBytes(message.networkSecretDigest);
+    if (message.network_secret_digest.length !== 0) {
+      obj.network_secret_digest = base64FromBytes(message.network_secret_digest);
     }
-    if (message.myPeerIdForThisNetwork !== 0) {
-      obj.myPeerIdForThisNetwork = Math.round(message.myPeerIdForThisNetwork);
+    if (message.my_peer_id_for_this_network !== 0) {
+      obj.my_peer_id_for_this_network = Math.round(message.my_peer_id_for_this_network);
     }
     return obj;
   },
@@ -673,11 +673,11 @@ export const ForeignNetworkRouteInfoEntry: MessageFns<ForeignNetworkRouteInfoEnt
   },
   fromPartial<I extends Exact<DeepPartial<ForeignNetworkRouteInfoEntry>, I>>(object: I): ForeignNetworkRouteInfoEntry {
     const message = createBaseForeignNetworkRouteInfoEntry();
-    message.foreignPeerIds = object.foreignPeerIds?.map((e) => e) || [];
-    message.lastUpdate = object.lastUpdate ?? undefined;
+    message.foreign_peer_ids = object.foreign_peer_ids?.map((e) => e) || [];
+    message.last_update = object.last_update ?? undefined;
     message.version = object.version ?? 0;
-    message.networkSecretDigest = object.networkSecretDigest ?? new Uint8Array(0);
-    message.myPeerIdForThisNetwork = object.myPeerIdForThisNetwork ?? 0;
+    message.network_secret_digest = object.network_secret_digest ?? new Uint8Array(0);
+    message.my_peer_id_for_this_network = object.my_peer_id_for_this_network ?? 0;
     return message;
   },
 };
@@ -754,14 +754,14 @@ export const RouteForeignNetworkInfos_Info: MessageFns<RouteForeignNetworkInfos_
 };
 
 function createBaseRouteForeignNetworkSummary(): RouteForeignNetworkSummary {
-  return { infoMap: {} };
+  return { info_map: {} };
 }
 
 export const RouteForeignNetworkSummary: MessageFns<RouteForeignNetworkSummary> = {
   fromJSON(object: any): RouteForeignNetworkSummary {
     return {
-      infoMap: isObject(object.infoMap)
-        ? Object.entries(object.infoMap).reduce<{ [key: number]: RouteForeignNetworkSummary_Info }>(
+      info_map: isObject(object.info_map)
+        ? Object.entries(object.info_map).reduce<{ [key: number]: RouteForeignNetworkSummary_Info }>(
           (acc, [key, value]) => {
             acc[globalThis.Number(key)] = RouteForeignNetworkSummary_Info.fromJSON(value);
             return acc;
@@ -774,12 +774,12 @@ export const RouteForeignNetworkSummary: MessageFns<RouteForeignNetworkSummary> 
 
   toJSON(message: RouteForeignNetworkSummary): unknown {
     const obj: any = {};
-    if (message.infoMap) {
-      const entries = Object.entries(message.infoMap);
+    if (message.info_map) {
+      const entries = Object.entries(message.info_map);
       if (entries.length > 0) {
-        obj.infoMap = {};
+        obj.info_map = {};
         entries.forEach(([k, v]) => {
-          obj.infoMap[k] = RouteForeignNetworkSummary_Info.toJSON(v);
+          obj.info_map[k] = RouteForeignNetworkSummary_Info.toJSON(v);
         });
       }
     }
@@ -791,7 +791,7 @@ export const RouteForeignNetworkSummary: MessageFns<RouteForeignNetworkSummary> 
   },
   fromPartial<I extends Exact<DeepPartial<RouteForeignNetworkSummary>, I>>(object: I): RouteForeignNetworkSummary {
     const message = createBaseRouteForeignNetworkSummary();
-    message.infoMap = Object.entries(object.infoMap ?? {}).reduce<{ [key: number]: RouteForeignNetworkSummary_Info }>(
+    message.info_map = Object.entries(object.info_map ?? {}).reduce<{ [key: number]: RouteForeignNetworkSummary_Info }>(
       (acc, [key, value]) => {
         if (value !== undefined) {
           acc[globalThis.Number(key)] = RouteForeignNetworkSummary_Info.fromPartial(value);
@@ -805,28 +805,28 @@ export const RouteForeignNetworkSummary: MessageFns<RouteForeignNetworkSummary> 
 };
 
 function createBaseRouteForeignNetworkSummary_Info(): RouteForeignNetworkSummary_Info {
-  return { peerId: 0, networkCount: 0, peerCount: 0 };
+  return { peer_id: 0, network_count: 0, peer_count: 0 };
 }
 
 export const RouteForeignNetworkSummary_Info: MessageFns<RouteForeignNetworkSummary_Info> = {
   fromJSON(object: any): RouteForeignNetworkSummary_Info {
     return {
-      peerId: isSet(object.peerId) ? globalThis.Number(object.peerId) : 0,
-      networkCount: isSet(object.networkCount) ? globalThis.Number(object.networkCount) : 0,
-      peerCount: isSet(object.peerCount) ? globalThis.Number(object.peerCount) : 0,
+      peer_id: isSet(object.peer_id) ? globalThis.Number(object.peer_id) : 0,
+      network_count: isSet(object.network_count) ? globalThis.Number(object.network_count) : 0,
+      peer_count: isSet(object.peer_count) ? globalThis.Number(object.peer_count) : 0,
     };
   },
 
   toJSON(message: RouteForeignNetworkSummary_Info): unknown {
     const obj: any = {};
-    if (message.peerId !== 0) {
-      obj.peerId = Math.round(message.peerId);
+    if (message.peer_id !== 0) {
+      obj.peer_id = Math.round(message.peer_id);
     }
-    if (message.networkCount !== 0) {
-      obj.networkCount = Math.round(message.networkCount);
+    if (message.network_count !== 0) {
+      obj.network_count = Math.round(message.network_count);
     }
-    if (message.peerCount !== 0) {
-      obj.peerCount = Math.round(message.peerCount);
+    if (message.peer_count !== 0) {
+      obj.peer_count = Math.round(message.peer_count);
     }
     return obj;
   },
@@ -838,9 +838,9 @@ export const RouteForeignNetworkSummary_Info: MessageFns<RouteForeignNetworkSumm
     object: I,
   ): RouteForeignNetworkSummary_Info {
     const message = createBaseRouteForeignNetworkSummary_Info();
-    message.peerId = object.peerId ?? 0;
-    message.networkCount = object.networkCount ?? 0;
-    message.peerCount = object.peerCount ?? 0;
+    message.peer_id = object.peer_id ?? 0;
+    message.network_count = object.network_count ?? 0;
+    message.peer_count = object.peer_count ?? 0;
     return message;
   },
 };
@@ -886,24 +886,24 @@ export const RouteForeignNetworkSummary_InfoMapEntry: MessageFns<RouteForeignNet
 };
 
 function createBasePeerGroupInfo(): PeerGroupInfo {
-  return { groupName: "", groupProof: new Uint8Array(0) };
+  return { group_name: "", group_proof: new Uint8Array(0) };
 }
 
 export const PeerGroupInfo: MessageFns<PeerGroupInfo> = {
   fromJSON(object: any): PeerGroupInfo {
     return {
-      groupName: isSet(object.groupName) ? globalThis.String(object.groupName) : "",
-      groupProof: isSet(object.groupProof) ? bytesFromBase64(object.groupProof) : new Uint8Array(0),
+      group_name: isSet(object.group_name) ? globalThis.String(object.group_name) : "",
+      group_proof: isSet(object.group_proof) ? bytesFromBase64(object.group_proof) : new Uint8Array(0),
     };
   },
 
   toJSON(message: PeerGroupInfo): unknown {
     const obj: any = {};
-    if (message.groupName !== "") {
-      obj.groupName = message.groupName;
+    if (message.group_name !== "") {
+      obj.group_name = message.group_name;
     }
-    if (message.groupProof.length !== 0) {
-      obj.groupProof = base64FromBytes(message.groupProof);
+    if (message.group_proof.length !== 0) {
+      obj.group_proof = base64FromBytes(message.group_proof);
     }
     return obj;
   },
@@ -913,61 +913,61 @@ export const PeerGroupInfo: MessageFns<PeerGroupInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<PeerGroupInfo>, I>>(object: I): PeerGroupInfo {
     const message = createBasePeerGroupInfo();
-    message.groupName = object.groupName ?? "";
-    message.groupProof = object.groupProof ?? new Uint8Array(0);
+    message.group_name = object.group_name ?? "";
+    message.group_proof = object.group_proof ?? new Uint8Array(0);
     return message;
   },
 };
 
 function createBaseSyncRouteInfoRequest(): SyncRouteInfoRequest {
   return {
-    myPeerId: 0,
-    mySessionId: 0,
-    isInitiator: false,
-    peerInfos: undefined,
-    connBitmap: undefined,
-    connPeerList: undefined,
-    foreignNetworkInfos: undefined,
+    my_peer_id: 0,
+    my_session_id: 0,
+    is_initiator: false,
+    peer_infos: undefined,
+    conn_bitmap: undefined,
+    conn_peer_list: undefined,
+    foreign_network_infos: undefined,
   };
 }
 
 export const SyncRouteInfoRequest: MessageFns<SyncRouteInfoRequest> = {
   fromJSON(object: any): SyncRouteInfoRequest {
     return {
-      myPeerId: isSet(object.myPeerId) ? globalThis.Number(object.myPeerId) : 0,
-      mySessionId: isSet(object.mySessionId) ? globalThis.Number(object.mySessionId) : 0,
-      isInitiator: isSet(object.isInitiator) ? globalThis.Boolean(object.isInitiator) : false,
-      peerInfos: isSet(object.peerInfos) ? RoutePeerInfos.fromJSON(object.peerInfos) : undefined,
-      connBitmap: isSet(object.connBitmap) ? RouteConnBitmap.fromJSON(object.connBitmap) : undefined,
-      connPeerList: isSet(object.connPeerList) ? RouteConnPeerList.fromJSON(object.connPeerList) : undefined,
-      foreignNetworkInfos: isSet(object.foreignNetworkInfos)
-        ? RouteForeignNetworkInfos.fromJSON(object.foreignNetworkInfos)
+      my_peer_id: isSet(object.my_peer_id) ? globalThis.Number(object.my_peer_id) : 0,
+      my_session_id: isSet(object.my_session_id) ? globalThis.Number(object.my_session_id) : 0,
+      is_initiator: isSet(object.is_initiator) ? globalThis.Boolean(object.is_initiator) : false,
+      peer_infos: isSet(object.peer_infos) ? RoutePeerInfos.fromJSON(object.peer_infos) : undefined,
+      conn_bitmap: isSet(object.conn_bitmap) ? RouteConnBitmap.fromJSON(object.conn_bitmap) : undefined,
+      conn_peer_list: isSet(object.conn_peer_list) ? RouteConnPeerList.fromJSON(object.conn_peer_list) : undefined,
+      foreign_network_infos: isSet(object.foreign_network_infos)
+        ? RouteForeignNetworkInfos.fromJSON(object.foreign_network_infos)
         : undefined,
     };
   },
 
   toJSON(message: SyncRouteInfoRequest): unknown {
     const obj: any = {};
-    if (message.myPeerId !== 0) {
-      obj.myPeerId = Math.round(message.myPeerId);
+    if (message.my_peer_id !== 0) {
+      obj.my_peer_id = Math.round(message.my_peer_id);
     }
-    if (message.mySessionId !== 0) {
-      obj.mySessionId = Math.round(message.mySessionId);
+    if (message.my_session_id !== 0) {
+      obj.my_session_id = Math.round(message.my_session_id);
     }
-    if (message.isInitiator !== false) {
-      obj.isInitiator = message.isInitiator;
+    if (message.is_initiator !== false) {
+      obj.is_initiator = message.is_initiator;
     }
-    if (message.peerInfos !== undefined) {
-      obj.peerInfos = RoutePeerInfos.toJSON(message.peerInfos);
+    if (message.peer_infos !== undefined) {
+      obj.peer_infos = RoutePeerInfos.toJSON(message.peer_infos);
     }
-    if (message.connBitmap !== undefined) {
-      obj.connBitmap = RouteConnBitmap.toJSON(message.connBitmap);
+    if (message.conn_bitmap !== undefined) {
+      obj.conn_bitmap = RouteConnBitmap.toJSON(message.conn_bitmap);
     }
-    if (message.connPeerList !== undefined) {
-      obj.connPeerList = RouteConnPeerList.toJSON(message.connPeerList);
+    if (message.conn_peer_list !== undefined) {
+      obj.conn_peer_list = RouteConnPeerList.toJSON(message.conn_peer_list);
     }
-    if (message.foreignNetworkInfos !== undefined) {
-      obj.foreignNetworkInfos = RouteForeignNetworkInfos.toJSON(message.foreignNetworkInfos);
+    if (message.foreign_network_infos !== undefined) {
+      obj.foreign_network_infos = RouteForeignNetworkInfos.toJSON(message.foreign_network_infos);
     }
     return obj;
   },
@@ -977,45 +977,46 @@ export const SyncRouteInfoRequest: MessageFns<SyncRouteInfoRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<SyncRouteInfoRequest>, I>>(object: I): SyncRouteInfoRequest {
     const message = createBaseSyncRouteInfoRequest();
-    message.myPeerId = object.myPeerId ?? 0;
-    message.mySessionId = object.mySessionId ?? 0;
-    message.isInitiator = object.isInitiator ?? false;
-    message.peerInfos = (object.peerInfos !== undefined && object.peerInfos !== null)
-      ? RoutePeerInfos.fromPartial(object.peerInfos)
+    message.my_peer_id = object.my_peer_id ?? 0;
+    message.my_session_id = object.my_session_id ?? 0;
+    message.is_initiator = object.is_initiator ?? false;
+    message.peer_infos = (object.peer_infos !== undefined && object.peer_infos !== null)
+      ? RoutePeerInfos.fromPartial(object.peer_infos)
       : undefined;
-    message.connBitmap = (object.connBitmap !== undefined && object.connBitmap !== null)
-      ? RouteConnBitmap.fromPartial(object.connBitmap)
+    message.conn_bitmap = (object.conn_bitmap !== undefined && object.conn_bitmap !== null)
+      ? RouteConnBitmap.fromPartial(object.conn_bitmap)
       : undefined;
-    message.connPeerList = (object.connPeerList !== undefined && object.connPeerList !== null)
-      ? RouteConnPeerList.fromPartial(object.connPeerList)
+    message.conn_peer_list = (object.conn_peer_list !== undefined && object.conn_peer_list !== null)
+      ? RouteConnPeerList.fromPartial(object.conn_peer_list)
       : undefined;
-    message.foreignNetworkInfos = (object.foreignNetworkInfos !== undefined && object.foreignNetworkInfos !== null)
-      ? RouteForeignNetworkInfos.fromPartial(object.foreignNetworkInfos)
-      : undefined;
+    message.foreign_network_infos =
+      (object.foreign_network_infos !== undefined && object.foreign_network_infos !== null)
+        ? RouteForeignNetworkInfos.fromPartial(object.foreign_network_infos)
+        : undefined;
     return message;
   },
 };
 
 function createBaseSyncRouteInfoResponse(): SyncRouteInfoResponse {
-  return { isInitiator: false, sessionId: 0, error: undefined };
+  return { is_initiator: false, session_id: 0, error: undefined };
 }
 
 export const SyncRouteInfoResponse: MessageFns<SyncRouteInfoResponse> = {
   fromJSON(object: any): SyncRouteInfoResponse {
     return {
-      isInitiator: isSet(object.isInitiator) ? globalThis.Boolean(object.isInitiator) : false,
-      sessionId: isSet(object.sessionId) ? globalThis.Number(object.sessionId) : 0,
+      is_initiator: isSet(object.is_initiator) ? globalThis.Boolean(object.is_initiator) : false,
+      session_id: isSet(object.session_id) ? globalThis.Number(object.session_id) : 0,
       error: isSet(object.error) ? syncRouteInfoErrorFromJSON(object.error) : undefined,
     };
   },
 
   toJSON(message: SyncRouteInfoResponse): unknown {
     const obj: any = {};
-    if (message.isInitiator !== false) {
-      obj.isInitiator = message.isInitiator;
+    if (message.is_initiator !== false) {
+      obj.is_initiator = message.is_initiator;
     }
-    if (message.sessionId !== 0) {
-      obj.sessionId = Math.round(message.sessionId);
+    if (message.session_id !== 0) {
+      obj.session_id = Math.round(message.session_id);
     }
     if (message.error !== undefined) {
       obj.error = syncRouteInfoErrorToJSON(message.error);
@@ -1028,8 +1029,8 @@ export const SyncRouteInfoResponse: MessageFns<SyncRouteInfoResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<SyncRouteInfoResponse>, I>>(object: I): SyncRouteInfoResponse {
     const message = createBaseSyncRouteInfoResponse();
-    message.isInitiator = object.isInitiator ?? false;
-    message.sessionId = object.sessionId ?? 0;
+    message.is_initiator = object.is_initiator ?? false;
+    message.session_id = object.session_id ?? 0;
     message.error = object.error ?? undefined;
     return message;
   },
@@ -1059,19 +1060,19 @@ export const GetIpListRequest: MessageFns<GetIpListRequest> = {
 };
 
 function createBaseGetIpListResponse(): GetIpListResponse {
-  return { publicIpv4: undefined, interfaceIpv4s: [], publicIpv6: undefined, interfaceIpv6s: [], listeners: [] };
+  return { public_ipv4: undefined, interface_ipv4s: [], public_ipv6: undefined, interface_ipv6s: [], listeners: [] };
 }
 
 export const GetIpListResponse: MessageFns<GetIpListResponse> = {
   fromJSON(object: any): GetIpListResponse {
     return {
-      publicIpv4: isSet(object.publicIpv4) ? Ipv4Addr.fromJSON(object.publicIpv4) : undefined,
-      interfaceIpv4s: globalThis.Array.isArray(object?.interfaceIpv4s)
-        ? object.interfaceIpv4s.map((e: any) => Ipv4Addr.fromJSON(e))
+      public_ipv4: isSet(object.public_ipv4) ? Ipv4Addr.fromJSON(object.public_ipv4) : undefined,
+      interface_ipv4s: globalThis.Array.isArray(object?.interface_ipv4s)
+        ? object.interface_ipv4s.map((e: any) => Ipv4Addr.fromJSON(e))
         : [],
-      publicIpv6: isSet(object.publicIpv6) ? Ipv6Addr.fromJSON(object.publicIpv6) : undefined,
-      interfaceIpv6s: globalThis.Array.isArray(object?.interfaceIpv6s)
-        ? object.interfaceIpv6s.map((e: any) => Ipv6Addr.fromJSON(e))
+      public_ipv6: isSet(object.public_ipv6) ? Ipv6Addr.fromJSON(object.public_ipv6) : undefined,
+      interface_ipv6s: globalThis.Array.isArray(object?.interface_ipv6s)
+        ? object.interface_ipv6s.map((e: any) => Ipv6Addr.fromJSON(e))
         : [],
       listeners: globalThis.Array.isArray(object?.listeners) ? object.listeners.map((e: any) => Url.fromJSON(e)) : [],
     };
@@ -1079,17 +1080,17 @@ export const GetIpListResponse: MessageFns<GetIpListResponse> = {
 
   toJSON(message: GetIpListResponse): unknown {
     const obj: any = {};
-    if (message.publicIpv4 !== undefined) {
-      obj.publicIpv4 = Ipv4Addr.toJSON(message.publicIpv4);
+    if (message.public_ipv4 !== undefined) {
+      obj.public_ipv4 = Ipv4Addr.toJSON(message.public_ipv4);
     }
-    if (message.interfaceIpv4s?.length) {
-      obj.interfaceIpv4s = message.interfaceIpv4s.map((e) => Ipv4Addr.toJSON(e));
+    if (message.interface_ipv4s?.length) {
+      obj.interface_ipv4s = message.interface_ipv4s.map((e) => Ipv4Addr.toJSON(e));
     }
-    if (message.publicIpv6 !== undefined) {
-      obj.publicIpv6 = Ipv6Addr.toJSON(message.publicIpv6);
+    if (message.public_ipv6 !== undefined) {
+      obj.public_ipv6 = Ipv6Addr.toJSON(message.public_ipv6);
     }
-    if (message.interfaceIpv6s?.length) {
-      obj.interfaceIpv6s = message.interfaceIpv6s.map((e) => Ipv6Addr.toJSON(e));
+    if (message.interface_ipv6s?.length) {
+      obj.interface_ipv6s = message.interface_ipv6s.map((e) => Ipv6Addr.toJSON(e));
     }
     if (message.listeners?.length) {
       obj.listeners = message.listeners.map((e) => Url.toJSON(e));
@@ -1102,38 +1103,38 @@ export const GetIpListResponse: MessageFns<GetIpListResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<GetIpListResponse>, I>>(object: I): GetIpListResponse {
     const message = createBaseGetIpListResponse();
-    message.publicIpv4 = (object.publicIpv4 !== undefined && object.publicIpv4 !== null)
-      ? Ipv4Addr.fromPartial(object.publicIpv4)
+    message.public_ipv4 = (object.public_ipv4 !== undefined && object.public_ipv4 !== null)
+      ? Ipv4Addr.fromPartial(object.public_ipv4)
       : undefined;
-    message.interfaceIpv4s = object.interfaceIpv4s?.map((e) => Ipv4Addr.fromPartial(e)) || [];
-    message.publicIpv6 = (object.publicIpv6 !== undefined && object.publicIpv6 !== null)
-      ? Ipv6Addr.fromPartial(object.publicIpv6)
+    message.interface_ipv4s = object.interface_ipv4s?.map((e) => Ipv4Addr.fromPartial(e)) || [];
+    message.public_ipv6 = (object.public_ipv6 !== undefined && object.public_ipv6 !== null)
+      ? Ipv6Addr.fromPartial(object.public_ipv6)
       : undefined;
-    message.interfaceIpv6s = object.interfaceIpv6s?.map((e) => Ipv6Addr.fromPartial(e)) || [];
+    message.interface_ipv6s = object.interface_ipv6s?.map((e) => Ipv6Addr.fromPartial(e)) || [];
     message.listeners = object.listeners?.map((e) => Url.fromPartial(e)) || [];
     return message;
   },
 };
 
 function createBaseSendV6HolePunchPacketRequest(): SendV6HolePunchPacketRequest {
-  return { connectorAddr: undefined, listenerPort: 0 };
+  return { connector_addr: undefined, listener_port: 0 };
 }
 
 export const SendV6HolePunchPacketRequest: MessageFns<SendV6HolePunchPacketRequest> = {
   fromJSON(object: any): SendV6HolePunchPacketRequest {
     return {
-      connectorAddr: isSet(object.connectorAddr) ? SocketAddr.fromJSON(object.connectorAddr) : undefined,
-      listenerPort: isSet(object.listenerPort) ? globalThis.Number(object.listenerPort) : 0,
+      connector_addr: isSet(object.connector_addr) ? SocketAddr.fromJSON(object.connector_addr) : undefined,
+      listener_port: isSet(object.listener_port) ? globalThis.Number(object.listener_port) : 0,
     };
   },
 
   toJSON(message: SendV6HolePunchPacketRequest): unknown {
     const obj: any = {};
-    if (message.connectorAddr !== undefined) {
-      obj.connectorAddr = SocketAddr.toJSON(message.connectorAddr);
+    if (message.connector_addr !== undefined) {
+      obj.connector_addr = SocketAddr.toJSON(message.connector_addr);
     }
-    if (message.listenerPort !== 0) {
-      obj.listenerPort = Math.round(message.listenerPort);
+    if (message.listener_port !== 0) {
+      obj.listener_port = Math.round(message.listener_port);
     }
     return obj;
   },
@@ -1143,27 +1144,27 @@ export const SendV6HolePunchPacketRequest: MessageFns<SendV6HolePunchPacketReque
   },
   fromPartial<I extends Exact<DeepPartial<SendV6HolePunchPacketRequest>, I>>(object: I): SendV6HolePunchPacketRequest {
     const message = createBaseSendV6HolePunchPacketRequest();
-    message.connectorAddr = (object.connectorAddr !== undefined && object.connectorAddr !== null)
-      ? SocketAddr.fromPartial(object.connectorAddr)
+    message.connector_addr = (object.connector_addr !== undefined && object.connector_addr !== null)
+      ? SocketAddr.fromPartial(object.connector_addr)
       : undefined;
-    message.listenerPort = object.listenerPort ?? 0;
+    message.listener_port = object.listener_port ?? 0;
     return message;
   },
 };
 
 function createBaseSelectPunchListenerRequest(): SelectPunchListenerRequest {
-  return { forceNew: false };
+  return { force_new: false };
 }
 
 export const SelectPunchListenerRequest: MessageFns<SelectPunchListenerRequest> = {
   fromJSON(object: any): SelectPunchListenerRequest {
-    return { forceNew: isSet(object.forceNew) ? globalThis.Boolean(object.forceNew) : false };
+    return { force_new: isSet(object.force_new) ? globalThis.Boolean(object.force_new) : false };
   },
 
   toJSON(message: SelectPunchListenerRequest): unknown {
     const obj: any = {};
-    if (message.forceNew !== false) {
-      obj.forceNew = message.forceNew;
+    if (message.force_new !== false) {
+      obj.force_new = message.force_new;
     }
     return obj;
   },
@@ -1173,26 +1174,28 @@ export const SelectPunchListenerRequest: MessageFns<SelectPunchListenerRequest> 
   },
   fromPartial<I extends Exact<DeepPartial<SelectPunchListenerRequest>, I>>(object: I): SelectPunchListenerRequest {
     const message = createBaseSelectPunchListenerRequest();
-    message.forceNew = object.forceNew ?? false;
+    message.force_new = object.force_new ?? false;
     return message;
   },
 };
 
 function createBaseSelectPunchListenerResponse(): SelectPunchListenerResponse {
-  return { listenerMappedAddr: undefined };
+  return { listener_mapped_addr: undefined };
 }
 
 export const SelectPunchListenerResponse: MessageFns<SelectPunchListenerResponse> = {
   fromJSON(object: any): SelectPunchListenerResponse {
     return {
-      listenerMappedAddr: isSet(object.listenerMappedAddr) ? SocketAddr.fromJSON(object.listenerMappedAddr) : undefined,
+      listener_mapped_addr: isSet(object.listener_mapped_addr)
+        ? SocketAddr.fromJSON(object.listener_mapped_addr)
+        : undefined,
     };
   },
 
   toJSON(message: SelectPunchListenerResponse): unknown {
     const obj: any = {};
-    if (message.listenerMappedAddr !== undefined) {
-      obj.listenerMappedAddr = SocketAddr.toJSON(message.listenerMappedAddr);
+    if (message.listener_mapped_addr !== undefined) {
+      obj.listener_mapped_addr = SocketAddr.toJSON(message.listener_mapped_addr);
     }
     return obj;
   },
@@ -1202,8 +1205,8 @@ export const SelectPunchListenerResponse: MessageFns<SelectPunchListenerResponse
   },
   fromPartial<I extends Exact<DeepPartial<SelectPunchListenerResponse>, I>>(object: I): SelectPunchListenerResponse {
     const message = createBaseSelectPunchListenerResponse();
-    message.listenerMappedAddr = (object.listenerMappedAddr !== undefined && object.listenerMappedAddr !== null)
-      ? SocketAddr.fromPartial(object.listenerMappedAddr)
+    message.listener_mapped_addr = (object.listener_mapped_addr !== undefined && object.listener_mapped_addr !== null)
+      ? SocketAddr.fromPartial(object.listener_mapped_addr)
       : undefined;
     return message;
   },
@@ -1211,46 +1214,50 @@ export const SelectPunchListenerResponse: MessageFns<SelectPunchListenerResponse
 
 function createBaseSendPunchPacketConeRequest(): SendPunchPacketConeRequest {
   return {
-    listenerMappedAddr: undefined,
-    destAddr: undefined,
-    transactionId: 0,
-    packetCountPerBatch: 0,
-    packetBatchCount: 0,
-    packetIntervalMs: 0,
+    listener_mapped_addr: undefined,
+    dest_addr: undefined,
+    transaction_id: 0,
+    packet_count_per_batch: 0,
+    packet_batch_count: 0,
+    packet_interval_ms: 0,
   };
 }
 
 export const SendPunchPacketConeRequest: MessageFns<SendPunchPacketConeRequest> = {
   fromJSON(object: any): SendPunchPacketConeRequest {
     return {
-      listenerMappedAddr: isSet(object.listenerMappedAddr) ? SocketAddr.fromJSON(object.listenerMappedAddr) : undefined,
-      destAddr: isSet(object.destAddr) ? SocketAddr.fromJSON(object.destAddr) : undefined,
-      transactionId: isSet(object.transactionId) ? globalThis.Number(object.transactionId) : 0,
-      packetCountPerBatch: isSet(object.packetCountPerBatch) ? globalThis.Number(object.packetCountPerBatch) : 0,
-      packetBatchCount: isSet(object.packetBatchCount) ? globalThis.Number(object.packetBatchCount) : 0,
-      packetIntervalMs: isSet(object.packetIntervalMs) ? globalThis.Number(object.packetIntervalMs) : 0,
+      listener_mapped_addr: isSet(object.listener_mapped_addr)
+        ? SocketAddr.fromJSON(object.listener_mapped_addr)
+        : undefined,
+      dest_addr: isSet(object.dest_addr) ? SocketAddr.fromJSON(object.dest_addr) : undefined,
+      transaction_id: isSet(object.transaction_id) ? globalThis.Number(object.transaction_id) : 0,
+      packet_count_per_batch: isSet(object.packet_count_per_batch)
+        ? globalThis.Number(object.packet_count_per_batch)
+        : 0,
+      packet_batch_count: isSet(object.packet_batch_count) ? globalThis.Number(object.packet_batch_count) : 0,
+      packet_interval_ms: isSet(object.packet_interval_ms) ? globalThis.Number(object.packet_interval_ms) : 0,
     };
   },
 
   toJSON(message: SendPunchPacketConeRequest): unknown {
     const obj: any = {};
-    if (message.listenerMappedAddr !== undefined) {
-      obj.listenerMappedAddr = SocketAddr.toJSON(message.listenerMappedAddr);
+    if (message.listener_mapped_addr !== undefined) {
+      obj.listener_mapped_addr = SocketAddr.toJSON(message.listener_mapped_addr);
     }
-    if (message.destAddr !== undefined) {
-      obj.destAddr = SocketAddr.toJSON(message.destAddr);
+    if (message.dest_addr !== undefined) {
+      obj.dest_addr = SocketAddr.toJSON(message.dest_addr);
     }
-    if (message.transactionId !== 0) {
-      obj.transactionId = Math.round(message.transactionId);
+    if (message.transaction_id !== 0) {
+      obj.transaction_id = Math.round(message.transaction_id);
     }
-    if (message.packetCountPerBatch !== 0) {
-      obj.packetCountPerBatch = Math.round(message.packetCountPerBatch);
+    if (message.packet_count_per_batch !== 0) {
+      obj.packet_count_per_batch = Math.round(message.packet_count_per_batch);
     }
-    if (message.packetBatchCount !== 0) {
-      obj.packetBatchCount = Math.round(message.packetBatchCount);
+    if (message.packet_batch_count !== 0) {
+      obj.packet_batch_count = Math.round(message.packet_batch_count);
     }
-    if (message.packetIntervalMs !== 0) {
-      obj.packetIntervalMs = Math.round(message.packetIntervalMs);
+    if (message.packet_interval_ms !== 0) {
+      obj.packet_interval_ms = Math.round(message.packet_interval_ms);
     }
     return obj;
   },
@@ -1260,50 +1267,52 @@ export const SendPunchPacketConeRequest: MessageFns<SendPunchPacketConeRequest> 
   },
   fromPartial<I extends Exact<DeepPartial<SendPunchPacketConeRequest>, I>>(object: I): SendPunchPacketConeRequest {
     const message = createBaseSendPunchPacketConeRequest();
-    message.listenerMappedAddr = (object.listenerMappedAddr !== undefined && object.listenerMappedAddr !== null)
-      ? SocketAddr.fromPartial(object.listenerMappedAddr)
+    message.listener_mapped_addr = (object.listener_mapped_addr !== undefined && object.listener_mapped_addr !== null)
+      ? SocketAddr.fromPartial(object.listener_mapped_addr)
       : undefined;
-    message.destAddr = (object.destAddr !== undefined && object.destAddr !== null)
-      ? SocketAddr.fromPartial(object.destAddr)
+    message.dest_addr = (object.dest_addr !== undefined && object.dest_addr !== null)
+      ? SocketAddr.fromPartial(object.dest_addr)
       : undefined;
-    message.transactionId = object.transactionId ?? 0;
-    message.packetCountPerBatch = object.packetCountPerBatch ?? 0;
-    message.packetBatchCount = object.packetBatchCount ?? 0;
-    message.packetIntervalMs = object.packetIntervalMs ?? 0;
+    message.transaction_id = object.transaction_id ?? 0;
+    message.packet_count_per_batch = object.packet_count_per_batch ?? 0;
+    message.packet_batch_count = object.packet_batch_count ?? 0;
+    message.packet_interval_ms = object.packet_interval_ms ?? 0;
     return message;
   },
 };
 
 function createBaseSendPunchPacketHardSymRequest(): SendPunchPacketHardSymRequest {
-  return { listenerMappedAddr: undefined, publicIps: [], transactionId: 0, portIndex: 0, round: 0 };
+  return { listener_mapped_addr: undefined, public_ips: [], transaction_id: 0, port_index: 0, round: 0 };
 }
 
 export const SendPunchPacketHardSymRequest: MessageFns<SendPunchPacketHardSymRequest> = {
   fromJSON(object: any): SendPunchPacketHardSymRequest {
     return {
-      listenerMappedAddr: isSet(object.listenerMappedAddr) ? SocketAddr.fromJSON(object.listenerMappedAddr) : undefined,
-      publicIps: globalThis.Array.isArray(object?.publicIps)
-        ? object.publicIps.map((e: any) => Ipv4Addr.fromJSON(e))
+      listener_mapped_addr: isSet(object.listener_mapped_addr)
+        ? SocketAddr.fromJSON(object.listener_mapped_addr)
+        : undefined,
+      public_ips: globalThis.Array.isArray(object?.public_ips)
+        ? object.public_ips.map((e: any) => Ipv4Addr.fromJSON(e))
         : [],
-      transactionId: isSet(object.transactionId) ? globalThis.Number(object.transactionId) : 0,
-      portIndex: isSet(object.portIndex) ? globalThis.Number(object.portIndex) : 0,
+      transaction_id: isSet(object.transaction_id) ? globalThis.Number(object.transaction_id) : 0,
+      port_index: isSet(object.port_index) ? globalThis.Number(object.port_index) : 0,
       round: isSet(object.round) ? globalThis.Number(object.round) : 0,
     };
   },
 
   toJSON(message: SendPunchPacketHardSymRequest): unknown {
     const obj: any = {};
-    if (message.listenerMappedAddr !== undefined) {
-      obj.listenerMappedAddr = SocketAddr.toJSON(message.listenerMappedAddr);
+    if (message.listener_mapped_addr !== undefined) {
+      obj.listener_mapped_addr = SocketAddr.toJSON(message.listener_mapped_addr);
     }
-    if (message.publicIps?.length) {
-      obj.publicIps = message.publicIps.map((e) => Ipv4Addr.toJSON(e));
+    if (message.public_ips?.length) {
+      obj.public_ips = message.public_ips.map((e) => Ipv4Addr.toJSON(e));
     }
-    if (message.transactionId !== 0) {
-      obj.transactionId = Math.round(message.transactionId);
+    if (message.transaction_id !== 0) {
+      obj.transaction_id = Math.round(message.transaction_id);
     }
-    if (message.portIndex !== 0) {
-      obj.portIndex = Math.round(message.portIndex);
+    if (message.port_index !== 0) {
+      obj.port_index = Math.round(message.port_index);
     }
     if (message.round !== 0) {
       obj.round = Math.round(message.round);
@@ -1318,30 +1327,30 @@ export const SendPunchPacketHardSymRequest: MessageFns<SendPunchPacketHardSymReq
     object: I,
   ): SendPunchPacketHardSymRequest {
     const message = createBaseSendPunchPacketHardSymRequest();
-    message.listenerMappedAddr = (object.listenerMappedAddr !== undefined && object.listenerMappedAddr !== null)
-      ? SocketAddr.fromPartial(object.listenerMappedAddr)
+    message.listener_mapped_addr = (object.listener_mapped_addr !== undefined && object.listener_mapped_addr !== null)
+      ? SocketAddr.fromPartial(object.listener_mapped_addr)
       : undefined;
-    message.publicIps = object.publicIps?.map((e) => Ipv4Addr.fromPartial(e)) || [];
-    message.transactionId = object.transactionId ?? 0;
-    message.portIndex = object.portIndex ?? 0;
+    message.public_ips = object.public_ips?.map((e) => Ipv4Addr.fromPartial(e)) || [];
+    message.transaction_id = object.transaction_id ?? 0;
+    message.port_index = object.port_index ?? 0;
     message.round = object.round ?? 0;
     return message;
   },
 };
 
 function createBaseSendPunchPacketHardSymResponse(): SendPunchPacketHardSymResponse {
-  return { nextPortIndex: 0 };
+  return { next_port_index: 0 };
 }
 
 export const SendPunchPacketHardSymResponse: MessageFns<SendPunchPacketHardSymResponse> = {
   fromJSON(object: any): SendPunchPacketHardSymResponse {
-    return { nextPortIndex: isSet(object.nextPortIndex) ? globalThis.Number(object.nextPortIndex) : 0 };
+    return { next_port_index: isSet(object.next_port_index) ? globalThis.Number(object.next_port_index) : 0 };
   },
 
   toJSON(message: SendPunchPacketHardSymResponse): unknown {
     const obj: any = {};
-    if (message.nextPortIndex !== 0) {
-      obj.nextPortIndex = Math.round(message.nextPortIndex);
+    if (message.next_port_index !== 0) {
+      obj.next_port_index = Math.round(message.next_port_index);
     }
     return obj;
   },
@@ -1353,55 +1362,57 @@ export const SendPunchPacketHardSymResponse: MessageFns<SendPunchPacketHardSymRe
     object: I,
   ): SendPunchPacketHardSymResponse {
     const message = createBaseSendPunchPacketHardSymResponse();
-    message.nextPortIndex = object.nextPortIndex ?? 0;
+    message.next_port_index = object.next_port_index ?? 0;
     return message;
   },
 };
 
 function createBaseSendPunchPacketEasySymRequest(): SendPunchPacketEasySymRequest {
   return {
-    listenerMappedAddr: undefined,
-    publicIps: [],
-    transactionId: 0,
-    basePortNum: 0,
-    maxPortNum: 0,
-    isIncremental: false,
+    listener_mapped_addr: undefined,
+    public_ips: [],
+    transaction_id: 0,
+    base_port_num: 0,
+    max_port_num: 0,
+    is_incremental: false,
   };
 }
 
 export const SendPunchPacketEasySymRequest: MessageFns<SendPunchPacketEasySymRequest> = {
   fromJSON(object: any): SendPunchPacketEasySymRequest {
     return {
-      listenerMappedAddr: isSet(object.listenerMappedAddr) ? SocketAddr.fromJSON(object.listenerMappedAddr) : undefined,
-      publicIps: globalThis.Array.isArray(object?.publicIps)
-        ? object.publicIps.map((e: any) => Ipv4Addr.fromJSON(e))
+      listener_mapped_addr: isSet(object.listener_mapped_addr)
+        ? SocketAddr.fromJSON(object.listener_mapped_addr)
+        : undefined,
+      public_ips: globalThis.Array.isArray(object?.public_ips)
+        ? object.public_ips.map((e: any) => Ipv4Addr.fromJSON(e))
         : [],
-      transactionId: isSet(object.transactionId) ? globalThis.Number(object.transactionId) : 0,
-      basePortNum: isSet(object.basePortNum) ? globalThis.Number(object.basePortNum) : 0,
-      maxPortNum: isSet(object.maxPortNum) ? globalThis.Number(object.maxPortNum) : 0,
-      isIncremental: isSet(object.isIncremental) ? globalThis.Boolean(object.isIncremental) : false,
+      transaction_id: isSet(object.transaction_id) ? globalThis.Number(object.transaction_id) : 0,
+      base_port_num: isSet(object.base_port_num) ? globalThis.Number(object.base_port_num) : 0,
+      max_port_num: isSet(object.max_port_num) ? globalThis.Number(object.max_port_num) : 0,
+      is_incremental: isSet(object.is_incremental) ? globalThis.Boolean(object.is_incremental) : false,
     };
   },
 
   toJSON(message: SendPunchPacketEasySymRequest): unknown {
     const obj: any = {};
-    if (message.listenerMappedAddr !== undefined) {
-      obj.listenerMappedAddr = SocketAddr.toJSON(message.listenerMappedAddr);
+    if (message.listener_mapped_addr !== undefined) {
+      obj.listener_mapped_addr = SocketAddr.toJSON(message.listener_mapped_addr);
     }
-    if (message.publicIps?.length) {
-      obj.publicIps = message.publicIps.map((e) => Ipv4Addr.toJSON(e));
+    if (message.public_ips?.length) {
+      obj.public_ips = message.public_ips.map((e) => Ipv4Addr.toJSON(e));
     }
-    if (message.transactionId !== 0) {
-      obj.transactionId = Math.round(message.transactionId);
+    if (message.transaction_id !== 0) {
+      obj.transaction_id = Math.round(message.transaction_id);
     }
-    if (message.basePortNum !== 0) {
-      obj.basePortNum = Math.round(message.basePortNum);
+    if (message.base_port_num !== 0) {
+      obj.base_port_num = Math.round(message.base_port_num);
     }
-    if (message.maxPortNum !== 0) {
-      obj.maxPortNum = Math.round(message.maxPortNum);
+    if (message.max_port_num !== 0) {
+      obj.max_port_num = Math.round(message.max_port_num);
     }
-    if (message.isIncremental !== false) {
-      obj.isIncremental = message.isIncremental;
+    if (message.is_incremental !== false) {
+      obj.is_incremental = message.is_incremental;
     }
     return obj;
   },
@@ -1413,49 +1424,49 @@ export const SendPunchPacketEasySymRequest: MessageFns<SendPunchPacketEasySymReq
     object: I,
   ): SendPunchPacketEasySymRequest {
     const message = createBaseSendPunchPacketEasySymRequest();
-    message.listenerMappedAddr = (object.listenerMappedAddr !== undefined && object.listenerMappedAddr !== null)
-      ? SocketAddr.fromPartial(object.listenerMappedAddr)
+    message.listener_mapped_addr = (object.listener_mapped_addr !== undefined && object.listener_mapped_addr !== null)
+      ? SocketAddr.fromPartial(object.listener_mapped_addr)
       : undefined;
-    message.publicIps = object.publicIps?.map((e) => Ipv4Addr.fromPartial(e)) || [];
-    message.transactionId = object.transactionId ?? 0;
-    message.basePortNum = object.basePortNum ?? 0;
-    message.maxPortNum = object.maxPortNum ?? 0;
-    message.isIncremental = object.isIncremental ?? false;
+    message.public_ips = object.public_ips?.map((e) => Ipv4Addr.fromPartial(e)) || [];
+    message.transaction_id = object.transaction_id ?? 0;
+    message.base_port_num = object.base_port_num ?? 0;
+    message.max_port_num = object.max_port_num ?? 0;
+    message.is_incremental = object.is_incremental ?? false;
     return message;
   },
 };
 
 function createBaseSendPunchPacketBothEasySymRequest(): SendPunchPacketBothEasySymRequest {
-  return { udpSocketCount: 0, publicIp: undefined, transactionId: 0, dstPortNum: 0, waitTimeMs: 0 };
+  return { udp_socket_count: 0, public_ip: undefined, transaction_id: 0, dst_port_num: 0, wait_time_ms: 0 };
 }
 
 export const SendPunchPacketBothEasySymRequest: MessageFns<SendPunchPacketBothEasySymRequest> = {
   fromJSON(object: any): SendPunchPacketBothEasySymRequest {
     return {
-      udpSocketCount: isSet(object.udpSocketCount) ? globalThis.Number(object.udpSocketCount) : 0,
-      publicIp: isSet(object.publicIp) ? Ipv4Addr.fromJSON(object.publicIp) : undefined,
-      transactionId: isSet(object.transactionId) ? globalThis.Number(object.transactionId) : 0,
-      dstPortNum: isSet(object.dstPortNum) ? globalThis.Number(object.dstPortNum) : 0,
-      waitTimeMs: isSet(object.waitTimeMs) ? globalThis.Number(object.waitTimeMs) : 0,
+      udp_socket_count: isSet(object.udp_socket_count) ? globalThis.Number(object.udp_socket_count) : 0,
+      public_ip: isSet(object.public_ip) ? Ipv4Addr.fromJSON(object.public_ip) : undefined,
+      transaction_id: isSet(object.transaction_id) ? globalThis.Number(object.transaction_id) : 0,
+      dst_port_num: isSet(object.dst_port_num) ? globalThis.Number(object.dst_port_num) : 0,
+      wait_time_ms: isSet(object.wait_time_ms) ? globalThis.Number(object.wait_time_ms) : 0,
     };
   },
 
   toJSON(message: SendPunchPacketBothEasySymRequest): unknown {
     const obj: any = {};
-    if (message.udpSocketCount !== 0) {
-      obj.udpSocketCount = Math.round(message.udpSocketCount);
+    if (message.udp_socket_count !== 0) {
+      obj.udp_socket_count = Math.round(message.udp_socket_count);
     }
-    if (message.publicIp !== undefined) {
-      obj.publicIp = Ipv4Addr.toJSON(message.publicIp);
+    if (message.public_ip !== undefined) {
+      obj.public_ip = Ipv4Addr.toJSON(message.public_ip);
     }
-    if (message.transactionId !== 0) {
-      obj.transactionId = Math.round(message.transactionId);
+    if (message.transaction_id !== 0) {
+      obj.transaction_id = Math.round(message.transaction_id);
     }
-    if (message.dstPortNum !== 0) {
-      obj.dstPortNum = Math.round(message.dstPortNum);
+    if (message.dst_port_num !== 0) {
+      obj.dst_port_num = Math.round(message.dst_port_num);
     }
-    if (message.waitTimeMs !== 0) {
-      obj.waitTimeMs = Math.round(message.waitTimeMs);
+    if (message.wait_time_ms !== 0) {
+      obj.wait_time_ms = Math.round(message.wait_time_ms);
     }
     return obj;
   },
@@ -1469,36 +1480,36 @@ export const SendPunchPacketBothEasySymRequest: MessageFns<SendPunchPacketBothEa
     object: I,
   ): SendPunchPacketBothEasySymRequest {
     const message = createBaseSendPunchPacketBothEasySymRequest();
-    message.udpSocketCount = object.udpSocketCount ?? 0;
-    message.publicIp = (object.publicIp !== undefined && object.publicIp !== null)
-      ? Ipv4Addr.fromPartial(object.publicIp)
+    message.udp_socket_count = object.udp_socket_count ?? 0;
+    message.public_ip = (object.public_ip !== undefined && object.public_ip !== null)
+      ? Ipv4Addr.fromPartial(object.public_ip)
       : undefined;
-    message.transactionId = object.transactionId ?? 0;
-    message.dstPortNum = object.dstPortNum ?? 0;
-    message.waitTimeMs = object.waitTimeMs ?? 0;
+    message.transaction_id = object.transaction_id ?? 0;
+    message.dst_port_num = object.dst_port_num ?? 0;
+    message.wait_time_ms = object.wait_time_ms ?? 0;
     return message;
   },
 };
 
 function createBaseSendPunchPacketBothEasySymResponse(): SendPunchPacketBothEasySymResponse {
-  return { isBusy: false, baseMappedAddr: undefined };
+  return { is_busy: false, base_mapped_addr: undefined };
 }
 
 export const SendPunchPacketBothEasySymResponse: MessageFns<SendPunchPacketBothEasySymResponse> = {
   fromJSON(object: any): SendPunchPacketBothEasySymResponse {
     return {
-      isBusy: isSet(object.isBusy) ? globalThis.Boolean(object.isBusy) : false,
-      baseMappedAddr: isSet(object.baseMappedAddr) ? SocketAddr.fromJSON(object.baseMappedAddr) : undefined,
+      is_busy: isSet(object.is_busy) ? globalThis.Boolean(object.is_busy) : false,
+      base_mapped_addr: isSet(object.base_mapped_addr) ? SocketAddr.fromJSON(object.base_mapped_addr) : undefined,
     };
   },
 
   toJSON(message: SendPunchPacketBothEasySymResponse): unknown {
     const obj: any = {};
-    if (message.isBusy !== false) {
-      obj.isBusy = message.isBusy;
+    if (message.is_busy !== false) {
+      obj.is_busy = message.is_busy;
     }
-    if (message.baseMappedAddr !== undefined) {
-      obj.baseMappedAddr = SocketAddr.toJSON(message.baseMappedAddr);
+    if (message.base_mapped_addr !== undefined) {
+      obj.base_mapped_addr = SocketAddr.toJSON(message.base_mapped_addr);
     }
     return obj;
   },
@@ -1512,27 +1523,27 @@ export const SendPunchPacketBothEasySymResponse: MessageFns<SendPunchPacketBothE
     object: I,
   ): SendPunchPacketBothEasySymResponse {
     const message = createBaseSendPunchPacketBothEasySymResponse();
-    message.isBusy = object.isBusy ?? false;
-    message.baseMappedAddr = (object.baseMappedAddr !== undefined && object.baseMappedAddr !== null)
-      ? SocketAddr.fromPartial(object.baseMappedAddr)
+    message.is_busy = object.is_busy ?? false;
+    message.base_mapped_addr = (object.base_mapped_addr !== undefined && object.base_mapped_addr !== null)
+      ? SocketAddr.fromPartial(object.base_mapped_addr)
       : undefined;
     return message;
   },
 };
 
 function createBaseDirectConnectedPeerInfo(): DirectConnectedPeerInfo {
-  return { latencyMs: 0 };
+  return { latency_ms: 0 };
 }
 
 export const DirectConnectedPeerInfo: MessageFns<DirectConnectedPeerInfo> = {
   fromJSON(object: any): DirectConnectedPeerInfo {
-    return { latencyMs: isSet(object.latencyMs) ? globalThis.Number(object.latencyMs) : 0 };
+    return { latency_ms: isSet(object.latency_ms) ? globalThis.Number(object.latency_ms) : 0 };
   },
 
   toJSON(message: DirectConnectedPeerInfo): unknown {
     const obj: any = {};
-    if (message.latencyMs !== 0) {
-      obj.latencyMs = Math.round(message.latencyMs);
+    if (message.latency_ms !== 0) {
+      obj.latency_ms = Math.round(message.latency_ms);
     }
     return obj;
   },
@@ -1542,35 +1553,38 @@ export const DirectConnectedPeerInfo: MessageFns<DirectConnectedPeerInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<DirectConnectedPeerInfo>, I>>(object: I): DirectConnectedPeerInfo {
     const message = createBaseDirectConnectedPeerInfo();
-    message.latencyMs = object.latencyMs ?? 0;
+    message.latency_ms = object.latency_ms ?? 0;
     return message;
   },
 };
 
 function createBasePeerInfoForGlobalMap(): PeerInfoForGlobalMap {
-  return { directPeers: {} };
+  return { direct_peers: {} };
 }
 
 export const PeerInfoForGlobalMap: MessageFns<PeerInfoForGlobalMap> = {
   fromJSON(object: any): PeerInfoForGlobalMap {
     return {
-      directPeers: isObject(object.directPeers)
-        ? Object.entries(object.directPeers).reduce<{ [key: number]: DirectConnectedPeerInfo }>((acc, [key, value]) => {
-          acc[globalThis.Number(key)] = DirectConnectedPeerInfo.fromJSON(value);
-          return acc;
-        }, {})
+      direct_peers: isObject(object.direct_peers)
+        ? Object.entries(object.direct_peers).reduce<{ [key: number]: DirectConnectedPeerInfo }>(
+          (acc, [key, value]) => {
+            acc[globalThis.Number(key)] = DirectConnectedPeerInfo.fromJSON(value);
+            return acc;
+          },
+          {},
+        )
         : {},
     };
   },
 
   toJSON(message: PeerInfoForGlobalMap): unknown {
     const obj: any = {};
-    if (message.directPeers) {
-      const entries = Object.entries(message.directPeers);
+    if (message.direct_peers) {
+      const entries = Object.entries(message.direct_peers);
       if (entries.length > 0) {
-        obj.directPeers = {};
+        obj.direct_peers = {};
         entries.forEach(([k, v]) => {
-          obj.directPeers[k] = DirectConnectedPeerInfo.toJSON(v);
+          obj.direct_peers[k] = DirectConnectedPeerInfo.toJSON(v);
         });
       }
     }
@@ -1582,7 +1596,7 @@ export const PeerInfoForGlobalMap: MessageFns<PeerInfoForGlobalMap> = {
   },
   fromPartial<I extends Exact<DeepPartial<PeerInfoForGlobalMap>, I>>(object: I): PeerInfoForGlobalMap {
     const message = createBasePeerInfoForGlobalMap();
-    message.directPeers = Object.entries(object.directPeers ?? {}).reduce<{ [key: number]: DirectConnectedPeerInfo }>(
+    message.direct_peers = Object.entries(object.direct_peers ?? {}).reduce<{ [key: number]: DirectConnectedPeerInfo }>(
       (acc, [key, value]) => {
         if (value !== undefined) {
           acc[globalThis.Number(key)] = DirectConnectedPeerInfo.fromPartial(value);
@@ -1636,24 +1650,24 @@ export const PeerInfoForGlobalMap_DirectPeersEntry: MessageFns<PeerInfoForGlobal
 };
 
 function createBaseReportPeersRequest(): ReportPeersRequest {
-  return { myPeerId: 0, peerInfos: undefined };
+  return { my_peer_id: 0, peer_infos: undefined };
 }
 
 export const ReportPeersRequest: MessageFns<ReportPeersRequest> = {
   fromJSON(object: any): ReportPeersRequest {
     return {
-      myPeerId: isSet(object.myPeerId) ? globalThis.Number(object.myPeerId) : 0,
-      peerInfos: isSet(object.peerInfos) ? PeerInfoForGlobalMap.fromJSON(object.peerInfos) : undefined,
+      my_peer_id: isSet(object.my_peer_id) ? globalThis.Number(object.my_peer_id) : 0,
+      peer_infos: isSet(object.peer_infos) ? PeerInfoForGlobalMap.fromJSON(object.peer_infos) : undefined,
     };
   },
 
   toJSON(message: ReportPeersRequest): unknown {
     const obj: any = {};
-    if (message.myPeerId !== 0) {
-      obj.myPeerId = Math.round(message.myPeerId);
+    if (message.my_peer_id !== 0) {
+      obj.my_peer_id = Math.round(message.my_peer_id);
     }
-    if (message.peerInfos !== undefined) {
-      obj.peerInfos = PeerInfoForGlobalMap.toJSON(message.peerInfos);
+    if (message.peer_infos !== undefined) {
+      obj.peer_infos = PeerInfoForGlobalMap.toJSON(message.peer_infos);
     }
     return obj;
   },
@@ -1663,9 +1677,9 @@ export const ReportPeersRequest: MessageFns<ReportPeersRequest> = {
   },
   fromPartial<I extends Exact<DeepPartial<ReportPeersRequest>, I>>(object: I): ReportPeersRequest {
     const message = createBaseReportPeersRequest();
-    message.myPeerId = object.myPeerId ?? 0;
-    message.peerInfos = (object.peerInfos !== undefined && object.peerInfos !== null)
-      ? PeerInfoForGlobalMap.fromPartial(object.peerInfos)
+    message.my_peer_id = object.my_peer_id ?? 0;
+    message.peer_infos = (object.peer_infos !== undefined && object.peer_infos !== null)
+      ? PeerInfoForGlobalMap.fromPartial(object.peer_infos)
       : undefined;
     return message;
   },
@@ -1806,17 +1820,20 @@ export const GetGlobalPeerMapRequest: MessageFns<GetGlobalPeerMapRequest> = {
 };
 
 function createBaseGetGlobalPeerMapResponse(): GetGlobalPeerMapResponse {
-  return { globalPeerMap: {}, digest: undefined };
+  return { global_peer_map: {}, digest: undefined };
 }
 
 export const GetGlobalPeerMapResponse: MessageFns<GetGlobalPeerMapResponse> = {
   fromJSON(object: any): GetGlobalPeerMapResponse {
     return {
-      globalPeerMap: isObject(object.globalPeerMap)
-        ? Object.entries(object.globalPeerMap).reduce<{ [key: number]: PeerInfoForGlobalMap }>((acc, [key, value]) => {
-          acc[globalThis.Number(key)] = PeerInfoForGlobalMap.fromJSON(value);
-          return acc;
-        }, {})
+      global_peer_map: isObject(object.global_peer_map)
+        ? Object.entries(object.global_peer_map).reduce<{ [key: number]: PeerInfoForGlobalMap }>(
+          (acc, [key, value]) => {
+            acc[globalThis.Number(key)] = PeerInfoForGlobalMap.fromJSON(value);
+            return acc;
+          },
+          {},
+        )
         : {},
       digest: isSet(object.digest) ? globalThis.Number(object.digest) : undefined,
     };
@@ -1824,12 +1841,12 @@ export const GetGlobalPeerMapResponse: MessageFns<GetGlobalPeerMapResponse> = {
 
   toJSON(message: GetGlobalPeerMapResponse): unknown {
     const obj: any = {};
-    if (message.globalPeerMap) {
-      const entries = Object.entries(message.globalPeerMap);
+    if (message.global_peer_map) {
+      const entries = Object.entries(message.global_peer_map);
       if (entries.length > 0) {
-        obj.globalPeerMap = {};
+        obj.global_peer_map = {};
         entries.forEach(([k, v]) => {
-          obj.globalPeerMap[k] = PeerInfoForGlobalMap.toJSON(v);
+          obj.global_peer_map[k] = PeerInfoForGlobalMap.toJSON(v);
         });
       }
     }
@@ -1844,15 +1861,14 @@ export const GetGlobalPeerMapResponse: MessageFns<GetGlobalPeerMapResponse> = {
   },
   fromPartial<I extends Exact<DeepPartial<GetGlobalPeerMapResponse>, I>>(object: I): GetGlobalPeerMapResponse {
     const message = createBaseGetGlobalPeerMapResponse();
-    message.globalPeerMap = Object.entries(object.globalPeerMap ?? {}).reduce<{ [key: number]: PeerInfoForGlobalMap }>(
-      (acc, [key, value]) => {
-        if (value !== undefined) {
-          acc[globalThis.Number(key)] = PeerInfoForGlobalMap.fromPartial(value);
-        }
-        return acc;
-      },
-      {},
-    );
+    message.global_peer_map = Object.entries(object.global_peer_map ?? {}).reduce<
+      { [key: number]: PeerInfoForGlobalMap }
+    >((acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[globalThis.Number(key)] = PeerInfoForGlobalMap.fromPartial(value);
+      }
+      return acc;
+    }, {});
     message.digest = object.digest ?? undefined;
     return message;
   },
@@ -1899,19 +1915,26 @@ export const GetGlobalPeerMapResponse_GlobalPeerMapEntry: MessageFns<GetGlobalPe
 };
 
 function createBaseHandshakeRequest(): HandshakeRequest {
-  return { magic: 0, myPeerId: 0, version: 0, features: [], networkName: "", networkSecretDigrest: new Uint8Array(0) };
+  return {
+    magic: 0,
+    my_peer_id: 0,
+    version: 0,
+    features: [],
+    network_name: "",
+    network_secret_digrest: new Uint8Array(0),
+  };
 }
 
 export const HandshakeRequest: MessageFns<HandshakeRequest> = {
   fromJSON(object: any): HandshakeRequest {
     return {
       magic: isSet(object.magic) ? globalThis.Number(object.magic) : 0,
-      myPeerId: isSet(object.myPeerId) ? globalThis.Number(object.myPeerId) : 0,
+      my_peer_id: isSet(object.my_peer_id) ? globalThis.Number(object.my_peer_id) : 0,
       version: isSet(object.version) ? globalThis.Number(object.version) : 0,
       features: globalThis.Array.isArray(object?.features) ? object.features.map((e: any) => globalThis.String(e)) : [],
-      networkName: isSet(object.networkName) ? globalThis.String(object.networkName) : "",
-      networkSecretDigrest: isSet(object.networkSecretDigrest)
-        ? bytesFromBase64(object.networkSecretDigrest)
+      network_name: isSet(object.network_name) ? globalThis.String(object.network_name) : "",
+      network_secret_digrest: isSet(object.network_secret_digrest)
+        ? bytesFromBase64(object.network_secret_digrest)
         : new Uint8Array(0),
     };
   },
@@ -1921,8 +1944,8 @@ export const HandshakeRequest: MessageFns<HandshakeRequest> = {
     if (message.magic !== 0) {
       obj.magic = Math.round(message.magic);
     }
-    if (message.myPeerId !== 0) {
-      obj.myPeerId = Math.round(message.myPeerId);
+    if (message.my_peer_id !== 0) {
+      obj.my_peer_id = Math.round(message.my_peer_id);
     }
     if (message.version !== 0) {
       obj.version = Math.round(message.version);
@@ -1930,11 +1953,11 @@ export const HandshakeRequest: MessageFns<HandshakeRequest> = {
     if (message.features?.length) {
       obj.features = message.features;
     }
-    if (message.networkName !== "") {
-      obj.networkName = message.networkName;
+    if (message.network_name !== "") {
+      obj.network_name = message.network_name;
     }
-    if (message.networkSecretDigrest.length !== 0) {
-      obj.networkSecretDigrest = base64FromBytes(message.networkSecretDigrest);
+    if (message.network_secret_digrest.length !== 0) {
+      obj.network_secret_digrest = base64FromBytes(message.network_secret_digrest);
     }
     return obj;
   },
@@ -1945,11 +1968,11 @@ export const HandshakeRequest: MessageFns<HandshakeRequest> = {
   fromPartial<I extends Exact<DeepPartial<HandshakeRequest>, I>>(object: I): HandshakeRequest {
     const message = createBaseHandshakeRequest();
     message.magic = object.magic ?? 0;
-    message.myPeerId = object.myPeerId ?? 0;
+    message.my_peer_id = object.my_peer_id ?? 0;
     message.version = object.version ?? 0;
     message.features = object.features?.map((e) => e) || [];
-    message.networkName = object.networkName ?? "";
-    message.networkSecretDigrest = object.networkSecretDigrest ?? new Uint8Array(0);
+    message.network_name = object.network_name ?? "";
+    message.network_secret_digrest = object.network_secret_digrest ?? new Uint8Array(0);
     return message;
   },
 };

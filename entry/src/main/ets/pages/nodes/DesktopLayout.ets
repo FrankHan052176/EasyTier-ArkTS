@@ -32,6 +32,7 @@ export struct DesktopLayout {
               x: size.grid_x * this.GridSize,
               y: size.grid_y * this.GridSize
             })
+            .zIndex(size.zIndex)
         }
       })
     }

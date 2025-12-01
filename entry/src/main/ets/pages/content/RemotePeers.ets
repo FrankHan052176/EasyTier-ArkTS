@@ -14,13 +14,6 @@ export struct RemotePeers {
   get full_infos() {
     if (this.pairs) {
       return [
-        {
-          route: {
-            ipv4Addr: this.myInfo.virtualIpv4,
-            hostname: this.myInfo.hostname,
-            version: this.myInfo.version
-          }
-        } as PeerRoutePair,
         ...Array.from(this.pairs.values())
       ]
     }else {

@@ -164,76 +164,76 @@ export function socketTypeToJSON(object: SocketType): string {
 }
 
 export interface FlagsInConfig {
-  defaultProtocol: string;
-  devName: string;
-  enableEncryption: boolean;
-  enableIpv6: boolean;
+  default_protocol: string;
+  dev_name: string;
+  enable_encryption: boolean;
+  enable_ipv6: boolean;
   mtu: number;
-  latencyFirst: boolean;
-  enableExitNode: boolean;
-  noTun: boolean;
-  useSmoltcp: boolean;
-  relayNetworkWhitelist: string;
-  disableP2p: boolean;
-  relayAllPeerRpc: boolean;
-  disableUdpHolePunching: boolean;
+  latency_first: boolean;
+  enable_exit_node: boolean;
+  no_tun: boolean;
+  use_smoltcp: boolean;
+  relay_network_whitelist: string;
+  disable_p2p: boolean;
+  relay_all_peer_rpc: boolean;
+  disable_udp_hole_punching: boolean;
   /**
    * string ipv6_listener = 14; [deprecated = true]; use -l udp://[::]:12345
    * instead
    */
-  multiThread: boolean;
-  dataCompressAlgo: CompressionAlgoPb;
-  bindDevice: boolean;
+  multi_thread: boolean;
+  data_compress_algo: CompressionAlgoPb;
+  bind_device: boolean;
   /** should we convert all tcp streams into kcp streams */
-  enableKcpProxy: boolean;
+  enable_kcp_proxy: boolean;
   /** does this peer allow kcp input */
-  disableKcpInput: boolean;
+  disable_kcp_input: boolean;
   /** disable relay local network kcp packets */
-  disableRelayKcp: boolean;
-  proxyForwardBySystem: boolean;
+  disable_relay_kcp: boolean;
+  proxy_forward_by_system: boolean;
   /** enable magic dns or not */
-  acceptDns: boolean;
+  accept_dns: boolean;
   /** enable private mode */
-  privateMode: boolean;
+  private_mode: boolean;
   /** should we convert all tcp streams into quic streams */
-  enableQuicProxy: boolean;
+  enable_quic_proxy: boolean;
   /** does this peer allow quic input */
-  disableQuicInput: boolean;
+  disable_quic_input: boolean;
   /** quic listen port */
-  quicListenPort: number;
+  quic_listen_port: number;
   /** a global relay limit, only work for foreign network */
-  foreignRelayBpsLimit: number;
-  multiThreadCount: number;
+  foreign_relay_bps_limit: number;
+  multi_thread_count: number;
   /** enable relay foreign network kcp packets */
-  enableRelayForeignNetworkKcp: boolean;
+  enable_relay_foreign_network_kcp: boolean;
   /** encryption algorithm to use, empty string means default (aes-gcm) */
-  encryptionAlgorithm: string;
+  encryption_algorithm: string;
   /** disable symmetric nat hole punching, treat symmetric as cone when enabled */
-  disableSymHolePunching: boolean;
+  disable_sym_hole_punching: boolean;
   /** tld dns zone for magic dns */
-  tldDnsZone: string;
-  p2pOnly: boolean;
+  tld_dns_zone: string;
+  p2p_only: boolean;
 }
 
 export interface RpcDescriptor {
   /** allow same service registered multiple times in different domain */
-  domainName: string;
-  protoName: string;
-  serviceName: string;
-  methodIndex: number;
+  domain_name: string;
+  proto_name: string;
+  service_name: string;
+  method_index: number;
 }
 
 export interface RpcRequest {
   /** @deprecated */
   descriptor: RpcDescriptor | undefined;
   request: Uint8Array;
-  timeoutMs: number;
+  timeout_ms: number;
 }
 
 export interface RpcResponse {
   response: Uint8Array;
   error: Error | undefined;
-  runtimeUs: number;
+  runtime_us: number;
 }
 
 export interface RpcCompressionInfo {
@@ -243,20 +243,20 @@ export interface RpcCompressionInfo {
    * tell the peer which compression algo is used to compress the next
    * response/request
    */
-  acceptedAlgo: CompressionAlgoPb;
+  accepted_algo: CompressionAlgoPb;
 }
 
 export interface RpcPacket {
-  fromPeer: number;
-  toPeer: number;
-  transactionId: number;
+  from_peer: number;
+  to_peer: number;
+  transaction_id: number;
   descriptor: RpcDescriptor | undefined;
   body: Uint8Array;
-  isRequest: boolean;
-  totalPieces: number;
-  pieceIdx: number;
-  traceId: number;
-  compressionInfo: RpcCompressionInfo | undefined;
+  is_request: boolean;
+  total_pieces: number;
+  piece_idx: number;
+  trace_id: number;
+  compression_info: RpcCompressionInfo | undefined;
 }
 
 export interface Void {
@@ -287,12 +287,12 @@ export interface IpAddr {
 
 export interface Ipv4Inet {
   address: Ipv4Addr | undefined;
-  networkLength: number;
+  network_length: number;
 }
 
 export interface Ipv6Inet {
   address: Ipv6Addr | undefined;
-  networkLength: number;
+  network_length: number;
 }
 
 export interface IpInet {
@@ -311,41 +311,41 @@ export interface SocketAddr {
 }
 
 export interface TunnelInfo {
-  tunnelType: string;
-  localAddr: Url | undefined;
-  remoteAddr: Url | undefined;
+  tunnel_type: string;
+  local_addr: Url | undefined;
+  remote_addr: Url | undefined;
 }
 
 export interface StunInfo {
-  udpNatType: NatType;
-  tcpNatType: NatType;
-  lastUpdateTime: number;
-  publicIp: string[];
-  minPort: number;
-  maxPort: number;
+  udp_nat_type: NatType;
+  tcp_nat_type: NatType;
+  last_update_time: number;
+  public_ip: string[];
+  min_port: number;
+  max_port: number;
 }
 
 export interface PeerFeatureFlag {
-  isPublicServer: boolean;
-  avoidRelayData: boolean;
-  kcpInput: boolean;
-  noRelayKcp: boolean;
-  supportConnListSync: boolean;
+  is_public_server: boolean;
+  avoid_relay_data: boolean;
+  kcp_input: boolean;
+  no_relay_kcp: boolean;
+  support_conn_list_sync: boolean;
 }
 
 export interface PortForwardConfigPb {
-  bindAddr: SocketAddr | undefined;
-  dstAddr: SocketAddr | undefined;
-  socketType: SocketType;
+  bind_addr: SocketAddr | undefined;
+  dst_addr: SocketAddr | undefined;
+  socket_type: SocketType;
 }
 
 export interface ProxyDstInfo {
-  dstAddr: SocketAddr | undefined;
+  dst_addr: SocketAddr | undefined;
 }
 
 export interface LimiterConfig {
   /** default 1 means no burst (capacity is same with bps) */
-  burstRate?:
+  burst_rate?:
     | number
     | undefined;
   /** default 0 means no limit (unit is B/s) */
@@ -353,189 +353,193 @@ export interface LimiterConfig {
     | number
     | undefined;
   /** default 10ms, the period to fill the bucket */
-  fillDurationMs?: number | undefined;
+  fill_duration_ms?: number | undefined;
 }
 
 function createBaseFlagsInConfig(): FlagsInConfig {
   return {
-    defaultProtocol: "",
-    devName: "",
-    enableEncryption: false,
-    enableIpv6: false,
+    default_protocol: "",
+    dev_name: "",
+    enable_encryption: false,
+    enable_ipv6: false,
     mtu: 0,
-    latencyFirst: false,
-    enableExitNode: false,
-    noTun: false,
-    useSmoltcp: false,
-    relayNetworkWhitelist: "",
-    disableP2p: false,
-    relayAllPeerRpc: false,
-    disableUdpHolePunching: false,
-    multiThread: false,
-    dataCompressAlgo: 0,
-    bindDevice: false,
-    enableKcpProxy: false,
-    disableKcpInput: false,
-    disableRelayKcp: false,
-    proxyForwardBySystem: false,
-    acceptDns: false,
-    privateMode: false,
-    enableQuicProxy: false,
-    disableQuicInput: false,
-    quicListenPort: 0,
-    foreignRelayBpsLimit: 0,
-    multiThreadCount: 0,
-    enableRelayForeignNetworkKcp: false,
-    encryptionAlgorithm: "",
-    disableSymHolePunching: false,
-    tldDnsZone: "",
-    p2pOnly: false,
+    latency_first: false,
+    enable_exit_node: false,
+    no_tun: false,
+    use_smoltcp: false,
+    relay_network_whitelist: "",
+    disable_p2p: false,
+    relay_all_peer_rpc: false,
+    disable_udp_hole_punching: false,
+    multi_thread: false,
+    data_compress_algo: 0,
+    bind_device: false,
+    enable_kcp_proxy: false,
+    disable_kcp_input: false,
+    disable_relay_kcp: false,
+    proxy_forward_by_system: false,
+    accept_dns: false,
+    private_mode: false,
+    enable_quic_proxy: false,
+    disable_quic_input: false,
+    quic_listen_port: 0,
+    foreign_relay_bps_limit: 0,
+    multi_thread_count: 0,
+    enable_relay_foreign_network_kcp: false,
+    encryption_algorithm: "",
+    disable_sym_hole_punching: false,
+    tld_dns_zone: "",
+    p2p_only: false,
   };
 }
 
 export const FlagsInConfig: MessageFns<FlagsInConfig> = {
   fromJSON(object: any): FlagsInConfig {
     return {
-      defaultProtocol: isSet(object.defaultProtocol) ? globalThis.String(object.defaultProtocol) : "",
-      devName: isSet(object.devName) ? globalThis.String(object.devName) : "",
-      enableEncryption: isSet(object.enableEncryption) ? globalThis.Boolean(object.enableEncryption) : false,
-      enableIpv6: isSet(object.enableIpv6) ? globalThis.Boolean(object.enableIpv6) : false,
+      default_protocol: isSet(object.default_protocol) ? globalThis.String(object.default_protocol) : "",
+      dev_name: isSet(object.dev_name) ? globalThis.String(object.dev_name) : "",
+      enable_encryption: isSet(object.enable_encryption) ? globalThis.Boolean(object.enable_encryption) : false,
+      enable_ipv6: isSet(object.enable_ipv6) ? globalThis.Boolean(object.enable_ipv6) : false,
       mtu: isSet(object.mtu) ? globalThis.Number(object.mtu) : 0,
-      latencyFirst: isSet(object.latencyFirst) ? globalThis.Boolean(object.latencyFirst) : false,
-      enableExitNode: isSet(object.enableExitNode) ? globalThis.Boolean(object.enableExitNode) : false,
-      noTun: isSet(object.noTun) ? globalThis.Boolean(object.noTun) : false,
-      useSmoltcp: isSet(object.useSmoltcp) ? globalThis.Boolean(object.useSmoltcp) : false,
-      relayNetworkWhitelist: isSet(object.relayNetworkWhitelist) ? globalThis.String(object.relayNetworkWhitelist) : "",
-      disableP2p: isSet(object.disableP2p) ? globalThis.Boolean(object.disableP2p) : false,
-      relayAllPeerRpc: isSet(object.relayAllPeerRpc) ? globalThis.Boolean(object.relayAllPeerRpc) : false,
-      disableUdpHolePunching: isSet(object.disableUdpHolePunching)
-        ? globalThis.Boolean(object.disableUdpHolePunching)
+      latency_first: isSet(object.latency_first) ? globalThis.Boolean(object.latency_first) : false,
+      enable_exit_node: isSet(object.enable_exit_node) ? globalThis.Boolean(object.enable_exit_node) : false,
+      no_tun: isSet(object.no_tun) ? globalThis.Boolean(object.no_tun) : false,
+      use_smoltcp: isSet(object.use_smoltcp) ? globalThis.Boolean(object.use_smoltcp) : false,
+      relay_network_whitelist: isSet(object.relay_network_whitelist)
+        ? globalThis.String(object.relay_network_whitelist)
+        : "",
+      disable_p2p: isSet(object.disable_p2p) ? globalThis.Boolean(object.disable_p2p) : false,
+      relay_all_peer_rpc: isSet(object.relay_all_peer_rpc) ? globalThis.Boolean(object.relay_all_peer_rpc) : false,
+      disable_udp_hole_punching: isSet(object.disable_udp_hole_punching)
+        ? globalThis.Boolean(object.disable_udp_hole_punching)
         : false,
-      multiThread: isSet(object.multiThread) ? globalThis.Boolean(object.multiThread) : false,
-      dataCompressAlgo: isSet(object.dataCompressAlgo) ? compressionAlgoPbFromJSON(object.dataCompressAlgo) : 0,
-      bindDevice: isSet(object.bindDevice) ? globalThis.Boolean(object.bindDevice) : false,
-      enableKcpProxy: isSet(object.enableKcpProxy) ? globalThis.Boolean(object.enableKcpProxy) : false,
-      disableKcpInput: isSet(object.disableKcpInput) ? globalThis.Boolean(object.disableKcpInput) : false,
-      disableRelayKcp: isSet(object.disableRelayKcp) ? globalThis.Boolean(object.disableRelayKcp) : false,
-      proxyForwardBySystem: isSet(object.proxyForwardBySystem)
-        ? globalThis.Boolean(object.proxyForwardBySystem)
+      multi_thread: isSet(object.multi_thread) ? globalThis.Boolean(object.multi_thread) : false,
+      data_compress_algo: isSet(object.data_compress_algo) ? compressionAlgoPbFromJSON(object.data_compress_algo) : 0,
+      bind_device: isSet(object.bind_device) ? globalThis.Boolean(object.bind_device) : false,
+      enable_kcp_proxy: isSet(object.enable_kcp_proxy) ? globalThis.Boolean(object.enable_kcp_proxy) : false,
+      disable_kcp_input: isSet(object.disable_kcp_input) ? globalThis.Boolean(object.disable_kcp_input) : false,
+      disable_relay_kcp: isSet(object.disable_relay_kcp) ? globalThis.Boolean(object.disable_relay_kcp) : false,
+      proxy_forward_by_system: isSet(object.proxy_forward_by_system)
+        ? globalThis.Boolean(object.proxy_forward_by_system)
         : false,
-      acceptDns: isSet(object.acceptDns) ? globalThis.Boolean(object.acceptDns) : false,
-      privateMode: isSet(object.privateMode) ? globalThis.Boolean(object.privateMode) : false,
-      enableQuicProxy: isSet(object.enableQuicProxy) ? globalThis.Boolean(object.enableQuicProxy) : false,
-      disableQuicInput: isSet(object.disableQuicInput) ? globalThis.Boolean(object.disableQuicInput) : false,
-      quicListenPort: isSet(object.quicListenPort) ? globalThis.Number(object.quicListenPort) : 0,
-      foreignRelayBpsLimit: isSet(object.foreignRelayBpsLimit) ? globalThis.Number(object.foreignRelayBpsLimit) : 0,
-      multiThreadCount: isSet(object.multiThreadCount) ? globalThis.Number(object.multiThreadCount) : 0,
-      enableRelayForeignNetworkKcp: isSet(object.enableRelayForeignNetworkKcp)
-        ? globalThis.Boolean(object.enableRelayForeignNetworkKcp)
+      accept_dns: isSet(object.accept_dns) ? globalThis.Boolean(object.accept_dns) : false,
+      private_mode: isSet(object.private_mode) ? globalThis.Boolean(object.private_mode) : false,
+      enable_quic_proxy: isSet(object.enable_quic_proxy) ? globalThis.Boolean(object.enable_quic_proxy) : false,
+      disable_quic_input: isSet(object.disable_quic_input) ? globalThis.Boolean(object.disable_quic_input) : false,
+      quic_listen_port: isSet(object.quic_listen_port) ? globalThis.Number(object.quic_listen_port) : 0,
+      foreign_relay_bps_limit: isSet(object.foreign_relay_bps_limit)
+        ? globalThis.Number(object.foreign_relay_bps_limit)
+        : 0,
+      multi_thread_count: isSet(object.multi_thread_count) ? globalThis.Number(object.multi_thread_count) : 0,
+      enable_relay_foreign_network_kcp: isSet(object.enable_relay_foreign_network_kcp)
+        ? globalThis.Boolean(object.enable_relay_foreign_network_kcp)
         : false,
-      encryptionAlgorithm: isSet(object.encryptionAlgorithm) ? globalThis.String(object.encryptionAlgorithm) : "",
-      disableSymHolePunching: isSet(object.disableSymHolePunching)
-        ? globalThis.Boolean(object.disableSymHolePunching)
+      encryption_algorithm: isSet(object.encryption_algorithm) ? globalThis.String(object.encryption_algorithm) : "",
+      disable_sym_hole_punching: isSet(object.disable_sym_hole_punching)
+        ? globalThis.Boolean(object.disable_sym_hole_punching)
         : false,
-      tldDnsZone: isSet(object.tldDnsZone) ? globalThis.String(object.tldDnsZone) : "",
-      p2pOnly: isSet(object.p2pOnly) ? globalThis.Boolean(object.p2pOnly) : false,
+      tld_dns_zone: isSet(object.tld_dns_zone) ? globalThis.String(object.tld_dns_zone) : "",
+      p2p_only: isSet(object.p2p_only) ? globalThis.Boolean(object.p2p_only) : false,
     };
   },
 
   toJSON(message: FlagsInConfig): unknown {
     const obj: any = {};
-    if (message.defaultProtocol !== "") {
-      obj.defaultProtocol = message.defaultProtocol;
+    if (message.default_protocol !== "") {
+      obj.default_protocol = message.default_protocol;
     }
-    if (message.devName !== "") {
-      obj.devName = message.devName;
+    if (message.dev_name !== "") {
+      obj.dev_name = message.dev_name;
     }
-    if (message.enableEncryption !== false) {
-      obj.enableEncryption = message.enableEncryption;
+    if (message.enable_encryption !== false) {
+      obj.enable_encryption = message.enable_encryption;
     }
-    if (message.enableIpv6 !== false) {
-      obj.enableIpv6 = message.enableIpv6;
+    if (message.enable_ipv6 !== false) {
+      obj.enable_ipv6 = message.enable_ipv6;
     }
     if (message.mtu !== 0) {
       obj.mtu = Math.round(message.mtu);
     }
-    if (message.latencyFirst !== false) {
-      obj.latencyFirst = message.latencyFirst;
+    if (message.latency_first !== false) {
+      obj.latency_first = message.latency_first;
     }
-    if (message.enableExitNode !== false) {
-      obj.enableExitNode = message.enableExitNode;
+    if (message.enable_exit_node !== false) {
+      obj.enable_exit_node = message.enable_exit_node;
     }
-    if (message.noTun !== false) {
-      obj.noTun = message.noTun;
+    if (message.no_tun !== false) {
+      obj.no_tun = message.no_tun;
     }
-    if (message.useSmoltcp !== false) {
-      obj.useSmoltcp = message.useSmoltcp;
+    if (message.use_smoltcp !== false) {
+      obj.use_smoltcp = message.use_smoltcp;
     }
-    if (message.relayNetworkWhitelist !== "") {
-      obj.relayNetworkWhitelist = message.relayNetworkWhitelist;
+    if (message.relay_network_whitelist !== "") {
+      obj.relay_network_whitelist = message.relay_network_whitelist;
     }
-    if (message.disableP2p !== false) {
-      obj.disableP2p = message.disableP2p;
+    if (message.disable_p2p !== false) {
+      obj.disable_p2p = message.disable_p2p;
     }
-    if (message.relayAllPeerRpc !== false) {
-      obj.relayAllPeerRpc = message.relayAllPeerRpc;
+    if (message.relay_all_peer_rpc !== false) {
+      obj.relay_all_peer_rpc = message.relay_all_peer_rpc;
     }
-    if (message.disableUdpHolePunching !== false) {
-      obj.disableUdpHolePunching = message.disableUdpHolePunching;
+    if (message.disable_udp_hole_punching !== false) {
+      obj.disable_udp_hole_punching = message.disable_udp_hole_punching;
     }
-    if (message.multiThread !== false) {
-      obj.multiThread = message.multiThread;
+    if (message.multi_thread !== false) {
+      obj.multi_thread = message.multi_thread;
     }
-    if (message.dataCompressAlgo !== 0) {
-      obj.dataCompressAlgo = compressionAlgoPbToJSON(message.dataCompressAlgo);
+    if (message.data_compress_algo !== 0) {
+      obj.data_compress_algo = compressionAlgoPbToJSON(message.data_compress_algo);
     }
-    if (message.bindDevice !== false) {
-      obj.bindDevice = message.bindDevice;
+    if (message.bind_device !== false) {
+      obj.bind_device = message.bind_device;
     }
-    if (message.enableKcpProxy !== false) {
-      obj.enableKcpProxy = message.enableKcpProxy;
+    if (message.enable_kcp_proxy !== false) {
+      obj.enable_kcp_proxy = message.enable_kcp_proxy;
     }
-    if (message.disableKcpInput !== false) {
-      obj.disableKcpInput = message.disableKcpInput;
+    if (message.disable_kcp_input !== false) {
+      obj.disable_kcp_input = message.disable_kcp_input;
     }
-    if (message.disableRelayKcp !== false) {
-      obj.disableRelayKcp = message.disableRelayKcp;
+    if (message.disable_relay_kcp !== false) {
+      obj.disable_relay_kcp = message.disable_relay_kcp;
     }
-    if (message.proxyForwardBySystem !== false) {
-      obj.proxyForwardBySystem = message.proxyForwardBySystem;
+    if (message.proxy_forward_by_system !== false) {
+      obj.proxy_forward_by_system = message.proxy_forward_by_system;
     }
-    if (message.acceptDns !== false) {
-      obj.acceptDns = message.acceptDns;
+    if (message.accept_dns !== false) {
+      obj.accept_dns = message.accept_dns;
     }
-    if (message.privateMode !== false) {
-      obj.privateMode = message.privateMode;
+    if (message.private_mode !== false) {
+      obj.private_mode = message.private_mode;
     }
-    if (message.enableQuicProxy !== false) {
-      obj.enableQuicProxy = message.enableQuicProxy;
+    if (message.enable_quic_proxy !== false) {
+      obj.enable_quic_proxy = message.enable_quic_proxy;
     }
-    if (message.disableQuicInput !== false) {
-      obj.disableQuicInput = message.disableQuicInput;
+    if (message.disable_quic_input !== false) {
+      obj.disable_quic_input = message.disable_quic_input;
     }
-    if (message.quicListenPort !== 0) {
-      obj.quicListenPort = Math.round(message.quicListenPort);
+    if (message.quic_listen_port !== 0) {
+      obj.quic_listen_port = Math.round(message.quic_listen_port);
     }
-    if (message.foreignRelayBpsLimit !== 0) {
-      obj.foreignRelayBpsLimit = Math.round(message.foreignRelayBpsLimit);
+    if (message.foreign_relay_bps_limit !== 0) {
+      obj.foreign_relay_bps_limit = Math.round(message.foreign_relay_bps_limit);
     }
-    if (message.multiThreadCount !== 0) {
-      obj.multiThreadCount = Math.round(message.multiThreadCount);
+    if (message.multi_thread_count !== 0) {
+      obj.multi_thread_count = Math.round(message.multi_thread_count);
     }
-    if (message.enableRelayForeignNetworkKcp !== false) {
-      obj.enableRelayForeignNetworkKcp = message.enableRelayForeignNetworkKcp;
+    if (message.enable_relay_foreign_network_kcp !== false) {
+      obj.enable_relay_foreign_network_kcp = message.enable_relay_foreign_network_kcp;
     }
-    if (message.encryptionAlgorithm !== "") {
-      obj.encryptionAlgorithm = message.encryptionAlgorithm;
+    if (message.encryption_algorithm !== "") {
+      obj.encryption_algorithm = message.encryption_algorithm;
     }
-    if (message.disableSymHolePunching !== false) {
-      obj.disableSymHolePunching = message.disableSymHolePunching;
+    if (message.disable_sym_hole_punching !== false) {
+      obj.disable_sym_hole_punching = message.disable_sym_hole_punching;
     }
-    if (message.tldDnsZone !== "") {
-      obj.tldDnsZone = message.tldDnsZone;
+    if (message.tld_dns_zone !== "") {
+      obj.tld_dns_zone = message.tld_dns_zone;
     }
-    if (message.p2pOnly !== false) {
-      obj.p2pOnly = message.p2pOnly;
+    if (message.p2p_only !== false) {
+      obj.p2p_only = message.p2p_only;
     }
     return obj;
   },
@@ -545,69 +549,69 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
   },
   fromPartial<I extends Exact<DeepPartial<FlagsInConfig>, I>>(object: I): FlagsInConfig {
     const message = createBaseFlagsInConfig();
-    message.defaultProtocol = object.defaultProtocol ?? "";
-    message.devName = object.devName ?? "";
-    message.enableEncryption = object.enableEncryption ?? false;
-    message.enableIpv6 = object.enableIpv6 ?? false;
+    message.default_protocol = object.default_protocol ?? "";
+    message.dev_name = object.dev_name ?? "";
+    message.enable_encryption = object.enable_encryption ?? false;
+    message.enable_ipv6 = object.enable_ipv6 ?? false;
     message.mtu = object.mtu ?? 0;
-    message.latencyFirst = object.latencyFirst ?? false;
-    message.enableExitNode = object.enableExitNode ?? false;
-    message.noTun = object.noTun ?? false;
-    message.useSmoltcp = object.useSmoltcp ?? false;
-    message.relayNetworkWhitelist = object.relayNetworkWhitelist ?? "";
-    message.disableP2p = object.disableP2p ?? false;
-    message.relayAllPeerRpc = object.relayAllPeerRpc ?? false;
-    message.disableUdpHolePunching = object.disableUdpHolePunching ?? false;
-    message.multiThread = object.multiThread ?? false;
-    message.dataCompressAlgo = object.dataCompressAlgo ?? 0;
-    message.bindDevice = object.bindDevice ?? false;
-    message.enableKcpProxy = object.enableKcpProxy ?? false;
-    message.disableKcpInput = object.disableKcpInput ?? false;
-    message.disableRelayKcp = object.disableRelayKcp ?? false;
-    message.proxyForwardBySystem = object.proxyForwardBySystem ?? false;
-    message.acceptDns = object.acceptDns ?? false;
-    message.privateMode = object.privateMode ?? false;
-    message.enableQuicProxy = object.enableQuicProxy ?? false;
-    message.disableQuicInput = object.disableQuicInput ?? false;
-    message.quicListenPort = object.quicListenPort ?? 0;
-    message.foreignRelayBpsLimit = object.foreignRelayBpsLimit ?? 0;
-    message.multiThreadCount = object.multiThreadCount ?? 0;
-    message.enableRelayForeignNetworkKcp = object.enableRelayForeignNetworkKcp ?? false;
-    message.encryptionAlgorithm = object.encryptionAlgorithm ?? "";
-    message.disableSymHolePunching = object.disableSymHolePunching ?? false;
-    message.tldDnsZone = object.tldDnsZone ?? "";
-    message.p2pOnly = object.p2pOnly ?? false;
+    message.latency_first = object.latency_first ?? false;
+    message.enable_exit_node = object.enable_exit_node ?? false;
+    message.no_tun = object.no_tun ?? false;
+    message.use_smoltcp = object.use_smoltcp ?? false;
+    message.relay_network_whitelist = object.relay_network_whitelist ?? "";
+    message.disable_p2p = object.disable_p2p ?? false;
+    message.relay_all_peer_rpc = object.relay_all_peer_rpc ?? false;
+    message.disable_udp_hole_punching = object.disable_udp_hole_punching ?? false;
+    message.multi_thread = object.multi_thread ?? false;
+    message.data_compress_algo = object.data_compress_algo ?? 0;
+    message.bind_device = object.bind_device ?? false;
+    message.enable_kcp_proxy = object.enable_kcp_proxy ?? false;
+    message.disable_kcp_input = object.disable_kcp_input ?? false;
+    message.disable_relay_kcp = object.disable_relay_kcp ?? false;
+    message.proxy_forward_by_system = object.proxy_forward_by_system ?? false;
+    message.accept_dns = object.accept_dns ?? false;
+    message.private_mode = object.private_mode ?? false;
+    message.enable_quic_proxy = object.enable_quic_proxy ?? false;
+    message.disable_quic_input = object.disable_quic_input ?? false;
+    message.quic_listen_port = object.quic_listen_port ?? 0;
+    message.foreign_relay_bps_limit = object.foreign_relay_bps_limit ?? 0;
+    message.multi_thread_count = object.multi_thread_count ?? 0;
+    message.enable_relay_foreign_network_kcp = object.enable_relay_foreign_network_kcp ?? false;
+    message.encryption_algorithm = object.encryption_algorithm ?? "";
+    message.disable_sym_hole_punching = object.disable_sym_hole_punching ?? false;
+    message.tld_dns_zone = object.tld_dns_zone ?? "";
+    message.p2p_only = object.p2p_only ?? false;
     return message;
   },
 };
 
 function createBaseRpcDescriptor(): RpcDescriptor {
-  return { domainName: "", protoName: "", serviceName: "", methodIndex: 0 };
+  return { domain_name: "", proto_name: "", service_name: "", method_index: 0 };
 }
 
 export const RpcDescriptor: MessageFns<RpcDescriptor> = {
   fromJSON(object: any): RpcDescriptor {
     return {
-      domainName: isSet(object.domainName) ? globalThis.String(object.domainName) : "",
-      protoName: isSet(object.protoName) ? globalThis.String(object.protoName) : "",
-      serviceName: isSet(object.serviceName) ? globalThis.String(object.serviceName) : "",
-      methodIndex: isSet(object.methodIndex) ? globalThis.Number(object.methodIndex) : 0,
+      domain_name: isSet(object.domain_name) ? globalThis.String(object.domain_name) : "",
+      proto_name: isSet(object.proto_name) ? globalThis.String(object.proto_name) : "",
+      service_name: isSet(object.service_name) ? globalThis.String(object.service_name) : "",
+      method_index: isSet(object.method_index) ? globalThis.Number(object.method_index) : 0,
     };
   },
 
   toJSON(message: RpcDescriptor): unknown {
     const obj: any = {};
-    if (message.domainName !== "") {
-      obj.domainName = message.domainName;
+    if (message.domain_name !== "") {
+      obj.domain_name = message.domain_name;
     }
-    if (message.protoName !== "") {
-      obj.protoName = message.protoName;
+    if (message.proto_name !== "") {
+      obj.proto_name = message.proto_name;
     }
-    if (message.serviceName !== "") {
-      obj.serviceName = message.serviceName;
+    if (message.service_name !== "") {
+      obj.service_name = message.service_name;
     }
-    if (message.methodIndex !== 0) {
-      obj.methodIndex = Math.round(message.methodIndex);
+    if (message.method_index !== 0) {
+      obj.method_index = Math.round(message.method_index);
     }
     return obj;
   },
@@ -617,16 +621,16 @@ export const RpcDescriptor: MessageFns<RpcDescriptor> = {
   },
   fromPartial<I extends Exact<DeepPartial<RpcDescriptor>, I>>(object: I): RpcDescriptor {
     const message = createBaseRpcDescriptor();
-    message.domainName = object.domainName ?? "";
-    message.protoName = object.protoName ?? "";
-    message.serviceName = object.serviceName ?? "";
-    message.methodIndex = object.methodIndex ?? 0;
+    message.domain_name = object.domain_name ?? "";
+    message.proto_name = object.proto_name ?? "";
+    message.service_name = object.service_name ?? "";
+    message.method_index = object.method_index ?? 0;
     return message;
   },
 };
 
 function createBaseRpcRequest(): RpcRequest {
-  return { descriptor: undefined, request: new Uint8Array(0), timeoutMs: 0 };
+  return { descriptor: undefined, request: new Uint8Array(0), timeout_ms: 0 };
 }
 
 export const RpcRequest: MessageFns<RpcRequest> = {
@@ -634,7 +638,7 @@ export const RpcRequest: MessageFns<RpcRequest> = {
     return {
       descriptor: isSet(object.descriptor) ? RpcDescriptor.fromJSON(object.descriptor) : undefined,
       request: isSet(object.request) ? bytesFromBase64(object.request) : new Uint8Array(0),
-      timeoutMs: isSet(object.timeoutMs) ? globalThis.Number(object.timeoutMs) : 0,
+      timeout_ms: isSet(object.timeout_ms) ? globalThis.Number(object.timeout_ms) : 0,
     };
   },
 
@@ -646,8 +650,8 @@ export const RpcRequest: MessageFns<RpcRequest> = {
     if (message.request.length !== 0) {
       obj.request = base64FromBytes(message.request);
     }
-    if (message.timeoutMs !== 0) {
-      obj.timeoutMs = Math.round(message.timeoutMs);
+    if (message.timeout_ms !== 0) {
+      obj.timeout_ms = Math.round(message.timeout_ms);
     }
     return obj;
   },
@@ -661,13 +665,13 @@ export const RpcRequest: MessageFns<RpcRequest> = {
       ? RpcDescriptor.fromPartial(object.descriptor)
       : undefined;
     message.request = object.request ?? new Uint8Array(0);
-    message.timeoutMs = object.timeoutMs ?? 0;
+    message.timeout_ms = object.timeout_ms ?? 0;
     return message;
   },
 };
 
 function createBaseRpcResponse(): RpcResponse {
-  return { response: new Uint8Array(0), error: undefined, runtimeUs: 0 };
+  return { response: new Uint8Array(0), error: undefined, runtime_us: 0 };
 }
 
 export const RpcResponse: MessageFns<RpcResponse> = {
@@ -675,7 +679,7 @@ export const RpcResponse: MessageFns<RpcResponse> = {
     return {
       response: isSet(object.response) ? bytesFromBase64(object.response) : new Uint8Array(0),
       error: isSet(object.error) ? Error.fromJSON(object.error) : undefined,
-      runtimeUs: isSet(object.runtimeUs) ? globalThis.Number(object.runtimeUs) : 0,
+      runtime_us: isSet(object.runtime_us) ? globalThis.Number(object.runtime_us) : 0,
     };
   },
 
@@ -687,8 +691,8 @@ export const RpcResponse: MessageFns<RpcResponse> = {
     if (message.error !== undefined) {
       obj.error = Error.toJSON(message.error);
     }
-    if (message.runtimeUs !== 0) {
-      obj.runtimeUs = Math.round(message.runtimeUs);
+    if (message.runtime_us !== 0) {
+      obj.runtime_us = Math.round(message.runtime_us);
     }
     return obj;
   },
@@ -700,20 +704,20 @@ export const RpcResponse: MessageFns<RpcResponse> = {
     const message = createBaseRpcResponse();
     message.response = object.response ?? new Uint8Array(0);
     message.error = (object.error !== undefined && object.error !== null) ? Error.fromPartial(object.error) : undefined;
-    message.runtimeUs = object.runtimeUs ?? 0;
+    message.runtime_us = object.runtime_us ?? 0;
     return message;
   },
 };
 
 function createBaseRpcCompressionInfo(): RpcCompressionInfo {
-  return { algo: 0, acceptedAlgo: 0 };
+  return { algo: 0, accepted_algo: 0 };
 }
 
 export const RpcCompressionInfo: MessageFns<RpcCompressionInfo> = {
   fromJSON(object: any): RpcCompressionInfo {
     return {
       algo: isSet(object.algo) ? compressionAlgoPbFromJSON(object.algo) : 0,
-      acceptedAlgo: isSet(object.acceptedAlgo) ? compressionAlgoPbFromJSON(object.acceptedAlgo) : 0,
+      accepted_algo: isSet(object.accepted_algo) ? compressionAlgoPbFromJSON(object.accepted_algo) : 0,
     };
   },
 
@@ -722,8 +726,8 @@ export const RpcCompressionInfo: MessageFns<RpcCompressionInfo> = {
     if (message.algo !== 0) {
       obj.algo = compressionAlgoPbToJSON(message.algo);
     }
-    if (message.acceptedAlgo !== 0) {
-      obj.acceptedAlgo = compressionAlgoPbToJSON(message.acceptedAlgo);
+    if (message.accepted_algo !== 0) {
+      obj.accepted_algo = compressionAlgoPbToJSON(message.accepted_algo);
     }
     return obj;
   },
@@ -734,52 +738,54 @@ export const RpcCompressionInfo: MessageFns<RpcCompressionInfo> = {
   fromPartial<I extends Exact<DeepPartial<RpcCompressionInfo>, I>>(object: I): RpcCompressionInfo {
     const message = createBaseRpcCompressionInfo();
     message.algo = object.algo ?? 0;
-    message.acceptedAlgo = object.acceptedAlgo ?? 0;
+    message.accepted_algo = object.accepted_algo ?? 0;
     return message;
   },
 };
 
 function createBaseRpcPacket(): RpcPacket {
   return {
-    fromPeer: 0,
-    toPeer: 0,
-    transactionId: 0,
+    from_peer: 0,
+    to_peer: 0,
+    transaction_id: 0,
     descriptor: undefined,
     body: new Uint8Array(0),
-    isRequest: false,
-    totalPieces: 0,
-    pieceIdx: 0,
-    traceId: 0,
-    compressionInfo: undefined,
+    is_request: false,
+    total_pieces: 0,
+    piece_idx: 0,
+    trace_id: 0,
+    compression_info: undefined,
   };
 }
 
 export const RpcPacket: MessageFns<RpcPacket> = {
   fromJSON(object: any): RpcPacket {
     return {
-      fromPeer: isSet(object.fromPeer) ? globalThis.Number(object.fromPeer) : 0,
-      toPeer: isSet(object.toPeer) ? globalThis.Number(object.toPeer) : 0,
-      transactionId: isSet(object.transactionId) ? globalThis.Number(object.transactionId) : 0,
+      from_peer: isSet(object.from_peer) ? globalThis.Number(object.from_peer) : 0,
+      to_peer: isSet(object.to_peer) ? globalThis.Number(object.to_peer) : 0,
+      transaction_id: isSet(object.transaction_id) ? globalThis.Number(object.transaction_id) : 0,
       descriptor: isSet(object.descriptor) ? RpcDescriptor.fromJSON(object.descriptor) : undefined,
       body: isSet(object.body) ? bytesFromBase64(object.body) : new Uint8Array(0),
-      isRequest: isSet(object.isRequest) ? globalThis.Boolean(object.isRequest) : false,
-      totalPieces: isSet(object.totalPieces) ? globalThis.Number(object.totalPieces) : 0,
-      pieceIdx: isSet(object.pieceIdx) ? globalThis.Number(object.pieceIdx) : 0,
-      traceId: isSet(object.traceId) ? globalThis.Number(object.traceId) : 0,
-      compressionInfo: isSet(object.compressionInfo) ? RpcCompressionInfo.fromJSON(object.compressionInfo) : undefined,
+      is_request: isSet(object.is_request) ? globalThis.Boolean(object.is_request) : false,
+      total_pieces: isSet(object.total_pieces) ? globalThis.Number(object.total_pieces) : 0,
+      piece_idx: isSet(object.piece_idx) ? globalThis.Number(object.piece_idx) : 0,
+      trace_id: isSet(object.trace_id) ? globalThis.Number(object.trace_id) : 0,
+      compression_info: isSet(object.compression_info)
+        ? RpcCompressionInfo.fromJSON(object.compression_info)
+        : undefined,
     };
   },
 
   toJSON(message: RpcPacket): unknown {
     const obj: any = {};
-    if (message.fromPeer !== 0) {
-      obj.fromPeer = Math.round(message.fromPeer);
+    if (message.from_peer !== 0) {
+      obj.from_peer = Math.round(message.from_peer);
     }
-    if (message.toPeer !== 0) {
-      obj.toPeer = Math.round(message.toPeer);
+    if (message.to_peer !== 0) {
+      obj.to_peer = Math.round(message.to_peer);
     }
-    if (message.transactionId !== 0) {
-      obj.transactionId = Math.round(message.transactionId);
+    if (message.transaction_id !== 0) {
+      obj.transaction_id = Math.round(message.transaction_id);
     }
     if (message.descriptor !== undefined) {
       obj.descriptor = RpcDescriptor.toJSON(message.descriptor);
@@ -787,20 +793,20 @@ export const RpcPacket: MessageFns<RpcPacket> = {
     if (message.body.length !== 0) {
       obj.body = base64FromBytes(message.body);
     }
-    if (message.isRequest !== false) {
-      obj.isRequest = message.isRequest;
+    if (message.is_request !== false) {
+      obj.is_request = message.is_request;
     }
-    if (message.totalPieces !== 0) {
-      obj.totalPieces = Math.round(message.totalPieces);
+    if (message.total_pieces !== 0) {
+      obj.total_pieces = Math.round(message.total_pieces);
     }
-    if (message.pieceIdx !== 0) {
-      obj.pieceIdx = Math.round(message.pieceIdx);
+    if (message.piece_idx !== 0) {
+      obj.piece_idx = Math.round(message.piece_idx);
     }
-    if (message.traceId !== 0) {
-      obj.traceId = Math.round(message.traceId);
+    if (message.trace_id !== 0) {
+      obj.trace_id = Math.round(message.trace_id);
     }
-    if (message.compressionInfo !== undefined) {
-      obj.compressionInfo = RpcCompressionInfo.toJSON(message.compressionInfo);
+    if (message.compression_info !== undefined) {
+      obj.compression_info = RpcCompressionInfo.toJSON(message.compression_info);
     }
     return obj;
   },
@@ -810,19 +816,19 @@ export const RpcPacket: MessageFns<RpcPacket> = {
   },
   fromPartial<I extends Exact<DeepPartial<RpcPacket>, I>>(object: I): RpcPacket {
     const message = createBaseRpcPacket();
-    message.fromPeer = object.fromPeer ?? 0;
-    message.toPeer = object.toPeer ?? 0;
-    message.transactionId = object.transactionId ?? 0;
+    message.from_peer = object.from_peer ?? 0;
+    message.to_peer = object.to_peer ?? 0;
+    message.transaction_id = object.transaction_id ?? 0;
     message.descriptor = (object.descriptor !== undefined && object.descriptor !== null)
       ? RpcDescriptor.fromPartial(object.descriptor)
       : undefined;
     message.body = object.body ?? new Uint8Array(0);
-    message.isRequest = object.isRequest ?? false;
-    message.totalPieces = object.totalPieces ?? 0;
-    message.pieceIdx = object.pieceIdx ?? 0;
-    message.traceId = object.traceId ?? 0;
-    message.compressionInfo = (object.compressionInfo !== undefined && object.compressionInfo !== null)
-      ? RpcCompressionInfo.fromPartial(object.compressionInfo)
+    message.is_request = object.is_request ?? false;
+    message.total_pieces = object.total_pieces ?? 0;
+    message.piece_idx = object.piece_idx ?? 0;
+    message.trace_id = object.trace_id ?? 0;
+    message.compression_info = (object.compression_info !== undefined && object.compression_info !== null)
+      ? RpcCompressionInfo.fromPartial(object.compression_info)
       : undefined;
     return message;
   },
@@ -1001,14 +1007,14 @@ export const IpAddr: MessageFns<IpAddr> = {
 };
 
 function createBaseIpv4Inet(): Ipv4Inet {
-  return { address: undefined, networkLength: 0 };
+  return { address: undefined, network_length: 0 };
 }
 
 export const Ipv4Inet: MessageFns<Ipv4Inet> = {
   fromJSON(object: any): Ipv4Inet {
     return {
       address: isSet(object.address) ? Ipv4Addr.fromJSON(object.address) : undefined,
-      networkLength: isSet(object.networkLength) ? globalThis.Number(object.networkLength) : 0,
+      network_length: isSet(object.network_length) ? globalThis.Number(object.network_length) : 0,
     };
   },
 
@@ -1017,8 +1023,8 @@ export const Ipv4Inet: MessageFns<Ipv4Inet> = {
     if (message.address !== undefined) {
       obj.address = Ipv4Addr.toJSON(message.address);
     }
-    if (message.networkLength !== 0) {
-      obj.networkLength = Math.round(message.networkLength);
+    if (message.network_length !== 0) {
+      obj.network_length = Math.round(message.network_length);
     }
     return obj;
   },
@@ -1031,20 +1037,20 @@ export const Ipv4Inet: MessageFns<Ipv4Inet> = {
     message.address = (object.address !== undefined && object.address !== null)
       ? Ipv4Addr.fromPartial(object.address)
       : undefined;
-    message.networkLength = object.networkLength ?? 0;
+    message.network_length = object.network_length ?? 0;
     return message;
   },
 };
 
 function createBaseIpv6Inet(): Ipv6Inet {
-  return { address: undefined, networkLength: 0 };
+  return { address: undefined, network_length: 0 };
 }
 
 export const Ipv6Inet: MessageFns<Ipv6Inet> = {
   fromJSON(object: any): Ipv6Inet {
     return {
       address: isSet(object.address) ? Ipv6Addr.fromJSON(object.address) : undefined,
-      networkLength: isSet(object.networkLength) ? globalThis.Number(object.networkLength) : 0,
+      network_length: isSet(object.network_length) ? globalThis.Number(object.network_length) : 0,
     };
   },
 
@@ -1053,8 +1059,8 @@ export const Ipv6Inet: MessageFns<Ipv6Inet> = {
     if (message.address !== undefined) {
       obj.address = Ipv6Addr.toJSON(message.address);
     }
-    if (message.networkLength !== 0) {
-      obj.networkLength = Math.round(message.networkLength);
+    if (message.network_length !== 0) {
+      obj.network_length = Math.round(message.network_length);
     }
     return obj;
   },
@@ -1067,7 +1073,7 @@ export const Ipv6Inet: MessageFns<Ipv6Inet> = {
     message.address = (object.address !== undefined && object.address !== null)
       ? Ipv6Addr.fromPartial(object.address)
       : undefined;
-    message.networkLength = object.networkLength ?? 0;
+    message.network_length = object.network_length ?? 0;
     return message;
   },
 };
@@ -1173,28 +1179,28 @@ export const SocketAddr: MessageFns<SocketAddr> = {
 };
 
 function createBaseTunnelInfo(): TunnelInfo {
-  return { tunnelType: "", localAddr: undefined, remoteAddr: undefined };
+  return { tunnel_type: "", local_addr: undefined, remote_addr: undefined };
 }
 
 export const TunnelInfo: MessageFns<TunnelInfo> = {
   fromJSON(object: any): TunnelInfo {
     return {
-      tunnelType: isSet(object.tunnelType) ? globalThis.String(object.tunnelType) : "",
-      localAddr: isSet(object.localAddr) ? Url.fromJSON(object.localAddr) : undefined,
-      remoteAddr: isSet(object.remoteAddr) ? Url.fromJSON(object.remoteAddr) : undefined,
+      tunnel_type: isSet(object.tunnel_type) ? globalThis.String(object.tunnel_type) : "",
+      local_addr: isSet(object.local_addr) ? Url.fromJSON(object.local_addr) : undefined,
+      remote_addr: isSet(object.remote_addr) ? Url.fromJSON(object.remote_addr) : undefined,
     };
   },
 
   toJSON(message: TunnelInfo): unknown {
     const obj: any = {};
-    if (message.tunnelType !== "") {
-      obj.tunnelType = message.tunnelType;
+    if (message.tunnel_type !== "") {
+      obj.tunnel_type = message.tunnel_type;
     }
-    if (message.localAddr !== undefined) {
-      obj.localAddr = Url.toJSON(message.localAddr);
+    if (message.local_addr !== undefined) {
+      obj.local_addr = Url.toJSON(message.local_addr);
     }
-    if (message.remoteAddr !== undefined) {
-      obj.remoteAddr = Url.toJSON(message.remoteAddr);
+    if (message.remote_addr !== undefined) {
+      obj.remote_addr = Url.toJSON(message.remote_addr);
     }
     return obj;
   },
@@ -1204,52 +1210,54 @@ export const TunnelInfo: MessageFns<TunnelInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<TunnelInfo>, I>>(object: I): TunnelInfo {
     const message = createBaseTunnelInfo();
-    message.tunnelType = object.tunnelType ?? "";
-    message.localAddr = (object.localAddr !== undefined && object.localAddr !== null)
-      ? Url.fromPartial(object.localAddr)
+    message.tunnel_type = object.tunnel_type ?? "";
+    message.local_addr = (object.local_addr !== undefined && object.local_addr !== null)
+      ? Url.fromPartial(object.local_addr)
       : undefined;
-    message.remoteAddr = (object.remoteAddr !== undefined && object.remoteAddr !== null)
-      ? Url.fromPartial(object.remoteAddr)
+    message.remote_addr = (object.remote_addr !== undefined && object.remote_addr !== null)
+      ? Url.fromPartial(object.remote_addr)
       : undefined;
     return message;
   },
 };
 
 function createBaseStunInfo(): StunInfo {
-  return { udpNatType: 0, tcpNatType: 0, lastUpdateTime: 0, publicIp: [], minPort: 0, maxPort: 0 };
+  return { udp_nat_type: 0, tcp_nat_type: 0, last_update_time: 0, public_ip: [], min_port: 0, max_port: 0 };
 }
 
 export const StunInfo: MessageFns<StunInfo> = {
   fromJSON(object: any): StunInfo {
     return {
-      udpNatType: isSet(object.udpNatType) ? natTypeFromJSON(object.udpNatType) : 0,
-      tcpNatType: isSet(object.tcpNatType) ? natTypeFromJSON(object.tcpNatType) : 0,
-      lastUpdateTime: isSet(object.lastUpdateTime) ? globalThis.Number(object.lastUpdateTime) : 0,
-      publicIp: globalThis.Array.isArray(object?.publicIp) ? object.publicIp.map((e: any) => globalThis.String(e)) : [],
-      minPort: isSet(object.minPort) ? globalThis.Number(object.minPort) : 0,
-      maxPort: isSet(object.maxPort) ? globalThis.Number(object.maxPort) : 0,
+      udp_nat_type: isSet(object.udp_nat_type) ? natTypeFromJSON(object.udp_nat_type) : 0,
+      tcp_nat_type: isSet(object.tcp_nat_type) ? natTypeFromJSON(object.tcp_nat_type) : 0,
+      last_update_time: isSet(object.last_update_time) ? globalThis.Number(object.last_update_time) : 0,
+      public_ip: globalThis.Array.isArray(object?.public_ip)
+        ? object.public_ip.map((e: any) => globalThis.String(e))
+        : [],
+      min_port: isSet(object.min_port) ? globalThis.Number(object.min_port) : 0,
+      max_port: isSet(object.max_port) ? globalThis.Number(object.max_port) : 0,
     };
   },
 
   toJSON(message: StunInfo): unknown {
     const obj: any = {};
-    if (message.udpNatType !== 0) {
-      obj.udpNatType = natTypeToJSON(message.udpNatType);
+    if (message.udp_nat_type !== 0) {
+      obj.udp_nat_type = natTypeToJSON(message.udp_nat_type);
     }
-    if (message.tcpNatType !== 0) {
-      obj.tcpNatType = natTypeToJSON(message.tcpNatType);
+    if (message.tcp_nat_type !== 0) {
+      obj.tcp_nat_type = natTypeToJSON(message.tcp_nat_type);
     }
-    if (message.lastUpdateTime !== 0) {
-      obj.lastUpdateTime = Math.round(message.lastUpdateTime);
+    if (message.last_update_time !== 0) {
+      obj.last_update_time = Math.round(message.last_update_time);
     }
-    if (message.publicIp?.length) {
-      obj.publicIp = message.publicIp;
+    if (message.public_ip?.length) {
+      obj.public_ip = message.public_ip;
     }
-    if (message.minPort !== 0) {
-      obj.minPort = Math.round(message.minPort);
+    if (message.min_port !== 0) {
+      obj.min_port = Math.round(message.min_port);
     }
-    if (message.maxPort !== 0) {
-      obj.maxPort = Math.round(message.maxPort);
+    if (message.max_port !== 0) {
+      obj.max_port = Math.round(message.max_port);
     }
     return obj;
   },
@@ -1259,53 +1267,55 @@ export const StunInfo: MessageFns<StunInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<StunInfo>, I>>(object: I): StunInfo {
     const message = createBaseStunInfo();
-    message.udpNatType = object.udpNatType ?? 0;
-    message.tcpNatType = object.tcpNatType ?? 0;
-    message.lastUpdateTime = object.lastUpdateTime ?? 0;
-    message.publicIp = object.publicIp?.map((e) => e) || [];
-    message.minPort = object.minPort ?? 0;
-    message.maxPort = object.maxPort ?? 0;
+    message.udp_nat_type = object.udp_nat_type ?? 0;
+    message.tcp_nat_type = object.tcp_nat_type ?? 0;
+    message.last_update_time = object.last_update_time ?? 0;
+    message.public_ip = object.public_ip?.map((e) => e) || [];
+    message.min_port = object.min_port ?? 0;
+    message.max_port = object.max_port ?? 0;
     return message;
   },
 };
 
 function createBasePeerFeatureFlag(): PeerFeatureFlag {
   return {
-    isPublicServer: false,
-    avoidRelayData: false,
-    kcpInput: false,
-    noRelayKcp: false,
-    supportConnListSync: false,
+    is_public_server: false,
+    avoid_relay_data: false,
+    kcp_input: false,
+    no_relay_kcp: false,
+    support_conn_list_sync: false,
   };
 }
 
 export const PeerFeatureFlag: MessageFns<PeerFeatureFlag> = {
   fromJSON(object: any): PeerFeatureFlag {
     return {
-      isPublicServer: isSet(object.isPublicServer) ? globalThis.Boolean(object.isPublicServer) : false,
-      avoidRelayData: isSet(object.avoidRelayData) ? globalThis.Boolean(object.avoidRelayData) : false,
-      kcpInput: isSet(object.kcpInput) ? globalThis.Boolean(object.kcpInput) : false,
-      noRelayKcp: isSet(object.noRelayKcp) ? globalThis.Boolean(object.noRelayKcp) : false,
-      supportConnListSync: isSet(object.supportConnListSync) ? globalThis.Boolean(object.supportConnListSync) : false,
+      is_public_server: isSet(object.is_public_server) ? globalThis.Boolean(object.is_public_server) : false,
+      avoid_relay_data: isSet(object.avoid_relay_data) ? globalThis.Boolean(object.avoid_relay_data) : false,
+      kcp_input: isSet(object.kcp_input) ? globalThis.Boolean(object.kcp_input) : false,
+      no_relay_kcp: isSet(object.no_relay_kcp) ? globalThis.Boolean(object.no_relay_kcp) : false,
+      support_conn_list_sync: isSet(object.support_conn_list_sync)
+        ? globalThis.Boolean(object.support_conn_list_sync)
+        : false,
     };
   },
 
   toJSON(message: PeerFeatureFlag): unknown {
     const obj: any = {};
-    if (message.isPublicServer !== false) {
-      obj.isPublicServer = message.isPublicServer;
+    if (message.is_public_server !== false) {
+      obj.is_public_server = message.is_public_server;
     }
-    if (message.avoidRelayData !== false) {
-      obj.avoidRelayData = message.avoidRelayData;
+    if (message.avoid_relay_data !== false) {
+      obj.avoid_relay_data = message.avoid_relay_data;
     }
-    if (message.kcpInput !== false) {
-      obj.kcpInput = message.kcpInput;
+    if (message.kcp_input !== false) {
+      obj.kcp_input = message.kcp_input;
     }
-    if (message.noRelayKcp !== false) {
-      obj.noRelayKcp = message.noRelayKcp;
+    if (message.no_relay_kcp !== false) {
+      obj.no_relay_kcp = message.no_relay_kcp;
     }
-    if (message.supportConnListSync !== false) {
-      obj.supportConnListSync = message.supportConnListSync;
+    if (message.support_conn_list_sync !== false) {
+      obj.support_conn_list_sync = message.support_conn_list_sync;
     }
     return obj;
   },
@@ -1315,38 +1325,38 @@ export const PeerFeatureFlag: MessageFns<PeerFeatureFlag> = {
   },
   fromPartial<I extends Exact<DeepPartial<PeerFeatureFlag>, I>>(object: I): PeerFeatureFlag {
     const message = createBasePeerFeatureFlag();
-    message.isPublicServer = object.isPublicServer ?? false;
-    message.avoidRelayData = object.avoidRelayData ?? false;
-    message.kcpInput = object.kcpInput ?? false;
-    message.noRelayKcp = object.noRelayKcp ?? false;
-    message.supportConnListSync = object.supportConnListSync ?? false;
+    message.is_public_server = object.is_public_server ?? false;
+    message.avoid_relay_data = object.avoid_relay_data ?? false;
+    message.kcp_input = object.kcp_input ?? false;
+    message.no_relay_kcp = object.no_relay_kcp ?? false;
+    message.support_conn_list_sync = object.support_conn_list_sync ?? false;
     return message;
   },
 };
 
 function createBasePortForwardConfigPb(): PortForwardConfigPb {
-  return { bindAddr: undefined, dstAddr: undefined, socketType: 0 };
+  return { bind_addr: undefined, dst_addr: undefined, socket_type: 0 };
 }
 
 export const PortForwardConfigPb: MessageFns<PortForwardConfigPb> = {
   fromJSON(object: any): PortForwardConfigPb {
     return {
-      bindAddr: isSet(object.bindAddr) ? SocketAddr.fromJSON(object.bindAddr) : undefined,
-      dstAddr: isSet(object.dstAddr) ? SocketAddr.fromJSON(object.dstAddr) : undefined,
-      socketType: isSet(object.socketType) ? socketTypeFromJSON(object.socketType) : 0,
+      bind_addr: isSet(object.bind_addr) ? SocketAddr.fromJSON(object.bind_addr) : undefined,
+      dst_addr: isSet(object.dst_addr) ? SocketAddr.fromJSON(object.dst_addr) : undefined,
+      socket_type: isSet(object.socket_type) ? socketTypeFromJSON(object.socket_type) : 0,
     };
   },
 
   toJSON(message: PortForwardConfigPb): unknown {
     const obj: any = {};
-    if (message.bindAddr !== undefined) {
-      obj.bindAddr = SocketAddr.toJSON(message.bindAddr);
+    if (message.bind_addr !== undefined) {
+      obj.bind_addr = SocketAddr.toJSON(message.bind_addr);
     }
-    if (message.dstAddr !== undefined) {
-      obj.dstAddr = SocketAddr.toJSON(message.dstAddr);
+    if (message.dst_addr !== undefined) {
+      obj.dst_addr = SocketAddr.toJSON(message.dst_addr);
     }
-    if (message.socketType !== 0) {
-      obj.socketType = socketTypeToJSON(message.socketType);
+    if (message.socket_type !== 0) {
+      obj.socket_type = socketTypeToJSON(message.socket_type);
     }
     return obj;
   },
@@ -1356,30 +1366,30 @@ export const PortForwardConfigPb: MessageFns<PortForwardConfigPb> = {
   },
   fromPartial<I extends Exact<DeepPartial<PortForwardConfigPb>, I>>(object: I): PortForwardConfigPb {
     const message = createBasePortForwardConfigPb();
-    message.bindAddr = (object.bindAddr !== undefined && object.bindAddr !== null)
-      ? SocketAddr.fromPartial(object.bindAddr)
+    message.bind_addr = (object.bind_addr !== undefined && object.bind_addr !== null)
+      ? SocketAddr.fromPartial(object.bind_addr)
       : undefined;
-    message.dstAddr = (object.dstAddr !== undefined && object.dstAddr !== null)
-      ? SocketAddr.fromPartial(object.dstAddr)
+    message.dst_addr = (object.dst_addr !== undefined && object.dst_addr !== null)
+      ? SocketAddr.fromPartial(object.dst_addr)
       : undefined;
-    message.socketType = object.socketType ?? 0;
+    message.socket_type = object.socket_type ?? 0;
     return message;
   },
 };
 
 function createBaseProxyDstInfo(): ProxyDstInfo {
-  return { dstAddr: undefined };
+  return { dst_addr: undefined };
 }
 
 export const ProxyDstInfo: MessageFns<ProxyDstInfo> = {
   fromJSON(object: any): ProxyDstInfo {
-    return { dstAddr: isSet(object.dstAddr) ? SocketAddr.fromJSON(object.dstAddr) : undefined };
+    return { dst_addr: isSet(object.dst_addr) ? SocketAddr.fromJSON(object.dst_addr) : undefined };
   },
 
   toJSON(message: ProxyDstInfo): unknown {
     const obj: any = {};
-    if (message.dstAddr !== undefined) {
-      obj.dstAddr = SocketAddr.toJSON(message.dstAddr);
+    if (message.dst_addr !== undefined) {
+      obj.dst_addr = SocketAddr.toJSON(message.dst_addr);
     }
     return obj;
   },
@@ -1389,36 +1399,36 @@ export const ProxyDstInfo: MessageFns<ProxyDstInfo> = {
   },
   fromPartial<I extends Exact<DeepPartial<ProxyDstInfo>, I>>(object: I): ProxyDstInfo {
     const message = createBaseProxyDstInfo();
-    message.dstAddr = (object.dstAddr !== undefined && object.dstAddr !== null)
-      ? SocketAddr.fromPartial(object.dstAddr)
+    message.dst_addr = (object.dst_addr !== undefined && object.dst_addr !== null)
+      ? SocketAddr.fromPartial(object.dst_addr)
       : undefined;
     return message;
   },
 };
 
 function createBaseLimiterConfig(): LimiterConfig {
-  return { burstRate: undefined, bps: undefined, fillDurationMs: undefined };
+  return { burst_rate: undefined, bps: undefined, fill_duration_ms: undefined };
 }
 
 export const LimiterConfig: MessageFns<LimiterConfig> = {
   fromJSON(object: any): LimiterConfig {
     return {
-      burstRate: isSet(object.burstRate) ? globalThis.Number(object.burstRate) : undefined,
+      burst_rate: isSet(object.burst_rate) ? globalThis.Number(object.burst_rate) : undefined,
       bps: isSet(object.bps) ? globalThis.Number(object.bps) : undefined,
-      fillDurationMs: isSet(object.fillDurationMs) ? globalThis.Number(object.fillDurationMs) : undefined,
+      fill_duration_ms: isSet(object.fill_duration_ms) ? globalThis.Number(object.fill_duration_ms) : undefined,
     };
   },
 
   toJSON(message: LimiterConfig): unknown {
     const obj: any = {};
-    if (message.burstRate !== undefined) {
-      obj.burstRate = Math.round(message.burstRate);
+    if (message.burst_rate !== undefined) {
+      obj.burst_rate = Math.round(message.burst_rate);
     }
     if (message.bps !== undefined) {
       obj.bps = Math.round(message.bps);
     }
-    if (message.fillDurationMs !== undefined) {
-      obj.fillDurationMs = Math.round(message.fillDurationMs);
+    if (message.fill_duration_ms !== undefined) {
+      obj.fill_duration_ms = Math.round(message.fill_duration_ms);
     }
     return obj;
   },
@@ -1428,9 +1438,9 @@ export const LimiterConfig: MessageFns<LimiterConfig> = {
   },
   fromPartial<I extends Exact<DeepPartial<LimiterConfig>, I>>(object: I): LimiterConfig {
     const message = createBaseLimiterConfig();
-    message.burstRate = object.burstRate ?? undefined;
+    message.burst_rate = object.burst_rate ?? undefined;
     message.bps = object.bps ?? undefined;
-    message.fillDurationMs = object.fillDurationMs ?? undefined;
+    message.fill_duration_ms = object.fill_duration_ms ?? undefined;
     return message;
   },
 };
