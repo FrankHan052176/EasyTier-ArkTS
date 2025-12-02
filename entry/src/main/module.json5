@@ -86,6 +86,14 @@
         "name": "EasyTierAbility",
         "srcEntry": "./ets/entryability/EasyTierAbility.ets",
         "type": "vpn"
+      },
+      {
+        "name": "StatusBarViewAbility",
+        "icon": "$media:layered_image",
+        "description": "statusBar",
+        "type": "statusBarView",
+        "exported": true,
+        "srcEntry": "./ets/entryability/StatusBarViewAbility.ets"
       }
     ],
     "requestPermissions": [

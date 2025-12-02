@@ -8,6 +8,8 @@ import { PermissionUtil } from "./PermissionUtil";
 import { PreferenceUtil } from "./PreferencesUtil";
 import { LayoutUtil } from "./LayoutUtil";
 import { WebUtil } from "./WebUtil";
+import { deviceInfo } from "@kit.BasicServicesKit";
+import { EventHelper } from "./util/EventHelper";
 
 @LogLocate("AppManager")
 export class AppManager {
@@ -23,7 +25,13 @@ export class AppManager {
     AppManager.data.init()
     AppManager.content.init(uiContext)
     ContentUtil.initConfigFields()
-    AppManager.easytier.init()
+    if (deviceInfo.productModel !== "emulator") {
+      AppManager.easytier.init()
+    }else {
+      setInterval(() => {
+        EventHelper.commonPublishData("status_bar_infos", "test1 test2")
+      }, 100)
+    }
     AppManager.permission.updatePermStatus()
     try {
       AppManager.preference.init(preferences.getPreferencesSync(AppManager.content.context, { name: 'EasyTierPreferences' }))

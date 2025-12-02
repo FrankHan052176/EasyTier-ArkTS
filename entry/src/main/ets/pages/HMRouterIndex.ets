@@ -8,6 +8,10 @@ import { DragOverlayBuilder } from "../components/util/DragOverlay";
 import { NodeNameMap } from "./nodes/CompNode";
 import { Position } from "../LayoutUtil"
 import { DialogHub, DialogMode } from "@hadss/dialoghub";
+import { statusBarManager } from "@kit.StatusBarExtensionKit";
+import { image } from "@kit.ImageKit";
+import { Logger } from "../util/Logger";
+import { deviceInfo } from "@kit.BasicServicesKit";
 
 class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
   initializeModifier(instance: NavigationAttribute): void {
@@ -35,7 +39,7 @@ export struct HMRouterIndex {
   dragType: string | undefined
   onlyDrag: boolean = false
 
-  aboutToAppear(): void {
+  async aboutToAppear(): Promise<void> {
     DialogHub.init(this.getUIContext(), DialogMode.CUSTOM_DIALOG);
     AppManager.init(this.getUIContext())
     EventHelper.emitterListener("drag_overlay_on", (data) => {
@@ -68,6 +72,39 @@ export struct HMRouterIndex {
       }
     };
     this.getUIContext().getHostContext()?.getApplicationContext().on('environment', environmentCallback);
+    if (canIUse("SystemCapability.PCService.StatusBarManager")) {
+      const blackFileData = this.getUIContext().getHostContext()!.resourceManager.getRawFileContentSync('statusBar.svg');
+      const blackBuffer = blackFileData.buffer;
+      const blackImageSource = image.createImageSource(blackBuffer);
+      let blackPixelMap = await blackImageSource.createPixelMap();
+      let item: statusBarManager.StatusBarItem = {
+        icons: {
+          white: blackPixelMap,
+          black: blackPixelMap
+        },
+        quickOperation: {
+          abilityName: "StatusBarViewAbility",
+          title: "EasyTier v"+(deviceInfo.productModel !== "emulator"?AppManager.easytier.version().split("-")[0]:"N/A"),
+          height: 300
+        },
+        statusBarGroupMenu: [
+          [
+            {
+              title: "打开主界面",
+              menuAction: {
+                abilityName: "EntryAbility"
+              }
+            }
+          ]
+        ]
+      };
+
+      try {
+        statusBarManager.addToStatusBar(this.getUIContext().getHostContext(), item);
+      } catch (error) {
+        Logger.error(`addToStatusBar failed. error code: ${error.code}, error message: ${error.message}`);
+      }
+    }
   }
 
   build() {

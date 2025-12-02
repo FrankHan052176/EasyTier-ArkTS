@@ -1,6 +1,5 @@
-import { distributedKVStore } from "@kit.ArkData";
 import { Logger, LogLocate } from "./util/Logger";
-import { JSON, util } from "@kit.ArkTS";
+import { util } from "@kit.ArkTS";
 import { FieldValueDataSource } from "./class/FieldValueDataSource";
 import { Cidr } from "./class/config/Cidr";
 import { Url } from "./class/config/Url";
@@ -41,18 +40,8 @@ export class DataUtil {
       if (type === "cidr" || type === "route") {
         dataSource.add(new Cidr())
       }else if (type === "peer" || type === "listener" || type === "mappedListener") {
-        if (type === "peer") {
-          let data = new Url()
-          if (data.fromString("tcp://frankhan.top:22345")) {
-            dataSource.add(data)
-          }
-        }
         dataSource.add(new Url())
       }else if (type === "ip") {
-        let data = new IP()
-        if (data.fromString("10.53.176.1")) {
-          dataSource.add(data)
-        }
         dataSource.add(new IP())
       }else if (type === "string") {
         dataSource.add(new NetworkName())
@@ -65,16 +54,6 @@ export class DataUtil {
   }
 
   public init() {
-    let kvManager: distributedKVStore.KVManager | undefined = undefined;
-    try {
-      const kvManagerConfig: distributedKVStore.KVManagerConfig = {
-        bundleName: 'top.frankhan.easytier',
-        context: AppManager.content.context!,
-      }
-      kvManager = distributedKVStore.createKVManager(kvManagerConfig);
-    } catch (e) {
-      Logger.info(`Failed to create KVManager. \n${JSON.stringify(e)}`, DataUtil);
-    }
     this.favoriteInstance = this.newConfig("测试Ⅰ").instance_id
     this.newConfig("测试Ⅱ")
     this.newConfig("测试Ⅲ")

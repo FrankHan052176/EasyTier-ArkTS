@@ -10,6 +10,7 @@ import { convertAddrToIp } from './util/Conversion'
 import { NetworkSegment } from './class/NetworkSegment'
 import { SafeSet } from './util/SafeSet'
 import { deviceInfo } from '@kit.BasicServicesKit'
+import { ValueType } from '@kit.ArkData'
 
 @ObservedV2
 export class EasyTierUtil {
@@ -22,6 +23,25 @@ export class EasyTierUtil {
   @Trace needTUN: string | undefined
   tunRoutes: SafeSet<NetworkSegment> = new SafeSet()
 
+  @Monitor("selected")
+  onChange(monitor: IMonitor) {
+    monitor.dirty.forEach((path: string) => {
+      if (AppManager.preference.preferences !== undefined && !AppManager.preference.isInit) {
+        try {
+          Logger.debug("update:"+path+","+monitor.value(path)?.now, this)
+          if (monitor.value(path)?.now) {
+            AppManager.preference.preferences.putSync(path, monitor.value(path)?.now as ValueType)
+          }else {
+            AppManager.preference.preferences.putSync(path, "" as ValueType)
+          }
+          AppManager.preference.preferences.flushSync()
+        } catch (error) {
+          Logger.error(`PreferenceUtil failed to change ${path}.\n${error}`, AppManager.preference)
+        }
+      }
+    })
+  }
+
   init() {
     setInterval(() => {
       this.readLogs()
@@ -29,6 +49,10 @@ export class EasyTierUtil {
     setInterval(() => {
       this.readInfo()
     }, 100)
+  }
+
+  version() {
+    return easytier.easytierVersion()
   }
 
   private addTunRoutes(route: string): boolean {
@@ -108,6 +132,7 @@ export class EasyTierUtil {
         }
       }
     }
+    EventHelper.commonPublishData("status_bar_infos", Array.from(networks.keys()).join(" "))
     for (const uuid of Array.from(this.runningNetworks.keys())) {
       if (!networks.has(uuid)) {
         this.runningNetworks.delete(uuid)

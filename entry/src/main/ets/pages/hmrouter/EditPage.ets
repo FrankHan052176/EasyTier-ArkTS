@@ -39,7 +39,7 @@ export struct EditPage {
       if (deviceInfo.sdkApiVersion >= 20) {
         ListItem()
           .width('100%')
-          .height(138)
+          .height(56)
       }
       ForEach(ContentUtil.fieldList, (field: ConfigField) => {
         ListItem(){
@@ -84,6 +84,10 @@ export struct EditPage {
                 },
                 menuStyle: {
                   backgroundColor: $r("sys.color.interactive_hover")
+                },
+                backIconStyle: {
+                  backgroundColor: $r("sys.color.interactive_hover"),
+                  iconColor: $r("sys.color.font_primary")
                 }
               }
             }
@@ -114,15 +118,15 @@ export struct EditPage {
           }
         })
         .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.FREE)
-        .hideBackButton(true)
+        .titleMode(HdsNavigationTitleMode.MINI)
+        .hideBackButton(false)
         .hideTitleBar(false)
       }else {
         Navigation() {
           this.content()
         }
         .mode(NavigationMode.Stack)
-        .titleMode(NavigationTitleMode.Free)
+        .titleMode(NavigationTitleMode.Mini)
         .title({
           main: this.name!,
           sub: this.uuid!

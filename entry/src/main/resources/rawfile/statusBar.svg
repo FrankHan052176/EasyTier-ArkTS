@@ -1,0 +1,54 @@
+<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <g transform="scale(0.12)">
+    <defs>
+      <linearGradient id="unifiedGradient" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#09cafa" />
+        <stop offset="50%" stop-color="#4FA3E8" />
+        <stop offset="100%" stop-color="#0066CC" />
+      </linearGradient>
+
+      <mask id="outlineMask">
+        <rect width="100%" height="100%" fill="black" />
+        <g id="personIcon">
+          <circle cx="0" cy="-10" r="10"/>
+          <path d="M -15 15 a 15 15 0 0 1 30 0 z"/>
+        </g>
+
+        <g stroke="white" stroke-width="12" fill="none">
+          <circle cx="100" cy="100" r="80" />
+        </g>
+
+        <path id="innerArcTemplate" d="M 88 26 A 50 50 0 0 0 56 95" />
+
+        <g stroke="white" stroke-width="12" stroke-linecap="round" fill="none">
+          <use href="#innerArcTemplate" transform="rotate(0 100 100)" />
+          <use href="#innerArcTemplate" transform="rotate(120 100 100)" />
+          <use href="#innerArcTemplate" transform="rotate(240 100 100)" />
+        </g>
+
+        <use href="#peopleGroup" stroke="black" stroke-width="18" fill="black" />
+        <use href="#peopleGroup" stroke="white" stroke-width="8" fill="none" />
+
+        <g id="peopleGroup">
+          <use href="#personIcon" transform="translate(100 30) scale(1.15)" />
+          <use href="#personIcon" transform="translate(30 150) scale(1.15)" />
+          <use href="#personIcon" transform="translate(170 150) scale(1.15)" />
+        </g>
+      </mask>
+
+      <clipPath id="cut-off-bottom">
+        <rect x="0" y="0" width="200" height="100" />
+      </clipPath>
+    </defs>
+
+    <use href="#peopleGroup" fill="#c6ebfb" />
+
+    <rect width="200" height="200" fill="url(#unifiedGradient)" mask="url(#outlineMask)" />
+
+    <g transform="rotate(-45 100 100)">
+      <rect stroke-width="7" stroke="#0b6dceff" fill="none" rx="7" height="20" width="25" y="95" x="82"/>
+      <rect stroke-width="7" stroke="#34d6ffff" fill="none" rx="7" height="20" width="25" y="85" x="92"/>
+      <rect stroke-width="7" clip-path="url(#cut-off-bottom)" stroke="#0b6dceff" fill="none" rx="7" height="20" width="25" y="95" x="82"/>
+    </g>
+  </g>
+</svg>

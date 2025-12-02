@@ -1,7 +1,6 @@
 import { AppManager } from "../../AppManager"
 import { deviceInfo } from "@kit.BasicServicesKit"
 import { APP_VERSION, APP_VERSION_CODE, BUILD_TIME } from "../../util/info/BuildTime"
-import { easytierVersion } from "easytier-ohrs"
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from "@kit.ArkUI"
 import { EventHelper } from "../../util/EventHelper"
 
@@ -46,7 +45,7 @@ export function Setting_Sheet() {
             .fontColor($r("sys.color.font_primary"))
             .fontSize(16)
         }
-        Text(easytierVersion())
+        Text(deviceInfo.productModel !== "emulator"?AppManager.easytier.version():"N/A")
           .fontColor($r("sys.color.font_primary"))
           .fontSize(16)
           .margin({right: 5})

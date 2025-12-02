@@ -82,9 +82,11 @@ export default class EntryAbility extends UIAbility {
     HMRouterMgr.init({
       context: this.context
     })
-    entry.hilogInit()
-    easytier.hilogGlobalOptions(0,"fhl")
-    easytier.initPanicHook()
+    if (deviceInfo.productModel !== "emulator") {
+      entry.hilogInit()
+      easytier.hilogGlobalOptions(0,"fhl")
+      easytier.initPanicHook()
+    }
     Logger.info("BuildTime:"+BUILD_TIME, this)
     this.start_bg_Listener()
     this.stop_bg_Listener()
@@ -178,8 +180,8 @@ export default class EntryAbility extends UIAbility {
   }
 
   setup_tun(ip: string, mask: number, magicDNS: boolean, inst_id: string, needExitNode: boolean) {
-    Logger.debug("[EntryAbi] 当前IP:"+ip)
-    Logger.debug("[EntryAbi] 当前路由表:"+Array.from(AppManager.easytier.tunRoutes).join(","))
+    Logger.debug("当前IP:"+ip, this)
+    Logger.debug("当前路由表:"+Array.from(AppManager.easytier.tunRoutes).join(","), this)
     let vpnConfig: vpnExtension.VpnConfig = AppManager.preference.vpn_routes || deviceInfo.sdkApiVersion >= 20?{
       addresses: [
         {
@@ -215,9 +217,9 @@ export default class EntryAbility extends UIAbility {
       mtu: 1380
     }
     if (this.vpnConnection === undefined) {
-      Logger.error("[EntryAbi] vpnConnection not found")
+      Logger.error("vpnConnection not found", this)
     }
-    Logger.debug("[EntryAbi] VPN配置:"+JSON.stringify(vpnConfig))
+    Logger.debug("VPN配置:"+JSON.stringify(vpnConfig), this)
     this.vpnConnection!.create(vpnConfig).then((fd) => {
       easytier.setTunFd(inst_id, fd)
     })
@@ -250,18 +252,13 @@ export default class EntryAbility extends UIAbility {
     })
     windowStage.loadContent('pages/HMRouterIndex', (err) => {
       if (err.code) {
-        Logger.info('Failed to load the content. Cause: '+JSON.stringify(err), this);
+        Logger.error('Failed to load the content. Cause: '+JSON.stringify(err), this);
         return;
       }
       windowStage.getMainWindow().then((windowObj) => {
-        // getUIContext接口需要再loadContent调用后调用，否则获取的UIContext可能为空
         DialogHub.init(windowObj.getUIContext());
       })
     });
-  }
-
-  onConfigurationUpdate(newConfig: Configuration): void {
-    AppManager.preference.color_mode = newConfig.colorMode!
   }
 
   onWindowStageDestroy(): void {

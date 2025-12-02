@@ -2,7 +2,6 @@ import { preferences, ValueType } from "@kit.ArkData";
 import easytier from "easytier-ohrs"
 import { AppManager } from "./AppManager";
 import { Logger, LogLocate } from "./util/Logger";
-import { ConfigurationConstant } from "@kit.AbilityKit";
 
 const defaultSequence = 'Instances_0_0_1_1|Favorite_1_0_1_1|Logs_0_1_1_1|SharedPeers_1_1_1_2|QQ_0_2_1_1'
 
@@ -13,7 +12,6 @@ export class PreferenceUtil {
   @Trace show_log: boolean = false
   @Trace raw_comp_sequence: string = defaultSequence
   @Trace vpn_routes: boolean = false
-  @Trace color_mode:ConfigurationConstant.ColorMode = ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT
   @Trace dev: boolean = false
   @Trace dns: string = ""
   inittedLog: boolean = false
@@ -25,6 +23,8 @@ export class PreferenceUtil {
       this.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean
       this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
       this.dns = this.preferences.getSync("dns", false).valueOf() as string
+      let selected = this.preferences.getSync("selected", "").toString()
+      AppManager.easytier.selected = (selected.length > 0 && AppManager.data.configUUIDMap.has(selected))?selected:undefined
       this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
       AppManager.layout.initSequence(this.raw_comp_sequence)
     } catch (error) {
@@ -52,7 +52,7 @@ export class PreferenceUtil {
     monitor.dirty.forEach((path: string) => {
       if (this.preferences !== undefined && !this.isInit) {
         try {
-          Logger.debug("update:"+path+","+monitor.value(path)?.before)
+          Logger.debug("update:"+path+","+monitor.value(path)?.now, this)
           this.preferences.putSync(path, monitor.value(path)?.now as ValueType)
           this.preferences.flushSync()
         } catch (error) {

@@ -3,6 +3,7 @@ import { Logger, LogLocate } from "./util/Logger";
 import easytier from "easytier-ohrs"
 import { NetworkConfigTypeMap } from "./protobuf/proto-type-map";
 import { util } from "@kit.ArkTS";
+import { deviceInfo } from "@kit.BasicServicesKit";
 
 const ignoreField: Set<string> = new Set([
   "networking_method", "public_server_url", "advanced_settings", "dev_name",
@@ -88,7 +89,7 @@ export class ContentUtil {
   }
 
   public static getDefaultConfig(hostname: string): NetworkConfig {
-    let cfg = NetworkConfig.fromJSON(easytier.defaultNetworkConfig())
+    let cfg = NetworkConfig.fromJSON(deviceInfo.productModel !== "emulator"?easytier.defaultNetworkConfig():"{}")
     cfg.networking_method = 1
     cfg.enable_relay_network_whitelist = true
     cfg.enable_manual_routes = true
