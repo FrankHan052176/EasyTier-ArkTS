@@ -1,9 +1,10 @@
 import { lane } from "../../util/Conversion"
-import { convertToProtocol, Protocol, protocolColor } from "../../util/ETConfig"
+import { convertToProtocol, Protocol, protocolBGColor, protocolColor } from "../../util/ETConfig"
 import { FieldValue } from "./Basic"
 import { hdsEffect } from "@kit.UIDesignKit"
 import { deviceInfo } from "@kit.BasicServicesKit"
 import { LengthMetrics } from "@kit.ArkUI"
+import { Svp2fp } from "../../AppManager"
 
 function isDomainOrIP(value: string): boolean {
   return /^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,})$/.test(value)
@@ -22,81 +23,105 @@ function isPort(value: string): boolean {
   }
 }
 
-@Builder
-function LightPoint(proto: Protocol) {
-  Flex()
-    .width(1)
-    .height(1)
-    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-      options: {
-        color: protocolColor(proto),
-        intensity: 1,
-        height: lane(1)*0.3,
-        bloom: 0
-      }
-    }).buildEffect())
-    .animation({
-      curve: Curve.Ease,
-      duration: 300
-    })
-}
-
-@Builder
-function ProtoBuilder(proto: Protocol) {
-  if (deviceInfo.sdkApiVersion >= 20) {
-    Row() {
-      Text(proto.toString().toUpperCase())
-        .fontSize(12)
-        .fontColor(Color.White)
-    }
-    .borderRadius(8)
-    .padding({top: 3, bottom: 3, left: 8, right: 8})
-    .margin({left: 3, top: 3})
-    .backgroundColor(protocolColor(proto))
-    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-    }).buildEffect())
-    .overlay(
-      LightPoint(proto),
-      { align: Alignment.Center }
-    )
-  }else {
-    Row() {
-      Text(proto.toString().toUpperCase())
-        .fontSize(12)
-        .fontColor(Color.White)
-    }
-    .borderRadius(8)
-    .padding({top: 3, bottom: 3, left: 8, right: 8})
-    .margin({left: 3, top: 3})
-    .backgroundColor(protocolColor(proto))
+@ComponentV2
+export struct ProtoBuilder {
+  @Param @Require proto: Protocol
+  build() {
+    Text(this.proto.toString().toUpperCase())
+      .fontSize(11)
+      .fontColor(protocolColor(this.proto))
+      .fontWeight(FontWeight.Bold)
+      .borderRadius(6)
+      .padding({top: 4, bottom: 4, left: 6, right: 6})
+      .backgroundColor(protocolBGColor(this.proto))
   }
+
 }
 
 @Builder
 export function UrlBuilder(value: Url) {
-  Row() {
-    Text(value.domain+":"+value.port)
-      .width('90%')
-      .maxLines(2)
-      .textOverflow({
-        overflow: TextOverflow.Ellipsis
-      })
-      .textAlign(TextAlign.Center)
-      .lineBreakStrategy(LineBreakStrategy.HIGH_QUALITY)
-      .margin({top: 5})
-  }
-  .alignItems(VerticalAlign.Center)
-  .justifyContent(FlexAlign.Center)
-  .overlay(
-    ProtoBuilder(value.proto),
-    {
-      align: Alignment.TopStart
+  Row({space: 8}) {
+    Row() {
+      SymbolGlyph($r("sys.symbol.worldclock"))
+        .fontSize(Svp2fp(24))
+        .fontColor([$r("sys.color.font_secondary")])
     }
-  )
-  .height((lane(1)-10)/2)
+    .backgroundColor($r("sys.color.comp_background_tertiary"))
+    .padding(10)
+    .borderRadius(8)
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.Center)
+    Column({space: 4}) {
+      Row({space: 8}) {
+        ProtoBuilder({proto: value.proto})
+        Text(value.domain)
+          .layoutWeight(100)
+          .maxLines(1)
+          .textOverflow({
+            overflow: TextOverflow.Ellipsis
+          })
+          .textAlign(TextAlign.Start)
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      Text(value.port)
+        .fontSize(14)
+        .width('100%')
+        .fontColor($r("sys.color.font_tertiary"))
+        .maxLines(1)
+        .textOverflow({
+          overflow: TextOverflow.Ellipsis
+        })
+        .textAlign(TextAlign.Start)
+    }
+    .alignItems(HorizontalAlign.Start)
+    .layoutWeight(100)
+  }
   .width('100%')
+  .justifyContent(FlexAlign.Start)
+}
+
+@Builder
+export function ListenerBuilder(value: Url) {
+  Row({space: 8}) {
+    Row() {
+      SymbolGlyph($r("sys.symbol.dot_radiowaves_left_and_right"))
+        .fontSize(Svp2fp(24))
+        .fontColor([$r("sys.color.font_secondary")])
+    }
+    .backgroundColor($r("sys.color.comp_background_tertiary"))
+    .padding(10)
+    .borderRadius(8)
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.Center)
+    Column({space: 4}) {
+      Row({space: 8}) {
+        ProtoBuilder({proto: value.proto})
+        Text(value.domain)
+          .layoutWeight(100)
+          .maxLines(1)
+          .textOverflow({
+            overflow: TextOverflow.Ellipsis
+          })
+          .textAlign(TextAlign.Start)
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      Text(value.port)
+        .fontSize(14)
+        .width('100%')
+        .fontColor($r("sys.color.font_tertiary"))
+        .maxLines(1)
+        .textOverflow({
+          overflow: TextOverflow.Ellipsis
+        })
+        .textAlign(TextAlign.Start)
+    }
+    .alignItems(HorizontalAlign.Start)
+    .layoutWeight(100)
+  }
+  .width('100%')
+  .justifyContent(FlexAlign.Start)
 }
 
 @Extend(Text)
@@ -151,7 +176,9 @@ export struct UrlEditor {
       Row() {
         TextPicker({ range: protocols, selected: protocols.indexOf(EditValue_Url!.proto)})
           .onChange((_value: string | string[], index: number | number[]) => {
-            EditValue_Url!.proto = protocols[index as number]
+            if (EditValue_Url) {
+              EditValue_Url.proto = protocols[index as number]
+            }
           })
           .canLoop(false)
           .defaultPickerItemHeight(36)
@@ -165,7 +192,9 @@ export struct UrlEditor {
           .onChange((value: string) => {
             if (isDomainOrIP(value)) {
               this.domain = false
-              EditValue_Url!.domain = value
+              if (EditValue_Url) {
+                EditValue_Url.domain = value
+              }
             }else {
               this.domain = true
             }
@@ -181,7 +210,9 @@ export struct UrlEditor {
           .onChange((value: string) => {
             if (isPort(value)) {
               this.port = false
-              EditValue_Url!.port = value
+              if (EditValue_Url) {
+                EditValue_Url.port = value
+              }
             }else {
               this.port = true
             }

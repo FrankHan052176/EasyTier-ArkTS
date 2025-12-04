@@ -41,6 +41,10 @@
       "value": ""
     },
     {
+      "name": "i18_enable",
+      "value": "Enable"
+    },
+    {
       "name": "socks5_port",
       "value": "socks5 Server Port"
     },
@@ -49,8 +53,12 @@
       "value": "VPN Portal"
     },
     {
-      "name": "i18_enable",
-      "value": "Enable"
+      "name": "virtual_ip",
+      "value": "IP"
+    },
+    {
+      "name": "basic_setting",
+      "value": "Basic Setting"
     }
   ]
 }

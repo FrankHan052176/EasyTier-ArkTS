@@ -1,8 +1,7 @@
-import { NetworkConfig, NetworkingMethod } from "./protobuf/api_manage";
-import { Logger, LogLocate } from "./util/Logger";
+import { NetworkConfig } from "./protobuf/api_manage";
+import { LogLocate } from "./util/Logger";
 import easytier from "easytier-ohrs"
 import { NetworkConfigTypeMap } from "./protobuf/proto-type-map";
-import { util } from "@kit.ArkTS";
 import { deviceInfo } from "@kit.BasicServicesKit";
 
 const ignoreField: Set<string> = new Set([
@@ -19,47 +18,78 @@ export class ConfigField {
   }
 }
 
+export enum FieldCategory {
+  BASIC = 0,
+  FLAGS = 1,
+  ADVANCED = 2,
+  OTHER = 3
+}
+
 @LogLocate("ContentUtil")
 export class ContentUtil {
-  private static logStruct: boolean = false
   public static fieldList: ConfigField[] = []
+  public static basicFields: ConfigField[] = []
   public static flagField: ConfigField = new ConfigField("flags_switch", [])
+  public static advancedFields: ConfigField[] = []
+  public static otherFields: ConfigField[] = []
   public static combinedField: Record<string, string[]> = {
-    "virtual_ipv4_dhcp": ["dhcp", "virtual_ipv4_cidr"],
+    "basic_setting": ["virtual_ipv4_comp", "hostname", "identity"],
+    "virtual_ipv4_comp": ["dhcp", "virtual_ip"],
     "identity": ["network_name", "network_secret"],
     "vpn_portal": ["enable_vpn_portal",  "vpn_portal_listen_port", "vpn_portal_client_network"],
     "socks5": ["enable_socks5", "socks5_port"],
-    "virtual_ipv4_cidr": ["virtual_ipv4", "network_length"],
+    "virtual_ip": ["virtual_ipv4", "network_length"],
     "vpn_portal_client_network": ["vpn_portal_client_network_addr", "vpn_portal_client_network_len"]
   }
   public static renamedField: Record<string, string> = {
     "routes": "manual_routes",
+    "virtual_ipv4_comp": "virtual_ipv4",
+    "dhcp": "virtual_ipv4_dhcp"
   }
   public static overrideFieldType: Record<string, string> = {
-    "virtual_ipv4_cidr": "cidr",
     "virtual_ipv4": "cidr_ip",
     "network_length": "cidr_mask",
     "vpn_portal_listen_port": "port",
-    "vpn_portal_client_network": "cidr",
     "vpn_portal_client_network_addr": "cidr_ip",
     "vpn_portal_client_network_len": "cidr_mask",
     "socks5_port": "port",
     "peer_urls": "peer[]",
     "proxy_cidrs": "cidr[]",
     "listener_urls": "listener[]",
-    "manual_routes": "route[]",
+    "routes": "route[]",
     "exit_nodes": "ip[]",
     "mapped_listeners": "mappedListener[]",
-    "port_forwards": "port_forward[]"
+    "port_forwards": "port_forward[]",
+    "data_compress_algo": "string"
   }
   public static fieldTag: Record<string, string> = {
-    "dhcp": "inverse",
-    "vpn_portal": "hidable",
-    "socks5": "hidable",
-    "hostname": "suggest",
+    "basic_setting": "useDivider",
+    "dhcp": "inverse rightFieldName",
+    "vpn_portal": "",
+    "socks5": "",
+    "hostname": "useHostname",
     "network_name": "topFieldName username enter_next",
     "network_secret": "topFieldName password",
-    "identity": "hideTitle"
+    "identity": "hideTitle",
+    "virtual_ip": "insideName",
+    "vpn_portal_client_network": "outsideName"
+  }
+
+  private static fieldCategory: Record<string, FieldCategory> = {
+    "basic_setting": FieldCategory.BASIC,
+    "peer_urls": FieldCategory.BASIC,
+    "flags_switch": FieldCategory.FLAGS,
+    "proxy_cidrs": FieldCategory.ADVANCED,
+    "listener_urls": FieldCategory.ADVANCED,
+    "routes": FieldCategory.ADVANCED,
+    "exit_nodes": FieldCategory.ADVANCED,
+    "mapped_listeners": FieldCategory.ADVANCED,
+    "relay_network_whitelist": FieldCategory.ADVANCED,
+    "port_forwards": FieldCategory.ADVANCED
+  }
+
+  public static getFieldCategory(fieldName: string): FieldCategory {
+    return ContentUtil.fieldCategory[fieldName] ?? FieldCategory.OTHER
   }
 
   public static hasTag(fieldName: string, tag: string): boolean {
@@ -67,21 +97,14 @@ export class ContentUtil {
   }
 
   public static safeFieldName(value: string): string {
-    for (const [key, rename] of Object.entries(this.renamedField)) {
-      if (rename == value) {
-        return key;
-      }
-    }
     return value
   }
 
   private static findCombinedFieldKey(value: string): string | undefined {
     for (const [key, fields] of Object.entries(this.combinedField)) {
-      if (fields.includes(value)) {
-        return key;
-      }
+      if (fields.includes(value)) return key
     }
-    return undefined;
+    return undefined
   }
 
   private static getFieldType(field: string): string {
@@ -100,41 +123,78 @@ export class ContentUtil {
     cfg.network_name = "easytier"
     cfg.network_secret = ""
     cfg.multi_thread = true
+    cfg.vpn_portal_listen_port = 22022
+    cfg.vpn_portal_client_network_addr = "10.0.1.0"
+    cfg.vpn_portal_client_network_len = 24
+    cfg.socks5_port = 1080
     return cfg
   }
 
+
+  private static findTopCombinedParent(field: string): string | undefined {
+    const parent = this.findCombinedFieldKey(field)
+    if (!parent) return undefined
+    return this.findTopCombinedParent(parent) ?? parent
+  }
+
+  private static buildCombinedField(parent: string): ConfigField[] {
+    const children = this.combinedField[parent] ?? []
+    const result: ConfigField[] = []
+
+    for (const child of children) {
+      if (this.combinedField[child]) {
+        result.push(new ConfigField(child, this.buildCombinedField(child)))
+      } else {
+        result.push(new ConfigField(child, this.getFieldType(child)))
+      }
+    }
+
+    return result
+  }
+
+
   public static initConfigFields() {
-    let added: Set<string> = new Set()
-    Object.entries(this.getDefaultConfig("")).forEach((pair:[string, any]) => {
-      let field = this.renamedField[pair[0]] || pair[0]
-      if (ignoreField.has(field)) {}
-      else {
-        let singleField = this.findCombinedFieldKey(field) || field
-        let isCombinedField = this.findCombinedFieldKey(singleField) !== undefined
-        if (added.has(singleField) || isCombinedField) {}
-        else {
-          if (singleField === field) {
-            let type = this.getFieldType(singleField)
-            if (type === "boolean") {
-              if (!added.has("flags")) {
-                added.add("flags")
-                this.fieldList.push(this.flagField)
-              }
-              (this.flagField.type as ConfigField[]).push(new ConfigField(singleField, type))
-            }else {
-              this.fieldList.push(new ConfigField(singleField, type))
-            }
-            if(this.logStruct) Logger.debug("init Field "+singleField+": "+this.getFieldType(singleField)+"=", ContentUtil)
-          }else {
-            let combineFields: ConfigField[] = []
-            if(this.logStruct) Logger.debug("init Field "+singleField, ContentUtil)
-            for (const child_field of this.combinedField[singleField]) {
-              combineFields.push(new ConfigField(child_field, this.getFieldType(child_field)))
-              if(this.logStruct) Logger.debug("init Field   |---"+child_field+": "+this.getFieldType(child_field), ContentUtil)
-            }
-            this.fieldList.push(new ConfigField(singleField, combineFields))
-          }
-          added.add(singleField)
+    let added = new Set<string>()
+    for (const field of Object.keys(this.getDefaultConfig(""))) {
+      if (ignoreField.has(field)) continue
+      const top = this.findTopCombinedParent(field)
+      if (top) {
+        if (!added.has(top)) {
+          added.add(top)
+          this.fieldList.push(
+            new ConfigField(top, this.buildCombinedField(top))
+          )
+        }
+        continue
+      }
+      const type = this.getFieldType(field)
+      if (type === "boolean") {
+        if (!added.has("flags")) {
+          added.add("flags")
+          this.fieldList.push(this.flagField)
+        }
+        (this.flagField.type as ConfigField[]).push(new ConfigField(field, type))
+      } else {
+        this.fieldList.push(new ConfigField(field, type))
+      }
+      added.add(field)
+    }
+    this.fieldList.sort((a,b) => {
+      return this.getFieldCategory(a.name) - this.getFieldCategory(b.name)
+    }).forEach((field) => {
+      let category = this.getFieldCategory(field.name)
+      switch (category) {
+        case FieldCategory.BASIC: {
+          this.basicFields.push(field)
+          break;
+        }
+        case FieldCategory.ADVANCED: {
+          this.advancedFields.push(field)
+          break;
+        }
+        case FieldCategory.OTHER: {
+          this.otherFields.push(field)
+          break;
         }
       }
     })

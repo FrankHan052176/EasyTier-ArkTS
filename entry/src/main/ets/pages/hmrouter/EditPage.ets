@@ -9,6 +9,7 @@ import { AppManager } from '../../AppManager'
 import { HdsMenuButton, MenuButton } from '../Components'
 import { SheetContentBuilder, SheetTitleBuilder } from '../../components/sheet/Basic'
 import { EventHelper } from '../../util/EventHelper'
+import { WindowUtil } from '../../WindowUtil'
 
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
@@ -16,7 +17,6 @@ export struct EditPage {
   @Local uuid: string | null = null;
   @Local name: string | null = null;
   @Local config: NetworkConfig | null = null;
-  scroller: Scroller = new Scroller();
   @Local sheet: boolean = false
   @Local sheet_type: string = ""
 
@@ -35,30 +35,104 @@ export struct EditPage {
 
   @Builder
   content() {
-    List({space: 10, scroller: this.scroller}) {
-      if (deviceInfo.sdkApiVersion >= 20) {
+    Swiper() {
+      List({space: 20}) {
+        if (deviceInfo.sdkApiVersion >= 20) {
+          ListItem()
+            .width('100%')
+            .height(56)
+        }
+        ForEach(ContentUtil.basicFields, (field: ConfigField) => {
+          ListItem(){
+            FieldEdit({config: this.config!, field: field})
+              .width('100%')
+          }
+        })
         ListItem()
           .width('100%')
-          .height(56)
+          .height(150)
       }
-      ForEach(ContentUtil.fieldList, (field: ConfigField) => {
-        ListItem(){
-          FieldEdit({config: this.config!, field: field})
+      .width('100%')
+      .height('100%')
+      .scrollBar(BarState.Off)
+      .chainAnimation(true)
+      .edgeEffect(EdgeEffect.None)
+      .padding({left: 20, right: 20})
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      Scroll() {
+        Column({space: 20}) {
+          if (deviceInfo.sdkApiVersion >= 20) {
+            Row()
+              .width('100%')
+              .height(56)
+          }
+          FieldEdit({config: this.config!, field: ContentUtil.flagField})
             .width('100%')
+          Row()
+            .width('100%')
+            .height(150)
         }
-      })
-      ListItem()
-        .width('100%')
-        .height(150)
+      }
+      .width('100%')
+      .height('100%')
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.None)
+      .padding({left: 20, right: 20})
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      List({space: 20}) {
+        if (deviceInfo.sdkApiVersion >= 20) {
+          ListItem()
+            .width('100%')
+            .height(56)
+        }
+        ForEach(ContentUtil.advancedFields, (field: ConfigField) => {
+          ListItem(){
+            FieldEdit({config: this.config!, field: field})
+              .width('100%')
+          }
+        })
+        ListItem()
+          .width('100%')
+          .height(150)
+      }
+      .width('100%')
+      .height('100%')
+      .scrollBar(BarState.Off)
+      .chainAnimation(true)
+      .edgeEffect(EdgeEffect.None)
+      .padding({left: 20, right: 20})
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      List({space: 20}) {
+        if (deviceInfo.sdkApiVersion >= 20) {
+          ListItem()
+            .width('100%')
+            .height(56)
+        }
+        ForEach(ContentUtil.otherFields, (field: ConfigField) => {
+          ListItem(){
+            FieldEdit({config: this.config!, field: field})
+              .width('100%')
+          }
+        })
+        ListItem()
+          .width('100%')
+          .height(150)
+      }
+      .width('100%')
+      .height('100%')
+      .scrollBar(BarState.Off)
+      .chainAnimation(true)
+      .edgeEffect(EdgeEffect.None)
+      .padding({left: 20, right: 20})
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
-    .scrollBar(BarState.Off)
-    .chainAnimation(true)
-    .edgeEffect(EdgeEffect.None)
-    .padding({left: 10, right: 10})
     .width('100%')
     .height('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .id("edit_content")
+    .displayCount(WindowUtil.uiType/2)
+    .loop(false)
+    .indicator(DotIndicator.dot().top(46))
   }
 
   build() {
@@ -67,7 +141,6 @@ export struct EditPage {
         HdsNavigation() {
           this.content()
         }
-        .bindToScrollable([this.scroller])
         .titleBar({
           style: {
             scrollEffectOpts: {
@@ -98,7 +171,6 @@ export struct EditPage {
               subTitle: this.uuid!
             },
             menu: {
-              maxCount: 4,
               value: [
                 HdsMenuButton("favorite", AppManager.data.isFavorite(this.uuid!)?$r("sys.symbol.star_fill"):$r("sys.symbol.star"), () => {
                   AppManager.data.changeFavorite(this.uuid!)
@@ -109,9 +181,6 @@ export struct EditPage {
                 HdsMenuButton("delete", $r("sys.symbol.trash"), () => {
                   HMRouterMgr.pop()
                   AppManager.data.delConfig(this.uuid!)
-                }),
-                HdsMenuButton("toml", $r("sys.symbol.doc_plaintext"), () => {
-                  // TODO 输出Toml
                 })
               ]
             }

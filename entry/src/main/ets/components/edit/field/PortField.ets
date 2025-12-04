@@ -5,12 +5,12 @@ import { ContentUtil } from "../../../ContentUtil";
 
 @Extend(TextInput)
 function fieldTextInput() {
-  .padding({top:5, bottom: 5, left: 12, right: 12})
+  .padding(0)
+  .borderRadius(0)
   .width(72)
   .type(InputType.Number)
   .maxLength(5)
-  .borderWidth(0)
-  .borderRadius(12)
+  .backgroundColor(Color.Transparent)
   .textAlign(TextAlign.Center)
   .enableAutoFill(false)
 }
@@ -20,7 +20,9 @@ export struct PortField {
   @Param @Require config: NetworkConfig;
   @Param @Require field: string;
   @Param @Require text: ResourceStr;
-  @Local value: string = this.config[ContentUtil.safeFieldName(this.field)] || "";
+  @Consumer("field_edit_enable") enable: boolean = true
+  @Local value: string = ""+(this.config[ContentUtil.safeFieldName(this.field)] ?? 0);
+  @Local isEdit: boolean = false;
 
   insert(value: InsertValue):boolean {
     let newValue = this.value.substring(0, value.insertOffset)
@@ -53,29 +55,34 @@ export struct PortField {
     }
   }
 
+  @Computed
+  get fontColor() {
+    return this.enable?$r("sys.color.font_primary"):$r("sys.color.font_tertiary")
+  }
+
   build() {
     Row() {
       Text(this.text)
-      if (deviceInfo.sdkApiVersion >= 20) {
-        Row() {
-          TextInput({text: this.value!!})
-            .onWillInsert((data) => this.insert(data))
-            .onWillDelete((data) => this.delete(data))
-            .onChange((value) => this.change(value))
-            .fieldTextInput()
-        }
-        .borderWidth(0)
-        .borderRadius(12)
-        .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-          illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-        }).buildEffect())
-      }else {
+      Row() {
         TextInput({text: this.value!!})
           .onWillInsert((data) => this.insert(data))
           .onWillDelete((data) => this.delete(data))
           .onChange((value) => this.change(value))
           .fieldTextInput()
+          .onEditChange((isEdit) => {
+            this.isEdit = isEdit
+          })
+          .fontColor(this.fontColor)
+          .enabled(this.enable)
       }
+      .borderWidth(2)
+      .borderColor(this.isEdit?$r("sys.color.brand"):(this.enable?$r("sys.color.comp_background_secondary"):$r("sys.color.comp_background_tertiary")))
+      .padding({left: 12, right: 12, top: 8, bottom: 8})
+      .borderRadius(12)
+      .animation({
+        curve: Curve.Ease,
+        duration: 300
+      })
     }
     .alignItems(VerticalAlign.Center)
     .justifyContent(FlexAlign.SpaceBetween)

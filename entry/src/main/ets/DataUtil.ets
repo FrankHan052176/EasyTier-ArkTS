@@ -19,6 +19,7 @@ export class DataUtil {
   @Trace configNameUUIDMap: Map<string, string> = new Map
   @Trace configUUIDNameMap: Map<string, string> = new Map
   @Trace favoriteInstance: string | undefined
+  @Trace editingInstance: string | undefined
 
   public isFavorite(uuid: string) {
     return uuid === this.favoriteInstance
@@ -39,8 +40,12 @@ export class DataUtil {
       let dataSource = new FieldValueDataSource()
       if (type === "cidr" || type === "route") {
         dataSource.add(new Cidr())
-      }else if (type === "peer" || type === "listener" || type === "mappedListener") {
+      }else if (type === "peer") {
         dataSource.add(new Url())
+      }else if (type === "listener" || type === "mappedListener") {
+        let value = new Url()
+        value.domain = "0.0.0.0"
+        dataSource.add(value)
       }else if (type === "ip") {
         dataSource.add(new IP())
       }else if (type === "string") {

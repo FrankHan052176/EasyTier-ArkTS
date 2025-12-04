@@ -1201,6 +1201,46 @@
       "value": "服务配置不能为空"
     },
     {
+      "name": "config_server_title",
+      "value": "配置服务器"
+    },
+    {
+      "name": "config_server_address",
+      "value": "配置服务器地址"
+    },
+    {
+      "name": "config_server_address_placeholder",
+      "value": "例如：udp://127.0.0.1:22020/admin 或 admin"
+    },
+    {
+      "name": "config_server_description",
+      "value": "配置服务器地址，支持以下格式：\n完整URL：udp://127.0.0.1:22020/admin\n仅用户名：admin（使用官方服务器）\n留空：不连接配置服务器\n"
+    },
+    {
+      "name": "config_server_connection_status",
+      "value": "连接状态"
+    },
+    {
+      "name": "config_server_connected",
+      "value": ": 已连接"
+    },
+    {
+      "name": "config_server_disconnected",
+      "value": ": 未连接"
+    },
+    {
+      "name": "config_server_connecting",
+      "value": ": 连接中..."
+    },
+    {
+      "name": "config_server_unknown",
+      "value": ""
+    },
+    {
+      "name": "config_server_update_service_confirm",
+      "value": "将重启服务以应用更改，是否继续？"
+    },
+    {
       "name": "client_not_running",
       "value": "无法连接至远程客户端"
     },

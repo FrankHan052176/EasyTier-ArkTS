@@ -2,41 +2,28 @@ import { ConfigField, ContentUtil } from '../../ContentUtil'
 import { NetworkConfig } from '../../protobuf/api_manage'
 import { BoolField } from './field/BoolField'
 import { LengthMetrics } from '@kit.ArkUI'
-import { deviceInfo } from '@kit.BasicServicesKit'
-import { hdsEffect } from '@kit.UIDesignKit'
 import { StringField } from './field/StringField'
 import { PortField } from './field/PortField'
-import { WaterFlowField } from './field/WaterFlowField'
-import { Svp2fp } from '../../AppManager'
+import { ListField as ListField } from './field/ListField'
 import { EnableField } from './field/EnableField'
-import { ToolButton } from '../util/ToolButtons'
 import { CidrField } from './field/CidrField'
-import { EventHelper } from '../../util/EventHelper'
-import { Cidr, setEditValue_Cidr } from '../../class/config/Cidr'
-import { setEditValue_Url, Url } from '../../class/config/Url'
-import { IP, setEditValue_IP } from '../../class/config/IP'
-import { NetworkName, setEditValue_NetworkName } from '../../class/config/NetworkName'
+import { PrimaryButton } from '../util/TextButton'
+import { addFieldValue } from '../../class/config/Basic'
 import { Logger } from '../../util/Logger'
 
-@Extend(Column)
-function ColumnLightEffect() {
-  .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-  }).buildEffect())
-}
-
 export function getFieldI18Name(field: string): Resource {
-  return $r("app.string."+field)
+  return $r("app.string."+(ContentUtil.renamedField[field] || field))
 }
 
 @ComponentV2
 export struct FieldEdit {
   @Param @Require config: NetworkConfig
+  @Param layer: number = 0
   @Param @Require field: ConfigField
   @Provider() field_width: number = 0
   @Local hasEnableButton: boolean = Array.isArray(this.field.type) && this.field.type[0].type === "boolean" && this.field.name !== "flags_switch"
-  @Local enable: boolean = true
   @Local enableField: string = this.hasEnableButton?(this.field.type[0] as ConfigField).name:""
+  @Provider("field_edit_enable") enable: boolean = true
 
   getFieldName(): string {
     return this.field.name
@@ -51,15 +38,6 @@ export struct FieldEdit {
       }
     }else {
       return [this.field]
-    }
-  }
-
-  @Computed
-  get isEnabled() {
-    if (ContentUtil.hasTag(this.enableField,"inverse")) {
-      return !this.enable
-    }else {
-      return this.enable
     }
   }
 
@@ -81,53 +59,56 @@ export struct FieldEdit {
     return typeof field.type === "string" && field.type.endsWith("[]")
   }
 
+  @Computed
+  get isCidr() {
+    return Array.isArray(this.field.type) && this.field.type.length === 2 && this.field.type[0].type === "cidr_ip" && this.field.type[1].type === "cidr_mask"
+  }
+
+  @Computed
+  get isUseDivider() {
+    return ContentUtil.hasTag(this.field.name, "useDivider")
+  }
+
+  @Styles
+  backgroundColumn() {
+    .width('100%')
+    .borderRadius(this.isSingleField?0:18)
+    .backgroundColor(this.isSingleField?Color.Transparent:$r("sys.color.comp_background_primary"))
+    .clip(true)
+    .padding({top: this.Padding, bottom: this.Padding})
+  }
+
+  @Computed
+  get titleFontSize() {
+    return this.layer===0?14:16
+  }
+
+  @Computed
+  get isSingleField() {
+    return this.layer >= 1 || this.isLisType(this.field) || this.field.name === "flags_switch"
+  }
+
+  @Computed
+  get Padding() {
+    return this.isSingleField?0:16
+  }
+
   @Builder
-  content() {
+  title() {
     if (!this.isHideTitle) {
       Row() {
         Text(getFieldI18Name(this.getFieldName()))
-          .fontSize(Svp2fp(18))
+          .fontSize(this.titleFontSize)
           .focusable(false)
         if (this.hasEnableButton) {
-          EnableField({config: this.config, field: this.enableField, bind: this.enable!!})
+          EnableField({config: this.config, field: this.enableField})
         }else if (this.isLisType(this.field)) {
-          ToolButton({symbol: $r("sys.symbol.plus"), buttonSize: 26, symbolScale: 0.8})
+          PrimaryButton({text: "新增", fontSize: this.titleFontSize, fontColor: $r("sys.color.brand_font")})
+            .clickEffect({
+              level: ClickEffectLevel.MIDDLE
+            })
             .onClick(() => {
-              switch ((this.field.type as string).slice(0, this.field.type.length-2)) {
-                case "route":
-                case "cidr": {
-                  setEditValue_Cidr(new Cidr())
-                  break;
-                }
-                case "mappedListener":
-                case "listener": {
-                  let value = new Url()
-                  value.domain = "0.0.0.0"
-                  setEditValue_Url(value)
-                  break;
-                }
-                case "peer": {
-                  setEditValue_Url(new Url())
-                  break;
-                }
-                case "ip": {
-                  setEditValue_IP(new IP())
-                  break;
-                }
-                case "string": {
-                  setEditValue_NetworkName(new NetworkName())
-                  break;
-                }
-                case "port_forward": {
-                  // TODO 端口转发
-                  break;
-                }
-              }
-              EventHelper.emitterPublish("edit_open_sheet",{
-                data: {
-                  type: "add_"+(this.field.type as string).slice(0, this.field.type.length-2)+"_"+this.field.name
-                }
-              })
+              addFieldValue((this.field.type as string).slice(0, this.field.type.length-2), this.field.name)
             })
         }
       }
@@ -135,61 +116,69 @@ export struct FieldEdit {
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .focusable(false)
-      .margin({top: this.isHidden&&!this.isEnabled?0:5})
     }
+  }
+
+  @Builder
+  content() {
     if (!this.isHidden) {
       Flex({wrap: FlexWrap.Wrap, space: {
         main: LengthMetrics.vp(10),
         cross: LengthMetrics.vp(10)
       }}) {
-        ForEach(this.getFields(), (field: ConfigField, index: number) => {
+        ForEach(this.getFields(), (field: ConfigField, index) => {
           if (field.type === "boolean") {
             BoolField({config: this.config, field: field.name, text: getFieldI18Name(field.name)})
-              .enabled(this.isEnabled)
-          }else if (field.type === "string") {
-            StringField({config: this.config, field: field.name})
-              .enabled(this.isEnabled)
-          }else if (field.type === "port") {
-            PortField({config: this.config, field: field.name, text: getFieldI18Name(field.name)})
-              .enabled(this.isEnabled)
-          }else if (this.isLisType(field)) {
-            WaterFlowField({config: this.config, field: field.name, type: (field.type as string).slice(0, field.type.length-2)})
-          }else if (field.type === "cidr") {
-            CidrField({config: this.config, field: field.name, text: getFieldI18Name(field.name)})
-              .enabled(this.isEnabled)
           }else {
-            Text(field.name+":"+(field.type as string))
-              .width('100%')
-              .enabled(this.isEnabled)
+            Column() {
+              if (field.type === "string") {
+                StringField({config: this.config, field: field.name})
+              }else if (field.type === "port") {
+                PortField({config: this.config, field: field.name, text: getFieldI18Name(field.name)})
+              }else if (this.isLisType(field)) {
+                ListField({config: this.config, field: field.name, type: (field.type as string).slice(0, field.type.length-2)})
+              }else if (Array.isArray(field.type) && field.type.length === 2 && field.type[0].type === "cidr_ip" && field.type[1].type === "cidr_mask") {
+                CidrField({config: this.config, field: field.name, text: getFieldI18Name(field.name)})
+              }else if (Array.isArray(field.type)) {
+                FieldEdit({config: this.config, field: field, layer: this.layer + 1})
+              }else {
+                Text(field.name+":"+(field.type as string))
+                  .width('100%')
+              }
+            }
+            .width('100%')
+            .padding({left: this.Padding, right: this.Padding})
+          }
+          if (this.isUseDivider) {
+            if (index < this.getFields().length - 1) {
+              Divider()
+                .color($r("sys.color.background_secondary"))
+                .width('100%')
+                .strokeWidth(1)
+                .margin({top: 6, bottom: 6})
+            }
           }
         }, (item: ConfigField) => {return item.name+item.type})
       }
       .width('100%')
-      .margin({top: 5})
       .onAreaChange((a,b) => {
         this.field_width = b.width.valueOf() as number
       })
     }
   }
 
-  @Styles
-  backgroundColumn() {
-    .width('100%')
-    .borderRadius(18)
-    .backgroundColor($r("sys.color.comp_background_primary"))
-    .padding(10)
-    .clip(true)
-  }
-
   build() {
-    if (deviceInfo.sdkApiVersion >= 20) {
-      Column() {
-        this.content()
+    Column() {
+      if (this.layer === 0) {
+        Row() {
+          this.title()
+        }
+        .padding({left: 5, bottom: 10, right: 5})
       }
-      .backgroundColumn()
-      .ColumnLightEffect()
-    }else {
-      Column() {
+      Column({space: 8}) {
+        if (this.layer > 0) {
+          this.title()
+        }
         this.content()
       }
       .backgroundColumn()

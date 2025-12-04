@@ -75,6 +75,7 @@ export struct Instances {
                   const animator = HMRouterTransitions.cardLongTake("home_"+uuid, "edit_content", {
                     onTransitionStart: () => {}, onTransitionEnd: () => {}
                   });
+                  AppManager.data.editingInstance = uuid
                   HMRouterMgr.push({ pageUrl: 'EditPage', param: uuid, animator: animator });
                 })
             )

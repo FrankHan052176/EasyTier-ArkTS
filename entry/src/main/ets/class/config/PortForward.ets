@@ -1,8 +1,9 @@
 import { lane } from "../../util/Conversion"
-import { convertToProtocol, Protocol, protocolColor } from "../../util/ETConfig"
+import { convertToProtocol, Protocol, protocolBGColor, protocolColor } from "../../util/ETConfig"
 import { FieldValue } from "./Basic"
 import { hdsEffect } from "@kit.UIDesignKit"
 import { deviceInfo } from "@kit.BasicServicesKit"
+import { Svp2fp } from "../../AppManager"
 
 function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").test(value)
@@ -22,100 +23,59 @@ function isPort(value: string): boolean {
   return false
 }
 
-@Builder
-function LightPoint(proto: Protocol) {
-  Flex()
-    .width(1)
-    .height(1)
-    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-      options: {
-        color: protocolColor(proto),
-        intensity: 1,
-        height: lane(1)*0.3,
-        bloom: 0
-      }
-    }).buildEffect())
-    .animation({
-      curve: Curve.Ease,
-      duration: 300
-    })
-}
 
 @Builder
 function ProtoBuilder(proto: Protocol) {
-  if (deviceInfo.sdkApiVersion >= 20) {
-    Row() {
-      Text(proto.toString().toUpperCase())
-        .fontSize(12)
-        .fontColor(Color.White)
-    }
-    .borderRadius(8)
-    .padding({top: 3, bottom: 3, left: 8, right: 8})
-    .margin({left: 3, top: 3})
-    .backgroundColor(protocolColor(proto))
-    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-    }).buildEffect())
-    .overlay(
-      LightPoint(proto),
-      { align: Alignment.Center }
-    )
-  }else {
-    Row() {
-      Text(proto.toString().toUpperCase())
-        .fontSize(12)
-        .fontColor(Color.White)
-    }
-    .borderRadius(8)
-    .padding({top: 3, bottom: 3, left: 8, right: 8})
-    .margin({left: 3, top: 3})
-    .backgroundColor(protocolColor(proto))
-  }
+  Text(proto.toString().toUpperCase())
+    .fontSize(11)
+    .fontColor(protocolColor(proto))
+    .fontWeight(FontWeight.Bold)
+    .borderRadius(6)
+    .padding({top: 4, bottom: 4, left: 6, right: 6})
+    .backgroundColor(protocolBGColor(proto))
 }
 
 @Builder
 export function PortForwardBuilder(value: PortForward) {
-  Row() {
-    SymbolGlyph($r("sys.symbol.arrowshape_turn_up_left_fill"))
-      .fontColor([$r("sys.color.font_primary")])
-      .fontSize(14).margin({top: 5})
-      .rotate({
-        angle: -135,
-        centerX: '50%',
-        centerY: '50%'
-      })
-    Column() {
+  Row({space: 8}) {
+    Row() {
+      SymbolGlyph($r("sys.symbol.arrow_bounce_right"))
+        .fontSize(Svp2fp(24))
+        .fontColor([$r("sys.color.font_secondary")])
+    }
+    .backgroundColor($r("sys.color.comp_background_tertiary"))
+    .padding(10)
+    .borderRadius(8)
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.Center)
+    Column({space: 4}) {
+      Row({space: 8}) {
+        ProtoBuilder(value.proto)
+        Text(value.to+":"+value.to_port)
+          .layoutWeight(100)
+          .maxLines(1)
+          .textOverflow({
+            overflow: TextOverflow.Ellipsis
+          })
+          .textAlign(TextAlign.Start)
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
       Text(value.from+":"+value.from_port)
         .fontSize(14)
         .width('100%')
+        .fontColor($r("sys.color.font_tertiary"))
         .maxLines(1)
         .textOverflow({
-          overflow: TextOverflow.MARQUEE
+          overflow: TextOverflow.Ellipsis
         })
-        .margin({bottom: 3})
-      Text(value.to+":"+value.to_port)
-        .fontSize(14)
-        .width('100%')
-        .maxLines(1)
-        .textOverflow({
-          overflow: TextOverflow.MARQUEE
-        })
+        .textAlign(TextAlign.Start)
     }
-    .width('80%')
-    .alignItems(HorizontalAlign.Center)
-    .padding({right: 5}).margin({top: 5})
+    .alignItems(HorizontalAlign.Start)
+    .layoutWeight(100)
   }
-  .alignItems(VerticalAlign.Center)
-  .justifyContent(FlexAlign.End)
-  .overlay(
-    ProtoBuilder(value.proto),
-    {
-      align: Alignment.TopStart
-    }
-  )
-  .height((lane(1)-10)/2)
   .width('100%')
+  .justifyContent(FlexAlign.Start)
 }
 
 @ObservedV2

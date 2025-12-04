@@ -1,6 +1,7 @@
 import { lane } from "../../util/Conversion"
 import { FieldValue } from "./Basic"
 import { LengthMetrics } from "@kit.ArkUI"
+import { Svp2fp } from "../../AppManager"
 
 @Extend(Text)
 function tips() {
@@ -56,7 +57,9 @@ export struct NetworkNameEditor {
           .onChange((value: string) => {
             if (value.length > 0) {
               this.name = false
-              EditValue_NetworkName!.name = value
+              if (EditValue_NetworkName) {
+                EditValue_NetworkName.name = value
+              }
             }else {
               this.name = true
             }
@@ -78,12 +81,27 @@ export struct NetworkNameEditor {
 
 @Builder
 export function NetworkNameBuilder(value: NetworkName) {
-  Row() {
+  Row({space: 10}) {
+    Row() {
+      SymbolGlyph($r("sys.symbol.checkmark_shield"))
+        .fontSize(Svp2fp(24))
+        .fontColor([$r("sys.color.font_secondary")])
+    }
+    .backgroundColor($r("sys.color.comp_background_tertiary"))
+    .padding(10)
+    .borderRadius(8)
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.Center)
     Text(value.toString())
-      .height((lane(1)-20)/3)
+      .layoutWeight(100)
+      .maxLines(1)
+      .textOverflow({
+        overflow: TextOverflow.Ellipsis
+      })
+      .fontSize(Svp2fp(18))
   }
   .width('100%')
-  .justifyContent(FlexAlign.Center)
+  .justifyContent(FlexAlign.Start)
 }
 
 @ObservedV2

@@ -1,51 +1,33 @@
-import { deviceInfo } from "@kit.BasicServicesKit";
 import { NetworkConfig } from "../../../protobuf/api_manage";
-import { lane } from "../../../util/Conversion";
-import { hdsEffect } from "@kit.UIDesignKit";
-import { curves, uiAppearance } from "@kit.ArkUI";
+import { curves } from "@kit.ArkUI";
 import { ContentUtil } from "../../../ContentUtil";
-
-@Extend(Toggle)
-function ToggleLightEffect() {
-  .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-  }).buildEffect())
-}
+import { getFieldI18Name } from "../FieldEdit";
+import { Svp2fp } from "../../../AppManager";
 
 @ComponentV2
 export struct EnableField {
   @Param @Require config: NetworkConfig;
   @Param @Require field: string;
-  @Param text: ResourceStr = $r("app.string.i18_enable");
-  @Param bind: boolean = true;
-  @Event $bind: (val: boolean) => void = (val: boolean) => {};
+  @Consumer("field_edit_enable") enable: boolean = true
   @Local button: boolean = true;
-  @Local intensity: number = 1;
 
   aboutToAppear(): void {
-    this.button = this.config[ContentUtil.safeFieldName(this.field)] || false
-    this.intensity = this.button?1:0
-    this.$bind(this.button)
+    this.button = this.config[ContentUtil.safeFieldName(this.field)] ?? false
+    this.updateEnable()
   }
 
-  @Builder
-  LightPoint() {
-    Flex()
-      .width(1)
-      .height(1)
-      .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-        options: {
-          color: uiAppearance.getDarkMode() === 0?"#FFFFFF":"#0a59f7",
-          intensity: this.intensity,
-          height: lane(1)*1.2,
-          bloom: uiAppearance.getDarkMode() === 0?1:0
-        }
-      }).buildEffect())
-      .animation({
-        curve: Curve.Ease,
-        duration: 300
-      })
+  @Computed
+  get hasTitle() {
+    return ContentUtil.hasTag(this.field, "rightFieldName")
+  }
+
+  @Computed
+  get isInverse() {
+    return ContentUtil.hasTag(this.field, "inverse")
+  }
+
+  updateEnable() {
+    this.enable = this.isInverse?!this.button:this.button
   }
 
   click(isOn: boolean) {
@@ -60,39 +42,24 @@ export struct EnableField {
       curve: curves.springMotion(0.4, 0.7),
       duration: 300
     }, () => {
-      this.$bind(this.button)
+      this.updateEnable()
     })
-    this.intensity = this.button?1:0
   }
 
   build() {
-    if (deviceInfo.sdkApiVersion >= 20) {
-      Toggle({ type: ToggleType.Checkbox, isOn: this.button })
-        .size({ width: 20, height: 20 })
-        .margin(0)
-        .selectedColor($r("sys.color.brand"))
+    Row() {
+      Toggle({ type: ToggleType.Switch, isOn: this.button!! })
+        .height(20)
         .onChange((isOn: boolean) => {
           this.click(isOn)
         })
-        .clickEffect({
-          level: ClickEffectLevel.LIGHT
-        })
-        .ToggleLightEffect()
-        .borderRadius(999)
-        .overlay(this.LightPoint(),{
-          align: Alignment.Center
-        })
-    }else {
-      Toggle({ type: ToggleType.Checkbox, isOn: this.button })
-        .size({ width: 20, height: 20 })
-        .margin(0)
-        .selectedColor($r("sys.color.brand"))
-        .onChange((isOn: boolean) => {
-          this.click(isOn)
-        })
-        .clickEffect({
-          level: ClickEffectLevel.LIGHT
-        })
+      if (this.hasTitle) {
+        Text(getFieldI18Name(this.field))
+          .fontSize(Svp2fp(20)*0.7)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.button?$r("sys.color.brand"):$r("sys.color.font_primary"))
+          .margin({left: 5})
+      }
     }
   }
 }

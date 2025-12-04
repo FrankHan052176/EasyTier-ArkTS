@@ -1,19 +1,14 @@
 import { ContentUtil } from '../../../ContentUtil';
-import { hdsEffect } from '@kit.UIDesignKit';
 import { NetworkConfig } from '../../../protobuf/api_manage';
-import { uiAppearance } from '@kit.ArkUI';
-import { deviceInfo } from '@kit.BasicServicesKit';
-import { Spx2vp, Svp2fp } from '../../../AppManager';
 import { Logger } from '../../../util/Logger';
 
 @Extend(TextInput)
 function fieldTextInput(onChange:EditableTextOnChangeCallback, editChange: OnSubmitCallback, ip: boolean, field: string) {
-  .padding({top:5, bottom: 5, left: 12, right: 12})
-  .borderWidth(0)
-  .borderRadius(12)
+  .backgroundColor(Color.Transparent)
+  .borderRadius(0)
+  .padding({top:0, bottom: 0, left: 0, right: 0})
   .onChange(onChange)
-  .textAlign(TextAlign.Center)
-  .width('100%')
+  .textAlign(TextAlign.Start)
   .enableAutoFill(false)
   .enterKeyType(ip?EnterKeyType.Next:EnterKeyType.Done)
   .id(field+(ip?"ip":"mask"))
@@ -23,18 +18,20 @@ function fieldTextInput(onChange:EditableTextOnChangeCallback, editChange: OnSub
 }
 
 @ComponentV2
-export  struct CidrField {
+export struct CidrField {
   @Param @Require config: NetworkConfig;
   @Param @Require field: string;
   @Param @Require text: ResourceStr;
   @Local value_ip: string = this.config[ContentUtil.safeFieldName(this.ipField)] || "";
   @Local value_mask: string = ""+(this.config[ContentUtil.safeFieldName(this.maskField)] || 24);
-  @Local intensity_ip: number = 0;
-  @Local intensity_mask: number = 0;
-  controller_ip: TextInputController = new TextInputController()
-  controller_mask: TextInputController = new TextInputController()
-  @Local offsetX_ip: number = 0
-  @Local offsetX_mask: number = 0
+  @Local editIP: boolean = false
+  @Local editMask: boolean = false
+  @Consumer("field_edit_enable") enable: boolean = true
+
+  @Monitor("enable")
+  onChange() {
+    Logger.debug("change to "+this.enable)
+  }
 
   @Computed
   get ipField() {
@@ -46,111 +43,39 @@ export  struct CidrField {
     return ContentUtil.combinedField[this.field][1]
   }
 
-  @Builder
-  LightPoint(ip: boolean) {
-    Flex()
-      .width(1)
-      .height(1)
-      .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-        options: {
-          color: uiAppearance.getDarkMode() === 0?"#FFFFFF":"#0a59f7",
-          intensity: ip?this.intensity_ip:this.intensity_mask,
-          height: 80
-        }
-      }).buildEffect())
-      .animation({
-        curve: Curve.Ease,
-        duration: 300
-      })
+  @Computed
+  get borderWid() {
+    return this.enable?2:0
+  }
+
+  @Computed
+  get fontColor() {
+    return this.enable?$r("sys.color.font_primary"):$r("sys.color.font_tertiary")
+  }
+
+  @Computed
+  get insideName() {
+    return ContentUtil.hasTag(this.field, "insideName")
+  }
+
+  @Computed
+  get outsideName() {
+    return ContentUtil.hasTag(this.field, "outsideName")
   }
 
   build() {
     Row() {
-      Text(this.text)
-        .margin({right: 5})
-      if (deviceInfo.sdkApiVersion >= 20) {
-        Row() {
-          Row() {
-            TextInput({text: this.value_ip!!, controller: this.controller_ip})
-              .fieldTextInput((value) => {
-                this.config[ContentUtil.safeFieldName(this.ipField)] = value
-              }, () => {
-                this.getUIContext().getFocusController().requestFocus(this.field+"mask");
-              }, true, this.field)
-              .overlay(this.LightPoint(true),{
-                align: Alignment.Start,
-                offset: {
-                  x: this.offsetX_ip
-                }
-              })
-              .onSecurityStateChange(() => {
-                setTimeout(() => {
-                  if (this.controller_ip.getCaretOffset() !== undefined) this.offsetX_ip = Spx2vp(this.controller_ip.getCaretOffset().x)
-                }, 10)
-              })
-              .onTextSelectionChange(() => {
-                setTimeout(() => {
-                  if (this.controller_ip.getCaretOffset() !== undefined) this.offsetX_ip = Spx2vp(this.controller_ip.getCaretOffset().x)
-                }, 10)
-              })
-              .onContentScroll(() => {
-                setTimeout(() => {
-                  if (this.controller_ip.getCaretOffset() !== undefined) this.offsetX_ip = Spx2vp(this.controller_ip.getCaretOffset().x)
-                }, 10)
-              })
-              .onEditChange((isEdit) => {
-                this.intensity_ip = isEdit?1:0
-              })
-          }
-          .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-            illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
-          }).buildEffect())
-          .borderRadius(12)
-          .layoutWeight(100)
-          Text("/")
-            .fontWeight(FontWeight.Lighter)
-            .fontSize(Svp2fp(40)-5)
-            .margin({left: 5, right: 5})
-          Row() {
-            TextInput({text: this.value_mask!!, controller: this.controller_mask})
-              .fieldTextInput((value) => {
-                this.config[ContentUtil.safeFieldName(this.maskField)] = Number.parseInt(value)
-              }, () => {}, false, this.field)
-              .overlay(this.LightPoint(false),{
-                align: Alignment.Start,
-                offset: {
-                  x: this.offsetX_mask
-                }
-              })
-              .onSecurityStateChange(() => {
-                setTimeout(() => {
-                  if (this.controller_mask.getCaretOffset() !== undefined) this.offsetX_mask = Spx2vp(this.controller_mask.getCaretOffset().x)
-                }, 10)
-              })
-              .onTextSelectionChange(() => {
-                setTimeout(() => {
-                  if (this.controller_mask.getCaretOffset() !== undefined) this.offsetX_mask = Spx2vp(this.controller_mask.getCaretOffset().x)
-                }, 10)
-              })
-              .onContentScroll(() => {
-                setTimeout(() => {
-                  if (this.controller_mask.getCaretOffset() !== undefined) this.offsetX_mask = Spx2vp(this.controller_mask.getCaretOffset().x)
-                }, 10)
-              })
-              .onEditChange((isEdit) => {
-                this.intensity_mask = isEdit?1:0
-              })
-          }.visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-            illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
-          }).buildEffect())
-          .borderRadius(12)
-          .width(44)
+      if (this.outsideName) {
+        Text(this.text)
+          .margin({right: 10})
+          .fontColor($r("sys.color.font_primary"))
+      }
+      Row() {
+        if (this.insideName) {
+          Text(this.text)
+            .margin({right: 10})
+            .fontColor(this.fontColor)
         }
-        .borderWidth(0)
-        .borderRadius(12)
-        .layoutWeight(100)
-      }else {
         Row() {
           TextInput({text: this.value_ip!!})
             .fieldTextInput((value) => {
@@ -159,16 +84,35 @@ export  struct CidrField {
               this.getUIContext().getFocusController().requestFocus(this.field+"mask");
             }, true, this.field)
             .layoutWeight(100)
+            .onEditChange((isEdit) => {
+              this.editIP = isEdit
+            })
+            .fontColor(this.fontColor)
+          Text("/")
+            .margin({left: 5, right: 5})
+            .fontColor(this.fontColor)
           TextInput({text: this.value_mask!!})
             .fieldTextInput((value) => {
               this.config[ContentUtil.safeFieldName(this.maskField)] = Number.parseInt(value)
             }, () => {}, false, this.field)
-            .width(44)
+            .width(30)
+            .onEditChange((isEdit) => {
+              this.editMask = isEdit
+            })
+            .fontColor(this.fontColor)
         }
-        .borderWidth(0)
-        .borderRadius(12)
         .layoutWeight(100)
       }
+      .borderWidth(2)
+      .borderColor((this.editIP || this.editMask)?$r("sys.color.brand"):(this.enable?$r("sys.color.comp_background_secondary"):$r("sys.color.comp_background_tertiary")))
+      .padding({left: 12, right: 12, top: 8, bottom: 8})
+      .borderRadius(12)
+      .animation({
+        curve: Curve.Ease,
+        duration: 300
+      })
+      .layoutWeight(100)
     }
+    .width('100%')
   }
 }

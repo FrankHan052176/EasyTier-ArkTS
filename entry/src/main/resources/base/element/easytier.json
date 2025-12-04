@@ -1201,6 +1201,46 @@
       "value": "Service Config cannot be empty"
     },
     {
+      "name": "config_server_title",
+      "value": "Config Server"
+    },
+    {
+      "name": "config_server_address",
+      "value": "Config Server Address"
+    },
+    {
+      "name": "config_server_address_placeholder",
+      "value": "e.g.: udp://127.0.0.1:22020/admin or admin"
+    },
+    {
+      "name": "config_server_description",
+      "value": "Config server address, allowed formats:\nFull URL: udp://127.0.0.1:22020/admin\nUsername only: admin (uses official server)\nLeave blank: Don't connect to a config server\n"
+    },
+    {
+      "name": "config_server_connection_status",
+      "value": "Connection Status"
+    },
+    {
+      "name": "config_server_connected",
+      "value": ": Connected"
+    },
+    {
+      "name": "config_server_disconnected",
+      "value": ": Disconnected"
+    },
+    {
+      "name": "config_server_connecting",
+      "value": ": Connecting..."
+    },
+    {
+      "name": "config_server_unknown",
+      "value": ""
+    },
+    {
+      "name": "config_server_update_service_confirm",
+      "value": "The service will be restarted to apply changes, do you want to continue?"
+    },
+    {
       "name": "client_not_running",
       "value": "Unable to connect to remote client."
     },

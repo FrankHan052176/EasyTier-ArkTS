@@ -61,8 +61,17 @@ export class FieldValueDataSource implements IDataSource {
     });
   }
 
+  has(value: FieldValue): boolean {
+    for (const item of this.values) {
+      if (item.toString() === value.toString()) {
+        return true
+      }
+    }
+    return false
+  }
+
   add(value: FieldValue): boolean {
-    if (this.values.indexOf(value) < 0) {
+    if (!this.has(value)) {
       this.notifyDataAdd(this.values.push(value))
       return true
     }else {
@@ -71,7 +80,7 @@ export class FieldValueDataSource implements IDataSource {
   }
 
   del(value: FieldValue): boolean {
-    if (this.values.indexOf(value) >= 0) {
+    if (this.has(value)) {
       let index = this.values.indexOf(value)
       this.values.splice(index, 1)
       this.notifyDataDelete(index)

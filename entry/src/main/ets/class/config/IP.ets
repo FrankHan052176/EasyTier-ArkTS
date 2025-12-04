@@ -1,6 +1,6 @@
-import { lane } from "../../util/Conversion"
 import { FieldValue } from "./Basic"
 import { LengthMetrics } from "@kit.ArkUI"
+import { Svp2fp } from "../../AppManager"
 
 export function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").test(value)
@@ -8,12 +8,27 @@ export function isIpAddr(value: string): boolean {
 
 @Builder
 export function IPBuilder(value: IP) {
-  Row() {
+  Row({space: 10}) {
+    Row() {
+      SymbolGlyph($r("sys.symbol.arrow_left_arrow_right_and_rectangle_portrait"))
+        .fontSize(Svp2fp(24))
+        .fontColor([$r("sys.color.font_secondary")])
+    }
+    .backgroundColor($r("sys.color.comp_background_tertiary"))
+    .padding(10)
+    .borderRadius(8)
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.Center)
     Text(value.toString())
-      .height((lane(1)-20)/3)
+      .layoutWeight(100)
+      .maxLines(1)
+      .textOverflow({
+        overflow: TextOverflow.Ellipsis
+      })
+      .fontSize(Svp2fp(18))
   }
   .width('100%')
-  .justifyContent(FlexAlign.Center)
+  .justifyContent(FlexAlign.Start)
 }
 
 @Extend(TextInput)
@@ -62,7 +77,9 @@ export struct IPEditor {
           .onChange((value: string) => {
             if (isIpAddr(value)) {
               this.ip = false
-              EditValue_IP!.ip = value
+              if (EditValue_IP) {
+                EditValue_IP.ip = value
+              }
             }else {
               this.ip = true
             }

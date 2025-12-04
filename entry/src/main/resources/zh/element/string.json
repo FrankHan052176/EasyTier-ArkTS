@@ -35,6 +35,10 @@
     {
       "name": "i18_enable",
       "value": "启用"
+    },
+    {
+      "name": "basic_setting",
+      "value": "基础设置"
     }
   ]
 }

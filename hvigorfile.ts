@@ -31,7 +31,7 @@ const en_file = "./entry/src/main/resources/base/element/easytier.json"
 const cn_file = "./entry/src/main/resources/zh/element/easytier.json"
 const cn = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/cn.yaml"
 const en = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/en.yaml"
-const proto = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/refs/heads/main/easytier/src/proto/"
+const proto = "https://ghfast.top/https://raw.githubusercontent.com/FrankHan052176/EasyTier/refs/heads/main/easytier/src/proto/"
 function calcHash(content: string): string {
     return crypto.createHash("sha256").update(content).digest("hex");
 }
@@ -101,7 +101,7 @@ function convertToI18nFormat(flatObject: Record<string, any>): { string: Array<{
     const strings: Array<{ name: string; value: string }> = [];
     function processObject(obj: Record<string, any>, prefix: string = ''): void {
         for (const [key, value] of Object.entries(obj)) {
-            const fullKey = prefix ? `${prefix}_${key}` : key;
+            const fullKey = prefix ? `${prefix.replace("-","_")}_${key}` : key;
             if (typeof value === 'string') {
                 strings.push({ name: fullKey, value: value });
             } else if (typeof value === 'object' && value !== null) {

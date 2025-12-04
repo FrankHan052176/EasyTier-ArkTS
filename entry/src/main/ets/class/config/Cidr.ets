@@ -2,6 +2,7 @@ import { lane } from "../../util/Conversion"
 import { FieldValue } from "./Basic"
 import { LengthMetrics } from "@kit.ArkUI"
 import { Logger } from "../../util/Logger"
+import { Svp2fp } from "../../AppManager"
 
 function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").test(value)
@@ -75,7 +76,9 @@ export struct CidrEditor {
           .onChange((value: string) => {
             if (isIpAddr(value)) {
               this.ip = false
-              EditValue_Cidr!.ip = value
+              if (EditValue_Cidr) {
+                EditValue_Cidr.ip = value
+              }
             }else {
               this.ip = true
             }
@@ -90,7 +93,9 @@ export struct CidrEditor {
           .onChange((value: string) => {
             if (isMask(value)) {
               this.Mask = false
-              EditValue_Cidr!.mask = value
+              if (EditValue_Cidr) {
+                EditValue_Cidr.mask = value
+              }
             }else {
               this.Mask = true
             }
@@ -112,12 +117,52 @@ export struct CidrEditor {
 
 @Builder
 export function CidrBuilder(value: Cidr) {
-  Row() {
+  Row({space: 10}) {
+    Row() {
+      SymbolGlyph($r("sys.symbol.arrow_triangle_merge"))
+        .fontSize(Svp2fp(24))
+        .fontColor([$r("sys.color.font_secondary")])
+    }
+    .backgroundColor($r("sys.color.comp_background_tertiary"))
+    .padding(10)
+    .borderRadius(8)
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.Center)
     Text(value.toString())
-      .height((lane(1)-20)/3)
+      .layoutWeight(100)
+      .maxLines(1)
+      .textOverflow({
+        overflow: TextOverflow.Ellipsis
+      })
+      .fontSize(Svp2fp(18))
   }
   .width('100%')
-  .justifyContent(FlexAlign.Center)
+  .justifyContent(FlexAlign.Start)
+}
+
+@Builder
+export function RouteBuilder(value: Cidr) {
+  Row({space: 10}) {
+    Row() {
+      SymbolGlyph($r("sys.symbol.arrow_triangle_divide"))
+        .fontSize(Svp2fp(24))
+        .fontColor([$r("sys.color.font_secondary")])
+    }
+    .backgroundColor($r("sys.color.comp_background_tertiary"))
+    .padding(10)
+    .borderRadius(8)
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.Center)
+    Text(value.toString())
+      .layoutWeight(100)
+      .maxLines(1)
+      .textOverflow({
+        overflow: TextOverflow.Ellipsis
+      })
+      .fontSize(Svp2fp(18))
+  }
+  .width('100%')
+  .justifyContent(FlexAlign.Start)
 }
 
 @ObservedV2
