@@ -42,12 +42,12 @@ export const NetworkConfigTypeMap = {
   "mapped_listeners": "string[]",
   "enable_magic_dns": "boolean",
   "enable_private_mode": "boolean",
-  "data_compress_algo": "common.CompressionAlgoPb",
-  "encryption_algorithm": "string",
   "enable_quic_proxy": "boolean",
   "disable_quic_input": "boolean",
   "quic_listen_port": "number",
   "port_forwards": "PortForwardConfig[]",
   "disable_sym_hole_punching": "boolean",
-  "p2p_only": "boolean"
+  "p2p_only": "boolean",
+  "data_compress_algo": "common.CompressionAlgoPb",
+  "encryption_algorithm": "string"
 }

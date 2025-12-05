@@ -59,6 +59,14 @@
     {
       "name": "basic_setting",
       "value": "Basic Setting"
+    },
+    {
+      "name": "data_compress_algo",
+      "value": "Data Compress Algorithm"
+    },
+    {
+      "name": "encryption_algorithm",
+      "value": "Encryption Algorithm"
     }
   ]
 }

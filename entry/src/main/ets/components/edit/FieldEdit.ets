@@ -1,5 +1,4 @@
 import { ConfigField, ContentUtil } from '../../ContentUtil'
-import { NetworkConfig } from '../../protobuf/api_manage'
 import { BoolField } from './field/BoolField'
 import { LengthMetrics } from '@kit.ArkUI'
 import { StringField } from './field/StringField'
@@ -10,6 +9,7 @@ import { CidrField } from './field/CidrField'
 import { PrimaryButton } from '../util/TextButton'
 import { addFieldValue } from '../../class/config/Basic'
 import { Logger } from '../../util/Logger'
+import { AppManager } from '../../AppManager'
 
 export function getFieldI18Name(field: string): Resource {
   return $r("app.string."+(ContentUtil.renamedField[field] || field))
@@ -17,13 +17,17 @@ export function getFieldI18Name(field: string): Resource {
 
 @ComponentV2
 export struct FieldEdit {
-  @Param @Require config: NetworkConfig
   @Param layer: number = 0
   @Param @Require field: ConfigField
   @Provider() field_width: number = 0
   @Local hasEnableButton: boolean = Array.isArray(this.field.type) && this.field.type[0].type === "boolean" && this.field.name !== "flags_switch"
   @Local enableField: string = this.hasEnableButton?(this.field.type[0] as ConfigField).name:""
   @Provider("field_edit_enable") enable: boolean = true
+
+  @Computed
+  get config() {
+    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+  }
 
   getFieldName(): string {
     return this.field.name
@@ -101,7 +105,7 @@ export struct FieldEdit {
           .fontSize(this.titleFontSize)
           .focusable(false)
         if (this.hasEnableButton) {
-          EnableField({config: this.config, field: this.enableField})
+          EnableField({field: this.enableField})
         }else if (this.isLisType(this.field)) {
           PrimaryButton({text: "新增", fontSize: this.titleFontSize, fontColor: $r("sys.color.brand_font")})
             .clickEffect({
@@ -128,19 +132,19 @@ export struct FieldEdit {
       }}) {
         ForEach(this.getFields(), (field: ConfigField, index) => {
           if (field.type === "boolean") {
-            BoolField({config: this.config, field: field.name, text: getFieldI18Name(field.name)})
+            BoolField({field: field.name, text: getFieldI18Name(field.name)})
           }else {
             Column() {
               if (field.type === "string") {
-                StringField({config: this.config, field: field.name})
+                StringField({field: field.name})
               }else if (field.type === "port") {
-                PortField({config: this.config, field: field.name, text: getFieldI18Name(field.name)})
+                PortField({field: field.name, text: getFieldI18Name(field.name)})
               }else if (this.isLisType(field)) {
-                ListField({config: this.config, field: field.name, type: (field.type as string).slice(0, field.type.length-2)})
+                ListField({field: field.name, type: (field.type as string).slice(0, field.type.length-2)})
               }else if (Array.isArray(field.type) && field.type.length === 2 && field.type[0].type === "cidr_ip" && field.type[1].type === "cidr_mask") {
-                CidrField({config: this.config, field: field.name, text: getFieldI18Name(field.name)})
+                CidrField({field: field.name, text: getFieldI18Name(field.name)})
               }else if (Array.isArray(field.type)) {
-                FieldEdit({config: this.config, field: field, layer: this.layer + 1})
+                FieldEdit({field: field, layer: this.layer + 1})
               }else {
                 Text(field.name+":"+(field.type as string))
                   .width('100%')

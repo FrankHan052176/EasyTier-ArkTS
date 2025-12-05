@@ -21,10 +21,9 @@ function fieldTextInput(onChange:EditableTextOnChangeCallback, inputType: InputT
 
 @ComponentV2
 export struct StringField {
-  @Param @Require config: NetworkConfig;
   @Param @Require field: string;
   @Consumer("field_edit_enable") enable: boolean = true
-  @Local value: string = this.config[ContentUtil.safeFieldName(this.field)] || "";
+  @Local value: string = this.config![ContentUtil.safeFieldName(this.field)] || "";
   @Local intensity: number = 0;
   controller: TextInputController = new TextInputController()
   @Local offsetX: number = 0;
@@ -33,6 +32,11 @@ export struct StringField {
   @Computed
   get hasTitle() {
     return ContentUtil.hasTag(this.field, "topFieldName")
+  }
+
+  @Computed
+  get config() {
+    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
   }
 
   @Computed
@@ -81,7 +85,7 @@ export struct StringField {
                 AppManager.permission.requestDistributePerm(false).then(() => {
                   let value: string = getHostname()
                   this.value = value
-                  this.config[ContentUtil.safeFieldName(this.field)] = value
+                  this.config![ContentUtil.safeFieldName(this.field)] = value
                 })
               })
           }
@@ -95,7 +99,7 @@ export struct StringField {
       Row() {
         TextInput({text: this.value!!, controller: this.controller})
           .fieldTextInput((value) => {
-            this.config[ContentUtil.safeFieldName(this.field)] = value
+            this.config![ContentUtil.safeFieldName(this.field)] = value
           }, this.inputType, this.enterKey, this.field, () => {
             if (this.field === "network_name") {
               this.getUIContext().getFocusController().requestFocus("network_secret");

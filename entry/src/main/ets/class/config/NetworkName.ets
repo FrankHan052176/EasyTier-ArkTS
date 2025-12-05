@@ -1,7 +1,7 @@
 import { lane } from "../../util/Conversion"
 import { FieldValue } from "./Basic"
 import { LengthMetrics } from "@kit.ArkUI"
-import { Svp2fp } from "../../AppManager"
+import { AppManager, Svp2fp } from "../../AppManager"
 
 @Extend(Text)
 function tips() {
@@ -107,14 +107,36 @@ export function NetworkNameBuilder(value: NetworkName) {
 @ObservedV2
 export class NetworkName implements FieldValue {
   @Trace name: string = "easytier"
+  fieldName: string | undefined
+  @Monitor("name")
+  onChange(monitor: IMonitor) {
+    if (this.checkValid()) {
+      let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+      if (!config) return
+      if (!this.fieldName) return
+      let arr = config[this.fieldName] as string[]
+      let old = "" + monitor.value("name")?.before ?? this.name
+      let index = arr.indexOf(old)
+      if (index < 0) return
+      arr[index] = this.toString()
+    }
+  }
   fromString(value: string): boolean {
     this.name = value
     return true
+  }
+  readFrom(value: string): NetworkName | undefined {
+    this.name = value
+    return this
   }
   toString(): string {
     return this.name
   }
   checkValid(): boolean {
     return this.name.length > 0
+  }
+  bind(fieldName: string): NetworkName {
+    this.fieldName = fieldName
+    return this
   }
 }

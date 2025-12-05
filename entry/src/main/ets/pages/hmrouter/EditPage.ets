@@ -1,5 +1,4 @@
 import { ConfigField, ContentUtil } from '../../ContentUtil'
-import { NetworkConfig } from '../../protobuf/api_manage'
 import { FieldEdit } from '../../components/edit/FieldEdit'
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
@@ -16,14 +15,12 @@ import { WindowUtil } from '../../WindowUtil'
 export struct EditPage {
   @Local uuid: string | null = null;
   @Local name: string | null = null;
-  @Local config: NetworkConfig | null = null;
   @Local sheet: boolean = false
   @Local sheet_type: string = ""
 
   aboutToAppear(): void {
     this.uuid = HMRouterMgr.getCurrentParam() as string;
     this.name = AppManager.data.configUUIDNameMap.get(this.uuid)!
-    this.config = AppManager.data.configUUIDMap.get(this.uuid)!
     EventHelper.emitterListener("edit_open_sheet", (data) => {
       this.sheet_type = data.data!.type as string
       this.sheet = true
@@ -31,6 +28,10 @@ export struct EditPage {
     EventHelper.emitterListener("edit_close_sheet", () => {
       this.sheet = false
     })
+  }
+
+  aboutToDisappear(): void {
+    AppManager.data.editingInstance = undefined
   }
 
   @Builder
@@ -44,7 +45,7 @@ export struct EditPage {
         }
         ForEach(ContentUtil.basicFields, (field: ConfigField) => {
           ListItem(){
-            FieldEdit({config: this.config!, field: field})
+            FieldEdit({field: field})
               .width('100%')
           }
         })
@@ -66,7 +67,7 @@ export struct EditPage {
               .width('100%')
               .height(56)
           }
-          FieldEdit({config: this.config!, field: ContentUtil.flagField})
+          FieldEdit({field: ContentUtil.flagField})
             .width('100%')
           Row()
             .width('100%')
@@ -87,7 +88,7 @@ export struct EditPage {
         }
         ForEach(ContentUtil.advancedFields, (field: ConfigField) => {
           ListItem(){
-            FieldEdit({config: this.config!, field: field})
+            FieldEdit({field: field})
               .width('100%')
           }
         })
@@ -110,7 +111,7 @@ export struct EditPage {
         }
         ForEach(ContentUtil.otherFields, (field: ConfigField) => {
           ListItem(){
-            FieldEdit({config: this.config!, field: field})
+            FieldEdit({field: field})
               .width('100%')
           }
         })
@@ -230,7 +231,6 @@ export struct EditPage {
       title: SheetTitleBuilder(this.sheet_type),
       onWillDismiss: () => {
         this.sheet = false
-        EventHelper.emitterPublish("edit_action")
       }
     })
   }

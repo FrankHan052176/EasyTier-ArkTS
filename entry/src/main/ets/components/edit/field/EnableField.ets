@@ -1,19 +1,22 @@
-import { NetworkConfig } from "../../../protobuf/api_manage";
 import { curves } from "@kit.ArkUI";
 import { ContentUtil } from "../../../ContentUtil";
 import { getFieldI18Name } from "../FieldEdit";
-import { Svp2fp } from "../../../AppManager";
+import { AppManager, Svp2fp } from "../../../AppManager";
 
 @ComponentV2
 export struct EnableField {
-  @Param @Require config: NetworkConfig;
   @Param @Require field: string;
   @Consumer("field_edit_enable") enable: boolean = true
   @Local button: boolean = true;
 
   aboutToAppear(): void {
-    this.button = this.config[ContentUtil.safeFieldName(this.field)] ?? false
+    this.button = this.config![ContentUtil.safeFieldName(this.field)] ?? false
     this.updateEnable()
+  }
+
+  @Computed
+  get config() {
+    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
   }
 
   @Computed
@@ -36,7 +39,7 @@ export struct EnableField {
       duration: 300
     }, () => {
       this.button = isOn
-      this.config[ContentUtil.safeFieldName(this.field)] = this.button
+      this.config![ContentUtil.safeFieldName(this.field)] = this.button
     })
     animateToImmediately({
       curve: curves.springMotion(0.4, 0.7),

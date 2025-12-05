@@ -2,6 +2,7 @@ import { NetworkConfig } from "../../../protobuf/api_manage";
 import { deviceInfo } from "@kit.BasicServicesKit";
 import { hdsEffect } from "@kit.UIDesignKit";
 import { ContentUtil } from "../../../ContentUtil";
+import { AppManager } from "../../../AppManager";
 
 @Extend(TextInput)
 function fieldTextInput() {
@@ -17,12 +18,16 @@ function fieldTextInput() {
 
 @ComponentV2
 export struct PortField {
-  @Param @Require config: NetworkConfig;
   @Param @Require field: string;
   @Param @Require text: ResourceStr;
   @Consumer("field_edit_enable") enable: boolean = true
-  @Local value: string = ""+(this.config[ContentUtil.safeFieldName(this.field)] ?? 0);
+  @Local value: string = ""+(this.config![ContentUtil.safeFieldName(this.field)] ?? 0);
   @Local isEdit: boolean = false;
+
+  @Computed
+  get config() {
+    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+  }
 
   insert(value: InsertValue):boolean {
     let newValue = this.value.substring(0, value.insertOffset)
@@ -49,9 +54,9 @@ export struct PortField {
   change(value: string) {
     let num = Number.parseInt(value)
     if (Number.isNaN(num)) {
-      this.config[ContentUtil.safeFieldName(this.field)] = undefined
+      this.config![ContentUtil.safeFieldName(this.field)] = undefined
     }else {
-      this.config[ContentUtil.safeFieldName(this.field)] = num
+      this.config![ContentUtil.safeFieldName(this.field)] = num
     }
   }
 

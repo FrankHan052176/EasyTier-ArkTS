@@ -1,26 +1,12 @@
-import { FieldValue } from "../../class/config/Basic";
 import { NetworkConfig } from "../../protobuf/api_manage";
-import { Cidr, CidrBuilder, RouteBuilder, setEditValue_Cidr } from "../../class/config/Cidr";
-import { hdsEffect } from "@kit.UIDesignKit";
-import { uiAppearance } from "@kit.ArkUI";
-import { lane } from "../../util/Conversion";
-import { deviceInfo } from "@kit.BasicServicesKit";
-import { ContentUtil } from "../../ContentUtil";
-import { ToolButton } from "../../pages/Components";
+import { Cidr, CidrBuilder, RouteBuilder } from "../../class/config/Cidr";
 import { EventHelper } from "../../util/EventHelper";
-import { ListenerBuilder, setEditValue_Url, Url, UrlBuilder } from "../../class/config/Url";
-import { IP, IPBuilder, setEditValue_IP } from "../../class/config/IP";
+import { ListenerBuilder, Url, UrlBuilder } from "../../class/config/Url";
+import { IP, IPBuilder } from "../../class/config/IP";
 import {
-  NetworkName, NetworkNameBuilder, setEditValue_NetworkName } from "../../class/config/NetworkName";
+  NetworkName, NetworkNameBuilder } from "../../class/config/NetworkName";
 import { PortForward, PortForwardBuilder } from "../../class/config/PortForward";
-import { AppManager } from "../../AppManager";
-
-@Extend(Row)
-function LightEffect() {
-  .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-  }).buildEffect())
-}
+import { FieldValue } from "../../class/config/Basic";
 
 @ComponentV2
 struct Builders {
@@ -48,15 +34,13 @@ struct Builders {
 
 @ComponentV2
 export struct ListFieldValue {
-  @Param @Require config: NetworkConfig;
+  @Consumer("config") config: NetworkConfig | null = null;
   @Param @Require field: string;
   @Param @Require type: string;
-  @Param @Require item: FieldValue;
-  @Local enable: boolean = false;
+  @Param @Require value: FieldValue;
   private scroller: ListScroller = new ListScroller();
 
   aboutToAppear(): void {
-    this.enable = (this.config[ContentUtil.safeFieldName(this.field)] as string[]).indexOf(this.item.toString()) >= 0
     EventHelper.emitterListener("click_edit", () => {
       try {
         this.scroller.closeAllSwipeActions();
@@ -73,25 +57,12 @@ export struct ListFieldValue {
     .clickEffect({
       level: ClickEffectLevel.LIGHT
     })
-    .onClick(() => {
-      this.click()
-    })
     .clip(true)
-  }
-
-  click() {
-    const pos = (this.config[ContentUtil.safeFieldName(this.field)] as string[]).indexOf(this.item.toString())
-    if (pos >= 0) {
-      (this.config[ContentUtil.safeFieldName(this.field)] as string[]).splice(pos, 1)
-    }else {
-      (this.config[ContentUtil.safeFieldName(this.field)] as string[]).push(this.item.toString())
-    }
-    this.enable = !this.enable
   }
 
   build() {
     Row() {
-      Builders({value: this.item, type: this.type})
+      Builders({value: this.value, type: this.type})
         .width('100%')
     }
     .backgroundStyle()

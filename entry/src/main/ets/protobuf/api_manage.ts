@@ -103,14 +103,14 @@ export interface NetworkConfig {
   mapped_listeners: string[];
   enable_magic_dns?: boolean | undefined;
   enable_private_mode?: boolean | undefined;
-  data_compress_algo?: CompressionAlgoPb | undefined;
-  encryption_algorithm?: string | undefined;
   enable_quic_proxy?: boolean | undefined;
   disable_quic_input?: boolean | undefined;
   quic_listen_port?: number | undefined;
   port_forwards: PortForwardConfig[];
   disable_sym_hole_punching?: boolean | undefined;
   p2p_only?: boolean | undefined;
+  data_compress_algo?: CompressionAlgoPb | undefined;
+  encryption_algorithm?: string | undefined;
 }
 
 export interface PortForwardConfig {
@@ -268,14 +268,14 @@ function createBaseNetworkConfig(): NetworkConfig {
     mapped_listeners: [],
     enable_magic_dns: undefined,
     enable_private_mode: undefined,
-    data_compress_algo: undefined,
-    encryption_algorithm: undefined,
     enable_quic_proxy: undefined,
     disable_quic_input: undefined,
     quic_listen_port: undefined,
     port_forwards: [],
     disable_sym_hole_punching: undefined,
     p2p_only: undefined,
+    data_compress_algo: undefined,
+    encryption_algorithm: undefined,
   };
 }
 
@@ -357,12 +357,6 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
       enable_private_mode: isSet(object.enable_private_mode)
         ? globalThis.Boolean(object.enable_private_mode)
         : undefined,
-      data_compress_algo: isSet(object.data_compress_algo)
-        ? compressionAlgoPbFromJSON(object.data_compress_algo)
-        : undefined,
-      encryption_algorithm: isSet(object.encryption_algorithm)
-        ? globalThis.String(object.encryption_algorithm)
-        : undefined,
       enable_quic_proxy: isSet(object.enable_quic_proxy) ? globalThis.Boolean(object.enable_quic_proxy) : undefined,
       disable_quic_input: isSet(object.disable_quic_input) ? globalThis.Boolean(object.disable_quic_input) : undefined,
       quic_listen_port: isSet(object.quic_listen_port) ? globalThis.Number(object.quic_listen_port) : undefined,
@@ -373,6 +367,12 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
         ? globalThis.Boolean(object.disable_sym_hole_punching)
         : undefined,
       p2p_only: isSet(object.p2p_only) ? globalThis.Boolean(object.p2p_only) : undefined,
+      data_compress_algo: isSet(object.data_compress_algo)
+        ? compressionAlgoPbFromJSON(object.data_compress_algo)
+        : undefined,
+      encryption_algorithm: isSet(object.encryption_algorithm)
+        ? globalThis.String(object.encryption_algorithm)
+        : undefined,
     };
   },
 
@@ -507,12 +507,6 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     if (message.enable_private_mode !== undefined) {
       obj.enable_private_mode = message.enable_private_mode;
     }
-    if (message.data_compress_algo !== undefined) {
-      obj.data_compress_algo = compressionAlgoPbToJSON(message.data_compress_algo);
-    }
-    if (message.encryption_algorithm !== undefined) {
-      obj.encryption_algorithm = message.encryption_algorithm;
-    }
     if (message.enable_quic_proxy !== undefined) {
       obj.enable_quic_proxy = message.enable_quic_proxy;
     }
@@ -530,6 +524,12 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     }
     if (message.p2p_only !== undefined) {
       obj.p2p_only = message.p2p_only;
+    }
+    if (message.data_compress_algo !== undefined) {
+      obj.data_compress_algo = compressionAlgoPbToJSON(message.data_compress_algo);
+    }
+    if (message.encryption_algorithm !== undefined) {
+      obj.encryption_algorithm = message.encryption_algorithm;
     }
     return obj;
   },
@@ -582,14 +582,14 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     message.mapped_listeners = object.mapped_listeners?.map((e) => e) || [];
     message.enable_magic_dns = object.enable_magic_dns ?? undefined;
     message.enable_private_mode = object.enable_private_mode ?? undefined;
-    message.data_compress_algo = object.data_compress_algo ?? undefined;
-    message.encryption_algorithm = object.encryption_algorithm ?? undefined;
     message.enable_quic_proxy = object.enable_quic_proxy ?? undefined;
     message.disable_quic_input = object.disable_quic_input ?? undefined;
     message.quic_listen_port = object.quic_listen_port ?? undefined;
     message.port_forwards = object.port_forwards?.map((e) => PortForwardConfig.fromPartial(e)) || [];
     message.disable_sym_hole_punching = object.disable_sym_hole_punching ?? undefined;
     message.p2p_only = object.p2p_only ?? undefined;
+    message.data_compress_algo = object.data_compress_algo ?? undefined;
+    message.encryption_algorithm = object.encryption_algorithm ?? undefined;
     return message;
   },
 };

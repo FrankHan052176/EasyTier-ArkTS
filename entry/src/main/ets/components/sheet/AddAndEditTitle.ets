@@ -2,6 +2,7 @@ import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from "@kit.ArkU
 import { AppManager } from "../../AppManager";
 import { addValue, clearEditValue, confirmCheck } from "../../class/config/Basic";
 import { EventHelper } from "../../util/EventHelper"
+import { GlobalConfigSuggestions } from "../edit/GlobalConfigSuggestion";
 
 function getI18_FieldName(fieldName: string): string {
   try {
@@ -11,10 +12,22 @@ function getI18_FieldName(fieldName: string): string {
   }
 }
 
+@Builder
+export function GlobalConfig(field: string, type: string) {
+    GlobalConfigSuggestions({field: field, type: type})
+}
+
 @ComponentV2
 export struct AddTitle {
   @Param @Require fieldName: string
   @Param @Require fieldType: string
+  @Local popup: boolean = true
+
+  aboutToAppear(): void {
+    EventHelper.commonListener("edit_will_dismiss", () => {
+      this.popup = false
+    })
+  }
 
   build() {
     EditableTitleBar({
@@ -25,17 +38,31 @@ export struct AddTitle {
         end: LengthMetrics.vp(0),
       },
       onCancel: () => {
+        this.popup = false
         clearEditValue(this.fieldType)
         EventHelper.emitterPublish("edit_close_sheet")
       },
       onSave: () => {
         if (confirmCheck(this.fieldType)) {
-          addValue(this.fieldType)
+          this.popup = false
+          addValue(this.fieldName, this.fieldType)
+          EventHelper.emitterPublish("edit_refresh_"+this.fieldName)
           clearEditValue(this.fieldType)
           EventHelper.emitterPublish("edit_close_sheet")
         }
       }
     })
+      .bindPopup(this.popup, {
+        builder: GlobalConfig(this.fieldName, this.fieldType),
+        placement: Placement.Top,
+        autoCancel: true,
+        enableArrow: false,
+        offset: {
+          y: -20
+        },
+        mask: false,
+        radius: 18
+      })
   }
 }
 
@@ -43,25 +70,33 @@ export struct AddTitle {
 export struct EditTitle {
   @Param @Require fieldName: string
   @Param @Require fieldType: string
+  @Local popup: boolean = true
 
   build() {
     EditableTitleBar({
-      leftIconStyle: EditableLeftIconType.Cancel,
+      leftIconStyle: EditableLeftIconType.Back,
       title: $r("app.string.i18_edit", getI18_FieldName(this.fieldName)),
       contentMargin: {
         start: LengthMetrics.vp(0),
         end: LengthMetrics.vp(0),
       },
+      isSaveIconRequired: false,
       onCancel: () => {
+        this.popup = false
         clearEditValue(this.fieldType)
         EventHelper.emitterPublish("edit_close_sheet")
-      },
-      onSave: () => {
-        if (confirmCheck(this.fieldType)) {
-          clearEditValue(this.fieldType)
-          EventHelper.emitterPublish("edit_close_sheet")
-        }
       }
     })
+      .bindPopup(this.popup, {
+        builder: GlobalConfig(this.fieldName, this.fieldType),
+        placement: Placement.Top,
+        autoCancel: true,
+        enableArrow: false,
+        offset: {
+          y: -20
+        },
+        mask: false,
+        radius: 18
+      })
   }
 }

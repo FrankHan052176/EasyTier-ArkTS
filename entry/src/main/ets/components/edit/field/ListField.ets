@@ -1,7 +1,6 @@
 import { AppManager } from "../../../AppManager";
 import { deleteFieldValue, FieldValue } from "../../../class/config/Basic";
 import { FieldValueDataSource } from "../../../class/FieldValueDataSource";
-import { NetworkConfig } from "../../../protobuf/api_manage";
 import { lane } from "../../../util/Conversion";
 import { ToolButton } from "../../util/ToolButtons";
 import { getFieldI18Name } from "../FieldEdit";
@@ -15,19 +14,49 @@ import { EventHelper } from "../../../util/EventHelper";
 
 @ComponentV2
 export struct ListField {
-  @Param @Require config: NetworkConfig;
   @Param @Require field: string;
   @Param @Require type: string;
   @Local dataSource: FieldValueDataSource = AppManager.data.getDataSource(this.type)
+  @Local items: (FieldValue | undefined)[] = []
   @Local item_height: number = 0
   private scroller: ListScroller = new ListScroller();
 
+  config() {
+    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+  }
+
+  updateItems() {
+    this.items = this.config()![this.field].map((value: string) => {
+      switch (this.type) {
+        case "cidr": return new Cidr().readFrom(value)?.bind(this.field)
+        case "route": return new Cidr().readFrom(value)?.bind(this.field)
+        case "peer": return new Url().readFrom(value)?.bind(this.field)
+        case "mappedListener":
+        case "listener": return new Url().readFrom(value)?.bind(this.field)
+        case "ip": return new IP().readFrom(value)?.bind(this.field)
+        case "string": return new NetworkName().readFrom(value)?.bind(this.field)
+        case "port_forward": return undefined
+        default: return undefined
+      }
+    })
+  }
+
+  aboutToAppear(): void {
+    if (!this.config()![this.field]) {
+      this.config()![this.field] = new Array<string>()
+    }
+    this.updateItems()
+    EventHelper.emitterListener("edit_refresh_"+this.field, () => {
+      this.updateItems()
+    })
+  }
+
   @Computed
   get comp_height() {
-    if (this.dataSource.totalCount() == 0) {
+    if (this.items.length == 0) {
       return 70
-    }else if (this.dataSource.totalCount() <= 2) {
-      return this.dataSource.totalCount()*this.item_height+(this.dataSource.totalCount()-1)*10
+    }else if (this.items.length <= 2) {
+      return this.items.length*this.item_height+(this.items.length-1)*10
     }else {
       return 2.5*this.item_height+10
     }
@@ -80,25 +109,28 @@ export struct ListField {
         })
         .onClick(() => {
           this.scroller.closeAllSwipeActions()
-          deleteFieldValue(this.config, this.type, this.field, value)
+          deleteFieldValue(this.config()!, this.type, this.field, value)
+          this.updateItems()
         })
     }
   }
 
   build() {
     List({space: 10, scroller: this.scroller}) {
-      if (this.dataSource.totalCount() > 0) {
-        LazyForEach(this.dataSource, (item: FieldValue) => {
-          ListItem() {
-            ListFieldValue({config: this.config, field: this.field, type: this.type, item: item})
-              .width('100%')
-              .onAreaChange((a,b) => {
-                this.item_height = b.height.valueOf() as number
-              })
+      if (this.items.length > 0) {
+        ForEach(this.items, (item: FieldValue | undefined) => {
+          if (item) {
+            ListItem() {
+              ListFieldValue({field: this.field, type: this.type, value: item})
+                .width('100%')
+                .onAreaChange((a,b) => {
+                  this.item_height = b.height.valueOf() as number
+                })
+            }
+            .swipeAction({
+              end: this.rightButton(item)
+            })
           }
-          .swipeAction({
-            end: this.rightButton(item)
-          })
         })
       }else {
         ListItem() {

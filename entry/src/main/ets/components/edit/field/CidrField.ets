@@ -1,5 +1,5 @@
+import { AppManager } from '../../../AppManager';
 import { ContentUtil } from '../../../ContentUtil';
-import { NetworkConfig } from '../../../protobuf/api_manage';
 import { Logger } from '../../../util/Logger';
 
 @Extend(TextInput)
@@ -19,14 +19,18 @@ function fieldTextInput(onChange:EditableTextOnChangeCallback, editChange: OnSub
 
 @ComponentV2
 export struct CidrField {
-  @Param @Require config: NetworkConfig;
   @Param @Require field: string;
   @Param @Require text: ResourceStr;
-  @Local value_ip: string = this.config[ContentUtil.safeFieldName(this.ipField)] || "";
-  @Local value_mask: string = ""+(this.config[ContentUtil.safeFieldName(this.maskField)] || 24);
+  @Local value_ip: string = this.config![ContentUtil.safeFieldName(this.ipField)] || "";
+  @Local value_mask: string = ""+(this.config![ContentUtil.safeFieldName(this.maskField)] || 24);
   @Local editIP: boolean = false
   @Local editMask: boolean = false
   @Consumer("field_edit_enable") enable: boolean = true
+
+  @Computed
+  get config() {
+    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+  }
 
   @Monitor("enable")
   onChange() {
@@ -79,7 +83,7 @@ export struct CidrField {
         Row() {
           TextInput({text: this.value_ip!!})
             .fieldTextInput((value) => {
-              this.config[ContentUtil.safeFieldName(this.ipField)] = value
+              this.config![ContentUtil.safeFieldName(this.ipField)] = value
             }, () => {
               this.getUIContext().getFocusController().requestFocus(this.field+"mask");
             }, true, this.field)
@@ -88,18 +92,20 @@ export struct CidrField {
               this.editIP = isEdit
             })
             .fontColor(this.fontColor)
+            .enabled(this.enable)
           Text("/")
             .margin({left: 5, right: 5})
             .fontColor(this.fontColor)
           TextInput({text: this.value_mask!!})
             .fieldTextInput((value) => {
-              this.config[ContentUtil.safeFieldName(this.maskField)] = Number.parseInt(value)
+              this.config![ContentUtil.safeFieldName(this.maskField)] = Number.parseInt(value)
             }, () => {}, false, this.field)
             .width(30)
             .onEditChange((isEdit) => {
               this.editMask = isEdit
             })
             .fontColor(this.fontColor)
+            .enabled(this.enable)
         }
         .layoutWeight(100)
       }

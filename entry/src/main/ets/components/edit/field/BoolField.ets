@@ -1,18 +1,21 @@
-import { NetworkConfig } from "../../../protobuf/api_manage";
 import { ContentUtil } from "../../../ContentUtil";
-import { Sfp2vp, Svp2fp } from "../../../AppManager";
+import { AppManager, Sfp2vp, Svp2fp } from "../../../AppManager";
 import { flagsCategory, flagsSymbol } from "../../../util/FlagsInfo";
 
 @ComponentV2
 export struct BoolField {
-  @Param @Require config: NetworkConfig
   @Param @Require field: string
   @Consumer('field_width') field_width: number = 0
   @Param text: ResourceStr = $r("app.string.i18_enable");
   @Local button: boolean = true;
 
+  @Computed
+  get config() {
+    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+  }
+
   aboutToAppear(): void {
-    this.button = this.config[ContentUtil.safeFieldName(this.field)] || false
+    this.button = this.config![ContentUtil.safeFieldName(this.field)] || false
   }
 
   @Styles
@@ -30,7 +33,7 @@ export struct BoolField {
         duration: 300
       }, () => {
         this.button = !this.button
-        this.config[ContentUtil.safeFieldName(this.field)] = this.button
+        this.config![ContentUtil.safeFieldName(this.field)] = this.button
       })
     })
   }
@@ -82,7 +85,7 @@ export struct BoolField {
         duration: 300
       }, () => {
         this.button = !this.button
-        this.config[ContentUtil.safeFieldName(this.field)] = this.button
+        this.config![ContentUtil.safeFieldName(this.field)] = this.button
       })
     })
   }

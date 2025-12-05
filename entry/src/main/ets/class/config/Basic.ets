@@ -13,6 +13,7 @@ export interface FieldValue {
   fromString(value: string): boolean
   toString(): string
   checkValid(): boolean
+  bind(fieldName: string): FieldValue
 }
 
 export function addFieldValue(type: string, name: string) {
@@ -53,25 +54,41 @@ export function addFieldValue(type: string, name: string) {
   })
 }
 
-export function editFieldValue(type: string, name: string, value: FieldValue) {
+export function updateFieldValue(type: string, value: FieldValue) {
   switch (type) {
     case "route":
     case "cidr": {
-      setEditValue_Cidr(value as Cidr)
+      let cidr = value as Cidr
+      if (EditValue_Cidr) {
+        EditValue_Cidr.ip = cidr.ip
+        EditValue_Cidr.mask = cidr.mask
+      }
       break;
     }
     case "mappedListener":
     case "listener":
     case "peer": {
-      setEditValue_Url(value as Url)
+      let url = value as Url
+      if (EditValue_Url) {
+        EditValue_Url.proto = url.proto
+        EditValue_Url.domain = url.domain
+        EditValue_Url.port = url.port
+      }
       break;
     }
     case "ip": {
-      setEditValue_IP(value as IP)
+      let ip = value as IP
+      if (EditValue_IP) {
+        EditValue_IP.ip = ip.ip
+      }
       break;
     }
     case "string": {
-      setEditValue_NetworkName(value as NetworkName)
+      setEditValue_NetworkName(new NetworkName())
+      let name = value as NetworkName
+      if (EditValue_NetworkName) {
+        EditValue_NetworkName.name = name.name
+      }
       break;
     }
     case "port_forward": {
@@ -79,11 +96,6 @@ export function editFieldValue(type: string, name: string, value: FieldValue) {
       break;
     }
   }
-  EventHelper.emitterPublish("edit_open_sheet",{
-    data: {
-      type: "edit_"+type+"_"+name
-    }
-  })
 }
 
 export function deleteFieldValue(config: NetworkConfig, type: string, name: string, value: FieldValue) {
@@ -152,7 +164,8 @@ export function confirmCheck(type: string): boolean {
   return false
 }
 
-export function addValue(type: string) {
+export function addValue(name:string, type: string) {
+  let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance!)!
   switch (type) {
     case "route":
     case "cidr": {
@@ -160,6 +173,10 @@ export function addValue(type: string) {
         curve: Curve.Ease,
         duration: 300
       }, () => {
+        let raw = EditValue_Cidr!.toString()
+        if ((config[name] as string[]).indexOf(raw) < 0) {
+          config[name].push(raw)
+        }
         AppManager.data.getDataSource(type).add(EditValue_Cidr!)
       })
       break;
@@ -171,6 +188,7 @@ export function addValue(type: string) {
         curve: Curve.Ease,
         duration: 300
       }, () => {
+        config[name].push(EditValue_Url!.toString())
         AppManager.data.getDataSource(type).add(EditValue_Url!)
       })
       break;
@@ -180,6 +198,7 @@ export function addValue(type: string) {
         curve: Curve.Ease,
         duration: 300
       }, () => {
+        config[name].push(EditValue_IP!.toString())
         AppManager.data.getDataSource(type).add(EditValue_IP!)
       })
       break;
@@ -189,6 +208,7 @@ export function addValue(type: string) {
         curve: Curve.Ease,
         duration: 300
       }, () => {
+        config[name].push(EditValue_NetworkName!.toString())
         AppManager.data.getDataSource(type).add(EditValue_NetworkName!)
       })
       break;

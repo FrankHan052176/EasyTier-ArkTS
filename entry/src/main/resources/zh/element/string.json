@@ -39,6 +39,14 @@
     {
       "name": "basic_setting",
       "value": "基础设置"
+    },
+    {
+      "name": "data_compress_algo",
+      "value": "数据压缩算法"
+    },
+    {
+      "name": "encryption_algorithm",
+      "value": "加密算法"
     }
   ]
 }

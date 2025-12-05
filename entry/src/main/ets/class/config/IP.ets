@@ -1,6 +1,6 @@
 import { FieldValue } from "./Basic"
 import { LengthMetrics } from "@kit.ArkUI"
-import { Svp2fp } from "../../AppManager"
+import { AppManager, Svp2fp } from "../../AppManager"
 
 export function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").test(value)
@@ -105,6 +105,20 @@ export struct IPEditor {
 @ObservedV2
 export class IP implements FieldValue {
   @Trace ip: string = "10.0.0.1"
+  fieldName: string | undefined
+  @Monitor("ip")
+  onChange(monitor: IMonitor) {
+    if (this.checkValid()) {
+      let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+      if (!config) return
+      if (!this.fieldName) return
+      let arr = config[this.fieldName] as string[]
+      let old = "" + monitor.value("ip")?.before ?? this.ip
+      let index = arr.indexOf(old)
+      if (index < 0) return
+      arr[index] = this.toString()
+    }
+  }
   fromString(value: string): boolean {
     if (isIpAddr(value)) {
       this.ip = value
@@ -113,10 +127,22 @@ export class IP implements FieldValue {
       return false
     }
   }
+  readFrom(value: string): IP | undefined {
+    if (isIpAddr(value)) {
+      this.ip = value
+      return this
+    }else {
+      return undefined
+    }
+  }
   toString(): string {
     return this.ip
   }
   checkValid(): boolean {
     return isIpAddr(this.ip)
+  }
+  bind(fieldName: string): IP {
+    this.fieldName = fieldName
+    return this
   }
 }
