@@ -7,6 +7,7 @@ import { protocolsWithoutTXT } from "../../util/ETConfig"
 import { Logger } from "../../util/Logger"
 import { AddTitle, EditTitle } from "./AddAndEditTitle"
 import { NewConfig_Content, NewConfig_Title } from "./NewConfig"
+import { Rename_Content, Rename_Title } from "./Rename"
 import { Setting_Sheet, Setting_Title } from "./Settings"
 
 @Builder
@@ -82,6 +83,8 @@ export struct SheetContent {
       }else if (this.editFieldType === "port_forward") {
         PortForwardEditor()
       }
+    }else if (this.type === "rename") {
+      Rename_Content()
     }else {
       Text(this.type)
     }
@@ -121,6 +124,8 @@ export struct SheetTitle {
       AddTitle({fieldType: this.addFieldType, fieldName: this.addFieldName})
     }else if (this.type.startsWith("edit_")) {
       EditTitle({fieldType: this.editFieldType, fieldName: this.editFieldName})
+    }else if (this.type === "rename") {
+      Rename_Title()
     }else {
       Text(this.type)
     }

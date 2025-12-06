@@ -9,6 +9,7 @@ import { CidrField } from './field/CidrField'
 import { PrimaryButton } from '../util/TextButton'
 import { addFieldValue } from '../../class/config/Basic'
 import { AppManager } from '../../AppManager'
+import { NumberField } from './field/NumberField'
 
 export function getFieldI18Name(field: string): Resource {
   return $r("app.string."+(ContentUtil.renamedField[field] || field))
@@ -149,6 +150,8 @@ export struct FieldEdit {
                 CidrField({field: field.name, text: getFieldI18Name(field.name)})
               }else if (Array.isArray(field.type)) {
                 FieldEdit({field: field, layer: this.layer + 1})
+              }else if (field.type === "number") {
+                NumberField({field: field.name})
               }else {
                 Text(field.name+":"+(field.type as string))
                   .width('100%')

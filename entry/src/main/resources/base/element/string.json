@@ -45,6 +45,22 @@
       "value": "Enable"
     },
     {
+      "name": "i18_favorite",
+      "value": "Favorite"
+    },
+    {
+      "name": "i18_share",
+      "value": "Share"
+    },
+    {
+      "name": "i18_delete",
+      "value": "Delete"
+    },
+    {
+      "name": "i18_rename",
+      "value": "Rename"
+    },
+    {
       "name": "socks5_port",
       "value": "socks5 Server Port"
     },
@@ -59,6 +75,10 @@
     {
       "name": "basic_setting",
       "value": "Basic Setting"
+    },
+    {
+      "name": "algorithm_setting",
+      "value": "Algorithm Setting"
     },
     {
       "name": "data_compress_algo",

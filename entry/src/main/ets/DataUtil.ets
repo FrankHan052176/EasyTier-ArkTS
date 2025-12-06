@@ -6,11 +6,12 @@ import { Url } from "./class/config/Url";
 import { IP } from "./class/config/IP";
 import { NetworkName } from "./class/config/NetworkName";
 import { PortForward } from "./class/config/PortForward";
-import { NetworkConfig } from "./protobuf/api_manage";
+import { NetworkConfig, NetworkingMethod } from "./protobuf/api_manage";
 import { ContentUtil } from "./ContentUtil";
 import { AppManager } from "./AppManager";
 import { getHostname } from "./util/Conversion";
 import { preferences } from "@kit.ArkData";
+import { deviceInfo } from "@kit.BasicServicesKit";
 
 @LogLocate("DataUtil")
 @ObservedV2
@@ -60,9 +61,7 @@ export class DataUtil {
   }
 
   public init() {
-    // this.favoriteInstance = this.newConfig("测试Ⅰ").instance_id
-    // this.newConfig("测试Ⅱ")
-    // this.newConfig("测试Ⅲ")
+
   }
 
   public safeUUID(): string {
@@ -90,16 +89,37 @@ export class DataUtil {
     return config
   }
 
+  public importToml(cfg_toml: string): boolean {
+    if (deviceInfo.productModel === "emulator") return false
+    let cfg = AppManager.easytier.convertToml2NetworkConfig(cfg_toml)
+    Logger.debug("convertConfig: "+cfg)
+    if (cfg.startsWith("ERROR")) return false
+    let config: NetworkConfig = JSON.parse(cfg)
+    if (config.networking_method === NetworkingMethod.PublicServer && config.public_server_url) {
+      config.hostname = getHostname()
+      config.networking_method = NetworkingMethod.Manual
+      config.peer_urls.push(config.public_server_url)
+    }
+    this.configUUIDMap.set(config.instance_id!, config)
+    this.configNameUUIDMap.set(config.instance_id!, config.instance_id!)
+    this.configUUIDNameMap.set(config.instance_id!, config.instance_id!)
+    AppManager.preference.addConfig(config.instance_id!, config.instance_id!, config)
+    return true
+  }
+
   public delConfig(uuid: string): boolean {
     if (AppManager.data.favoriteInstance === uuid) {
       AppManager.data.favoriteInstance = undefined
     }
+    if (AppManager.easytier.selected === uuid) {
+      AppManager.easytier.selected = undefined
+    }
     if (this.configUUIDMap.has(uuid)) {
       let name = this.configUUIDNameMap.get(uuid)
-      preferences.deletePreferences(AppManager.content.context!, uuid)
       AppManager.preference.configIDPreferences?.deleteSync(uuid)
-      AppManager.preference.configPreferences.delete(uuid)
       AppManager.preference.configIDPreferences?.flushSync()
+      AppManager.preference.configPreferences.delete(uuid)
+      preferences.deletePreferences(AppManager.content.context!, uuid)
       return this.configUUIDMap.delete(uuid) && this.configNameUUIDMap.delete(name ?? "") && this.configUUIDNameMap.delete(uuid)
     }else {
       return false

@@ -20,6 +20,11 @@ export struct EnableField {
   }
 
   @Computed
+  get preference() {
+    return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
+  }
+
+  @Computed
   get hasTitle() {
     return ContentUtil.hasTag(this.field, "rightFieldName")
   }
@@ -40,6 +45,8 @@ export struct EnableField {
     }, () => {
       this.button = isOn
       this.config![ContentUtil.safeFieldName(this.field)] = this.button
+      this.preference?.putSync(this.field, this.config![this.field])
+      this.preference?.flushSync()
     })
     animateToImmediately({
       curve: curves.springMotion(0.4, 0.7),

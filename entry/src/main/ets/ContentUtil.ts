@@ -34,6 +34,7 @@ export class ContentUtil {
   public static otherFields: ConfigField[] = []
   public static combinedField: Record<string, string[]> = {
     "basic_setting": ["virtual_ipv4_comp", "hostname", "identity"],
+    "algorithm_setting": ["data_compress_algo", "encryption_algorithm"],
     "virtual_ipv4_comp": ["dhcp", "virtual_ip"],
     "identity": ["network_name", "network_secret"],
     "vpn_portal": ["enable_vpn_portal",  "vpn_portal_listen_port", "vpn_portal_client_network"],
@@ -72,7 +73,8 @@ export class ContentUtil {
     "network_secret": "topFieldName password",
     "identity": "hideTitle",
     "virtual_ip": "insideName",
-    "vpn_portal_client_network": "outsideName"
+    "vpn_portal_client_network": "outsideName",
+    "encryption_algorithm": "leftFieldName"
   }
 
   private static fieldCategory: Record<string, FieldCategory> = {

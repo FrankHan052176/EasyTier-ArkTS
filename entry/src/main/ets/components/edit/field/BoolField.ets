@@ -14,6 +14,11 @@ export struct BoolField {
     return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
   }
 
+  @Computed
+  get preference() {
+    return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
+  }
+
   aboutToAppear(): void {
     this.button = this.config![ContentUtil.safeFieldName(this.field)] || false
   }
@@ -33,7 +38,9 @@ export struct BoolField {
         duration: 300
       }, () => {
         this.button = !this.button
-        this.config![ContentUtil.safeFieldName(this.field)] = this.button
+        this.config![this.field] = this.button
+        this.preference?.putSync(this.field, this.config![this.field])
+        this.preference?.flushSync()
       })
     })
   }

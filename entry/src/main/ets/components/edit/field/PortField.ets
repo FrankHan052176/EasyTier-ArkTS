@@ -1,8 +1,5 @@
-import { NetworkConfig } from "../../../protobuf/api_manage";
-import { deviceInfo } from "@kit.BasicServicesKit";
-import { hdsEffect } from "@kit.UIDesignKit";
-import { ContentUtil } from "../../../ContentUtil";
-import { AppManager } from "../../../AppManager";
+import { ContentUtil } from '../../../ContentUtil';
+import { AppManager } from '../../../AppManager';
 
 @Extend(TextInput)
 function fieldTextInput() {
@@ -21,12 +18,17 @@ export struct PortField {
   @Param @Require field: string;
   @Param @Require text: ResourceStr;
   @Consumer("field_edit_enable") enable: boolean = true
-  @Local value: string = ""+(this.config![ContentUtil.safeFieldName(this.field)] ?? 0);
+  @Local value: string = ""+(this.config![this.field] ?? 0);
   @Local isEdit: boolean = false;
 
   @Computed
   get config() {
     return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+  }
+
+  @Computed
+  get preference() {
+    return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
   }
 
   insert(value: InsertValue):boolean {
@@ -53,11 +55,9 @@ export struct PortField {
 
   change(value: string) {
     let num = Number.parseInt(value)
-    if (Number.isNaN(num)) {
-      this.config![ContentUtil.safeFieldName(this.field)] = undefined
-    }else {
-      this.config![ContentUtil.safeFieldName(this.field)] = num
-    }
+    this.config![ContentUtil.safeFieldName(this.field)] = Number.isNaN(num)?0:num
+    this.preference?.putSync(this.field, this.config![this.field])
+    this.preference?.flushSync()
   }
 
   @Computed
@@ -68,6 +68,7 @@ export struct PortField {
   build() {
     Row() {
       Text(this.text)
+        .focusable(false)
       Row() {
         TextInput({text: this.value!!})
           .onWillInsert((data) => this.insert(data))

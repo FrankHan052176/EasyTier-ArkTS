@@ -157,9 +157,10 @@ export struct NewConfig_Content {
                     // TODO 解压缩配置
                   }
                 } catch (err) {
-                  // TODO Toml转NetworkConfig
-                  if (false) {
-
+                  if (AppManager.data.importToml(value)) {
+                    this.getUIContext().getPromptAction().showToast({
+                      message: "导入成功"
+                    })
                   }else {
                     try {
                       this.getUIContext().getPromptAction().showToast({

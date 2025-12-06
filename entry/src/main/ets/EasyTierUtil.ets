@@ -28,7 +28,6 @@ export class EasyTierUtil {
     monitor.dirty.forEach((path: string) => {
       if (AppManager.preference.preferences !== undefined && !AppManager.preference.isInit) {
         try {
-          Logger.debug("update:"+path+","+monitor.value(path)?.now, this)
           if (monitor.value(path)?.now) {
             AppManager.preference.preferences.putSync(path, monitor.value(path)?.now as ValueType)
           }else {
@@ -53,6 +52,10 @@ export class EasyTierUtil {
 
   version() {
     return easytier.easytierVersion()
+  }
+
+  convertToml2NetworkConfig(toml: string): string {
+    return easytier.convertTomlToNetworkConfig(toml)
   }
 
   private addTunRoutes(route: string): boolean {

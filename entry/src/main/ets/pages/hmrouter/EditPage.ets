@@ -15,13 +15,19 @@ import { Logger } from '../../util/Logger'
 @ComponentV2
 export struct EditPage {
   @Local uuid: string | null = null;
-  @Local name: string | null = null;
   @Local sheet: boolean = false
   @Local sheet_type: string = ""
 
+  @Computed
+  get name() {
+    if (this.uuid) {
+      return AppManager.data.configUUIDNameMap.get(this.uuid)
+    }
+    return ""
+  }
+
   aboutToAppear(): void {
     this.uuid = HMRouterMgr.getCurrentParam() as string;
-    this.name = AppManager.data.configUUIDNameMap.get(this.uuid)!
     EventHelper.emitterListener("edit_open_sheet", (data) => {
       this.sheet_type = data.data!.type as string
       this.sheet = true
@@ -158,7 +164,8 @@ export struct EditPage {
                   subTitleColor: $r("sys.color.font_secondary")
                 },
                 menuStyle: {
-                  backgroundColor: $r("sys.color.interactive_hover")
+                  backgroundColor: $r("sys.color.interactive_hover"),
+                  iconColor: $r("sys.color.font_primary")
                 },
                 backIconStyle: {
                   backgroundColor: $r("sys.color.interactive_hover"),
@@ -174,15 +181,22 @@ export struct EditPage {
             },
             menu: {
               value: [
-                HdsMenuButton("favorite", AppManager.data.isFavorite(this.uuid!)?$r("sys.symbol.star_fill"):$r("sys.symbol.star"), () => {
+                HdsMenuButton($r("app.string.i18_favorite"), AppManager.data.isFavorite(this.uuid!)?$r("sys.symbol.star_fill"):$r("sys.symbol.star"), () => {
                   AppManager.data.changeFavorite(this.uuid!)
                 }),
-                HdsMenuButton("share", $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), () => {
+                HdsMenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), () => {
                   // TODO 分享
                 }),
-                HdsMenuButton("delete", $r("sys.symbol.trash"), () => {
+                HdsMenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), () => {
                   HMRouterMgr.pop()
                   AppManager.data.delConfig(this.uuid!)
+                }),
+                HdsMenuButton($r("app.string.i18_rename"), $r("sys.symbol.pencil_line_1"), () => {
+                  EventHelper.emitterPublish("edit_open_sheet",{
+                    data: {
+                      type: "rename"
+                    }
+                  })
                 })
               ]
             }
@@ -205,19 +219,23 @@ export struct EditPage {
           backgroundColor: $r('sys.color.background_secondary')
         })
         .menus([
-          MenuButton("favorite", AppManager.data.isFavorite(this.uuid!)?$r("sys.symbol.star_fill"):$r("sys.symbol.star"), () => {
+          MenuButton($r("app.string.i18_favorite"), AppManager.data.isFavorite(this.uuid!)?$r("sys.symbol.star_fill"):$r("sys.symbol.star"), () => {
             AppManager.data.changeFavorite(this.uuid!)
           }),
-          MenuButton("share", $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), () => {
+          MenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), () => {
             // TODO 分享
           }),
-          MenuButton("delete", $r("sys.symbol.trash"), () => {
+          MenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), () => {
             HMRouterMgr.pop()
             AppManager.data.delConfig(this.uuid!)
           }),
-          MenuButton("toml", $r("sys.symbol.doc_plaintext"), () => {
-            // TODO 输出Toml
-          }),
+          MenuButton($r("app.string.i18_rename"), $r("sys.symbol.pencil_line_1"), () => {
+            EventHelper.emitterPublish("edit_open_sheet",{
+              data: {
+                type: "rename"
+              }
+            })
+          })
         ])
       }
     }

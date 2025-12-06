@@ -6,7 +6,9 @@
   "author": "",
   "license": "",
   "dependencies": {
-    "easytier-ohrs": "file:./libs/easytier-ohrs.har",
+    "easytier-ohrs": "file:libs/easytier-ohrs.har",
     "libentry.so": "file:./src/main/cpp/types/libentry"
-  }
+  },
+  "devDependencies": {},
+  "dynamicDependencies": {}
 }

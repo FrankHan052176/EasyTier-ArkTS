@@ -33,6 +33,11 @@ export struct CidrField {
   }
 
   @Computed
+  get preference() {
+    return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
+  }
+
+  @Computed
   get ipField() {
     return ContentUtil.combinedField[this.field][0]
   }
@@ -79,6 +84,8 @@ export struct CidrField {
           TextInput({text: this.value_ip!!})
             .fieldTextInput((value) => {
               this.config![ContentUtil.safeFieldName(this.ipField)] = value
+              this.preference?.putSync(this.field, this.config![this.ipField])
+              this.preference?.flushSync()
             }, () => {
               this.getUIContext().getFocusController().requestFocus(this.field+"mask");
             }, true, this.field)
@@ -93,7 +100,10 @@ export struct CidrField {
             .fontColor(this.fontColor)
           TextInput({text: this.value_mask!!})
             .fieldTextInput((value) => {
-              this.config![ContentUtil.safeFieldName(this.maskField)] = Number.parseInt(value)
+              let num = Number.parseInt(value)
+              this.config![ContentUtil.safeFieldName(this.maskField)] = Number.isNaN(num)?0:num
+              this.preference?.putSync(this.field, this.config![this.maskField])
+              this.preference?.flushSync()
             }, () => {}, false, this.field)
             .width(30)
             .onEditChange((isEdit) => {

@@ -29,16 +29,36 @@
       "value": "条"
     },
     {
-      "name": "socks5_port",
-      "value": "socks5服务器端口"
-    },
-    {
       "name": "i18_enable",
       "value": "启用"
     },
     {
+      "name": "i18_favorite",
+      "value": "收藏"
+    },
+    {
+      "name": "i18_share",
+      "value": "分享"
+    },
+    {
+      "name": "i18_delete",
+      "value": "删除"
+    },
+    {
+      "name": "i18_rename",
+      "value": "重命名"
+    },
+    {
+      "name": "socks5_port",
+      "value": "socks5服务器端口"
+    },
+    {
       "name": "basic_setting",
       "value": "基础设置"
+    },
+    {
+      "name": "algorithm_setting",
+      "value": "算法设置"
     },
     {
       "name": "data_compress_algo",

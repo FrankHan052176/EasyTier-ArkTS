@@ -3,6 +3,7 @@ import easytier from "easytier-ohrs"
 import { AppManager } from "./AppManager";
 import { NetworkConfig } from "./protobuf/api_manage";
 import { Logger, LogLocate } from "./util/Logger";
+import { buffer, util } from "@kit.ArkTS";
 
 const defaultSequence = 'Instances_0_0_1_1|Favorite_1_0_1_1|Logs_0_1_1_1|SharedPeers_1_1_1_2|QQ_0_2_1_1'
 
@@ -35,8 +36,17 @@ export class PreferenceUtil {
               Logger.error(JSON.stringify(err), this)
               return
             }
+            let textDecoderOptions: util.TextDecoderOptions = {
+              fatal: false,
+              ignoreBOM: true
+            }
+            let decodeToStringOptions: util.DecodeToStringOptions = {
+              stream: false
+            }
+            let textDecoder = util.TextDecoder.create('utf-8', textDecoderOptions);
+            let name = textDecoder.decodeToString(esObj[field] as Uint8Array, decodeToStringOptions);
             this.configPreferences.set(field, data)
-            AppManager.data.readConfig(field, esObj[field] as string, data.getAllSync() as NetworkConfig)
+            AppManager.data.readConfig(field, name as string, data.getAllSync() as NetworkConfig)
           })
         } catch (_) {}
       }
@@ -87,7 +97,7 @@ export class PreferenceUtil {
 
   addConfig(uuid:string, name: string, config: NetworkConfig) {
     try {
-      this.configIDPreferences?.putSync(uuid, name)
+      this.configIDPreferences?.putSync(uuid, new Uint8Array(buffer.from(name, 'utf-8').buffer))
       this.configIDPreferences?.flushSync()
       let preference = preferences.getPreferencesSync(AppManager.content.context, { name: uuid })
       Object.entries(config).forEach((value: [string, preferences.ValueType | undefined]) => {
