@@ -6,7 +6,6 @@ import { ToolButton } from "../util/ToolButtons";
 import { getFieldI18Name } from "./FieldEdit";
 import { ListFieldValue } from "./ListFieldValue";
 import { LengthMetrics } from "@kit.ArkUI";
-import { PrimaryButton } from "../util/TextButton";
 
 @ComponentV2
 export struct GlobalConfigSuggestions {
@@ -74,6 +73,7 @@ export struct GlobalConfigSuggestions {
             Row() {
               SymbolGlyph($r("sys.symbol.minus_circle"))
                 .margin({right: 8})
+                .fontColor([$r("sys.color.font_primary")])
               Text(getFieldI18Name(this.field))
               Text("为空")
             }
@@ -82,6 +82,8 @@ export struct GlobalConfigSuggestions {
           .justifyContent(FlexAlign.Center)
           .height(this.comp_height)
           .width('100%')
+          .borderRadius(18)
+          .backgroundColor($r("sys.color.comp_background_primary"))
         }
       }
     }
@@ -99,7 +101,7 @@ export struct GlobalConfigSuggestions {
     .borderRadius(18)
     .backgroundColor(Color.Transparent)
     .clip(true)
-    .padding({left: 10, bottom: 10, right: 10})
+    .padding({left: 8, bottom: 0, right: 8})
   }
 
   build() {

@@ -32,11 +32,6 @@ export struct CidrField {
     return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
   }
 
-  @Monitor("enable")
-  onChange() {
-    Logger.debug("change to "+this.enable)
-  }
-
   @Computed
   get ipField() {
     return ContentUtil.combinedField[this.field][0]

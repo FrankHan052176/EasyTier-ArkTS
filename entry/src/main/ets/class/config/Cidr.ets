@@ -1,12 +1,10 @@
-import { lane } from "../../util/Conversion"
-import { FieldValue } from "./Basic"
-import { LengthMetrics } from "@kit.ArkUI"
-import { Logger } from "../../util/Logger"
-import { AppManager, Svp2fp } from "../../AppManager"
-import { IP } from "./IP"
+import { FieldValue } from './Basic'
+import { LengthMetrics } from '@kit.ArkUI'
+import { AppManager, Svp2fp } from '../../AppManager'
 
 function isIpAddr(value: string): boolean {
-  return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").test(value)
+  return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
+    .test(value)
 }
 
 function isMask(value: string): boolean {
@@ -14,10 +12,10 @@ function isMask(value: string): boolean {
     let num = Number.parseInt(value)
     if (num >= 0 && num <= 32) {
       return true
-    }else {
+    } else {
       return false
     }
-  }catch (e) {
+  } catch (e) {
     return false
   }
 }
@@ -32,7 +30,12 @@ function tips() {
 
 @Extend(TextInput)
 function underline(textAlign: TextAlign = TextAlign.Center) {
-  .padding({left: 1, right: 1, top: 5, bottom: 5})
+  .padding({
+    left: 1,
+    right: 1,
+    top: 5,
+    bottom: 5
+  })
   .backgroundColor(Color.Transparent)
   .border({
     width: {
@@ -56,9 +59,11 @@ function underline(textAlign: TextAlign = TextAlign.Center) {
 }
 
 export let EditValue_Cidr: Cidr | undefined
+
 export function clearEditValue_Cidr() {
   EditValue_Cidr = undefined
 }
+
 export function setEditValue_Cidr(cidr: Cidr) {
   EditValue_Cidr = cidr
 }
@@ -71,7 +76,7 @@ export struct CidrEditor {
   build() {
     Column() {
       Row() {
-        TextInput({text: EditValue_Cidr!.ip})
+        TextInput({ text: EditValue_Cidr!.ip })
           .underline()
           .width(70)
           .onChange((value: string) => {
@@ -80,14 +85,14 @@ export struct CidrEditor {
               if (EditValue_Cidr) {
                 EditValue_Cidr.ip = value
               }
-            }else {
+            } else {
               this.ip = true
             }
           })
         Text("/")
           .fontSize(18)
-          .margin({left: 2, right: 2})
-        TextInput({text: ""+EditValue_Cidr!.mask})
+          .margin({ left: 2, right: 2 })
+        TextInput({ text: "" + EditValue_Cidr!.mask })
           .underline()
           .maxLength(2)
           .width(30)
@@ -97,13 +102,14 @@ export struct CidrEditor {
               if (EditValue_Cidr) {
                 EditValue_Cidr.mask = value
               }
-            }else {
+            } else {
               this.Mask = true
             }
           })
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)
+
       Text(`
 请设置网段，如10.0.0.0/24
       `)
@@ -118,7 +124,7 @@ export struct CidrEditor {
 
 @Builder
 export function CidrBuilder(value: Cidr) {
-  Row({space: 10}) {
+  Row({ space: 10 }) {
     Row() {
       SymbolGlyph($r("sys.symbol.arrow_triangle_merge"))
         .fontSize(Svp2fp(24))
@@ -129,6 +135,7 @@ export function CidrBuilder(value: Cidr) {
     .borderRadius(8)
     .alignItems(VerticalAlign.Center)
     .justifyContent(FlexAlign.Center)
+
     Text(value.toString())
       .layoutWeight(100)
       .maxLines(1)
@@ -143,7 +150,7 @@ export function CidrBuilder(value: Cidr) {
 
 @Builder
 export function RouteBuilder(value: Cidr) {
-  Row({space: 10}) {
+  Row({ space: 10 }) {
     Row() {
       SymbolGlyph($r("sys.symbol.arrow_triangle_divide"))
         .fontSize(Svp2fp(24))
@@ -154,6 +161,7 @@ export function RouteBuilder(value: Cidr) {
     .borderRadius(8)
     .alignItems(VerticalAlign.Center)
     .justifyContent(FlexAlign.Center)
+
     Text(value.toString())
       .layoutWeight(100)
       .maxLines(1)
@@ -171,45 +179,57 @@ export class Cidr implements FieldValue {
   @Trace ip: string = "10.0.0.0"
   @Trace mask: string = "24"
   fieldName: string | undefined
+
   @Monitor("ip","mask")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
       let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
-      if (!config) return
-      if (!this.fieldName) return
+      if (!config) {
+        return
+      }
+      if (!this.fieldName) {
+        return
+      }
       let arr = config[this.fieldName] as string[]
       let old = (monitor.value("ip")?.before ?? this.ip) + "/" + (monitor.value("mask")?.before ?? this.mask)
       let index = arr.indexOf(old)
-      if (index < 0) return
+      if (index < 0) {
+        return
+      }
       arr[index] = this.toString()
     }
   }
+
   fromString(value: string): boolean {
     let arr = value.split("/")
     if (arr.length != 2 || !isMask(arr[1]) || !isIpAddr(arr[0])) {
       return false
-    }else {
+    } else {
       this.ip = arr[0]
       this.mask = arr[1]
       return true
     }
   }
+
   readFrom(value: string): Cidr | undefined {
     let arr = value.split("/")
     if (arr.length != 2 || !isMask(arr[1]) || !isIpAddr(arr[0])) {
       return undefined
-    }else {
+    } else {
       this.ip = arr[0]
       this.mask = arr[1]
       return this
     }
   }
+
   toString(): string {
-    return this.ip+"/"+this.mask
+    return this.ip + "/" + this.mask
   }
+
   checkValid(): boolean {
     return isMask(this.mask) && isIpAddr(this.ip)
   }
+
   bind(fieldName: string): Cidr {
     this.fieldName = fieldName
     return this

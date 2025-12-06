@@ -9,6 +9,7 @@ import { HdsMenuButton, MenuButton } from '../Components'
 import { SheetContentBuilder, SheetTitleBuilder } from '../../components/sheet/Basic'
 import { EventHelper } from '../../util/EventHelper'
 import { WindowUtil } from '../../WindowUtil'
+import { Logger } from '../../util/Logger'
 
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2

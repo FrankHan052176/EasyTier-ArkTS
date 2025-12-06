@@ -91,7 +91,7 @@ export class PermissionUtil {
 
   async requestLocPermFromSetting(): Promise<boolean> {
     if (AppManager.permission.isGetLocPerm()) {
-      Logger.debug("[Permission] LocPerm request again", PermissionUtil)
+      Logger.debug("LocPerm request again", this)
       let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
       let rst = await atManager.requestPermissionOnSetting(AppManager.content.context, ["ohos.permission.APPROXIMATELY_LOCATION"])
       this.updateLocPerm(rst[0])
@@ -103,7 +103,7 @@ export class PermissionUtil {
 
   async requestDistributePermFromSetting(): Promise<boolean> {
     if (AppManager.permission.isGetDistributePerm()) {
-      Logger.debug("[Permission] DistributePerm request again", PermissionUtil)
+      Logger.debug("DistributePerm request again", this)
       let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
       let rst = await atManager.requestPermissionOnSetting(AppManager.content.context, ["ohos.permission.DISTRIBUTED_DATASYNC"])
       this.updateDistributePerm(rst[0])
@@ -127,7 +127,7 @@ export class PermissionUtil {
       bundleName: 'top.frankhan.easytier',
       abilityName: 'EasyTierAbility',
     }).then(() => {
-      Logger.debug("[Permission] startVpnExtensionAbility")
+      Logger.debug("startVpnExtensionAbility", this)
       vpnExtension.stopVpnExtensionAbility({
         deviceId: '',
         bundleName: 'top.frankhan.easytier',

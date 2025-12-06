@@ -11,8 +11,12 @@ export enum Protocol {
   WSS6 = "wss6",
   WG = "wg",
   WG6 = "wg6",
+  TXT = "txt",
   UNKNOWN = ""
 }
+export const protocols = [Protocol.TCP, Protocol.UDP, Protocol.QUIC, Protocol.WS, Protocol.WSS, Protocol.WG, Protocol.TXT]
+export const protocolsWithoutTXT = [Protocol.TCP, Protocol.UDP, Protocol.QUIC, Protocol.WS, Protocol.WSS, Protocol.WG]
+export const protocolsOnlyTcpAndUdp = [Protocol.TCP, Protocol.UDP]
 export function convertToProtocol(input: string): Protocol {
   switch (input) {
     case "udp": return Protocol.UDP;
@@ -25,6 +29,7 @@ export function convertToProtocol(input: string): Protocol {
     case "wss6": return Protocol.WSS6;
     case "wg": return Protocol.WG;
     case "wg6": return Protocol.WG6;
+    case "txt": return Protocol.TXT;
     default : return Protocol.TCP;
   }
 }
@@ -35,6 +40,7 @@ export function protocolColor(protocol:Protocol): ResourceColor {
     case Protocol.WS: return "#ff64bb5c";
     case Protocol.WSS: return "#ff5ba854";
     case Protocol.WG: return "#ffed6f21";
+    case Protocol.TXT: return $r("sys.color.font_on_primary");
     default : return "#ff0a59f7";
   }
 }
@@ -45,6 +51,7 @@ export function protocolBGColor(protocol:Protocol): ResourceColor {
     case Protocol.WS: return "#3364bb5c";
     case Protocol.WSS: return "#335ba854";
     case Protocol.WG: return "#33ed6f21";
+    case Protocol.TXT: return $r("sys.color.font_primary");
     default : return "#330a59f7";
   }
 }

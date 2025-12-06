@@ -85,6 +85,7 @@ export struct EditTitle {
         this.popup = false
         clearEditValue(this.fieldType)
         EventHelper.emitterPublish("edit_close_sheet")
+        EventHelper.emitterPublish("edit_refresh_"+this.fieldName)
       }
     })
       .bindPopup(this.popup, {

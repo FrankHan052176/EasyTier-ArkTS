@@ -77,6 +77,11 @@ export class EasyTierUtil {
     for (const info of infos) {
       networks.add(info.key)
       let newInfo: NetworkInstanceRunningInfo = JSON.parse(info.value)
+      if (!newInfo.running) {
+        Logger.error("ReadErrorInfo: "+newInfo.error_msg, this)
+        this.stop()
+        continue
+      }
       this.runningNetworks.set(info.key, newInfo)
       if (!this.instanceInfos.has(info.key)) {
         this.instanceInfos.set(info.key, new InstanceInfo())

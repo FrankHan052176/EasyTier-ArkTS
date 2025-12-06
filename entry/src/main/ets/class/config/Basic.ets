@@ -1,12 +1,15 @@
 import { AppManager } from "../../AppManager";
 import { ContentUtil } from "../../ContentUtil";
-import { NetworkConfig } from "../../protobuf/api_manage";
+import { NetworkConfig, PortForwardConfig } from "../../protobuf/api_manage";
 import { EventHelper } from "../../util/EventHelper";
+import { Logger } from "../../util/Logger";
 import { Cidr, clearEditValue_Cidr, EditValue_Cidr, setEditValue_Cidr } from "./Cidr";
 import { clearEditValue_IP, EditValue_IP, IP, setEditValue_IP } from "./IP";
 import {
   clearEditValue_NetworkName,
   EditValue_NetworkName, NetworkName, setEditValue_NetworkName } from "./NetworkName";
+import { clearEditValue_PortForward, EditValue_PortForward, PortForward,
+  setEditValue_PortForward } from "./PortForward";
 import { clearEditValue_Url, EditValue_Url, setEditValue_Url, Url } from "./Url";
 
 export interface FieldValue {
@@ -43,13 +46,13 @@ export function addFieldValue(type: string, name: string) {
       break;
     }
     case "port_forward": {
-      // TODO 端口转发
+      setEditValue_PortForward(new PortForward())
       break;
     }
   }
   EventHelper.emitterPublish("edit_open_sheet",{
     data: {
-      type: "add_"+type+"_"+name
+      type: "add_"+type+"|"+name
     }
   })
 }
@@ -84,7 +87,6 @@ export function updateFieldValue(type: string, value: FieldValue) {
       break;
     }
     case "string": {
-      setEditValue_NetworkName(new NetworkName())
       let name = value as NetworkName
       if (EditValue_NetworkName) {
         EditValue_NetworkName.name = name.name
@@ -92,16 +94,44 @@ export function updateFieldValue(type: string, value: FieldValue) {
       break;
     }
     case "port_forward": {
-      // TODO 端口转发
+      let pf = value as PortForward
+      if (EditValue_PortForward) {
+        EditValue_PortForward.proto = pf.proto
+        EditValue_PortForward.to = pf.to
+        EditValue_PortForward.to_port = pf.to_port
+        EditValue_PortForward.from = pf.from
+        EditValue_PortForward.from_port = pf.from_port
+      }
       break;
     }
   }
 }
 
 export function deleteFieldValue(config: NetworkConfig, type: string, name: string, value: FieldValue) {
-  const pos = (config[ContentUtil.safeFieldName(name)] as string[]).indexOf(value.toString())
-  if (pos >= 0) {
-    (config[ContentUtil.safeFieldName(name)] as string[]).splice(pos, 1)
+  if (type === "port_forward") {
+    let i = -1
+    let old = (value as PortForward).toInterface()
+    let arr = config[ContentUtil.safeFieldName(name)] as PortForwardConfig[]
+    for (let index = 0; index < arr.length; index++) {
+      const element = arr[index];
+      if (element.bind_ip === old.bind_ip &&
+        element.bind_port === old.bind_port &&
+        element.dst_ip === old.dst_ip &&
+        element.dst_port === old.dst_port &&
+        element.proto === old.proto
+      ) {
+        i = index
+        break
+      }
+    }
+    if (i >= 0) {
+      arr.splice(i, 1)
+    }
+  }else {
+    const pos = (config[ContentUtil.safeFieldName(name)] as string[]).indexOf(value.toString())
+    if (pos >= 0) {
+      (config[ContentUtil.safeFieldName(name)] as string[]).splice(pos, 1)
+    }
   }
   animateToImmediately({
     curve: Curve.Ease,
@@ -133,7 +163,7 @@ export function clearEditValue(type: string) {
       break;
     }
     case "port_forward": {
-      // TODO 端口转发 清空临时变量
+      clearEditValue_PortForward()
       break;
     }
   }
@@ -157,8 +187,7 @@ export function confirmCheck(type: string): boolean {
       return EditValue_NetworkName?.checkValid() ?? false
     }
     case "port_forward": {
-      // TODO 端口转发 检查文本合法
-      return false
+      return EditValue_PortForward?.checkValid() ?? false
     }
   }
   return false
@@ -188,7 +217,10 @@ export function addValue(name:string, type: string) {
         curve: Curve.Ease,
         duration: 300
       }, () => {
-        config[name].push(EditValue_Url!.toString())
+        let raw = EditValue_Url!.toString()
+        if ((config[name] as string[]).indexOf(raw) < 0) {
+          config[name].push(raw)
+        }
         AppManager.data.getDataSource(type).add(EditValue_Url!)
       })
       break;
@@ -198,7 +230,10 @@ export function addValue(name:string, type: string) {
         curve: Curve.Ease,
         duration: 300
       }, () => {
-        config[name].push(EditValue_IP!.toString())
+        let raw = EditValue_IP!.toString()
+        if ((config[name] as string[]).indexOf(raw) < 0) {
+          config[name].push(raw)
+        }
         AppManager.data.getDataSource(type).add(EditValue_IP!)
       })
       break;
@@ -208,13 +243,20 @@ export function addValue(name:string, type: string) {
         curve: Curve.Ease,
         duration: 300
       }, () => {
-        config[name].push(EditValue_NetworkName!.toString())
+        let raw = EditValue_NetworkName!.toString()
+        if ((config[name] as string[]).indexOf(raw) < 0) {
+          config[name].push(raw)
+        }
         AppManager.data.getDataSource(type).add(EditValue_NetworkName!)
       })
       break;
     }
     case "port_forward": {
-      // TODO 端口转发 新增配置
+      let raw = EditValue_PortForward!.toInterface()
+      if ((config[name] as PortForwardConfig[]).indexOf(raw) < 0) {
+        config[name].push(raw)
+      }
+      AppManager.data.getDataSource(type).add(EditValue_PortForward!)
       break;
     }
   }

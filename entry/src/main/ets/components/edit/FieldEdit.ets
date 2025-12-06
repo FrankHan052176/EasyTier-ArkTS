@@ -8,7 +8,6 @@ import { EnableField } from './field/EnableField'
 import { CidrField } from './field/CidrField'
 import { PrimaryButton } from '../util/TextButton'
 import { addFieldValue } from '../../class/config/Basic'
-import { Logger } from '../../util/Logger'
 import { AppManager } from '../../AppManager'
 
 export function getFieldI18Name(field: string): Resource {
@@ -27,6 +26,11 @@ export struct FieldEdit {
   @Computed
   get config() {
     return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+  }
+
+  @Computed
+  get preference() {
+    return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
   }
 
   getFieldName(): string {
@@ -159,7 +163,7 @@ export struct FieldEdit {
                 .color($r("sys.color.background_secondary"))
                 .width('100%')
                 .strokeWidth(1)
-                .margin({top: 6, bottom: 6})
+                .padding({top: 6, bottom: 6})
             }
           }
         }, (item: ConfigField) => {return item.name+item.type})

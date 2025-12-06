@@ -60,7 +60,7 @@ export class ContentUtil {
     "exit_nodes": "ip[]",
     "mapped_listeners": "mappedListener[]",
     "port_forwards": "port_forward[]",
-    "data_compress_algo": "string"
+    "data_compress_algo": "number"
   }
   public static fieldTag: Record<string, string> = {
     "basic_setting": "useDivider",

@@ -1,5 +1,5 @@
 import { lane } from "../../util/Conversion"
-import { convertToProtocol, Protocol, protocolBGColor, protocolColor } from "../../util/ETConfig"
+import { convertToProtocol, Protocol, protocolBGColor, protocolColor, protocols } from "../../util/ETConfig"
 import { FieldValue } from "./Basic"
 import { hdsEffect } from "@kit.UIDesignKit"
 import { deviceInfo } from "@kit.BasicServicesKit"
@@ -164,20 +164,20 @@ export function clearEditValue_Url() {
 export function setEditValue_Url(value: Url) {
   EditValue_Url = value
 }
-let protocols = [Protocol.TCP, Protocol.UDP, Protocol.QUIC, Protocol.WS, Protocol.WSS, Protocol.WG]
 
 @ComponentV2
 export struct UrlEditor {
+  @Param protocolArr: Protocol[] = protocols
   @Local domain: boolean = false
   @Local port: boolean = false
 
   build() {
     Column() {
       Row() {
-        TextPicker({ range: protocols, selected: protocols.indexOf(EditValue_Url!.proto)})
+        TextPicker({ range: this.protocolArr, selected: this.protocolArr.indexOf(EditValue_Url!.proto)})
           .onChange((_value: string | string[], index: number | number[]) => {
             if (EditValue_Url) {
-              EditValue_Url.proto = protocols[index as number]
+              EditValue_Url.proto = this.protocolArr[index as number]
             }
           })
           .canLoop(false)
@@ -206,6 +206,7 @@ export struct UrlEditor {
           .underline()
           .width(60)
           .maxLength(5)
+          .enabled(EditValue_Url?.proto !== Protocol.TXT)
           .type(InputType.Number)
           .onChange((value: string) => {
             if (isPort(value)) {
@@ -285,7 +286,11 @@ export class Url implements FieldValue {
     }
   }
   toString(): string {
-    return this.proto+"://"+this.domain+":"+this.port
+    if (this.proto === Protocol.TXT) {
+      return this.proto+"://"+this.domain
+    }else {
+      return this.proto+"://"+this.domain+":"+this.port
+    }
   }
   checkValid(): boolean {
     return isPort(this.port) && isDomainOrIP(this.domain)

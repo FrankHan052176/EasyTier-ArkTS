@@ -10,6 +10,7 @@ import { NetworkConfig } from "./protobuf/api_manage";
 import { ContentUtil } from "./ContentUtil";
 import { AppManager } from "./AppManager";
 import { getHostname } from "./util/Conversion";
+import { preferences } from "@kit.ArkData";
 
 @LogLocate("DataUtil")
 @ObservedV2
@@ -59,9 +60,9 @@ export class DataUtil {
   }
 
   public init() {
-    this.favoriteInstance = this.newConfig("测试Ⅰ").instance_id
-    this.newConfig("测试Ⅱ")
-    this.newConfig("测试Ⅲ")
+    // this.favoriteInstance = this.newConfig("测试Ⅰ").instance_id
+    // this.newConfig("测试Ⅱ")
+    // this.newConfig("测试Ⅲ")
   }
 
   public safeUUID(): string {
@@ -78,6 +79,14 @@ export class DataUtil {
     this.configUUIDMap.set(config.instance_id, config)
     this.configNameUUIDMap.set(name, config.instance_id)
     this.configUUIDNameMap.set(config.instance_id, name)
+    AppManager.preference.addConfig(config.instance_id, name, config)
+    return config
+  }
+
+  public readConfig(uuid:string, name: string, config: NetworkConfig) {
+    this.configUUIDMap.set(uuid, config)
+    this.configNameUUIDMap.set(name, uuid)
+    this.configUUIDNameMap.set(uuid, name)
     return config
   }
 
@@ -87,6 +96,10 @@ export class DataUtil {
     }
     if (this.configUUIDMap.has(uuid)) {
       let name = this.configUUIDNameMap.get(uuid)
+      preferences.deletePreferences(AppManager.content.context!, uuid)
+      AppManager.preference.configIDPreferences?.deleteSync(uuid)
+      AppManager.preference.configPreferences.delete(uuid)
+      AppManager.preference.configIDPreferences?.flushSync()
       return this.configUUIDMap.delete(uuid) && this.configNameUUIDMap.delete(name ?? "") && this.configUUIDNameMap.delete(uuid)
     }else {
       return false

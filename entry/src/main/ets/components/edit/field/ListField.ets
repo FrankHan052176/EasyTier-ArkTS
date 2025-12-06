@@ -11,6 +11,9 @@ import { setEditValue_Url, Url } from "../../../class/config/Url";
 import { IP, setEditValue_IP } from "../../../class/config/IP";
 import { NetworkName, setEditValue_NetworkName } from "../../../class/config/NetworkName";
 import { EventHelper } from "../../../util/EventHelper";
+import { PortForward, setEditValue_PortForward } from "../../../class/config/PortForward";
+import { PortForwardConfig } from "../../../protobuf/api_manage";
+import { Logger } from "../../../util/Logger";
 
 @ComponentV2
 export struct ListField {
@@ -21,33 +24,45 @@ export struct ListField {
   @Local item_height: number = 0
   private scroller: ListScroller = new ListScroller();
 
-  config() {
+  @Computed
+  get config() {
     return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
   }
 
+  @Computed
+  get preference() {
+    return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
+  }
+
   updateItems() {
-    this.items = this.config()![this.field].map((value: string) => {
+    this.items = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")![this.field].map((value: string | PortForwardConfig) => {
       switch (this.type) {
-        case "cidr": return new Cidr().readFrom(value)?.bind(this.field)
-        case "route": return new Cidr().readFrom(value)?.bind(this.field)
-        case "peer": return new Url().readFrom(value)?.bind(this.field)
+        case "cidr": return new Cidr().readFrom(value as string)?.bind(this.field)
+        case "route": return new Cidr().readFrom(value as string)?.bind(this.field)
+        case "peer": return new Url().readFrom(value as string)?.bind(this.field)
         case "mappedListener":
-        case "listener": return new Url().readFrom(value)?.bind(this.field)
-        case "ip": return new IP().readFrom(value)?.bind(this.field)
-        case "string": return new NetworkName().readFrom(value)?.bind(this.field)
-        case "port_forward": return undefined
+        case "listener": return new Url().readFrom(value as string)?.bind(this.field)
+        case "ip": return new IP().readFrom(value as string)?.bind(this.field)
+        case "string": return new NetworkName().readFrom(value as string)?.bind(this.field)
+        case "port_forward": return new PortForward().readFrom(value as PortForwardConfig)?.bind(this.field)
         default: return undefined
       }
     })
   }
 
   aboutToAppear(): void {
-    if (!this.config()![this.field]) {
-      this.config()![this.field] = new Array<string>()
+    if (!this.config![this.field]) {
+      if (this.type === "port_forward") {
+        this.config![this.field] = new Array<PortForwardConfig>()
+      }else {
+        this.config![this.field] = new Array<string>()
+      }
     }
     this.updateItems()
     EventHelper.emitterListener("edit_refresh_"+this.field, () => {
       this.updateItems()
+      this.preference?.putSync(this.field, this.config![this.field])
+      this.preference?.flushSync()
     })
   }
 
@@ -92,13 +107,13 @@ export struct ListField {
               break;
             }
             case "port_forward": {
-              // TODO 端口转发
+              setEditValue_PortForward(value as PortForward)
               break;
             }
           }
           EventHelper.emitterPublish("edit_open_sheet",{
             data: {
-              type: "edit_"+this.type+"_"+this.field
+              type: "edit_"+this.type+"|"+this.field
             }
           })
         })
@@ -109,7 +124,7 @@ export struct ListField {
         })
         .onClick(() => {
           this.scroller.closeAllSwipeActions()
-          deleteFieldValue(this.config()!, this.type, this.field, value)
+          deleteFieldValue(this.config!, this.type, this.field, value)
           this.updateItems()
         })
     }
@@ -138,6 +153,7 @@ export struct ListField {
             Row() {
               SymbolGlyph($r("sys.symbol.minus_circle"))
                 .margin({right: 8})
+                .fontColor([$r("sys.color.font_primary")])
               Text(getFieldI18Name(this.field))
               Text("为空")
             }
@@ -146,6 +162,8 @@ export struct ListField {
           .justifyContent(FlexAlign.Center)
           .height(this.comp_height)
           .width('100%')
+          .borderRadius(18)
+          .backgroundColor($r("sys.color.comp_background_primary"))
         }
       }
     }
