@@ -1,13 +1,18 @@
-import { convertToProtocol, Protocol, protocolBGColor, protocolColor,
-  protocolsOnlyTcpAndUdp} from "../../util/ETConfig"
-import { FieldValue } from "./Basic"
-import { AppManager, Svp2fp } from "../../AppManager"
-import { LengthMetrics } from "@kit.ArkUI"
-import { Logger } from "../../util/Logger"
-import { PortForwardConfig } from "../../protobuf/api_manage"
+import {
+  convertToProtocol,
+  Protocol,
+  protocolBGColor,
+  protocolColor,
+  protocolsOnlyTcpAndUdp
+} from '../../util/ETConfig'
+import { FieldValue } from './Basic'
+import { AppManager, Svp2fp } from '../../AppManager'
+import { LengthMetrics } from '@kit.ArkUI'
+import { PortForwardConfig } from '../../protobuf/api_manage'
 
 function isIpAddr(value: string): boolean {
-  return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").test(value)
+  return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
+    .test(value)
 }
 
 function isPort(value: string): boolean {
@@ -17,7 +22,7 @@ function isPort(value: string): boolean {
       return true
     }
     return false
-  }catch (e) {
+  } catch (e) {
     return false
   }
 }
@@ -30,13 +35,18 @@ function ProtoBuilder(proto: Protocol) {
     .fontColor(protocolColor(proto))
     .fontWeight(FontWeight.Bold)
     .borderRadius(6)
-    .padding({top: 4, bottom: 4, left: 6, right: 6})
+    .padding({
+      top: 4,
+      bottom: 4,
+      left: 6,
+      right: 6
+    })
     .backgroundColor(protocolBGColor(proto))
 }
 
 @Builder
 export function PortForwardBuilder(value: PortForward) {
-  Row({space: 8}) {
+  Row({ space: 8 }) {
     Row() {
       SymbolGlyph($r("sys.symbol.arrow_bounce_right"))
         .fontSize(Svp2fp(24))
@@ -47,10 +57,11 @@ export function PortForwardBuilder(value: PortForward) {
     .borderRadius(8)
     .alignItems(VerticalAlign.Center)
     .justifyContent(FlexAlign.Center)
-    Column({space: 4}) {
-      Row({space: 8}) {
+
+    Column({ space: 4 }) {
+      Row({ space: 8 }) {
         ProtoBuilder(value.proto)
-        Text(value.to+":"+value.to_port)
+        Text(value.to + ":" + value.to_port)
           .layoutWeight(100)
           .maxLines(1)
           .textOverflow({
@@ -60,7 +71,8 @@ export function PortForwardBuilder(value: PortForward) {
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
-      Text(value.from+":"+value.from_port)
+
+      Text(value.from + ":" + value.from_port)
         .fontSize(14)
         .width('100%')
         .fontColor($r("sys.color.font_tertiary"))
@@ -87,7 +99,12 @@ function tips() {
 
 @Extend(TextInput)
 function underline(textAlign: TextAlign = TextAlign.Center) {
-  .padding({left: 1, right: 1, top: 5, bottom: 5})
+  .padding({
+    left: 1,
+    right: 1,
+    top: 5,
+    bottom: 5
+  })
   .backgroundColor(Color.Transparent)
   .border({
     width: {
@@ -111,9 +128,11 @@ function underline(textAlign: TextAlign = TextAlign.Center) {
 }
 
 export let EditValue_PortForward: PortForward | undefined
+
 export function clearEditValue_PortForward() {
   EditValue_PortForward = undefined
 }
+
 export function setEditValue_PortForward(value: PortForward) {
   EditValue_PortForward = value
 }
@@ -127,7 +146,10 @@ export struct PortForwardEditor {
     Column() {
       Column() {
         Row() {
-          TextPicker({ range: protocolsOnlyTcpAndUdp, selected: protocolsOnlyTcpAndUdp.indexOf(EditValue_PortForward!.proto)})
+          TextPicker({
+            range: protocolsOnlyTcpAndUdp,
+            selected: protocolsOnlyTcpAndUdp.indexOf(EditValue_PortForward!.proto)
+          })
             .onChange((_value: string | string[], index: number | number[]) => {
               if (EditValue_PortForward) {
                 EditValue_PortForward.proto = protocolsOnlyTcpAndUdp[index as number]
@@ -138,8 +160,8 @@ export struct PortForwardEditor {
             .width(70)
           Text("://")
             .fontSize(18)
-            .margin({left: 2, right: 2})
-          TextInput({text: EditValue_PortForward!.from})
+            .margin({ left: 2, right: 2 })
+          TextInput({ text: EditValue_PortForward!.from })
             .underline()
             .width(150)
             .onChange((value: string) => {
@@ -148,14 +170,14 @@ export struct PortForwardEditor {
                 if (EditValue_PortForward) {
                   EditValue_PortForward.from = value
                 }
-              }else {
+              } else {
                 this.domain = true
               }
             })
           Text(":")
             .fontSize(18)
-            .margin({left: 2, right: 2})
-          TextInput({text: EditValue_PortForward!.from_port})
+            .margin({ left: 2, right: 2 })
+          TextInput({ text: EditValue_PortForward!.from_port })
             .underline()
             .width(60)
             .maxLength(5)
@@ -166,17 +188,18 @@ export struct PortForwardEditor {
                 if (EditValue_PortForward) {
                   EditValue_PortForward.from_port = value
                 }
-              }else {
+              } else {
                 this.port = true
               }
             })
         }
         .width('100%')
+
         Row() {
           Text("/")
             .fontSize(18)
-            .margin({left: 2, right: 2})
-          TextInput({text: EditValue_PortForward!.to})
+            .margin({ left: 2, right: 2 })
+          TextInput({ text: EditValue_PortForward!.to })
             .underline()
             .width(150)
             .onChange((value: string) => {
@@ -185,14 +208,14 @@ export struct PortForwardEditor {
                 if (EditValue_PortForward) {
                   EditValue_PortForward.to = value
                 }
-              }else {
+              } else {
                 this.domain = true
               }
             })
           Text(":")
             .fontSize(18)
-            .margin({left: 2, right: 2})
-          TextInput({text: EditValue_PortForward!.to_port})
+            .margin({ left: 2, right: 2 })
+          TextInput({ text: EditValue_PortForward!.to_port })
             .underline()
             .width(60)
             .maxLength(5)
@@ -203,13 +226,14 @@ export struct PortForwardEditor {
                 if (EditValue_PortForward) {
                   EditValue_PortForward.to_port = value
                 }
-              }else {
+              } else {
                 this.port = true
               }
             })
         }
       }
       .width('100%')
+
       Text(`
 协议、域名、端口请分别设置
       `)
@@ -230,14 +254,19 @@ export class PortForward implements FieldValue {
   @Trace to: string = "10.0.0.2"
   @Trace to_port: string = "11010"
   fieldName: string | undefined
+
   @Monitor("proto","from","from_port","to","to_port")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
       let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
-      if (!config) return
-      if (!this.fieldName) return
+      if (!config) {
+        return
+      }
+      if (!this.fieldName) {
+        return
+      }
       let arr = config[this.fieldName] as PortForwardConfig[]
-      let old:PortForwardConfig = {
+      let old: PortForwardConfig = {
         bind_ip: (monitor.value("from")?.before ?? this.from) as string,
         bind_port: Number.parseInt((monitor.value("from_port")?.before ?? this.from_port) as string),
         dst_ip: (monitor.value("to")?.before ?? this.to) as string,
@@ -257,7 +286,9 @@ export class PortForward implements FieldValue {
           break
         }
       }
-      if (i < 0) return
+      if (i < 0) {
+        return
+      }
       arr[i] = {
         bind_ip: this.from,
         bind_port: Number.parseInt(this.from_port),
@@ -267,21 +298,22 @@ export class PortForward implements FieldValue {
       }
     }
   }
+
   fromString(value: string): boolean {
     let arr = value.split("://")
     if (arr.length != 2) {
       return false
-    }else {
+    } else {
       this.proto = convertToProtocol(arr[0])
       let arr1 = arr[1].split("/")
       if (arr.length != 2) {
         return false
-      }else {
+      } else {
         let arr2 = arr1[0].split(":")
         let arr3 = arr1[1].split(":")
         if (!isIpAddr(arr2[0]) || !isPort(arr2[1]) || !isIpAddr(arr3[0]) || !isPort(arr3[1])) {
           return false
-        }else {
+        } else {
           this.from = arr2[0]
           this.from_port = arr2[1]
           this.to = arr3[0]
@@ -291,21 +323,25 @@ export class PortForward implements FieldValue {
       }
     }
   }
+
   readFrom(value: PortForwardConfig): PortForward | undefined {
     this.proto = convertToProtocol(value.proto)
-    if (!isIpAddr(value.bind_ip) || !isPort(""+value.bind_port) || !isIpAddr(value.dst_ip) || !isPort(""+value.dst_port)) {
+    if (!isIpAddr(value.bind_ip) || !isPort("" + value.bind_port) || !isIpAddr(value.dst_ip) ||
+      !isPort("" + value.dst_port)) {
       return undefined
-    }else {
+    } else {
       this.from = value.bind_ip
-      this.from_port = ""+value.bind_port
+      this.from_port = "" + value.bind_port
       this.to = value.dst_ip
-      this.to_port = ""+value.dst_port
+      this.to_port = "" + value.dst_port
       return this
     }
   }
+
   toString(): string {
-    return this.proto.toString()+"://"+this.from+":"+this.from_port+"/"+this.to+":"+this.to_port
+    return this.proto.toString() + "://" + this.from + ":" + this.from_port + "/" + this.to + ":" + this.to_port
   }
+
   toInterface(): PortForwardConfig {
     return {
       bind_ip: this.from,
@@ -315,9 +351,11 @@ export class PortForward implements FieldValue {
       proto: this.proto.toString()
     }
   }
+
   checkValid(): boolean {
     return isIpAddr(this.from) && isIpAddr(this.to) && isPort(this.from_port) && isPort(this.to_port)
   }
+
   bind(fieldName: string): PortForward {
     this.fieldName = fieldName
     return this

@@ -31,7 +31,7 @@ const en_file = "./entry/src/main/resources/base/element/easytier.json"
 const cn_file = "./entry/src/main/resources/zh/element/easytier.json"
 const cn = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/cn.yaml"
 const en = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/en.yaml"
-const proto = "https://ghfast.top/https://raw.githubusercontent.com/FrankHan052176/EasyTier/refs/heads/main/easytier/src/proto/"
+const proto = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/refs/heads/main/easytier/src/proto/"
 function calcHash(content: string): string {
     return crypto.createHash("sha256").update(content).digest("hex");
 }
@@ -173,6 +173,8 @@ hvigor.nodesEvaluated(() => {
                             stdio: "inherit"
                         });
                         const mapping = {};
+                        const idMapping = {};
+                        const nameMapping = {};
                         const dir = path.resolve(__dirname, "./proto");
                         const root = await protobuf.load(path.join(dir, "api_manage.proto"))
                         const message = root.lookupType("NetworkConfig")!;
@@ -180,11 +182,16 @@ hvigor.nodesEvaluated(() => {
                             const tsType = scalarTypeMap[field.type] || field.type;
                             const finalType = field.rule === "repeated" ? `${tsType}[]` : tsType;
                             const finalName = fixFieldName(fieldName);
+                            const id = ""+field.id;
                             mapping[finalName] = finalType;
+                            idMapping[finalName] = id;
+                            nameMapping[id] = finalName;
                         }
                         fs.writeFileSync(
                             "./entry/src/main/ets/protobuf/proto-type-map.ts",
-                            "export const NetworkConfigTypeMap = " + JSON.stringify(mapping, null, 2)
+                            "export const NetworkConfigTypeMap = " + JSON.stringify(mapping, null, 2)+"\n"+
+                              "export const NetworkConfigFieldIdMap = " + JSON.stringify(idMapping, null, 2)+"\n"+
+                                "export const NetworkConfigIdFieldMap = " + JSON.stringify(nameMapping, null, 2)
                         );
                         console.log("✅ 生成完成");
                     } else {

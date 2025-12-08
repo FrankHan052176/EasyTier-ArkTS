@@ -14,18 +14,18 @@ class Params {
 
 @Builder
 function buildComp(params: Params) {
-  ResizableComponent({comp_type: params.comp}) {
+  ResizableComponent({ comp_type: params.comp }) {
     if (params.comp == "Instances") {
       Instances()
-    }else if (params.comp === "Favorite") {
+    } else if (params.comp === "Favorite") {
       Favorite()
-    }else if (params.comp === "Logs") {
+    } else if (params.comp === "Logs") {
       Logs()
-    }else if (params.comp === "SharedPeers") {
+    } else if (params.comp === "SharedPeers") {
       SharedPeers()
-    }else if (params.comp === "QQ") {
+    } else if (params.comp === "QQ") {
       QQGroups()
-    }else {
+    } else {
       Text(params.comp)
         .fontSize(50)
         .fontWeight(FontWeight.Bold)
@@ -63,7 +63,7 @@ export class CompNode extends NodeController {
       node.build(this.wrapBuilder, { comp: this.type })
       this.node = node
       return node.getFrameNode()
-    }else {
+    } else {
       return this.node.getFrameNode()
     }
   }
@@ -78,9 +78,9 @@ export const NodeNameMap: Map<string, CompNode> = new Map()
 export function getCompNode(type: string | undefined): CompNode | undefined {
   if (type === undefined) {
     return undefined
-  }else if (NodeNameMap.has(type)) {
+  } else if (NodeNameMap.has(type)) {
     return NodeNameMap.get(type)!
-  }else {
+  } else {
     let node = new CompNode(type)
     NodeNameMap.set(type, node)
     return node

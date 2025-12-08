@@ -1,7 +1,6 @@
-import { StatusBarViewExtensionAbility } from "@kit.StatusBarExtensionKit";
-import { UIExtensionContentSession, Want } from "@kit.AbilityKit";
-import { EventHelper } from "../util/EventHelper";
-import { Logger } from "../util/Logger";
+import { StatusBarViewExtensionAbility } from '@kit.StatusBarExtensionKit';
+import { UIExtensionContentSession, Want } from '@kit.AbilityKit';
+import { Logger } from '../util/Logger';
 
 export default class StatusBarViewAbility extends StatusBarViewExtensionAbility {
   onCreate() {

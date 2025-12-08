@@ -1,34 +1,36 @@
-import { Configuration, UIAbility, Want, WantAgent, wantAgent } from "@kit.AbilityKit";
-import { backgroundTaskManager } from "@kit.BackgroundTasksKit";
-import { geoLocationManager } from "@kit.LocationKit";
-import { window } from "@kit.ArkUI";
-import { EventHelper } from "../util/EventHelper";
-import { Logger, LogLocate } from "../util/Logger";
-import { BusinessError, deviceInfo, emitter } from "@kit.BasicServicesKit";
-import easytier from "easytier-ohrs"
-import { vpnExtension } from "@kit.NetworkKit";
-import { stringArr2RouteArr } from "../util/Conversion";
-import { url } from "@kit.ArkTS";
-import entry from 'libentry.so'
-import { BUILD_TIME } from "../util/info/BuildTime";
-import { SpiderMan } from "@simplepeng/spider-man";
-import { WindowUtil } from "../WindowUtil";
-import { HMRouterMgr } from "@hadss/hmrouter";
-import { AppManager } from "../AppManager";
-import { HMRouterTransitions } from "@hadss/hmrouter-transitions";
-import { DialogHub } from "@hadss/dialoghub";
-import { sendToast } from "../ToastUtil";
-import { isIpAddr } from "../class/config/IP";
+import { UIAbility, Want, WantAgent, wantAgent } from '@kit.AbilityKit';
+import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
+import { geoLocationManager } from '@kit.LocationKit';
+import { window } from '@kit.ArkUI';
+import { EventHelper } from '../util/EventHelper';
+import { Logger, LogLocate } from '../util/Logger';
+import { BusinessError, deviceInfo, emitter } from '@kit.BasicServicesKit';
+import easytier from 'easytier-ohrs';
+import { vpnExtension } from '@kit.NetworkKit';
+import { stringArr2RouteArr } from '../util/Conversion';
+import { url } from '@kit.ArkTS';
+import entry from 'libentry.so';
+import { BUILD_TIME } from '../util/info/BuildTime';
+import { SpiderMan } from '@simplepeng/spider-man';
+import { WindowUtil } from '../WindowUtil';
+import { HMRouterMgr } from '@hadss/hmrouter';
+import { AppManager } from '../AppManager';
+import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
+import { DialogHub } from '@hadss/dialoghub';
+import { sendToast } from '../ToastUtil';
+import { isIpAddr } from '../class/config/IP';
+import { distributedKVStore } from '@kit.ArkData';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
   vpnConnection: vpnExtension.VpnConnection | undefined
 
   startContinuousTask(cfg: string) {
-    if (!AppManager.permission.isGetLocPerm() || !canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
+    if (!AppManager.permission.isGetLocPerm() ||
+      !canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
       if (easytier.runNetworkInstance(cfg)) {
         sendToast("实例启动成功", $r("sys.symbol.wifi"))
-      }else {
+      } else {
         sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
         Logger.error("启动失败", this)
       }
@@ -57,24 +59,30 @@ export default class EntryAbility extends UIAbility {
               geoLocationManager.on('locationChange', request, () => {
                 Logger.debug("GeoLoc alive", this)
               });
-            }else {
+            } else {
               sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
               Logger.error("启动失败", this)
               this.stopContinuousTask()
             }
-          }).catch(() => {});
-        } catch (error) {}
+          }).catch(() => {
+          });
+        } catch (error) {
+        }
       });
-    } catch (error) {}
+    } catch (error) {
+    }
   }
 
   stopContinuousTask() {
-    if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) return;
+    if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
+      return;
+    }
     Logger.info("stop background alive", this)
     geoLocationManager.off("locationChange")
     backgroundTaskManager.stopBackgroundRunning(this.context).then(() => {
       this.vpnConnection?.destroy()
-    }).catch(() => {});
+    }).catch(() => {
+    });
   }
 
   onCreate(want: Want) {
@@ -84,10 +92,10 @@ export default class EntryAbility extends UIAbility {
     })
     if (deviceInfo.productModel !== "emulator") {
       entry.hilogInit()
-      easytier.hilogGlobalOptions(0,"fhl")
+      easytier.hilogGlobalOptions(0, "fhl")
       easytier.initPanicHook()
     }
-    Logger.info("BuildTime:"+BUILD_TIME, this)
+    Logger.info("BuildTime:" + BUILD_TIME, this)
     this.start_bg_Listener()
     this.stop_bg_Listener()
     this.setup_tun_Listener()
@@ -102,7 +110,7 @@ export default class EntryAbility extends UIAbility {
   readSharedData(want: Want) {
     let uri = want.uri;
     if (uri) {
-      Logger.info("get uri:"+uri, this)
+      Logger.info("get uri:" + uri, this)
       try {
         let urlObject = url.URL.parseURL(uri);
         let cfg = urlObject.params.get("cfg")
@@ -123,7 +131,7 @@ export default class EntryAbility extends UIAbility {
 
   start_bg_Listener() {
     Logger.debug("start_bg_Listener", this)
-    EventHelper.emitterListener("start_bg",(data) => {
+    EventHelper.emitterListener("start_bg", (data) => {
       this.prepare_vpn(() => {
         Logger.info("start_bg_task", this)
         this.startContinuousTask(data.data!.cfg);
@@ -133,7 +141,7 @@ export default class EntryAbility extends UIAbility {
 
   stop_bg_Listener() {
     Logger.debug("stop_bg_Listener", this)
-    EventHelper.emitterListener("stop_bg",() => {
+    EventHelper.emitterListener("stop_bg", () => {
       Logger.info("stop_bg_task", this)
       this.stopContinuousTask()
     })
@@ -174,58 +182,59 @@ export default class EntryAbility extends UIAbility {
   safeDns(): string {
     if (isIpAddr(AppManager.preference.dns)) {
       return AppManager.preference.dns
-    }else {
+    } else {
       return "223.5.5.5"
     }
   }
 
   setup_tun(ip: string, mask: number, magicDNS: boolean, inst_id: string, needExitNode: boolean) {
-    Logger.debug("当前IP:"+ip, this)
-    Logger.debug("当前路由表:"+Array.from(AppManager.easytier.tunRoutes).join(","), this)
-    let vpnConfig: vpnExtension.VpnConfig = AppManager.preference.vpn_routes || deviceInfo.sdkApiVersion >= 20?{
+    Logger.debug("当前IP:" + ip, this)
+    Logger.debug("当前路由表:" + Array.from(AppManager.easytier.tunRoutes).join(","), this)
+    let vpnConfig: vpnExtension.VpnConfig = AppManager.preference.vpn_routes || deviceInfo.sdkApiVersion >= 20 ? {
       addresses: [
         {
           address: {
-            address:ip,
-            family:1,
+            address: ip,
+            family: 1,
           },
-          prefixLength:mask
+          prefixLength: mask
         }
       ],
       blockedApplications: [
         "top.frankhan.easytier"
       ],
       trustedApplications: [],
-      dnsAddresses: magicDNS?["100.100.100.101"]:(AppManager.preference.dev?[this.safeDns()]:["223.5.5.5"]),
+      dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.preference.dev ? [this.safeDns()] : ["223.5.5.5"]),
       mtu: 1380,
       routes: stringArr2RouteArr(ip, magicDNS, needExitNode)
-    }:{
+    } : {
       addresses: [
         {
           address: {
-            address:ip,
-            family:1,
+            address: ip,
+            family: 1,
           },
-          prefixLength:mask
+          prefixLength: mask
         }
       ],
       blockedApplications: [
         "top.frankhan.easytier"
       ],
       trustedApplications: [],
-      dnsAddresses: magicDNS?["100.100.100.101"]:(AppManager.preference.dev?[this.safeDns()]:["223.5.5.5"]),
+      dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.preference.dev ? [this.safeDns()] : ["223.5.5.5"]),
       mtu: 1380
     }
     if (this.vpnConnection === undefined) {
       Logger.error("vpnConnection not found", this)
     }
-    Logger.debug("VPN配置:"+JSON.stringify(vpnConfig), this)
+    Logger.debug("VPN配置:" + JSON.stringify(vpnConfig), this)
     this.vpnConnection!.create(vpnConfig).then((fd) => {
       easytier.setTunFd(inst_id, fd)
     })
   }
 
-  prepare_vpn(callback: () => void = () => {}) {
+  prepare_vpn(callback: () => void = () => {
+  }) {
     if (this.vpnConnection !== undefined) {
       callback()
       return;
@@ -240,6 +249,17 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     SpiderMan.init();
     HMRouterTransitions.init(windowStage);
+    let context = this.context;
+    try {
+      const kvManagerConfig: distributedKVStore.KVManagerConfig = {
+        bundleName: 'top.frankhan.easytier',
+        context: context,
+      }
+      AppManager.KVManager = distributedKVStore.createKVManager(kvManagerConfig)
+    } catch (e) {
+      let error = e as BusinessError;
+      Logger.info(`Failed to create KVManager. Code:${error.code},message:${error.message}`, this);
+    }
     windowStage.getMainWindowSync().on('windowSizeChange', (data) => {
       WindowUtil.update(data.width, data.height)
     });
@@ -252,7 +272,7 @@ export default class EntryAbility extends UIAbility {
     })
     windowStage.loadContent('pages/HMRouterIndex', (err) => {
       if (err.code) {
-        Logger.error('Failed to load the content. Cause: '+JSON.stringify(err), this);
+        Logger.error('Failed to load the content. Cause: ' + JSON.stringify(err), this);
         return;
       }
       windowStage.getMainWindow().then((windowObj) => {

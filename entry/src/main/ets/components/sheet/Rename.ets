@@ -1,7 +1,7 @@
-import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from "@kit.ArkUI"
-import { AppManager } from "../../AppManager"
-import { EventHelper } from "../../util/EventHelper"
-import { buffer } from "@kit.ArkTS"
+import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
+import { AppManager } from '../../AppManager'
+import { EventHelper } from '../../util/EventHelper'
+import { buffer } from '@kit.ArkTS'
 
 @ComponentV2
 export struct Rename_Title {
@@ -31,7 +31,12 @@ function tips() {
 
 @Extend(TextInput)
 function underline(textAlign: TextAlign = TextAlign.Center) {
-  .padding({left: 1, right: 1, top: 5, bottom: 5})
+  .padding({
+    left: 1,
+    right: 1,
+    top: 5,
+    bottom: 5
+  })
   .backgroundColor(Color.Transparent)
   .border({
     width: {
@@ -64,7 +69,7 @@ export struct Rename_Content {
   build() {
     Column() {
       Row() {
-        TextInput({text: this.instanceName})
+        TextInput({ text: this.instanceName })
           .underline()
           .width('80%')
           .onChange((value: string) => {
@@ -73,7 +78,8 @@ export struct Rename_Content {
                 AppManager.data.configNameUUIDMap.delete(this.instanceName)
                 AppManager.data.configNameUUIDMap.set(value, AppManager.data.editingInstance)
                 AppManager.data.configUUIDNameMap.set(AppManager.data.editingInstance, value)
-                AppManager.preference.configIDPreferences?.putSync(AppManager.data.editingInstance, new Uint8Array(buffer.from(value, 'utf-8').buffer))
+                AppManager.preference.configIDPreferences?.putSync(AppManager.data.editingInstance,
+                  new Uint8Array(buffer.from(value, 'utf-8').buffer))
                 AppManager.preference.configIDPreferences?.flushSync()
               }
             }
@@ -81,6 +87,7 @@ export struct Rename_Content {
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)
+
       Text(`
 请设置网络名
       `)

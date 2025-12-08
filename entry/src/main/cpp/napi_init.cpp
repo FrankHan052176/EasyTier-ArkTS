@@ -2,36 +2,29 @@
 #include <iostream>
 #include <string>
 #include "hilog/log.h"
-#include <toml++/toml.hpp>
-#include <nlohmann/json.hpp>
 #include "LockFreeRingBuffer.h"
 
 LockFreeRingBuffer<5000> appLog;
 LockFreeRingBuffer<5000> nmLog;
 LockFreeRingBuffer<5000> ohLog;
-void MyHiLog(const LogType type, const LogLevel level, const unsigned int domain, const char *tag, const char *msg)
-{
+void MyHiLog(const LogType type, const LogLevel level, const unsigned int domain, const char *tag, const char *msg) {
     std::string finalMsg;
-    if (level >= LOG_INFO && strcmp(tag, "fhl") == 0) {
+    if (level >= LOG_DEBUG && strcmp(tag, "fhl") == 0) {
         finalMsg = std::to_string(static_cast<int>(level)) + msg;
         appLog.write(finalMsg);
-    } 
-    else if (level >= LOG_WARN && strcmp(tag, "NETMANAGER_EXT") == 0) {
+    } else if (level >= LOG_WARN && strcmp(tag, "NETMANAGER_EXT") == 0) {
         finalMsg = std::to_string(static_cast<int>(level)) + "[NETMANAGER_EXT] " + msg;
         nmLog.write(finalMsg);
-    } 
-    else if (level >= LOG_ERROR) {
+    } else if (level >= LOG_ERROR) {
         finalMsg = std::to_string(static_cast<int>(level)) + msg;
         ohLog.write(finalMsg);
     }
 }
-static napi_value hilogInit(napi_env env, napi_callback_info info)
-{
+static napi_value hilogInit(napi_env env, napi_callback_info info) {
     OH_LOG_SetCallback(MyHiLog);
     return NULL;
 }
-static napi_value getAppLog(napi_env env, napi_callback_info info)
-{
+static napi_value getAppLog(napi_env env, napi_callback_info info) {
     std::vector<std::string> messages = appLog.read_all();
     napi_value output_array;
     napi_status status = napi_create_array(env, &output_array);
@@ -47,8 +40,7 @@ static napi_value getAppLog(napi_env env, napi_callback_info info)
     }
     return output_array;
 }
-static napi_value getNetworkManagerLog(napi_env env, napi_callback_info info)
-{
+static napi_value getNetworkManagerLog(napi_env env, napi_callback_info info) {
     std::vector<std::string> messages = nmLog.read_all();
     napi_value output_array;
     napi_status status = napi_create_array(env, &output_array);
@@ -64,8 +56,7 @@ static napi_value getNetworkManagerLog(napi_env env, napi_callback_info info)
     }
     return output_array;
 }
-static napi_value getOHLog(napi_env env, napi_callback_info info)
-{
+static napi_value getOHLog(napi_env env, napi_callback_info info) {
     std::vector<std::string> messages = ohLog.read_all();
     napi_value output_array;
     napi_status status = napi_create_array(env, &output_array);
@@ -81,39 +72,14 @@ static napi_value getOHLog(napi_env env, napi_callback_info info)
     }
     return output_array;
 }
-static napi_value toml2json(napi_env env, napi_callback_info info)
-{
-    size_t argc = 1;
-    napi_value args[1] = {nullptr};
-    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
-    size_t length = 0;
-    napi_get_value_string_utf8(env, args[0], nullptr, 0, &length);
-    char* buf = new char[length + 1];
-    std::memset(buf, 0, length + 1);
-    napi_get_value_string_utf8(env, args[0], buf, length + 1, &length);
-    // 转换配置
-    napi_value result = nullptr;
-    std::ostringstream oss;
-    try {
-        auto table = toml::parse(buf);
-        oss << toml::json_formatter{ table };
-    } catch (...) {
-        oss << "ERROR";
-    }
-    napi_create_string_utf8(env, oss.str().c_str(), NAPI_AUTO_LENGTH, &result);
-    return result;
-}
 
 EXTERN_C_START
-static napi_value Init(napi_env env, napi_value exports)
-{
+static napi_value Init(napi_env env, napi_value exports) {
     napi_property_descriptor desc[] = {
-        { "getAppLog", nullptr, getAppLog, nullptr, nullptr, nullptr, napi_default, nullptr },
-        { "getNetworkManagerLog", nullptr, getNetworkManagerLog, nullptr, nullptr, nullptr, napi_default, nullptr },
-        { "getOHLog", nullptr, getOHLog, nullptr, nullptr, nullptr, napi_default, nullptr },
-        { "hilogInit", nullptr, hilogInit, nullptr, nullptr, nullptr, napi_default, nullptr },
-        { "toml2json", nullptr, toml2json, nullptr, nullptr, nullptr, napi_default, nullptr }
-    };
+        {"getAppLog", nullptr, getAppLog, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"getNetworkManagerLog", nullptr, getNetworkManagerLog, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"getOHLog", nullptr, getOHLog, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"hilogInit", nullptr, hilogInit, nullptr, nullptr, nullptr, napi_default, nullptr}};
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
     return exports;
 }
@@ -125,11 +91,8 @@ static napi_module demoModule = {
     .nm_filename = nullptr,
     .nm_register_func = Init,
     .nm_modname = "entry",
-    .nm_priv = ((void*)0),
-    .reserved = { 0 },
+    .nm_priv = ((void *)0),
+    .reserved = {0},
 };
 
-extern "C" __attribute__((constructor)) void RegisterEntryModule(void)
-{
-    napi_module_register(&demoModule);
-}
+extern "C" __attribute__((constructor)) void RegisterEntryModule(void) { napi_module_register(&demoModule); }

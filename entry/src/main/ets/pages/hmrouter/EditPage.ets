@@ -2,14 +2,15 @@ import { ConfigField, ContentUtil } from '../../ContentUtil'
 import { FieldEdit } from '../../components/edit/FieldEdit'
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute } from '@kit.UIDesignKit'
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { HdsMenuButton, MenuButton } from '../Components'
 import { SheetContentBuilder, SheetTitleBuilder } from '../../components/sheet/Basic'
 import { EventHelper } from '../../util/EventHelper'
 import { WindowUtil } from '../../WindowUtil'
-import { Logger } from '../../util/Logger'
+import { compressStr, uncompressStr } from '../../CompressUtil'
+import { mappedJson, unmappedJson } from '../../MappedUtil'
 
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
@@ -44,15 +45,15 @@ export struct EditPage {
   @Builder
   content() {
     Swiper() {
-      List({space: 20}) {
+      List({ space: 20 }) {
         if (deviceInfo.sdkApiVersion >= 20) {
           ListItem()
             .width('100%')
             .height(56)
         }
         ForEach(ContentUtil.basicFields, (field: ConfigField) => {
-          ListItem(){
-            FieldEdit({field: field})
+          ListItem() {
+            FieldEdit({ field: field })
               .width('100%')
           }
         })
@@ -65,16 +66,17 @@ export struct EditPage {
       .scrollBar(BarState.Off)
       .chainAnimation(true)
       .edgeEffect(EdgeEffect.None)
-      .padding({left: 20, right: 20})
+      .padding({ left: 20, right: 20 })
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+
       Scroll() {
-        Column({space: 20}) {
+        Column({ space: 20 }) {
           if (deviceInfo.sdkApiVersion >= 20) {
             Row()
               .width('100%')
               .height(56)
           }
-          FieldEdit({field: ContentUtil.flagField})
+          FieldEdit({ field: ContentUtil.flagField })
             .width('100%')
           Row()
             .width('100%')
@@ -85,17 +87,18 @@ export struct EditPage {
       .height('100%')
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.None)
-      .padding({left: 20, right: 20})
+      .padding({ left: 20, right: 20 })
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      List({space: 20}) {
+
+      List({ space: 20 }) {
         if (deviceInfo.sdkApiVersion >= 20) {
           ListItem()
             .width('100%')
             .height(56)
         }
         ForEach(ContentUtil.advancedFields, (field: ConfigField) => {
-          ListItem(){
-            FieldEdit({field: field})
+          ListItem() {
+            FieldEdit({ field: field })
               .width('100%')
           }
         })
@@ -108,17 +111,18 @@ export struct EditPage {
       .scrollBar(BarState.Off)
       .chainAnimation(true)
       .edgeEffect(EdgeEffect.None)
-      .padding({left: 20, right: 20})
+      .padding({ left: 20, right: 20 })
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      List({space: 20}) {
+
+      List({ space: 20 }) {
         if (deviceInfo.sdkApiVersion >= 20) {
           ListItem()
             .width('100%')
             .height(56)
         }
         ForEach(ContentUtil.otherFields, (field: ConfigField) => {
-          ListItem(){
-            FieldEdit({field: field})
+          ListItem() {
+            FieldEdit({ field: field })
               .width('100%')
           }
         })
@@ -131,14 +135,14 @@ export struct EditPage {
       .scrollBar(BarState.Off)
       .chainAnimation(true)
       .edgeEffect(EdgeEffect.None)
-      .padding({left: 20, right: 20})
+      .padding({ left: 20, right: 20 })
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
     .width('100%')
     .height('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .id("edit_content")
-    .displayCount(WindowUtil.uiType/2)
+    .displayCount(WindowUtil.uiType / 2)
     .loop(false)
     .indicator(DotIndicator.dot().top(46))
   }
@@ -181,18 +185,24 @@ export struct EditPage {
             },
             menu: {
               value: [
-                HdsMenuButton($r("app.string.i18_favorite"), AppManager.data.isFavorite(this.uuid!)?$r("sys.symbol.star_fill"):$r("sys.symbol.star"), () => {
-                  AppManager.data.changeFavorite(this.uuid!)
-                }),
-                HdsMenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), () => {
-                  // TODO 分享
-                }),
+                HdsMenuButton($r("app.string.i18_favorite"),
+                  AppManager.data.isFavorite(this.uuid!) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"), () => {
+                    AppManager.data.changeFavorite(this.uuid!)
+                  }),
+                HdsMenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"),
+                  async () => {
+                    let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+                    if (config) {
+                      let str = await compressStr(mappedJson(config))
+                      let cfg = unmappedJson(await uncompressStr(str))
+                    }
+                  }),
                 HdsMenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), () => {
                   HMRouterMgr.pop()
                   AppManager.data.delConfig(this.uuid!)
                 }),
                 HdsMenuButton($r("app.string.i18_rename"), $r("sys.symbol.pencil_line_1"), () => {
-                  EventHelper.emitterPublish("edit_open_sheet",{
+                  EventHelper.emitterPublish("edit_open_sheet", {
                     data: {
                       type: "rename"
                     }
@@ -206,7 +216,7 @@ export struct EditPage {
         .titleMode(HdsNavigationTitleMode.MINI)
         .hideBackButton(false)
         .hideTitleBar(false)
-      }else {
+      } else {
         Navigation() {
           this.content()
         }
@@ -219,9 +229,10 @@ export struct EditPage {
           backgroundColor: $r('sys.color.background_secondary')
         })
         .menus([
-          MenuButton($r("app.string.i18_favorite"), AppManager.data.isFavorite(this.uuid!)?$r("sys.symbol.star_fill"):$r("sys.symbol.star"), () => {
-            AppManager.data.changeFavorite(this.uuid!)
-          }),
+          MenuButton($r("app.string.i18_favorite"),
+            AppManager.data.isFavorite(this.uuid!) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"), () => {
+              AppManager.data.changeFavorite(this.uuid!)
+            }),
           MenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), () => {
             // TODO 分享
           }),
@@ -230,7 +241,7 @@ export struct EditPage {
             AppManager.data.delConfig(this.uuid!)
           }),
           MenuButton($r("app.string.i18_rename"), $r("sys.symbol.pencil_line_1"), () => {
-            EventHelper.emitterPublish("edit_open_sheet",{
+            EventHelper.emitterPublish("edit_open_sheet", {
               data: {
                 type: "rename"
               }

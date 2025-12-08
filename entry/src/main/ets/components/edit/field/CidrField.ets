@@ -1,20 +1,25 @@
 import { AppManager } from '../../../AppManager';
 import { ContentUtil } from '../../../ContentUtil';
-import { Logger } from '../../../util/Logger';
 
 @Extend(TextInput)
-function fieldTextInput(onChange:EditableTextOnChangeCallback, editChange: OnSubmitCallback, ip: boolean, field: string) {
+function fieldTextInput(onChange: EditableTextOnChangeCallback, editChange: OnSubmitCallback, ip: boolean,
+  field: string) {
   .backgroundColor(Color.Transparent)
   .borderRadius(0)
-  .padding({top:0, bottom: 0, left: 0, right: 0})
+  .padding({
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0
+  })
   .onChange(onChange)
   .textAlign(TextAlign.Start)
   .enableAutoFill(false)
-  .enterKeyType(ip?EnterKeyType.Next:EnterKeyType.Done)
-  .id(field+(ip?"ip":"mask"))
+  .enterKeyType(ip ? EnterKeyType.Next : EnterKeyType.Done)
+  .id(field + (ip ? "ip" : "mask"))
   .onSubmit(editChange)
-  .type(ip?InputType.Normal:InputType.Number)
-  .maxLength(ip?Number.MAX_VALUE:2)
+  .type(ip ? InputType.Normal : InputType.Number)
+  .maxLength(ip ? Number.MAX_VALUE : 2)
 }
 
 @ComponentV2
@@ -22,7 +27,7 @@ export struct CidrField {
   @Param @Require field: string;
   @Param @Require text: ResourceStr;
   @Local value_ip: string = this.config![ContentUtil.safeFieldName(this.ipField)] || "";
-  @Local value_mask: string = ""+(this.config![ContentUtil.safeFieldName(this.maskField)] || 24);
+  @Local value_mask: string = "" + (this.config![ContentUtil.safeFieldName(this.maskField)] || 24);
   @Local editIP: boolean = false
   @Local editMask: boolean = false
   @Consumer("field_edit_enable") enable: boolean = true
@@ -49,12 +54,12 @@ export struct CidrField {
 
   @Computed
   get borderWid() {
-    return this.enable?2:0
+    return this.enable ? 2 : 0
   }
 
   @Computed
   get fontColor() {
-    return this.enable?$r("sys.color.font_primary"):$r("sys.color.font_tertiary")
+    return this.enable ? $r("sys.color.font_primary") : $r("sys.color.font_tertiary")
   }
 
   @Computed
@@ -71,23 +76,23 @@ export struct CidrField {
     Row() {
       if (this.outsideName) {
         Text(this.text)
-          .margin({right: 10})
+          .margin({ right: 10 })
           .fontColor($r("sys.color.font_primary"))
       }
       Row() {
         if (this.insideName) {
           Text(this.text)
-            .margin({right: 10})
+            .margin({ right: 10 })
             .fontColor(this.fontColor)
         }
         Row() {
-          TextInput({text: this.value_ip!!})
+          TextInput({ text: this.value_ip!! })
             .fieldTextInput((value) => {
-              this.config![ContentUtil.safeFieldName(this.ipField)] = value
-              this.preference?.putSync(this.field, this.config![this.ipField])
+              this.config![this.ipField] = value
+              this.preference?.putSync(this.ipField, value)
               this.preference?.flushSync()
             }, () => {
-              this.getUIContext().getFocusController().requestFocus(this.field+"mask");
+              this.getUIContext().getFocusController().requestFocus(this.field + "mask");
             }, true, this.field)
             .layoutWeight(100)
             .onEditChange((isEdit) => {
@@ -96,15 +101,16 @@ export struct CidrField {
             .fontColor(this.fontColor)
             .enabled(this.enable)
           Text("/")
-            .margin({left: 5, right: 5})
+            .margin({ left: 5, right: 5 })
             .fontColor(this.fontColor)
-          TextInput({text: this.value_mask!!})
+          TextInput({ text: this.value_mask!! })
             .fieldTextInput((value) => {
               let num = Number.parseInt(value)
-              this.config![ContentUtil.safeFieldName(this.maskField)] = Number.isNaN(num)?0:num
-              this.preference?.putSync(this.field, this.config![this.maskField])
+              this.config![this.maskField] = Number.isNaN(num) ? 0 : num
+              this.preference?.putSync(this.maskField, this.config![this.maskField])
               this.preference?.flushSync()
-            }, () => {}, false, this.field)
+            }, () => {
+            }, false, this.field)
             .width(30)
             .onEditChange((isEdit) => {
               this.editMask = isEdit
@@ -115,8 +121,14 @@ export struct CidrField {
         .layoutWeight(100)
       }
       .borderWidth(2)
-      .borderColor((this.editIP || this.editMask)?$r("sys.color.brand"):(this.enable?$r("sys.color.comp_background_secondary"):$r("sys.color.comp_background_tertiary")))
-      .padding({left: 12, right: 12, top: 8, bottom: 8})
+      .borderColor((this.editIP || this.editMask) ? $r("sys.color.brand") :
+        (this.enable ? $r("sys.color.comp_background_secondary") : $r("sys.color.comp_background_tertiary")))
+      .padding({
+        left: 12,
+        right: 12,
+        top: 8,
+        bottom: 8
+      })
       .borderRadius(12)
       .animation({
         curve: Curve.Ease,

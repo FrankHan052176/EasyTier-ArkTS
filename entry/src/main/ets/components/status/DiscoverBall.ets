@@ -8,7 +8,7 @@ export struct DiscoverBall {
 
   @Computed
   get center_size() {
-    return this.comp_size/3
+    return this.comp_size / 3
   }
 
   aboutToAppear(): void {
@@ -31,9 +31,11 @@ export struct DiscoverBall {
   }
 
   build() {
-    Stack({alignContent: Alignment.Center}) {
-      Stack().width(this.center_size).height(this.center_size)
-        .backgroundColor(this.yellow?'rgba(255,200,50,1)':"#4ade80")
+    Stack({ alignContent: Alignment.Center }) {
+      Stack()
+        .width(this.center_size)
+        .height(this.center_size)
+        .backgroundColor(this.yellow ? 'rgba(255,200,50,1)' : "#4ade80")
         .borderRadius(360)
         .scale({
           x: this.wave_scale,
@@ -41,7 +43,7 @@ export struct DiscoverBall {
         })
         .opacity(this.wave_opacity)
       Circle().width(this.center_size).height(this.center_size)
-        .foregroundColor(this.yellow?'rgba(255,200,50,1)':"#4ade80")
+        .foregroundColor(this.yellow ? 'rgba(255,200,50,1)' : "#4ade80")
         .opacity(this.center_opacity)
     }.width(this.comp_size).height(this.comp_size)
   }

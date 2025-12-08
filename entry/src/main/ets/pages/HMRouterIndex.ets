@@ -1,17 +1,17 @@
-import { HMDefaultGlobalAnimator, HMNavigation } from "@hadss/hmrouter";
+import { HMDefaultGlobalAnimator, HMNavigation } from '@hadss/hmrouter';
 import { Configuration } from '@ohos.app.ability.Configuration';
-import { AttributeUpdater, FrameCallback } from "@kit.ArkUI";
-import { EventHelper } from "../util/EventHelper";
-import { EnvironmentCallback } from "@kit.AbilityKit";
-import { AppManager } from "../AppManager";
-import { DragOverlayBuilder } from "../components/util/DragOverlay";
-import { NodeNameMap } from "./nodes/CompNode";
-import { Position } from "../LayoutUtil"
-import { DialogHub, DialogMode } from "@hadss/dialoghub";
-import { statusBarManager } from "@kit.StatusBarExtensionKit";
-import { image } from "@kit.ImageKit";
-import { Logger } from "../util/Logger";
-import { deviceInfo } from "@kit.BasicServicesKit";
+import { AttributeUpdater, FrameCallback } from '@kit.ArkUI';
+import { EventHelper } from '../util/EventHelper';
+import { EnvironmentCallback } from '@kit.AbilityKit';
+import { AppManager } from '../AppManager';
+import { DragOverlayBuilder } from '../components/util/DragOverlay';
+import { NodeNameMap } from './nodes/CompNode';
+import { Position } from '../LayoutUtil';
+import { DialogHub, DialogMode } from '@hadss/dialoghub';
+import { statusBarManager } from '@kit.StatusBarExtensionKit';
+import { image } from '@kit.ImageKit';
+import { Logger } from '../util/Logger';
+import { deviceInfo } from '@kit.BasicServicesKit';
 
 class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
   initializeModifier(instance: NavigationAttribute): void {
@@ -21,10 +21,12 @@ class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
 
 export class MyFrameCallback extends FrameCallback {
   callback: () => void
+
   constructor(callback: () => void) {
     super();
     this.callback = callback
   }
+
   onFrame() {
     this.callback()
   }
@@ -61,7 +63,8 @@ export struct HMRouterIndex {
       this.dragOverlay = false
     })
     let environmentCallback: EnvironmentCallback = {
-      onMemoryLevel: (): void => {},
+      onMemoryLevel: (): void => {
+      },
       onConfigurationUpdated: (config: Configuration): void => {
         console.info('onConfigurationUpdated ' + JSON.stringify(config));
         this.getUIContext()?.postFrameCallback(new MyFrameCallback(() => {
@@ -73,7 +76,8 @@ export struct HMRouterIndex {
     };
     this.getUIContext().getHostContext()?.getApplicationContext().on('environment', environmentCallback);
     if (canIUse("SystemCapability.PCService.StatusBarManager")) {
-      const blackFileData = this.getUIContext().getHostContext()!.resourceManager.getRawFileContentSync('statusBar.svg');
+      const blackFileData =
+        this.getUIContext().getHostContext()!.resourceManager.getRawFileContentSync('statusBar.svg');
       const blackBuffer = blackFileData.buffer;
       const blackImageSource = image.createImageSource(blackBuffer);
       let blackPixelMap = await blackImageSource.createPixelMap();
@@ -84,7 +88,8 @@ export struct HMRouterIndex {
         },
         quickOperation: {
           abilityName: "StatusBarViewAbility",
-          title: "EasyTier v"+(deviceInfo.productModel !== "emulator"?AppManager.easytier.version().split("-")[0]:"N/A"),
+          title: "EasyTier v" +
+            (deviceInfo.productModel !== "emulator" ? AppManager.easytier.version().split("-")[0] : "N/A"),
           height: 300
         },
         statusBarGroupMenu: [

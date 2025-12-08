@@ -1,17 +1,18 @@
-import { Logger, LogLocate } from "./util/Logger";
-import { util } from "@kit.ArkTS";
-import { FieldValueDataSource } from "./class/FieldValueDataSource";
-import { Cidr } from "./class/config/Cidr";
-import { Url } from "./class/config/Url";
-import { IP } from "./class/config/IP";
-import { NetworkName } from "./class/config/NetworkName";
-import { PortForward } from "./class/config/PortForward";
-import { NetworkConfig, NetworkingMethod } from "./protobuf/api_manage";
-import { ContentUtil } from "./ContentUtil";
-import { AppManager } from "./AppManager";
-import { getHostname } from "./util/Conversion";
-import { preferences } from "@kit.ArkData";
-import { deviceInfo } from "@kit.BasicServicesKit";
+import { Logger, LogLocate } from './util/Logger';
+import { util } from '@kit.ArkTS';
+import { FieldValueDataSource } from './class/FieldValueDataSource';
+import { Url } from './class/config/Url';
+import { NetworkConfig, NetworkingMethod } from './protobuf/api_manage';
+import { ContentUtil } from './ContentUtil';
+import { AppManager } from './AppManager';
+import { getHostname } from './util/Conversion';
+import { distributedKVStore, preferences } from '@kit.ArkData';
+import { deviceInfo } from '@kit.BasicServicesKit';
+import { FieldValue } from './class/config/Basic';
+import { Cidr } from './class/config/Cidr';
+import { PortForward } from './class/config/PortForward';
+import { NetworkName } from './class/config/NetworkName';
+import { IP } from './class/config/IP';
 
 @LogLocate("DataUtil")
 @ObservedV2
@@ -30,38 +31,104 @@ export class DataUtil {
   public changeFavorite(uuid: string) {
     if (this.isFavorite(uuid)) {
       this.favoriteInstance = undefined
-    }else {
+    } else {
       this.favoriteInstance = uuid
     }
+  }
+
+  public initDataSource(type: string, arr: string[]) {
+    let values: FieldValue[] = []
+    for (const raw of arr) {
+      if (type === "cidr" || type === "route") {
+        let value = new Cidr()
+        if (value.fromString(raw)) {
+          values.push(value)
+        }
+      } else if (type === "peer" || type === "listener" || type === "mappedListener") {
+        let value = new Url()
+        if (value.fromString(raw)) {
+          values.push(value)
+        }
+      } else if (type === "ip") {
+        let value = new IP()
+        if (value.fromString(raw)) {
+          values.push(value)
+        }
+      } else if (type === "string") {
+        let value = new NetworkName()
+        if (value.fromString(raw)) {
+          values.push(value)
+        }
+      } else if (type === "port_forward") {
+        let value = new PortForward()
+        if (value.fromString(raw)) {
+          values.push(value)
+        }
+      }
+    }
+    let dataSource = new FieldValueDataSource(type, values)
+    this.globalDataMap.set(type, dataSource)
   }
 
   public getDataSource(type: string): FieldValueDataSource {
     if (this.globalDataMap.has(type)) {
       return this.globalDataMap.get(type)!
-    }else {
-      let dataSource = new FieldValueDataSource()
-      if (type === "cidr" || type === "route") {
-        dataSource.add(new Cidr())
-      }else if (type === "peer") {
-        dataSource.add(new Url())
-      }else if (type === "listener" || type === "mappedListener") {
-        let value = new Url()
-        value.domain = "0.0.0.0"
-        dataSource.add(value)
-      }else if (type === "ip") {
-        dataSource.add(new IP())
-      }else if (type === "string") {
-        dataSource.add(new NetworkName())
-      }else if (type === "port_forward") {
-        dataSource.add(new PortForward())
-      }
+    } else {
+      let dataSource = new FieldValueDataSource(type)
       this.globalDataMap.set(type, dataSource)
       return dataSource
     }
   }
 
   public init() {
-
+    if (AppManager.KVManager && !AppManager.preference.noOldData) {
+      const options: distributedKVStore.Options = {
+        createIfMissing: true,
+        encrypt: false,
+        backup: false,
+        autoSync: false,
+        kvStoreType: distributedKVStore.KVStoreType.DEVICE_COLLABORATION,
+        securityLevel: distributedKVStore.SecurityLevel.S2
+      };
+      try {
+        AppManager.KVManager.getKVStore<distributedKVStore.DeviceKVStore>('configs', options,
+          (err, store: distributedKVStore.DeviceKVStore) => {
+            if (err) {
+              Logger.error(`Failed to get KVStore: Code:${err.code},message:${err.message}`, this);
+              return;
+            }
+            Logger.debug('Succeeded in getting KVStore.', this);
+            store.getEntries("config_", (err, entries) => {
+              if (err) {
+                return;
+              }
+              if (entries.length == 0) {
+                return;
+              }
+              entries.forEach((entry) => {
+                let toml = entry.value.value.toString()
+                this.importToml(toml)
+              })
+            })
+            store.getEntries("peer_", (err, entries) => {
+              if (err) {
+                return;
+              }
+              if (entries.length == 0) {
+                return;
+              }
+              entries.forEach((entry) => {
+                let value = new Url()
+                if (value.fromString(entry.value.value.toString())) {
+                  this.getDataSource("peer").add(value)
+                }
+              })
+            })
+          })
+        AppManager.preference.noOldData = true
+      } catch (_) {
+      }
+    }
   }
 
   public safeUUID(): string {
@@ -82,7 +149,7 @@ export class DataUtil {
     return config
   }
 
-  public readConfig(uuid:string, name: string, config: NetworkConfig) {
+  public readConfig(uuid: string, name: string, config: NetworkConfig) {
     this.configUUIDMap.set(uuid, config)
     this.configNameUUIDMap.set(name, uuid)
     this.configUUIDNameMap.set(uuid, name)
@@ -90,10 +157,14 @@ export class DataUtil {
   }
 
   public importToml(cfg_toml: string): boolean {
-    if (deviceInfo.productModel === "emulator") return false
+    if (deviceInfo.productModel === "emulator") {
+      return false
+    }
     let cfg = AppManager.easytier.convertToml2NetworkConfig(cfg_toml)
-    Logger.debug("convertConfig: "+cfg)
-    if (cfg.startsWith("ERROR")) return false
+    Logger.debug("convertConfig: " + cfg)
+    if (cfg.startsWith("ERROR")) {
+      return false
+    }
     let config: NetworkConfig = JSON.parse(cfg)
     if (config.networking_method === NetworkingMethod.PublicServer && config.public_server_url) {
       config.hostname = getHostname()
@@ -120,8 +191,9 @@ export class DataUtil {
       AppManager.preference.configIDPreferences?.flushSync()
       AppManager.preference.configPreferences.delete(uuid)
       preferences.deletePreferences(AppManager.content.context!, uuid)
-      return this.configUUIDMap.delete(uuid) && this.configNameUUIDMap.delete(name ?? "") && this.configUUIDNameMap.delete(uuid)
-    }else {
+      return this.configUUIDMap.delete(uuid) && this.configNameUUIDMap.delete(name ?? "") &&
+      this.configUUIDNameMap.delete(uuid)
+    } else {
       return false
     }
   }

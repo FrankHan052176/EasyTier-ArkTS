@@ -1,9 +1,19 @@
-import { FieldValue } from "./config/Basic";
+import { AppManager } from '../AppManager';
+import { Logger } from '../util/Logger';
+import { FieldValue } from './config/Basic';
 
 @ObservedV2
 export class FieldValueDataSource implements IDataSource {
   private listeners: DataChangeListener[] = [];
   @Trace values: FieldValue[] = [];
+  type: string
+
+  constructor(type: string, values: FieldValue[] = []) {
+    Logger.debug("datasource with type:" + type)
+    this.type = type
+    this.values = values
+  }
+
   totalCount(): number {
     return this.values.length
   }
@@ -73,8 +83,10 @@ export class FieldValueDataSource implements IDataSource {
   add(value: FieldValue): boolean {
     if (!this.has(value)) {
       this.notifyDataAdd(this.values.push(value))
+      AppManager.preference.globalConfigs?.putSync(this.type, this.values.map((value) => value.toString()))
+      AppManager.preference.globalConfigs?.flushSync()
       return true
-    }else {
+    } else {
       return false
     }
   }
@@ -83,10 +95,17 @@ export class FieldValueDataSource implements IDataSource {
     if (this.has(value)) {
       let index = this.values.indexOf(value)
       this.values.splice(index, 1)
+      AppManager.preference.globalConfigs?.putSync(this.type, this.values.map((value) => value.toString()))
+      AppManager.preference.globalConfigs?.flushSync()
       this.notifyDataDelete(index)
       return true
-    }else {
+    } else {
       return false
     }
+  }
+
+  update() {
+    AppManager.preference.globalConfigs?.putSync(this.type, this.values.map((value) => value.toString()))
+    AppManager.preference.globalConfigs?.flushSync()
   }
 }

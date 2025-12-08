@@ -1,14 +1,16 @@
-import { rcp } from '@kit.RemoteCommunicationKit'
+import { rcp } from '@kit.RemoteCommunicationKit';
 import { AppManager } from './AppManager';
 import { EventHelper } from './util/EventHelper';
-import { Logger, LogLocate } from './util/Logger'
+import { Logger, LogLocate } from './util/Logger';
 
 @LogLocate("WebUtil")
 @ObservedV2
 export class WebUtil {
   @Trace qqgroups: string[] = []
+
   public async updateSharedPeers(page: number = 1): Promise<void> {
-    const request = new rcp.Request("https://uptime.easytier.cn/api/nodes?per_page=50&tags=%E5%9B%BD%E5%86%85&page="+page, 'GET');
+    const request =
+      new rcp.Request("https://uptime.easytier.cn/api/nodes?per_page=50&tags=%E5%9B%BD%E5%86%85&page=" + page, 'GET');
     try {
       const session = rcp.createSession({
         headers: {
@@ -17,21 +19,25 @@ export class WebUtil {
       });
       session.fetch(request).then((rep: rcp.Response) => {
         let obj = rep.toJSON()
-        if (!obj) return;
+        if (!obj) {
+          return;
+        }
         let success: boolean = obj["success"]
-        if (!success) return;
+        if (!success) {
+          return;
+        }
         let data: object = obj["data"]
         let total: number = data["total"]
         let total_pages: number = data["total_pages"]
         let items: Array<object> = data["items"]
-        Logger.info("sharedPeers total peers:"+total)
+        Logger.info("sharedPeers total peers:" + total)
         items.forEach((item: object) => {
 
         })
         if (total_pages > 1 && page == 1) {
-          Logger.info("sharedPeers total pages:"+total_pages, this)
+          Logger.info("sharedPeers total pages:" + total_pages, this)
           for (let index = 2; index <= total_pages; index++) {
-            Logger.info("read page "+index, this)
+            Logger.info("read page " + index, this)
             this.updateSharedPeers(index)
           }
         }
@@ -43,6 +49,7 @@ export class WebUtil {
     }
     return Promise.resolve()
   }
+
   public async updateQQGroups() {
     const request = new rcp.Request("https://easytier.cn/", 'GET');
     try {
@@ -57,13 +64,13 @@ export class WebUtil {
             let text = match[1].trim()
             if (!Number.isNaN(parseInt(text))) {
               texts.push(text);
-            }else {
+            } else {
               // TODO discord && tg 跳转
             }
           }
         }
         AppManager.web.qqgroups = texts
-        Logger.debug("Update QQ Groups:"+JSON.stringify(AppManager.web.qqgroups), WebUtil)
+        Logger.debug("Update QQ Groups:" + JSON.stringify(AppManager.web.qqgroups), WebUtil)
         EventHelper.emitterPublish("update_qqgroups", {
           data: {
             groups: texts

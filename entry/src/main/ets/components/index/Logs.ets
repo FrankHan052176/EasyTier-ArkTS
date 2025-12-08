@@ -1,8 +1,8 @@
 import { logColor } from '../../util/Conversion'
 import { CompTitle } from './Basic'
 import {
-  SegmentButtonV2Items,
-  TabSegmentButtonV2} from '@kit.ArkUI'
+  SegmentButtonV2Items, TabSegmentButtonV2
+} from '@kit.ArkUI'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { AppManager } from '../../AppManager'
 
@@ -25,16 +25,21 @@ function LogList(list: Array<string>) {
     if (list.length > 0) {
       ForEach(list, (msg: string) => {
         ListItem() {
-          Text(msg.substring(1))
+          TextArea({
+            text: msg.substring(1)
+          })
             .fontSize(14)
-            .width("100%")
             .fontColor(logColor(msg))
+            .backgroundColor(Color.Transparent)
+            .padding(0)
+            .borderRadius(0)
+            .focusable(false)
         }
       })
       ListItem()
         .height(100)
         .width('100%')
-    }else {
+    } else {
       ListItem() {
         Text("无日志")
           .fontSize(14)
@@ -44,10 +49,9 @@ function LogList(list: Array<string>) {
   }
   .scrollBar(BarState.Off)
   .alignListItem(ListItemAlign.Start)
-  .padding({left: 10, right: 10})
+  .padding({ left: 10, right: 10 })
   .clip(true)
   .borderRadius(18)
-  .width("100%")
   .height("100%")
   .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.START, SafeAreaEdge.BOTTOM])
 }
@@ -75,11 +79,14 @@ export struct Logs {
           }
         })
           .width('80%')
-          .margin({bottom: 10})
-      }else {
+          .margin({ bottom: 10 })
+      } else {
         Row() {
           ForEach(items, (item: string, index: number) => {
-            Button(item, { type: ButtonType.Capsule, stateEffect: this.real_index === index }).backgroundColor(0x317aff).width(90).opacity(this.real_index===index?1:0.4)
+            Button(item, { type: ButtonType.Capsule, stateEffect: this.real_index === index })
+              .backgroundColor(0x317aff)
+              .width(90)
+              .opacity(this.real_index === index ? 1 : 0.4)
               .onClick(() => {
                 animateToImmediately({
                   duration: 300,
@@ -118,12 +125,14 @@ export struct Logs {
             .fontSize(16)
             .fontColor([$r("sys.color.font_primary")])
         }
-        .margin({right: 5})
+        .margin({ right: 5 })
+
         Text(name)
           .fontColor($r("sys.color.font_primary"))
       }
+
       Row() {
-        Text(""+sizeFunc()).fontSize(14).fontColor($r("sys.color.font_primary"))
+        Text("" + sizeFunc()).fontSize(14).fontColor($r("sys.color.font_primary"))
         Text($r("app.string.i18_tiao")).fontSize(10).fontColor($r("sys.color.font_primary"))
       }
       .alignItems(VerticalAlign.Bottom)
@@ -140,11 +149,19 @@ export struct Logs {
 
   build() {
     Column() {
-      CompTitle("日志", $r("sys.color.font_primary"), ()=>{return AppManager.easytier.appLogs.size+AppManager.easytier.nmLogs.size+AppManager.easytier.ohLogs.size}, $r("app.string.i18_tiao"))
-      Column({space: 10}) {
-        this.LogShower($r("sys.symbol.house"), "App日志", ()=>{return AppManager.easytier.appLogs.size}, 0)
-        this.LogShower($r("sys.symbol.wifi"), "网络日志", ()=>{return AppManager.easytier.nmLogs.size}, 1)
-        this.LogShower($r("sys.symbol.HarmonyOS"), "ArkUI日志", ()=>{return AppManager.easytier.ohLogs.size}, 2)
+      CompTitle("日志", $r("sys.color.font_primary"), () => {
+        return AppManager.easytier.appLogs.size + AppManager.easytier.nmLogs.size + AppManager.easytier.ohLogs.size
+      }, $r("app.string.i18_tiao"))
+      Column({ space: 10 }) {
+        this.LogShower($r("sys.symbol.house"), "App日志", () => {
+          return AppManager.easytier.appLogs.size
+        }, 0)
+        this.LogShower($r("sys.symbol.wifi"), "网络日志", () => {
+          return AppManager.easytier.nmLogs.size
+        }, 1)
+        this.LogShower($r("sys.symbol.HarmonyOS"), "ArkUI日志", () => {
+          return AppManager.easytier.ohLogs.size
+        }, 2)
       }
       .justifyContent(FlexAlign.SpaceAround)
       .width('100%')
@@ -152,7 +169,7 @@ export struct Logs {
       .padding(10)
     }
     .comp_bg()
-    .bindSheet($$this.log, this.logSheet(),{
+    .bindSheet($$this.log, this.logSheet(), {
       height: SheetSize.LARGE,
       preferType: SheetType.CENTER,
       showClose: true,

@@ -1,8 +1,7 @@
-import { AppManager } from "../../AppManager";
-import { CompSize } from "../../LayoutUtil";
-import { lane } from "../../util/Conversion";
-import { Logger } from "../../util/Logger";
-import { getCompNode } from "./CompNode";
+import { AppManager } from '../../AppManager';
+import { CompSize } from '../../LayoutUtil';
+import { lane } from '../../util/Conversion';
+import { getCompNode } from './CompNode';
 
 @ComponentV2
 export struct DesktopLayout {
@@ -20,12 +19,12 @@ export struct DesktopLayout {
 
   @Computed
   get LayoutHeight() {
-    return (AppManager.layout.MaxHeight+1)*lane(1)+(AppManager.layout.MaxHeight+1)*10
+    return (AppManager.layout.MaxHeight + 1) * lane(1) + (AppManager.layout.MaxHeight + 1) * 10
   }
 
   build() {
-    Stack({alignContent: Alignment.TopStart}) {
-      ForEach(this.CompSizes, (size:CompSize) => {
+    Stack({ alignContent: Alignment.TopStart }) {
+      ForEach(this.CompSizes, (size: CompSize) => {
         if (!size.isOnOverlay) {
           NodeContainer(getCompNode(size.type))
             .offset({
@@ -38,9 +37,9 @@ export struct DesktopLayout {
     }
     .width("100%")
     .height(this.LayoutHeight)
-    .padding({top: 15, left: 15})
+    .padding({ top: 15, left: 15 })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    .onAreaChange((a,b) => {
+    .onAreaChange((a, b) => {
       AppManager.layout.desktopPosX = b.globalPosition.x!.valueOf() as number
       AppManager.layout.desktopPosY = b.globalPosition.y!.valueOf() as number
       AppManager.layout.desktopWidth = b.width.valueOf() as number

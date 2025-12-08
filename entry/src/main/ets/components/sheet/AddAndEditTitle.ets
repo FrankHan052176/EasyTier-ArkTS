@@ -1,8 +1,8 @@
-import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from "@kit.ArkUI"
-import { AppManager } from "../../AppManager";
-import { addValue, clearEditValue, confirmCheck } from "../../class/config/Basic";
-import { EventHelper } from "../../util/EventHelper"
-import { GlobalConfigSuggestions } from "../edit/GlobalConfigSuggestion";
+import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI';
+import { AppManager } from '../../AppManager';
+import { addValue, clearEditValue, confirmCheck } from '../../class/config/Basic';
+import { EventHelper } from '../../util/EventHelper';
+import { GlobalConfigSuggestions } from '../edit/GlobalConfigSuggestion';
 
 function getI18_FieldName(fieldName: string): string {
   try {
@@ -14,7 +14,7 @@ function getI18_FieldName(fieldName: string): string {
 
 @Builder
 export function GlobalConfig(field: string, type: string) {
-    GlobalConfigSuggestions({field: field, type: type})
+  GlobalConfigSuggestions({ field: field, type: type })
 }
 
 @ComponentV2
@@ -46,8 +46,8 @@ export struct AddTitle {
         if (confirmCheck(this.fieldType)) {
           this.popup = false
           addValue(this.fieldName, this.fieldType)
-          EventHelper.emitterPublish("edit_refresh_"+this.fieldName)
           clearEditValue(this.fieldType)
+          EventHelper.emitterPublish("edit_refresh_" + this.fieldName)
           EventHelper.emitterPublish("edit_close_sheet")
         }
       }
@@ -85,7 +85,8 @@ export struct EditTitle {
         this.popup = false
         clearEditValue(this.fieldType)
         EventHelper.emitterPublish("edit_close_sheet")
-        EventHelper.emitterPublish("edit_refresh_"+this.fieldName)
+        EventHelper.emitterPublish("edit_refresh_" + this.fieldName)
+        AppManager.data.getDataSource(this.fieldType).update()
       }
     })
       .bindPopup(this.popup, {

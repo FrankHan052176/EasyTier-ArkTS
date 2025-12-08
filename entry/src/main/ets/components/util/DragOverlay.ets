@@ -6,11 +6,10 @@ import { AddFormMenuItem } from '@kit.ArkUI'
 import { formBindingData } from '@kit.FormKit'
 import { EventHelper } from '../../util/EventHelper'
 import { layoutAnimationParm } from '../../pages/nodes/ResizableComponent'
-import { Logger } from '../../util/Logger'
 
 @Builder
 export function DragOverlayBuilder(type: string | undefined, onlyDrag: boolean = false, compPos: Position | undefined) {
-  DragOverlay({type: type, onlyDrag: onlyDrag, comp_pos: compPos})
+  DragOverlay({ type: type, onlyDrag: onlyDrag, comp_pos: compPos })
     .width('100%')
     .height('100%')
 }
@@ -56,7 +55,7 @@ export struct DragOverlay {
         },
         this.type!,
         {
-          formBindingData: formBindingData.createFormBindingData({type: this.type}),
+          formBindingData: formBindingData.createFormBindingData({ type: this.type }),
           callback: (error, formId) => {
 
           }
@@ -79,7 +78,7 @@ export struct DragOverlay {
   }
 
   build() {
-    Stack({alignContent:Alignment.TopStart}) {
+    Stack({ alignContent: Alignment.TopStart }) {
       NodeContainer(getCompNode(this.type))
         .bindContextMenu(this.openMenu, this.MyMenu, {
           placement: Placement.TopRight,
@@ -104,7 +103,7 @@ export struct DragOverlay {
         })
     }
     .backgroundColor(Color.Transparent)
-    .backdropBlur(this.openMenu?20:0)
+    .backdropBlur(this.openMenu ? 20 : 0)
     .width('100%')
     .height('100%')
     .onTouch((event) => {

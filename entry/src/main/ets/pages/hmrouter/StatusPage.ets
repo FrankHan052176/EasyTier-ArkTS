@@ -1,6 +1,6 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute } from '@kit.UIDesignKit'
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Sfp2vp, Svp2fp } from '../../AppManager'
 import { HdsMenuButton, MenuButton } from '../Components'
@@ -32,8 +32,8 @@ export struct StatusPage {
     this.uuid = HMRouterMgr.getCurrentParam() as string;
     this.name = AppManager.data.configUUIDNameMap.get(this.uuid)!
     this.config = AppManager.data.configUUIDMap.get(this.uuid)!
-    this.ip = this.config.dhcp?"waiting":this.config.virtual_ipv4!
-    EventHelper.emitterListener("updateInfo_"+this.uuid, () => {
+    this.ip = this.config.dhcp ? "waiting" : this.config.virtual_ipv4!
+    EventHelper.emitterListener("updateInfo_" + this.uuid, () => {
       let info = AppManager.easytier.runningNetworks.get(this.uuid)
       if (info) {
         if (info.my_node_info?.virtual_ipv4?.address) {
@@ -42,7 +42,7 @@ export struct StatusPage {
           if (this.ip !== convertedIp) {
             this.ip = convertedIp
           }
-        }else {
+        } else {
           this.ip = "waiting"
         }
 
@@ -65,6 +65,11 @@ export struct StatusPage {
     }, 1000)
   }
 
+  @Computed
+  get instanceInfo() {
+    return AppManager.easytier.instanceInfos.get(this.uuid)
+  }
+
   getRouteCost(cost: number): string {
     return cost === 1 ? 'P2P' : `Relay(${cost})`
   }
@@ -75,9 +80,9 @@ export struct StatusPage {
       Row({ space: 14 }) {
         // 左侧图标 + 名称
         Row({ space: 5 }) {
-          Row(){
+          Row() {
             SymbolGlyph($r("sys.symbol.superdevice"))
-              .fontSize(Svp2fp(30*0.5))
+              .fontSize(Svp2fp(30 * 0.5))
               .fontColor([$r("sys.color.font_secondary")])
           }
           .alignItems(VerticalAlign.Center)
@@ -100,11 +105,11 @@ export struct StatusPage {
         .layoutWeight(1)
 
         // 右侧延迟丢包
-        if(peer.cost === 1) Column() {
-          Text((peer.latency_us/1000).toFixed(0)+"ms")
+        if (peer.cost === 1) Column() {
+          Text((peer.latency_us / 1000).toFixed(0) + "ms")
             .fontSize(12)
             .fontWeight(FontWeight.Bold)
-          Text("Loss " + peer.loss.toFixed(1)+"%")
+          Text("Loss " + peer.loss.toFixed(1) + "%")
             .fontSize(10)
             .fontColor(peer.loss === 0 ? "#22c55e" : "#f87171")
         }
@@ -117,19 +122,29 @@ export struct StatusPage {
           Text(this.getRouteCost(peer.cost))
             .fontSize(10)
             .fontWeight(FontWeight.Bold)
-            .padding({ left: 6, right: 6, top: 3, bottom: 3 })
+            .padding({
+              left: 6,
+              right: 6,
+              top: 3,
+              bottom: 3
+            })
             .borderRadius(4)
-            .fontColor(peer.cost===1?'rgba(0,230,118,1)':'rgba(255,200,50,1)')
-            .backgroundColor(peer.cost===1?'rgba(0,230,118,0.2)':'rgba(255,200,50,0.2)')
+            .fontColor(peer.cost === 1 ? 'rgba(0,230,118,1)' : 'rgba(255,200,50,1)')
+            .backgroundColor(peer.cost === 1 ? 'rgba(0,230,118,0.2)' : 'rgba(255,200,50,0.2)')
           ForEach(peer.protocol, (protocol: Protocol) => {
             Text(protocol.toString().toUpperCase())
               .fontSize(10)
               .fontWeight(FontWeight.Bold)
-              .padding({ left: 6, right: 6, top: 3, bottom: 3 })
+              .padding({
+                left: 6,
+                right: 6,
+                top: 3,
+                bottom: 3
+              })
               .borderRadius(4)
               .fontColor(protocolColor(protocol))
               .backgroundColor(protocolBGColor(protocol))
-              .margin({left: 5})
+              .margin({ left: 5 })
           })
         }
 
@@ -137,7 +152,7 @@ export struct StatusPage {
           SymbolGlyph($r("sys.symbol.arrow_up_and_down_square_portrait"))
             .fontSize(10)
             .fontColor([$r("sys.color.font_secondary")])
-          Text(peer.getRate().toFixed(1)+peer.getRateUnit()).fontSize(10)
+          Text(peer.getRate().toFixed(1) + peer.getRateUnit()).fontSize(10)
             .fontColor($r("sys.color.font_secondary"))
         }
       }
@@ -173,6 +188,7 @@ export struct StatusPage {
                   .fontSize(14)
                   .fontColor([$r("sys.color.font_secondary")])
               }
+
               Text(this.ip)
                 .fontSize(28)
                 .fontFamily("mono")
@@ -182,10 +198,12 @@ export struct StatusPage {
             .alignItems(HorizontalAlign.Start)
             .justifyContent(FlexAlign.Center)
             .layoutWeight(1)
+
             Column({ space: 4 }) {
-              DiscoverBall({yellow: this.ip === "waiting"})
+              DiscoverBall({ yellow: this.ip === "waiting" })
             }
           }
+
           Row() {
             Row({ space: 4 }) {
               SymbolGlyph($r("sys.symbol.pc_ic_tab_index_1"))
@@ -196,7 +214,7 @@ export struct StatusPage {
                 Text("NAT")
                   .fontSize(12)
 
-                Row({space: 4}) {
+                Row({ space: 4 }) {
                   Text(natTypeToJSON(this.udp_nat))
                     .fontSize(12)
 
@@ -205,7 +223,7 @@ export struct StatusPage {
                     .strokeWidth(2)
                     .color($r("sys.color.comp_divider"))
                     .lineCap(LineCapStyle.Round)
-                    .height(Sfp2vp(12)*0.7)
+                    .height(Sfp2vp(12) * 0.7)
 
                   Text(natTypeToJSON(this.tcp_nat))
                     .fontSize(12)
@@ -213,7 +231,12 @@ export struct StatusPage {
               }
               .justifyContent(FlexAlign.Start)
             }
-            .padding({top: 5, bottom: 5, left: 5, right: 10})
+            .padding({
+              top: 5,
+              bottom: 5,
+              left: 5,
+              right: 10
+            })
             .borderRadius(20)
             .borderColor($r("sys.color.interactive_hover"))
             .backgroundColor($r("sys.color.comp_background_tertiary"))
@@ -224,13 +247,14 @@ export struct StatusPage {
               .lineCap(LineCapStyle.Round)
               .color(Color.Transparent)
               .layoutWeight(100)
-              .margin({left: 10})
+              .margin({ left: 10 })
               .linearGradient({
                 direction: GradientDirection.Right,
                 colors: [[$r("sys.color.comp_divider"), 0], [$r("sys.color.comp_background_primary"), 1]]
               })
           }
           .width('100%')
+
           Column({ space: 6 }) {
             Row() {
               Row({ space: 4 }) {
@@ -239,6 +263,7 @@ export struct StatusPage {
                 Text("上传")
                   .fontColor($r("sys.color.font_secondary"))
               }
+
               Row({ space: 4 }) {
                 SymbolGlyph($r("sys.symbol.arrow_down"))
                   .fontColor([$r("sys.color.font_secondary")])
@@ -248,6 +273,7 @@ export struct StatusPage {
             }
             .width('100%')
             .justifyContent(FlexAlign.SpaceBetween)
+
             Row() {
               Row({ space: 2 }) {
                 Text(this.rx_rate.toFixed(1))
@@ -257,6 +283,7 @@ export struct StatusPage {
                   .fontColor($r("sys.color.font_secondary"))
               }
               .alignItems(VerticalAlign.Bottom)
+
               Row({ space: 2 }) {
                 Text(this.tx_rate.toFixed(1))
                   .fontSize(20)
@@ -277,15 +304,15 @@ export struct StatusPage {
         .backgroundColor($r("sys.color.comp_background_primary"))
 
         WaterFlow() {
-          LazyForEach(AppManager.easytier.instanceInfos.get(this.uuid)!.peers, (peer: PeerInfo) => {
+          LazyForEach(this.instanceInfo!.peers, (peer: PeerInfo) => {
             this.RemotePeer(peer)
           })
         }
         .columnsGap(10)
         .rowsGap(10)
-        .columnsTemplate("1fr".repeat(Math.max(1,WindowUtil.uiType-1)))
+        .columnsTemplate("1fr".repeat(Math.max(1, WindowUtil.uiType - 1)))
         .width('100%')
-        .margin({top: 10})
+        .margin({ top: 10 })
       }
     }
     .padding({ left: 15, right: 15 })
@@ -347,7 +374,7 @@ export struct StatusPage {
         .titleMode(HdsNavigationTitleMode.MINI)
         .hideBackButton(false)
         .hideTitleBar(false)
-      }else {
+      } else {
         Navigation() {
           this.content()
         }

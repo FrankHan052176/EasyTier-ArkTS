@@ -1,21 +1,29 @@
-import { AppManager } from "../../AppManager";
-import { ContentUtil } from "../../ContentUtil";
-import { NetworkConfig, PortForwardConfig } from "../../protobuf/api_manage";
-import { EventHelper } from "../../util/EventHelper";
-import { Logger } from "../../util/Logger";
-import { Cidr, clearEditValue_Cidr, EditValue_Cidr, setEditValue_Cidr } from "./Cidr";
-import { clearEditValue_IP, EditValue_IP, IP, setEditValue_IP } from "./IP";
+import { AppManager } from '../../AppManager';
+import { NetworkConfig, PortForwardConfig } from '../../protobuf/api_manage';
+import { EventHelper } from '../../util/EventHelper';
+import { Cidr, clearEditValue_Cidr, EditValue_Cidr, setEditValue_Cidr } from './Cidr';
+import { clearEditValue_IP, EditValue_IP, IP, setEditValue_IP } from './IP';
 import {
   clearEditValue_NetworkName,
-  EditValue_NetworkName, NetworkName, setEditValue_NetworkName } from "./NetworkName";
-import { clearEditValue_PortForward, EditValue_PortForward, PortForward,
-  setEditValue_PortForward } from "./PortForward";
-import { clearEditValue_Url, EditValue_Url, setEditValue_Url, Url } from "./Url";
+  EditValue_NetworkName,
+  NetworkName,
+  setEditValue_NetworkName
+} from './NetworkName';
+import {
+  clearEditValue_PortForward,
+  EditValue_PortForward,
+  PortForward,
+  setEditValue_PortForward
+} from './PortForward';
+import { clearEditValue_Url, EditValue_Url, setEditValue_Url, Url } from './Url';
 
 export interface FieldValue {
   fromString(value: string): boolean
+
   toString(): string
+
   checkValid(): boolean
+
   bind(fieldName: string): FieldValue
 }
 
@@ -26,7 +34,7 @@ export function addFieldValue(type: string, name: string) {
       setEditValue_Cidr(new Cidr())
       break;
     }
-    case "mappedListener":
+    case "mapped_listener":
     case "listener": {
       let value = new Url()
       value.domain = "0.0.0.0"
@@ -41,7 +49,7 @@ export function addFieldValue(type: string, name: string) {
       setEditValue_IP(new IP())
       break;
     }
-    case "string": {
+    case "network_name": {
       setEditValue_NetworkName(new NetworkName())
       break;
     }
@@ -50,9 +58,9 @@ export function addFieldValue(type: string, name: string) {
       break;
     }
   }
-  EventHelper.emitterPublish("edit_open_sheet",{
+  EventHelper.emitterPublish("edit_open_sheet", {
     data: {
-      type: "add_"+type+"|"+name
+      type: "add_" + type + "|" + name
     }
   })
 }
@@ -68,7 +76,7 @@ export function updateFieldValue(type: string, value: FieldValue) {
       }
       break;
     }
-    case "mappedListener":
+    case "mapped_listener":
     case "listener":
     case "peer": {
       let url = value as Url
@@ -86,7 +94,7 @@ export function updateFieldValue(type: string, value: FieldValue) {
       }
       break;
     }
-    case "string": {
+    case "network_name": {
       let name = value as NetworkName
       if (EditValue_NetworkName) {
         EditValue_NetworkName.name = name.name
@@ -111,7 +119,7 @@ export function deleteFieldValue(config: NetworkConfig, type: string, name: stri
   if (type === "port_forward") {
     let i = -1
     let old = (value as PortForward).toInterface()
-    let arr = config[ContentUtil.safeFieldName(name)] as PortForwardConfig[]
+    let arr = config[name] as PortForwardConfig[]
     for (let index = 0; index < arr.length; index++) {
       const element = arr[index];
       if (element.bind_ip === old.bind_ip &&
@@ -127,18 +135,16 @@ export function deleteFieldValue(config: NetworkConfig, type: string, name: stri
     if (i >= 0) {
       arr.splice(i, 1)
     }
-  }else {
-    const pos = (config[ContentUtil.safeFieldName(name)] as string[]).indexOf(value.toString())
+    AppManager.preference.configPreferences.get(config.instance_id!)?.putSync(name,
+      (config[name] as PortForwardConfig[]))
+  } else {
+    const pos = (config[name] as string[]).indexOf(value.toString())
     if (pos >= 0) {
-      (config[ContentUtil.safeFieldName(name)] as string[]).splice(pos, 1)
+      (config[name] as string[]).splice(pos, 1)
     }
+    AppManager.preference.configPreferences.get(config.instance_id!)?.putSync(name, (config[name] as string[]))
   }
-  animateToImmediately({
-    curve: Curve.Ease,
-    duration: 300
-  }, () => {
-    AppManager.data.getDataSource(type).del(value)
-  })
+  AppManager.preference.configPreferences.get(config.instance_id!)?.flushSync()
 }
 
 export function clearEditValue(type: string) {
@@ -148,7 +154,7 @@ export function clearEditValue(type: string) {
       clearEditValue_Cidr()
       break;
     }
-    case "mappedListener":
+    case "mapped_listener":
     case "listener":
     case "peer": {
       clearEditValue_Url()
@@ -158,7 +164,7 @@ export function clearEditValue(type: string) {
       clearEditValue_IP()
       break;
     }
-    case "string": {
+    case "network_name": {
       clearEditValue_NetworkName()
       break;
     }
@@ -175,7 +181,7 @@ export function confirmCheck(type: string): boolean {
     case "cidr": {
       return EditValue_Cidr?.checkValid() ?? false
     }
-    case "mappedListener":
+    case "mapped_listener":
     case "listener":
     case "peer": {
       return EditValue_Url?.checkValid() ?? false
@@ -183,7 +189,7 @@ export function confirmCheck(type: string): boolean {
     case "ip": {
       return EditValue_IP?.checkValid() ?? false
     }
-    case "string": {
+    case "network_name": {
       return EditValue_NetworkName?.checkValid() ?? false
     }
     case "port_forward": {
@@ -193,7 +199,7 @@ export function confirmCheck(type: string): boolean {
   return false
 }
 
-export function addValue(name:string, type: string) {
+export function addValue(name: string, type: string) {
   let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance!)!
   switch (type) {
     case "route":
@@ -210,7 +216,7 @@ export function addValue(name:string, type: string) {
       })
       break;
     }
-    case "mappedListener":
+    case "mapped_listener":
     case "listener":
     case "peer": {
       animateToImmediately({
@@ -238,7 +244,7 @@ export function addValue(name:string, type: string) {
       })
       break;
     }
-    case "string": {
+    case "network_name": {
       animateToImmediately({
         curve: Curve.Ease,
         duration: 300

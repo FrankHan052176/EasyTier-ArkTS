@@ -1,10 +1,10 @@
-import { AppManager } from "./AppManager"
-import { MyFrameCallback } from "./pages/HMRouterIndex"
-import { layoutAnimationParm } from "./pages/nodes/ResizableComponent"
-import { lane } from "./util/Conversion"
-import { EventHelper } from "./util/EventHelper"
-import { Logger } from "./util/Logger"
-import { WindowUtil } from "./WindowUtil"
+import { AppManager } from './AppManager'
+import { MyFrameCallback } from './pages/HMRouterIndex'
+import { layoutAnimationParm } from './pages/nodes/ResizableComponent'
+import { lane } from './util/Conversion'
+import { EventHelper } from './util/EventHelper'
+import { Logger } from './util/Logger'
+import { WindowUtil } from './WindowUtil'
 
 @ObservedV2
 export class CompSize {
@@ -47,8 +47,18 @@ export class CompSize {
   }
 }
 
-export interface Position { x: number, y: number}
-export interface CompSizeWithPos { type: string, x: number, y: number, width: number, height: number }
+export interface Position {
+  x: number,
+  y: number
+}
+
+export interface CompSizeWithPos {
+  type: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+}
 
 @ObservedV2
 export class LayoutUtil {
@@ -61,14 +71,13 @@ export class LayoutUtil {
   @Trace compSizeMap: Map<string, CompSize> = new Map
   @Trace MaxHeight: number = 0
   @Trace MaxWidth: number = 0
-
   public static readonly MIN_COMP_WIDTH = 1;
   public static readonly MIN_COMP_HEIGHT = 1;
 
   initSequence(sequence: string) {
     sequence.split("|").forEach((data) => {
       let raw = data.split("_")
-      let size:CompSizeWithPos = {
+      let size: CompSizeWithPos = {
         type: raw[0],
         x: Number.parseInt(raw[1]),
         y: Number.parseInt(raw[2]),
@@ -78,12 +87,14 @@ export class LayoutUtil {
       if (this.comp_types.indexOf(size.type) >= 0) {
         this.comp_sequence.push(size.type)
         let pos: Position = { x: size.x, y: size.y }
-        if (this.getObstacles(size.type, { x: size.x, y: size.y }, size.width, size.height).length > 0 || this.isOutOfBounds(size.x, size.y, size.width, size.height)) {
+        if (this.getObstacles(size.type, { x: size.x, y: size.y }, size.width, size.height).length > 0 ||
+        this.isOutOfBounds(size.x, size.y, size.width, size.height)) {
           pos = this.findFreeSpace(size.width, size.height)
         }
-        this.compSizeMap.set(size.type, new CompSize().setPos(pos.x, pos.y).setSize(size.width, size.height).withType(size.type))
-        this.MaxHeight = Math.max(this.MaxHeight, pos.y+size.height)
-        this.MaxWidth = Math.max(this.MaxWidth, pos.x+size.width)
+        this.compSizeMap.set(size.type,
+          new CompSize().setPos(pos.x, pos.y).setSize(size.width, size.height).withType(size.type))
+        this.MaxHeight = Math.max(this.MaxHeight, pos.y + size.height)
+        this.MaxWidth = Math.max(this.MaxWidth, pos.x + size.width)
       }
     })
   }
@@ -99,11 +110,12 @@ export class LayoutUtil {
         let size = this.getCompSize(type)
         let pos: Position = this.findFreeSpace(size.lane_w, size.lane_h, tempSequence, tempCompSizeMap)
         Logger.debug(`updateNewUIType ${type}_${pos.x}_${pos.y}`)
-        tempCompSizeMap.set(size.type, new CompSize().setPos(pos.x, pos.y).setSize(size.lane_w, size.lane_h).withType(size.type))
+        tempCompSizeMap.set(size.type,
+          new CompSize().setPos(pos.x, pos.y).setSize(size.lane_w, size.lane_h).withType(size.type))
         tempSequence.push(type)
         this.getCompSize(type).setPos(pos.x, pos.y)
-        this.MaxHeight = Math.max(this.MaxHeight, pos.y+size.lane_h)
-        this.MaxWidth = Math.max(this.MaxWidth, pos.x+size.lane_w)
+        this.MaxHeight = Math.max(this.MaxHeight, pos.y + size.lane_h)
+        this.MaxWidth = Math.max(this.MaxWidth, pos.x + size.lane_w)
       })
     }
   }
@@ -113,13 +125,13 @@ export class LayoutUtil {
   }
 
   LayoutHeight(): number {
-    return (this.comp_sequence.length+1)*2
+    return (this.comp_sequence.length + 1) * 2
   }
 
   getCompSize(type: string): CompSize {
     if (this.compSizeMap.has(type)) {
       return this.compSizeMap.get(type)!
-    }else {
+    } else {
       return new CompSize().withType(type)
     }
   }
@@ -132,7 +144,9 @@ export class LayoutUtil {
   }
 
   isOverlap(comp1: CompSize, comp2: CompSize): boolean {
-    if (comp1 === comp2) return false;
+    if (comp1 === comp2) {
+      return false;
+    }
 
     const comp1Right = comp1.grid_x + comp1.lane_w;
     const comp1Bottom = comp1.grid_y + comp1.lane_h;
@@ -221,10 +235,10 @@ export class LayoutUtil {
             compSize.zIndex = 1
           }
         }, () => {
-          compSize.pan_offset_x = (compSize.next_grid_x-compSize.grid_x)*(grid_size+10)
-          compSize.pan_offset_y = (compSize.next_grid_y-compSize.grid_y)*(grid_size+10)
+          compSize.pan_offset_x = (compSize.next_grid_x - compSize.grid_x) * (grid_size + 10)
+          compSize.pan_offset_y = (compSize.next_grid_y - compSize.grid_y) * (grid_size + 10)
         })
-      }else if (compSize.find_next_grid) {
+      } else if (compSize.find_next_grid) {
         compSize.zIndex = 88
         animateToImmediately({
           duration: 200,
@@ -260,7 +274,7 @@ export class LayoutUtil {
   updateSequence() {
     let sequenceData = ""
     this.MaxHeight = 0
-    this.comp_sequence.sort((a,b) => {
+    this.comp_sequence.sort((a, b) => {
       let size1 = this.getCompSize(a)
       let size2 = this.getCompSize(b)
       if (size1.grid_y !== size2.grid_y) {
@@ -269,23 +283,26 @@ export class LayoutUtil {
       return size1.grid_x - size2.grid_x;
     }).forEach((value) => {
       let size = this.getCompSize(value)
-      this.MaxHeight = Math.max(this.MaxHeight, size.grid_y+size.lane_h)
+      this.MaxHeight = Math.max(this.MaxHeight, size.grid_y + size.lane_h)
       sequenceData += `${value}_${size.grid_x}_${size.grid_y}_${size.lane_w}_${size.lane_h}|`
     })
-    AppManager.preference.updateSequence(sequenceData.length>0?sequenceData.substring(0,sequenceData.length-1):sequenceData)
+    AppManager.preference.updateSequence(sequenceData.length > 0 ? sequenceData.substring(0, sequenceData.length - 1) :
+      sequenceData)
   }
 
   getObstacles(comp_name: string, pos: Position, width: number, height: number): string[] {
     let overlapComps: string[] = []
     for (const comp of this.comp_sequence) {
-      if (comp === comp_name) continue
+      if (comp === comp_name) {
+        continue
+      }
       let size = this.getCompSize(comp)
-      let grid_x = size.find_next_grid?size.next_grid_x:size.grid_x
-      let grid_y = size.find_next_grid?size.next_grid_y:size.grid_y
+      let grid_x = size.find_next_grid ? size.next_grid_x : size.grid_x
+      let grid_y = size.find_next_grid ? size.next_grid_y : size.grid_y
       const overlapLeft = Math.max(pos.x, grid_x);
-      const overlapRight = Math.min(pos.x+width, grid_x+size.lane_w);
+      const overlapRight = Math.min(pos.x + width, grid_x + size.lane_w);
       const overlapBottom = Math.max(pos.y, grid_y);
-      const overlapTop = Math.min(pos.y+height, grid_y+size.lane_h);
+      const overlapTop = Math.min(pos.y + height, grid_y + size.lane_h);
       if (overlapLeft < overlapRight && overlapBottom < overlapTop) {
         overlapComps.push(comp)
       }
@@ -295,7 +312,7 @@ export class LayoutUtil {
 
   pushObstacle(comp_name: string, pos: Position, width: number, height: number) {
     let overlapComps: string[] = this.getObstacles(comp_name, pos, width, height)
-    overlapComps.sort((a,b) => {
+    overlapComps.sort((a, b) => {
       let size1 = this.getCompSize(a)
       let size2 = this.getCompSize(b)
       if (size1.grid_y !== size2.grid_y) {
@@ -319,7 +336,7 @@ export class LayoutUtil {
           compSize.next_grid_x = tempPos.x
           compSize.next_grid_y = tempPos.y
         })
-      }else {
+      } else {
         this.comp_sequence.splice(this.comp_sequence.indexOf(comp_name))
       }
     })
@@ -334,9 +351,9 @@ export class LayoutUtil {
     overrideCompSize: Map<string, CompSize> | undefined
   ): boolean {
     for (const comp of overrideSequence) {
-      let compSize = overrideCompSize?overrideCompSize.get(comp)!:this.getCompSize(comp)
-      let comp_x = compSize.find_next_grid?compSize.next_grid_x:compSize.grid_x;
-      let comp_y = compSize.find_next_grid?compSize.next_grid_y:compSize.grid_y;
+      let compSize = overrideCompSize ? overrideCompSize.get(comp)! : this.getCompSize(comp)
+      let comp_x = compSize.find_next_grid ? compSize.next_grid_x : compSize.grid_x;
+      let comp_y = compSize.find_next_grid ? compSize.next_grid_y : compSize.grid_y;
       const overlap =
         !(x + w <= comp_x ||
           comp_x + compSize.lane_w <= x ||
@@ -358,10 +375,10 @@ export class LayoutUtil {
     for (let y = 0; y + itemH <= this.LayoutHeight(); y++) {
       for (let x = 0; x + itemW <= this.LayoutWidth(); x++) {
         if (this.canPlaceAt(x, y, itemW, itemH, overrideSequence, overrideCompSize)) {
-          return { x:x, y:y };
+          return { x: x, y: y };
         }
       }
     }
-    return { x:-1, y:-1 };
+    return { x: -1, y: -1 };
   }
 }

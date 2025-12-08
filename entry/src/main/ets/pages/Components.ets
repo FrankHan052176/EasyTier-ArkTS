@@ -1,8 +1,8 @@
-import { SymbolGlyphModifier } from "@kit.ArkUI"
-import { BusinessError, pasteboard } from "@kit.BasicServicesKit"
-import { Logger } from "../util/Logger"
-import { HdsNavigationMenuItemOptions, IconStyleMode } from "@kit.UIDesignKit"
-import { symbolWithSize } from "./hmrouter/HomePage"
+import { SymbolGlyphModifier } from '@kit.ArkUI'
+import { BusinessError, pasteboard } from '@kit.BasicServicesKit'
+import { Logger } from '../util/Logger'
+import { HdsNavigationMenuItemOptions, IconStyleMode } from '@kit.UIDesignKit'
+import { symbolWithSize } from './hmrouter/HomePage'
 
 @Builder
 export function SharedPeersSheet() {
@@ -136,17 +136,20 @@ export function SharedPeersSheet() {
 }
 
 export function MenuButton(value: string | Resource, symbol: Resource, callback: () => void): NavigationMenuItem {
-  return {'value': value, 'symbolIcon': new SymbolGlyphModifier(symbol), 'action': ()=> {
-    callback()
-  }}
+  return {
+    'value': value, 'symbolIcon': new SymbolGlyphModifier(symbol), 'action': () => {
+      callback()
+    }
+  }
 }
 
-export function HdsMenuButton(value: ResourceStr, symbol: Resource, callback: () => void): HdsNavigationMenuItemOptions {
+export function HdsMenuButton(value: ResourceStr, symbol: Resource,
+  callback: () => void): HdsNavigationMenuItemOptions {
   return {
     content: {
       icon: symbolWithSize(symbol, 24),
       label: value,
-      action: ()=>{
+      action: () => {
         callback()
       },
       type: IconStyleMode.LARGE
@@ -161,17 +164,19 @@ export struct ToolButton {
   @Param symbolScale: number = 0.6
   @Param bgColor: ResourceColor = $r("sys.color.comp_background_tertiary")
   @Param symbolColor: Array<ResourceColor> = [$r("sys.color.font_primary")]
+
   build() {
     Button({ type: ButtonType.Circle }) {
       SymbolGlyph(this.symbol)
         .fontColor(this.symbolColor)
-        .fontSize(this.buttonSize*this.symbolScale)
+        .fontSize(this.buttonSize * this.symbolScale)
         .animation({
           curve: Curve.EaseIn,
           duration: 300
         })
     }
-    .width(this.buttonSize).height(this.buttonSize)
+    .width(this.buttonSize)
+    .height(this.buttonSize)
     .buttonStyle(ButtonStyleMode.NORMAL)
     .backgroundColor(this.bgColor)
     .clickEffect({
@@ -207,8 +212,8 @@ export struct ToolButtonWithText {
       }
       .justifyContent(FlexAlign.SpaceAround)
     }
-    .padding({left: 10, right: 10})
-    .height(this.symbolSize/6*10)
+    .padding({ left: 10, right: 10 })
+    .height(this.symbolSize / 6 * 10)
     .buttonStyle(ButtonStyleMode.NORMAL)
     .backgroundColor(this.bgColor)
     .clickEffect({
@@ -220,13 +225,15 @@ export struct ToolButtonWithText {
 
 @ComponentV2
 export struct ToolButtonWithPaste {
-  @Param pasteCallback: (value: string) => void = () => {}
+  @Param pasteCallback: (value: string) => void = () => {
+  }
+
   build() {
     PasteButton({
       buttonType: ButtonType.Circle,
       text: undefined
     })
-      .padding({left: 10, right: 10})
+      .padding({ left: 10, right: 10 })
       .height(40)
       .onClick((_event, result) => {
         if (PasteButtonOnClickResult.SUCCESS === result) {
@@ -237,7 +244,7 @@ export struct ToolButtonWithPaste {
             }
             this.pasteCallback(pasteData.getPrimaryText())
           });
-        }else {
+        } else {
           Logger.debug("failed get perm")
         }
       })
@@ -245,7 +252,8 @@ export struct ToolButtonWithPaste {
 }
 
 @Builder
-function gradientText(size: number = 36, text: string | Resource | undefined = 'EasyTier', weight: number | FontWeight | ResourceStr = FontWeight.Bold, angle: string | number | undefined = 225) {
+function gradientText(size: number = 36, text: string | Resource | undefined = 'EasyTier',
+  weight: number | FontWeight | ResourceStr = FontWeight.Bold, angle: string | number | undefined = 225) {
   Stack() {
     Row() {
       Text(text)
@@ -258,7 +266,7 @@ function gradientText(size: number = 36, text: string | Resource | undefined = '
         .padding(5)
     }
     .linearGradient({
-      colors:[
+      colors: [
         ['rgba(255,200,50,1)', 0.3],
         ['rgba(0,230,118,1)', 1]
       ],

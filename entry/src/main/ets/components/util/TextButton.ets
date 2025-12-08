@@ -1,4 +1,4 @@
-import { Sfp2vp } from "../../AppManager"
+import { Sfp2vp } from '../../AppManager'
 
 @ComponentV2
 export struct TertiaryButton {
@@ -17,8 +17,13 @@ export struct TertiaryButton {
       .fontColor(this.fontColor)
       .backgroundColor($r("sys.color.comp_background_tertiary"))
       .fontSize(this.fontSize)
-      .borderRadius(this.TextHeight/2+3)
-      .padding({ left: this.TextHeight/2+3, right: this.TextHeight/2+3, top: this.TextHeight/2+1, bottom: this.TextHeight/2+1 })
+      .borderRadius(this.TextHeight / 2 + 3)
+      .padding({
+        left: this.TextHeight / 2 + 3,
+        right: this.TextHeight / 2 + 3,
+        top: this.TextHeight / 2 + 1,
+        bottom: this.TextHeight / 2 + 1
+      })
   }
 }
 

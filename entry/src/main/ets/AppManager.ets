@@ -1,18 +1,18 @@
-import { ContentUtil } from "./ContentUtil";
-import { ContextUtil } from "./ContextUtil";
-import { DataUtil } from "./DataUtil";
-import { EasyTierUtil } from "./EasyTierUtil";
-import { Logger, LogLocate } from "./util/Logger";
-import { preferences } from "@kit.ArkData";
-import { PermissionUtil } from "./PermissionUtil";
-import { PreferenceUtil } from "./PreferencesUtil";
-import { LayoutUtil } from "./LayoutUtil";
-import { WebUtil } from "./WebUtil";
-import { deviceInfo } from "@kit.BasicServicesKit";
-import { EventHelper } from "./util/EventHelper";
+import { ContentUtil } from './ContentUtil';
+import { ContextUtil } from './ContextUtil';
+import { DataUtil } from './DataUtil';
+import { EasyTierUtil } from './EasyTierUtil';
+import { Logger, LogLocate } from './util/Logger';
+import { distributedKVStore, preferences } from '@kit.ArkData';
+import { PermissionUtil } from './PermissionUtil';
+import { PreferenceUtil } from './PreferencesUtil';
+import { LayoutUtil } from './LayoutUtil';
+import { WebUtil } from './WebUtil';
+import { deviceInfo } from '@kit.BasicServicesKit';
 
 @LogLocate("AppManager")
 export class AppManager {
+  public static KVManager: distributedKVStore.KVManager | undefined
   public static data: DataUtil = new DataUtil()
   public static content: ContextUtil = new ContextUtil()
   public static easytier: EasyTierUtil = new EasyTierUtil()
@@ -22,29 +22,26 @@ export class AppManager {
   public static web: WebUtil = new WebUtil()
 
   static init(uiContext: UIContext) {
-    AppManager.data.init()
-    AppManager.content.init(uiContext)
     ContentUtil.initConfigFields()
+    AppManager.content.init(uiContext)
     if (deviceInfo.productModel !== "emulator") {
       AppManager.easytier.init()
-    }else {
-      setInterval(() => {
-        EventHelper.commonPublishData("status_bar_infos", "test1 test2")
-      }, 100)
     }
     AppManager.permission.updatePermStatus()
     try {
-      AppManager.preference.init(preferences.getPreferencesSync(AppManager.content.context, { name: 'EasyTierPreferences' }))
+      AppManager.preference.init(preferences.getPreferencesSync(AppManager.content.context,
+        { name: 'EasyTierPreferences' }))
     } catch (error) {
       Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
     }
+    AppManager.data.init()
   }
 }
 
 export function Spx2vp(px: number): number {
   if (AppManager.content.uiContext) {
     return AppManager.content.uiContext.px2vp(px)
-  }else {
+  } else {
     return px2vp(px)
   }
 }
@@ -52,7 +49,7 @@ export function Spx2vp(px: number): number {
 export function Spx2fp(px: number): number {
   if (AppManager.content.uiContext) {
     return AppManager.content.uiContext.px2fp(px)
-  }else {
+  } else {
     return px2fp(px)
   }
 }
@@ -60,7 +57,7 @@ export function Spx2fp(px: number): number {
 export function Svp2px(px: number): number {
   if (AppManager.content.uiContext) {
     return AppManager.content.uiContext.vp2px(px)
-  }else {
+  } else {
     return vp2px(px)
   }
 }
@@ -68,7 +65,7 @@ export function Svp2px(px: number): number {
 export function Sfp2px(px: number): number {
   if (AppManager.content.uiContext) {
     return AppManager.content.uiContext.fp2px(px)
-  }else {
+  } else {
     return fp2px(px)
   }
 }

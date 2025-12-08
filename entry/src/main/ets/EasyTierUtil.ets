@@ -1,6 +1,6 @@
 import entry from 'libentry.so'
 import { NetworkInstanceRunningInfo } from './protobuf/api_manage'
-import easytier from "easytier-ohrs"
+import easytier from 'easytier-ohrs'
 import { EventHelper } from './util/EventHelper'
 import { AppManager } from './AppManager'
 import { Logger } from './util/Logger'
@@ -30,7 +30,7 @@ export class EasyTierUtil {
         try {
           if (monitor.value(path)?.now) {
             AppManager.preference.preferences.putSync(path, monitor.value(path)?.now as ValueType)
-          }else {
+          } else {
             AppManager.preference.preferences.putSync(path, "" as ValueType)
           }
           AppManager.preference.preferences.flushSync()
@@ -66,8 +66,8 @@ export class EasyTierUtil {
     if (result) {
       try {
         this.tunRoutes.add(new NetworkSegment(route))
-      }catch (e) {
-        Logger.error("NetworkSegment constructor throw a error:["+route+"] is invalid.", "EasyTierUtil")
+      } catch (e) {
+        Logger.error("NetworkSegment constructor throw a error:[" + route + "] is invalid.", "EasyTierUtil")
         return false
       }
     }
@@ -81,7 +81,7 @@ export class EasyTierUtil {
       networks.add(info.key)
       let newInfo: NetworkInstanceRunningInfo = JSON.parse(info.value)
       if (!newInfo.running) {
-        Logger.error("ReadErrorInfo: "+newInfo.error_msg, this)
+        Logger.error("ReadErrorInfo: " + newInfo.error_msg, this)
         this.stop()
         continue
       }
@@ -91,19 +91,21 @@ export class EasyTierUtil {
       }
       this.instanceInfos.get(info.key)?.update(newInfo)
       EventHelper.emitterPublish("updateInfo_" + info.key)
-      if (this.needTUN === info.key && newInfo.my_node_info?.virtual_ipv4 && newInfo.my_node_info?.virtual_ipv4?.address) {
+      if (this.needTUN === info.key && newInfo.my_node_info?.virtual_ipv4 &&
+        newInfo.my_node_info?.virtual_ipv4?.address) {
         this.needTUN = undefined
         let config = AppManager.data.configUUIDMap.get(info.key)!
         config.routes.forEach((route) => {
           this.tunRoutes.add(new NetworkSegment(route.toString()))
         })
-        this.tunRoutes.add(new NetworkSegment(convertAddrToIp(newInfo.my_node_info.virtual_ipv4.address.addr)+"/"+newInfo.my_node_info.virtual_ipv4.network_length))
+        this.tunRoutes.add(new NetworkSegment(convertAddrToIp(newInfo.my_node_info.virtual_ipv4.address.addr) + "/" +
+        newInfo.my_node_info.virtual_ipv4.network_length))
         newInfo.routes.forEach((route) => {
           route.proxy_cidrs.forEach((cidr) => {
             this.addTunRoutes(cidr)
           })
           if (route.ipv4_addr?.address) {
-            this.addTunRoutes(convertAddrToIp(route.ipv4_addr.address.addr)+"/"+route.ipv4_addr.network_length)
+            this.addTunRoutes(convertAddrToIp(route.ipv4_addr.address.addr) + "/" + route.ipv4_addr.network_length)
           }
         })
         EventHelper.emitterPublish("setup_tun", {
@@ -174,7 +176,7 @@ export class EasyTierUtil {
     if (uuid) {
       let config = AppManager.data.configUUIDMap.get(uuid)
       if (config) {
-        Logger.debug("start:"+JSON.stringify(config))
+        Logger.debug("start:" + JSON.stringify(config))
         if (easytier.parseNetworkConfig(JSON.stringify(config))) {
           if (!config.no_tun) {
             this.needTUN = uuid
@@ -184,18 +186,18 @@ export class EasyTierUtil {
               cfg: JSON.stringify(config)
             }
           })
-        }else {
+        } else {
           sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
         }
         return true
-      }else {
+      } else {
         return false
       }
-    }else {
+    } else {
       return false
     }
   }
-  
+
   public stop() {
     EventHelper.emitterPublish("stop_bg")
     easytier.stopNetworkInstance(Array.from(this.runningNetworks.keys()))

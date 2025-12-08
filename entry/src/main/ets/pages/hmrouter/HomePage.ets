@@ -1,16 +1,16 @@
-import { HMRouter, HMRouterMgr } from "@hadss/hmrouter"
-import { deviceInfo } from "@kit.BasicServicesKit";
-import { HdsNavigation, HdsNavigationTitleMode, IconStyleMode, HdsNavigationAttribute,
-  ScrollEffectType} from "@hms.hds.hdsBaseComponent";
-import { HdsMenuButton, MenuButton } from "../Components";
-import { ColorMetrics, LengthMetrics, SymbolGlyphModifier } from "@kit.ArkUI";
-import { AppManager } from "../../AppManager";
-import { DesktopLayout } from "../nodes/DesktopLayout";
-import { EventHelper } from "../../util/EventHelper";
-import { SheetContentBuilder, SheetTitleBuilder } from "../../components/sheet/Basic";
-import { HdsActionBar, ActionBarButton, ActionBarStyle } from "@kit.UIDesignKit";
-import { sendToast } from "../../ToastUtil";
-import { BottomAnimator } from "../../class/animator/BottomAnimator";
+import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
+import { deviceInfo } from '@kit.BasicServicesKit';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@hms.hds.hdsBaseComponent';
+import { HdsMenuButton, MenuButton } from '../Components';
+import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
+import { AppManager } from '../../AppManager';
+import { DesktopLayout } from '../nodes/DesktopLayout';
+import { EventHelper } from '../../util/EventHelper';
+import { SheetContentBuilder, SheetTitleBuilder } from '../../components/sheet/Basic';
+import { ActionBarButton, ActionBarStyle, HdsActionBar } from '@kit.UIDesignKit';
+import { sendToast } from '../../ToastUtil';
+import { BottomAnimator } from '../../class/animator/BottomAnimator';
+import { motion } from '@kit.MultimodalAwarenessKit';
 
 export function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
   let result = new SymbolGlyphModifier(symbol)
@@ -28,11 +28,69 @@ export struct HomePage {
   @Local tips: string | undefined = ""
   @Local actionText: string | undefined = ""
   @Local actionBar: boolean = true
+  @Local hand: number = 0
 
   aboutToAppear(): void {
     EventHelper.emitterListener("home_close_sheet", () => {
       this.sheet = false
     })
+    if (canIUse("SystemCapability.MultimodalAwareness.Motion")) {
+      if (deviceInfo.sdkApiVersion >= 20) {
+        motion.on('holdingHandChanged', (data: motion.HoldingHandStatus) => {
+          switch (data) {
+            case motion.HoldingHandStatus.LEFT_HAND_HELD:
+            case motion.HoldingHandStatus.RIGHT_HAND_HELD: {
+              animateToImmediately({
+                duration: 300,
+                curve: curves.springMotion(0.5, 0.6, 0)
+              }, () => {
+                this.hand = data
+              })
+              break;
+            }
+            default: {
+              animateToImmediately({
+                duration: 300,
+                curve: curves.springMotion(0.5, 0.6, 0)
+              }, () => {
+                this.hand = 0
+              })
+            }
+          }
+        })
+      }
+    }
+  }
+
+  restart() {
+    if (AppManager.easytier.runningNetworks.size > 0) {
+      let uuid = ""
+      for (const key of AppManager.easytier.runningNetworks.keys()) {
+        uuid = key
+        break;
+      }
+      AppManager.easytier.stop()
+      if (!AppManager.easytier.start(uuid)) {
+        sendToast("非法实例, 很可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
+      }
+    } else {
+      sendToast("Amazing!找不到启动的实例", $r("sys.symbol.exclamationmark_circle"), 1)
+    }
+  }
+
+  startAndStop() {
+    if (AppManager.easytier.runningNetworks.size > 0) {
+      AppManager.easytier.stop()
+    } else {
+      AppManager.easytier.start()
+    }
+  }
+
+  status() {
+    HMRouterMgr.to('StatusPage')
+      .withParam(AppManager.easytier.selected)
+      .withAnimator(new BottomAnimator())
+      .pushAsync()
   }
 
   @Builder
@@ -44,39 +102,20 @@ export struct HomePage {
             startButtons: [new ActionBarButton({
               baseIcon: $r('sys.symbol.thumbnails'),
               onClick: () => {
-                HMRouterMgr.to('StatusPage')
-                  .withParam(AppManager.easytier.selected)
-                  .withAnimator(new BottomAnimator())
-                  .pushAsync()
+                this.status()
               }
             })],
             endButtons: [new ActionBarButton({
               baseIcon: $r('sys.symbol.arrow_clockwise'),
               onClick: () => {
-                if (AppManager.easytier.runningNetworks.size > 0) {
-                  let uuid = ""
-                  for (const key of AppManager.easytier.runningNetworks.keys()) {
-                    uuid = key
-                    break;
-                  }
-                  AppManager.easytier.stop()
-                  if (!AppManager.easytier.start(uuid)) {
-                    sendToast("非法实例, 很可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
-                  }
-                }else {
-                  sendToast("Amazing!找不到启动的实例", $r("sys.symbol.exclamationmark_circle"), 1)
-                }
+                this.restart()
               }
             })],
             primaryButton: new ActionBarButton({
               baseIcon: $r('sys.symbol.play_fill'),
               altIcon: $r('sys.symbol.pause_fill'),
               onClick: () => {
-                if (AppManager.easytier.runningNetworks.size > 0) {
-                  AppManager.easytier.stop()
-                }else {
-                  AppManager.easytier.start()
-                }
+                this.startAndStop()
               },
               hoverTips: '启停'
             }),
@@ -87,16 +126,18 @@ export struct HomePage {
             }),
             isExpand: AppManager.easytier.runningNetworks.size > 0
           })
-        }else {
+        } else {
           // TODO 20- actionbar
         }
       }
     }
-    .alignItems(HorizontalAlign.Center)
+    .alignItems(this.hand === 1 ? HorizontalAlign.Start :
+      (this.hand === 2 ? HorizontalAlign.End : HorizontalAlign.Center))
     .justifyContent(FlexAlign.End)
     .height('100%')
     .width('100%')
     .hitTestBehavior(HitTestMode.Transparent)
+    .padding({ left: 20, right: 20 })
   }
 
   @Builder
@@ -177,7 +218,7 @@ export struct HomePage {
         .hideBackButton(true)
         .hideTitleBar(false)
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      }else {
+      } else {
         Navigation() {
           this.content()
         }
@@ -210,7 +251,7 @@ export struct HomePage {
     .width('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .bindSheet(this.sheet, SheetContentBuilder(this.sheet_type), {
-      height: this.sheet_type === "setting"?SheetSize.LARGE:SheetSize.FIT_CONTENT,
+      height: this.sheet_type === "setting" ? SheetSize.LARGE : SheetSize.FIT_CONTENT,
       preferType: SheetType.CENTER,
       showClose: false,
       dragBar: false,

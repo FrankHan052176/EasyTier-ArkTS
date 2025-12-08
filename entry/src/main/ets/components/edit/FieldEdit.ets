@@ -12,7 +12,7 @@ import { AppManager } from '../../AppManager'
 import { NumberField } from './field/NumberField'
 
 export function getFieldI18Name(field: string): Resource {
-  return $r("app.string."+(ContentUtil.renamedField[field] || field))
+  return $r("app.string." + (ContentUtil.renamedField[field] || field))
 }
 
 @ComponentV2
@@ -20,8 +20,9 @@ export struct FieldEdit {
   @Param layer: number = 0
   @Param @Require field: ConfigField
   @Provider() field_width: number = 0
-  @Local hasEnableButton: boolean = Array.isArray(this.field.type) && this.field.type[0].type === "boolean" && this.field.name !== "flags_switch"
-  @Local enableField: string = this.hasEnableButton?(this.field.type[0] as ConfigField).name:""
+  @Local hasEnableButton: boolean =
+    Array.isArray(this.field.type) && this.field.type[0].type === "boolean" && this.field.name !== "flags_switch"
+  @Local enableField: string = this.hasEnableButton ? (this.field.type[0] as ConfigField).name : ""
   @Provider("field_edit_enable") enable: boolean = true
 
   @Computed
@@ -42,10 +43,10 @@ export struct FieldEdit {
     if (Array.isArray(this.field.type)) {
       if (this.hasEnableButton) {
         return this.field.type.slice(1)
-      }else {
+      } else {
         return this.field.type
       }
-    }else {
+    } else {
       return [this.field]
     }
   }
@@ -54,7 +55,7 @@ export struct FieldEdit {
   get isHidden() {
     if (ContentUtil.hasTag(this.field.name, "hidable") && !this.enable) {
       return true
-    }else {
+    } else {
       return false
     }
   }
@@ -70,7 +71,8 @@ export struct FieldEdit {
 
   @Computed
   get isCidr() {
-    return Array.isArray(this.field.type) && this.field.type.length === 2 && this.field.type[0].type === "cidr_ip" && this.field.type[1].type === "cidr_mask"
+    return Array.isArray(this.field.type) && this.field.type.length === 2 && this.field.type[0].type === "cidr_ip" &&
+      this.field.type[1].type === "cidr_mask"
   }
 
   @Computed
@@ -81,15 +83,15 @@ export struct FieldEdit {
   @Styles
   backgroundColumn() {
     .width('100%')
-    .borderRadius(this.isSingleField?0:18)
-    .backgroundColor(this.isSingleField?Color.Transparent:$r("sys.color.comp_background_primary"))
+    .borderRadius(this.isSingleField ? 0 : 18)
+    .backgroundColor(this.isSingleField ? Color.Transparent : $r("sys.color.comp_background_primary"))
     .clip(true)
-    .padding({top: this.Padding, bottom: this.Padding})
+    .padding({ top: this.Padding, bottom: this.Padding })
   }
 
   @Computed
   get titleFontSize() {
-    return this.layer===0?14:16
+    return this.layer === 0 ? 14 : 16
   }
 
   @Computed
@@ -99,7 +101,7 @@ export struct FieldEdit {
 
   @Computed
   get Padding() {
-    return this.isSingleField?0:16
+    return this.isSingleField ? 0 : 16
   }
 
   @Builder
@@ -110,14 +112,14 @@ export struct FieldEdit {
           .fontSize(this.titleFontSize)
           .focusable(false)
         if (this.hasEnableButton) {
-          EnableField({field: this.enableField})
-        }else if (this.isLisType(this.field)) {
-          PrimaryButton({text: "新增", fontSize: this.titleFontSize, fontColor: $r("sys.color.brand_font")})
+          EnableField({ field: this.enableField })
+        } else if (this.isLisType(this.field)) {
+          PrimaryButton({ text: "新增", fontSize: this.titleFontSize, fontColor: $r("sys.color.brand_font") })
             .clickEffect({
               level: ClickEffectLevel.MIDDLE
             })
             .onClick(() => {
-              addFieldValue((this.field.type as string).slice(0, this.field.type.length-2), this.field.name)
+              addFieldValue((this.field.type as string).slice(0, this.field.type.length - 2), this.field.name)
             })
         }
       }
@@ -131,34 +133,37 @@ export struct FieldEdit {
   @Builder
   content() {
     if (!this.isHidden) {
-      Flex({wrap: FlexWrap.Wrap, space: {
-        main: LengthMetrics.vp(10),
-        cross: LengthMetrics.vp(10)
-      }}) {
+      Flex({
+        wrap: FlexWrap.Wrap, space: {
+          main: LengthMetrics.vp(10),
+          cross: LengthMetrics.vp(10)
+        }
+      }) {
         ForEach(this.getFields(), (field: ConfigField, index) => {
           if (field.type === "boolean") {
-            BoolField({field: field.name, text: getFieldI18Name(field.name)})
-          }else {
+            BoolField({ field: field.name, text: getFieldI18Name(field.name) })
+          } else {
             Column() {
               if (field.type === "string") {
-                StringField({field: field.name})
-              }else if (field.type === "port") {
-                PortField({field: field.name, text: getFieldI18Name(field.name)})
-              }else if (this.isLisType(field)) {
-                ListField({field: field.name, type: (field.type as string).slice(0, field.type.length-2)})
-              }else if (Array.isArray(field.type) && field.type.length === 2 && field.type[0].type === "cidr_ip" && field.type[1].type === "cidr_mask") {
-                CidrField({field: field.name, text: getFieldI18Name(field.name)})
-              }else if (Array.isArray(field.type)) {
-                FieldEdit({field: field, layer: this.layer + 1})
-              }else if (field.type === "number") {
-                NumberField({field: field.name})
-              }else {
-                Text(field.name+":"+(field.type as string))
+                StringField({ field: field.name })
+              } else if (field.type === "port") {
+                PortField({ field: field.name, text: getFieldI18Name(field.name) })
+              } else if (this.isLisType(field)) {
+                ListField({ field: field.name, type: (field.type as string).slice(0, field.type.length - 2) })
+              } else if (Array.isArray(field.type) && field.type.length === 2 && field.type[0].type === "cidr_ip" &&
+                field.type[1].type === "cidr_mask") {
+                CidrField({ field: field.name, text: getFieldI18Name(field.name) })
+              } else if (Array.isArray(field.type)) {
+                FieldEdit({ field: field, layer: this.layer + 1 })
+              } else if (field.type === "number") {
+                NumberField({ field: field.name })
+              } else {
+                Text(field.name + ":" + (field.type as string))
                   .width('100%')
               }
             }
             .width('100%')
-            .padding({left: this.Padding, right: this.Padding})
+            .padding({ left: this.Padding, right: this.Padding })
           }
           if (this.isUseDivider) {
             if (index < this.getFields().length - 1) {
@@ -166,13 +171,15 @@ export struct FieldEdit {
                 .color($r("sys.color.background_secondary"))
                 .width('100%')
                 .strokeWidth(1)
-                .padding({top: 6, bottom: 6})
+                .padding({ top: 6, bottom: 6 })
             }
           }
-        }, (item: ConfigField) => {return item.name+item.type})
+        }, (item: ConfigField) => {
+          return item.name + item.type
+        })
       }
       .width('100%')
-      .onAreaChange((a,b) => {
+      .onAreaChange((a, b) => {
         this.field_width = b.width.valueOf() as number
       })
     }
@@ -184,9 +191,9 @@ export struct FieldEdit {
         Row() {
           this.title()
         }
-        .padding({left: 5, bottom: 10, right: 5})
+        .padding({ left: 5, bottom: 10, right: 5 })
       }
-      Column({space: 8}) {
+      Column({ space: 8 }) {
         if (this.layer > 0) {
           this.title()
         }

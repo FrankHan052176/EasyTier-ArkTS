@@ -24,27 +24,38 @@ export struct Favorite {
 
   @Computed
   get isRunning() {
-    return AppManager.easytier.runningNetworks.has(AppManager.data.favoriteInstance ?? "") ?1:0
+    return AppManager.easytier.runningNetworks.has(AppManager.data.favoriteInstance ?? "") ? 1 : 0
   }
 
   build() {
     Column() {
-      CompTitle("收藏实例", 'rgba(255,200,50,1)', ()=>{return -1})
-      Flex({wrap: FlexWrap.Wrap, space: {
-        main: LengthMetrics.vp(10),
-        cross: LengthMetrics.vp(10)
-      }, alignItems: ItemAlign.Center, alignContent: FlexAlign.Center, direction: FlexDirection.Column}) {
+      CompTitle("收藏实例", 'rgba(255,200,50,1)', () => {
+        return -1
+      })
+      Flex({
+        wrap: FlexWrap.Wrap,
+        space: {
+          main: LengthMetrics.vp(10),
+          cross: LengthMetrics.vp(10)
+        },
+        alignItems: ItemAlign.Center,
+        alignContent: FlexAlign.Center,
+        direction: FlexDirection.Column
+      }) {
         if (AppManager.data.favoriteInstance !== undefined) {
           Row() {
-            SymbolGlyph(this.isRunning?$r("sys.symbol.pause_round_triangle_fill"):$r("sys.symbol.play_round_triangle_fill"))
+            SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") :
+              $r("sys.symbol.play_round_triangle_fill"))
               .align(Alignment.Center)
-              .fontSize(Svp2fp(this.CompSize.lane_w==1?(this.CompSize.lane_h==2?this.comp_height*0.3:this.comp_height*0.5):Math.min(this.comp_height*0.8,this.comp_width*0.4)))
+              .fontSize(Svp2fp(this.CompSize.lane_w == 1 ?
+                (this.CompSize.lane_h == 2 ? this.comp_height * 0.3 : this.comp_height * 0.5) :
+                Math.min(this.comp_height * 0.8, this.comp_width * 0.4)))
               .fontColor(['rgba(255,200,50,1)'])
               .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), this.isRunning + this.trigger)
               .onClick(() => {
                 if (this.isRunning) {
                   AppManager.easytier.stop()
-                }else {
+                } else {
                   if (AppManager.easytier.runningNetworks.size > 0) {
                     AppManager.easytier.stop()
                   }
@@ -57,22 +68,24 @@ export struct Favorite {
                 }
               })
           }
-          .width(this.CompSize.lane_w==1?'100%':this.comp_width*0.4)
-          .height(this.CompSize.lane_w==2?"100%":this.comp_height*0.5)
+          .width(this.CompSize.lane_w == 1 ? '100%' : this.comp_width * 0.4)
+          .height(this.CompSize.lane_w == 2 ? "100%" : this.comp_height * 0.5)
           .alignItems(VerticalAlign.Center)
           .justifyContent(FlexAlign.Center)
+
           Column() {
             Text(AppManager.data.configUUIDNameMap.get(AppManager.data.favoriteInstance))
               .width('100%')
-              .textAlign(this.CompSize.lane_w==2?TextAlign.Start:TextAlign.Center)
-              .fontSize(this.CompSize.lane_w==1 && this.CompSize.lane_h==1?Svp2fp(this.text_height-8):Svp2fp(this.text_height*0.2))
+              .textAlign(this.CompSize.lane_w == 2 ? TextAlign.Start : TextAlign.Center)
+              .fontSize(this.CompSize.lane_w == 1 && this.CompSize.lane_h == 1 ? Svp2fp(this.text_height - 8) :
+                Svp2fp(this.text_height * 0.2))
               .maxLines(2)
               .textOverflow({
                 overflow: TextOverflow.Ellipsis
               })
             Text(AppManager.data.favoriteInstance)
               .width('100%')
-              .textAlign(this.CompSize.lane_w==2?TextAlign.Start:TextAlign.Center)
+              .textAlign(this.CompSize.lane_w == 2 ? TextAlign.Start : TextAlign.Center)
               .maxFontSize(12)
               .minFontSize(8)
               .fontColor($r("sys.color.font_secondary"))
@@ -83,19 +96,19 @@ export struct Favorite {
           }
           .justifyContent(FlexAlign.Center)
           .alignItems(HorizontalAlign.Center)
-          .width(this.CompSize.lane_w==1?'100%':this.comp_width*0.6)
-          .height(this.CompSize.lane_w==2?'100%':(this.comp_height*0.5-10))
-          .onAreaChange((a,b) => {
-            this.text_height = (b.height.valueOf() as number)-20
+          .width(this.CompSize.lane_w == 1 ? '100%' : this.comp_width * 0.6)
+          .height(this.CompSize.lane_w == 2 ? '100%' : (this.comp_height * 0.5 - 10))
+          .onAreaChange((a, b) => {
+            this.text_height = (b.height.valueOf() as number) - 20
           })
         }
       }
       .width('100%')
       .layoutWeight(100)
       .padding(10)
-      .onAreaChange((a,b) => {
-        this.comp_width = (b.width.valueOf() as number)-20
-        this.comp_height = (b.height.valueOf() as number)-20
+      .onAreaChange((a, b) => {
+        this.comp_width = (b.width.valueOf() as number) - 20
+        this.comp_height = (b.height.valueOf() as number) - 20
       })
     }
     .comp_bg()

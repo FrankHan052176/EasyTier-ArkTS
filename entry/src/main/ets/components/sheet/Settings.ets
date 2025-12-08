@@ -1,8 +1,8 @@
-import { AppManager } from "../../AppManager"
-import { deviceInfo } from "@kit.BasicServicesKit"
-import { APP_VERSION, APP_VERSION_CODE, BUILD_TIME } from "../../util/info/BuildTime"
-import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from "@kit.ArkUI"
-import { EventHelper } from "../../util/EventHelper"
+import { AppManager } from '../../AppManager'
+import { deviceInfo } from '@kit.BasicServicesKit'
+import { APP_VERSION, APP_VERSION_CODE, BUILD_TIME } from '../../util/info/BuildTime'
+import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
+import { EventHelper } from '../../util/EventHelper'
 
 @ComponentV2
 export struct Setting_Title {
@@ -28,7 +28,7 @@ function settingGroupHeader(title: string) {
     .width('100%')
     .fontSize(14)
     .fontColor($r("sys.color.font_secondary"))
-    .padding({top: 10, left: 5, bottom: 3})
+    .padding({ top: 10, left: 5, bottom: 3 })
 }
 
 @Builder
@@ -40,15 +40,16 @@ export function Setting_Sheet() {
           SymbolGlyph($r("sys.symbol.house"))
             .fontColor([$r("sys.color.font_primary")])
             .fontSize(16)
-            .margin({right: 5})
+            .margin({ right: 5 })
           Text("内核版本")
             .fontColor($r("sys.color.font_primary"))
             .fontSize(16)
         }
-        Text(deviceInfo.productModel !== "emulator"?AppManager.easytier.version():"N/A")
+
+        Text(deviceInfo.productModel !== "emulator" ? AppManager.easytier.version() : "N/A")
           .fontColor($r("sys.color.font_primary"))
           .fontSize(16)
-          .margin({right: 5})
+          .margin({ right: 5 })
       }
       .height(49)
       .borderRadius(18)
@@ -56,29 +57,36 @@ export function Setting_Sheet() {
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
       .backgroundColor($r("sys.color.background_secondary"))
-      .padding({left: 10, right: 5, top: 5, bottom: 5})
-      .gesture(TapGesture({count: 10})
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
+      .gesture(TapGesture({ count: 10 })
         .onAction(() => {
           AppManager.preference.dev = !AppManager.preference.dev
         })
       )
     }
-    .margin({bottom: 10})
+    .margin({ bottom: 10 })
+
     ListItem() {
       Row() {
         Row() {
           SymbolGlyph($r("sys.symbol.square_fill_grid_2x2"))
             .fontColor([$r("sys.color.font_primary")])
             .fontSize(16)
-            .margin({right: 5})
+            .margin({ right: 5 })
           Text("APP版本")
             .fontColor($r("sys.color.font_primary"))
             .fontSize(16)
         }
-        Text(APP_VERSION+"("+APP_VERSION_CODE+")")
+
+        Text(APP_VERSION + "(" + APP_VERSION_CODE + ")")
           .fontColor($r("sys.color.font_primary"))
           .fontSize(16)
-          .margin({right: 5})
+          .margin({ right: 5 })
       }
       .height(49)
       .borderRadius(18)
@@ -86,24 +94,31 @@ export function Setting_Sheet() {
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
       .backgroundColor($r("sys.color.background_secondary"))
-      .padding({left: 10, right: 5, top: 5, bottom: 5})
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
     }
-    .margin({bottom: 10})
+    .margin({ bottom: 10 })
+
     ListItem() {
       Row() {
         Row() {
           SymbolGlyph($r("sys.symbol.square_fill_grid_2x2"))
             .fontColor([$r("sys.color.font_primary")])
             .fontSize(16)
-            .margin({right: 5})
+            .margin({ right: 5 })
           Text("编译时间")
             .fontColor($r("sys.color.font_primary"))
             .fontSize(16)
         }
+
         Text(BUILD_TIME)
           .fontColor($r("sys.color.font_primary"))
           .fontSize(16)
-          .margin({right: 5})
+          .margin({ right: 5 })
       }
       .height(49)
       .borderRadius(18)
@@ -111,26 +126,33 @@ export function Setting_Sheet() {
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
       .backgroundColor($r("sys.color.background_secondary"))
-      .padding({left: 10, right: 5, top: 5, bottom: 5})
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
     }
-    ListItemGroup({header: settingGroupHeader("高级")}) {
+
+    ListItemGroup({ header: settingGroupHeader("高级") }) {
       ListItem() {
         Row() {
           Row() {
             SymbolGlyph($r("sys.symbol.exclamationmark_message_middle_bottom"))
               .fontColor([$r("sys.color.font_primary")])
               .fontSize(16)
-              .margin({right: 5})
+              .margin({ right: 5 })
             Text("收集EasyTier日志")
               .fontColor($r("sys.color.font_primary"))
               .fontSize(16)
-              .margin({right: 5})
+              .margin({ right: 5 })
             if (AppManager.preference.inittedLog != AppManager.preference.show_log) {
               Text("重启后生效")
                 .fontColor($r("sys.color.font_secondary"))
                 .fontSize(14)
             }
           }
+
           Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.show_log })
             .selectedColor($r('sys.color.brand'))
             .switchPointColor($r('sys.color.comp_background_list_card'))
@@ -148,7 +170,8 @@ export function Setting_Sheet() {
         .backgroundColor($r("sys.color.background_secondary"))
         .padding(10)
       }
-      .margin({bottom: 10})
+      .margin({ bottom: 10 })
+
       if (deviceInfo.sdkApiVersion < 20) {
         ListItem() {
           Row() {
@@ -156,12 +179,13 @@ export function Setting_Sheet() {
               SymbolGlyph($r("sys.symbol.list_square_bill"))
                 .fontColor([$r("sys.color.font_primary")])
                 .fontSize(16)
-                .margin({right: 5})
+                .margin({ right: 5 })
               Text("路由表模式")
                 .fontColor($r("sys.color.font_primary"))
                 .fontSize(16)
-                .margin({right: 5})
+                .margin({ right: 5 })
             }
+
             Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.vpn_routes })
               .selectedColor($r('sys.color.brand'))
               .switchPointColor($r('sys.color.comp_background_list_card'))
@@ -187,13 +211,14 @@ export function Setting_Sheet() {
               SymbolGlyph($r("sys.symbol.unknown_device"))
                 .fontColor([$r("sys.color.font_primary")])
                 .fontSize(16)
-                .margin({right: 5})
+                .margin({ right: 5 })
               Text("自定义DNS")
                 .fontColor($r("sys.color.font_primary"))
                 .fontSize(16)
-                .margin({right: 5})
+                .margin({ right: 5 })
             }
-            TextInput({text: AppManager.preference.dns})
+
+            TextInput({ text: AppManager.preference.dns })
               .width(150)
               .onChange((value) => {
                 AppManager.preference.dns = value
@@ -209,25 +234,28 @@ export function Setting_Sheet() {
         }
       }
     }
-    ListItemGroup({header: settingGroupHeader("权限")}) {
+
+    ListItemGroup({ header: settingGroupHeader("权限") }) {
       ListItem() {
         Row() {
           Row() {
             SymbolGlyph($r("sys.symbol.local_and_rectangle"))
               .fontColor([$r("sys.color.font_primary")])
               .fontSize(16)
-              .margin({right: 5})
+              .margin({ right: 5 })
             Text("定位权限")
               .fontColor($r("sys.color.font_primary"))
               .fontSize(16)
           }
+
           if (AppManager.permission.isGetLocPerm()) {
             Text("已授权")
               .fontColor($r("sys.color.font_primary"))
               .fontSize(16)
-              .margin({right: 5})
-          }else {
-            Button('授权', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL})
+              .margin({ right: 5 })
+          } else {
+            Button('授权',
+              { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
               .borderRadius(13)
               .onClick(() => {
                 AppManager.permission.requestLocPerm()
@@ -240,27 +268,35 @@ export function Setting_Sheet() {
         .justifyContent(FlexAlign.SpaceBetween)
         .width('100%')
         .backgroundColor($r("sys.color.background_secondary"))
-        .padding({left: 10, right: 5, top: 5, bottom: 5})
+        .padding({
+          left: 10,
+          right: 5,
+          top: 5,
+          bottom: 5
+        })
       }
-      .margin({bottom: 10})
+      .margin({ bottom: 10 })
+
       ListItem() {
         Row() {
           Row() {
             SymbolGlyph($r("sys.symbol.protein"))
               .fontColor([$r("sys.color.font_primary")])
               .fontSize(16)
-              .margin({right: 5})
+              .margin({ right: 5 })
             Text("分布式权限")
               .fontColor($r("sys.color.font_primary"))
               .fontSize(16)
           }
+
           if (AppManager.permission.isGetDistributePerm()) {
             Text("已授权")
               .fontColor($r("sys.color.font_primary"))
               .fontSize(16)
-              .margin({right: 5})
-          }else {
-            Button('授权', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL})
+              .margin({ right: 5 })
+          } else {
+            Button('授权',
+              { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
               .borderRadius(13)
               .onClick(() => {
                 AppManager.permission.requestDistributePerm()
@@ -273,28 +309,35 @@ export function Setting_Sheet() {
         .justifyContent(FlexAlign.SpaceBetween)
         .width('100%')
         .backgroundColor($r("sys.color.background_secondary"))
-        .padding({left: 10, right: 5, top: 5, bottom: 5})
+        .padding({
+          left: 10,
+          right: 5,
+          top: 5,
+          bottom: 5
+        })
       }
-      .margin({bottom: 10})
+      .margin({ bottom: 10 })
     }
+
     ListItem() {
       Row() {
         Row() {
           SymbolGlyph($r("sys.symbol.questionmark_circle"))
             .fontColor([$r("sys.color.font_primary")])
             .fontSize(16)
-            .margin({right: 5})
+            .margin({ right: 5 })
           Text("再看看教程?")
             .fontColor($r("sys.color.font_primary"))
             .fontSize(16)
         }
+
         if (false) {
           Text("已设置")
             .fontColor($r("sys.color.font_primary"))
             .fontSize(16)
-            .margin({right: 5})
-        }else {
-          Button('看看', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL})
+            .margin({ right: 5 })
+        } else {
+          Button('看看', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
             .borderRadius(13)
             .onClick(() => {
               // TODO 重置教程
@@ -307,12 +350,17 @@ export function Setting_Sheet() {
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
       .backgroundColor($r("sys.color.background_secondary"))
-      .padding({left: 10, right: 5, top: 5, bottom: 5})
-      .margin({bottom: 10})
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
+      .margin({ bottom: 10 })
     }
   }
   .width('100%')
   .height('100%')
   .scrollBar(BarState.Off)
-  .padding({left: 15, right: 15})
+  .padding({ left: 15, right: 15 })
 }

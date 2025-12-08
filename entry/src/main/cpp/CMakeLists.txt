@@ -9,9 +9,7 @@ if(DEFINED PACKAGE_FIND_FILE)
 endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-include_directories(${NATIVERENDER_ROOT_PATH}
-                    ${NATIVERENDER_ROOT_PATH}/external/tomlplusplus/include
-                    ${NATIVERENDER_ROOT_PATH}/external/json/include)
+include_directories(${NATIVERENDER_ROOT_PATH})
 add_library(entry SHARED napi_init.cpp LockFreeRingBuffer.h)
 target_link_libraries(entry PUBLIC libace_napi.z.so)
 target_link_libraries(entry PUBLIC libhilog_ndk.z.so)

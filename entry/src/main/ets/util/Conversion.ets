@@ -1,53 +1,53 @@
-import { UIType, WindowUtil } from "../WindowUtil"
-import { AppManager } from "../AppManager"
-import { connection } from "@kit.NetworkKit"
+import { UIType, WindowUtil } from '../WindowUtil'
+import { AppManager } from '../AppManager'
+import { connection } from '@kit.NetworkKit'
 
 export function trafficBytes(bytes: number): string {
   if (bytes > 107374182) {
-    return (bytes/1073741824).toFixed(1)+"GB/s"
-  }else if (bytes > 104858) {
-    return (bytes/1048576).toFixed(1)+"MB/s"
-  }else if (bytes > 102) {
-    return (bytes/1024).toFixed(1)+"KB/s"
-  }else {
-    return bytes+"B/s"
+    return (bytes / 1073741824).toFixed(1) + "GB/s"
+  } else if (bytes > 104858) {
+    return (bytes / 1048576).toFixed(1) + "MB/s"
+  } else if (bytes > 102) {
+    return (bytes / 1024).toFixed(1) + "KB/s"
+  } else {
+    return bytes + "B/s"
   }
 }
 
 export function runningTime(time: number): string {
   if (time > 360) {
-    return (time/3600).toFixed(1)+"h"
-  }else if (time > 60) {
-    return (time/60).toFixed(1)+"min"
-  }else {
-    return time+"sec"
+    return (time / 3600).toFixed(1) + "h"
+  } else if (time > 60) {
+    return (time / 60).toFixed(1) + "min"
+  } else {
+    return time + "sec"
   }
 }
 
 export function lane(need: number): number {
   switch (WindowUtil.uiType) {
     case UIType.Column_1: {
-      let scale = Math.min(2,Math.max(1, need))
+      let scale = Math.min(2, Math.max(1, need))
       if (scale == 2) {
-        return WindowUtil.width-30
-      }else {
-        return preciseIntegerDivision(WindowUtil.width-40,2)
+        return WindowUtil.width - 30
+      } else {
+        return preciseIntegerDivision(WindowUtil.width - 40, 2)
       }
     }
     case UIType.Column_2: {
-      let scale = Math.min(4,Math.max(1, need))
+      let scale = Math.min(4, Math.max(1, need))
       if (scale == 4) {
-        return WindowUtil.width-30
-      }else {
-        return preciseIntegerDivision((WindowUtil.width-60)*scale,4)+(scale-1)*10
+        return WindowUtil.width - 30
+      } else {
+        return preciseIntegerDivision((WindowUtil.width - 60) * scale, 4) + (scale - 1) * 10
       }
     }
     case UIType.Column_3: {
-      let scale = Math.min(6,Math.max(1, need))
+      let scale = Math.min(6, Math.max(1, need))
       if (scale == 6) {
-        return WindowUtil.width-30
-      }else {
-        return preciseIntegerDivision((WindowUtil.width-80)*scale,6)+(scale-1)*10
+        return WindowUtil.width - 30
+      } else {
+        return preciseIntegerDivision((WindowUtil.width - 80) * scale, 6) + (scale - 1) * 10
       }
     }
     default: {
@@ -56,7 +56,7 @@ export function lane(need: number): number {
   }
 }
 
-export function preciseIntegerDivision(a:number, b:number) {
+export function preciseIntegerDivision(a: number, b: number) {
   const result = a / b;
   if (Math.abs(result - Math.round(result)) < 1e-10) {
     return Math.round(result);
@@ -74,16 +74,17 @@ export function convertAddrToIp(addr: number): string {
 }
 
 export function getHostname(): string {
-  return AppManager.permission.isGetDistributePerm()?AppManager.content.deviceManager.getLocalDeviceName():"HarmonyOS"
+  return AppManager.permission.isGetDistributePerm() ? AppManager.content.deviceManager.getLocalDeviceName() :
+    "HarmonyOS"
 }
 
 export function safePassword(pwd: string): string {
   if (pwd.length > 4) {
-    return pwd.substring(0,2)+"·".repeat(pwd.length-2)
-  }else {
+    return pwd.substring(0, 2) + "·".repeat(pwd.length - 2)
+  } else {
     if (pwd.length == 0) {
       return " "
-    }else {
+    } else {
       return "·".repeat(pwd.length)
     }
   }
@@ -93,15 +94,15 @@ export function logColor(log: string): ResourceColor {
   let level = Number.parseInt(log.charAt(0))
   if (level >= 6) {
     return $r("sys.color.warning")
-  }else if (level == 5) {
+  } else if (level == 5) {
     return $r("sys.color.alert")
-  }else {
+  } else {
     return $r("sys.color.font_primary")
   }
 }
 
 export function stringArr2RouteArr(gateway: string, magicDNS: boolean, needExitNode: boolean): connection.RouteInfo[] {
-  let result:connection.RouteInfo[] = []
+  let result: connection.RouteInfo[] = []
   AppManager.easytier.tunRoutes.forEach((route) => {
     result.push({
       interface: "vpn-tun",

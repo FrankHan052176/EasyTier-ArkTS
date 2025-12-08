@@ -18,7 +18,7 @@ export struct PortField {
   @Param @Require field: string;
   @Param @Require text: ResourceStr;
   @Consumer("field_edit_enable") enable: boolean = true
-  @Local value: string = ""+(this.config![this.field] ?? 0);
+  @Local value: string = "" + (this.config![this.field] ?? 0);
   @Local isEdit: boolean = false;
 
   @Computed
@@ -31,7 +31,7 @@ export struct PortField {
     return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
   }
 
-  insert(value: InsertValue):boolean {
+  insert(value: InsertValue): boolean {
     let newValue = this.value.substring(0, value.insertOffset)
       + value.insertValue
       + this.value.substring(value.insertOffset);
@@ -40,7 +40,7 @@ export struct PortField {
     return result
   }
 
-  delete(value: DeleteValue):boolean {
+  delete(value: DeleteValue): boolean {
     const start = value.direction === TextDeleteDirection.BACKWARD
       ? value.deleteOffset
       : value.deleteOffset - value.deleteValue.length;
@@ -55,14 +55,14 @@ export struct PortField {
 
   change(value: string) {
     let num = Number.parseInt(value)
-    this.config![ContentUtil.safeFieldName(this.field)] = Number.isNaN(num)?0:num
+    this.config![ContentUtil.safeFieldName(this.field)] = Number.isNaN(num) ? 0 : num
     this.preference?.putSync(this.field, this.config![this.field])
     this.preference?.flushSync()
   }
 
   @Computed
   get fontColor() {
-    return this.enable?$r("sys.color.font_primary"):$r("sys.color.font_tertiary")
+    return this.enable ? $r("sys.color.font_primary") : $r("sys.color.font_tertiary")
   }
 
   build() {
@@ -70,7 +70,7 @@ export struct PortField {
       Text(this.text)
         .focusable(false)
       Row() {
-        TextInput({text: this.value!!})
+        TextInput({ text: this.value!! })
           .onWillInsert((data) => this.insert(data))
           .onWillDelete((data) => this.delete(data))
           .onChange((value) => this.change(value))
@@ -82,8 +82,14 @@ export struct PortField {
           .enabled(this.enable)
       }
       .borderWidth(2)
-      .borderColor(this.isEdit?$r("sys.color.brand"):(this.enable?$r("sys.color.comp_background_secondary"):$r("sys.color.comp_background_tertiary")))
-      .padding({left: 12, right: 12, top: 8, bottom: 8})
+      .borderColor(this.isEdit ? $r("sys.color.brand") :
+        (this.enable ? $r("sys.color.comp_background_secondary") : $r("sys.color.comp_background_tertiary")))
+      .padding({
+        left: 12,
+        right: 12,
+        top: 8,
+        bottom: 8
+      })
       .borderRadius(12)
       .animation({
         curve: Curve.Ease,

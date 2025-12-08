@@ -1,5 +1,5 @@
-import { deviceInfo } from "@kit.BasicServicesKit";
-import { hdsEffect } from "@kit.UIDesignKit";
+import { deviceInfo } from '@kit.BasicServicesKit';
+import { hdsEffect } from '@kit.UIDesignKit';
 
 export class ColumnIlluminatedModifier implements AttributeModifier<ColumnAttribute> {
   applyNormalAttribute(instance: ColumnAttribute): void {

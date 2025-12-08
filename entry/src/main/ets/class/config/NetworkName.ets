@@ -1,6 +1,6 @@
-import { FieldValue } from "./Basic"
-import { LengthMetrics } from "@kit.ArkUI"
-import { AppManager, Svp2fp } from "../../AppManager"
+import { FieldValue } from './Basic'
+import { LengthMetrics } from '@kit.ArkUI'
+import { AppManager, Svp2fp } from '../../AppManager'
 
 @Extend(Text)
 function tips() {
@@ -12,7 +12,12 @@ function tips() {
 
 @Extend(TextInput)
 function underline(textAlign: TextAlign = TextAlign.Center) {
-  .padding({left: 1, right: 1, top: 5, bottom: 5})
+  .padding({
+    left: 1,
+    right: 1,
+    top: 5,
+    bottom: 5
+  })
   .backgroundColor(Color.Transparent)
   .border({
     width: {
@@ -36,9 +41,11 @@ function underline(textAlign: TextAlign = TextAlign.Center) {
 }
 
 export let EditValue_NetworkName: NetworkName | undefined
+
 export function clearEditValue_NetworkName() {
   EditValue_NetworkName = undefined
 }
+
 export function setEditValue_NetworkName(value: NetworkName) {
   EditValue_NetworkName = value
 }
@@ -50,7 +57,7 @@ export struct NetworkNameEditor {
   build() {
     Column() {
       Row() {
-        TextInput({text: EditValue_NetworkName!.name})
+        TextInput({ text: EditValue_NetworkName!.name })
           .underline()
           .width('80%')
           .onChange((value: string) => {
@@ -59,13 +66,14 @@ export struct NetworkNameEditor {
               if (EditValue_NetworkName) {
                 EditValue_NetworkName.name = value
               }
-            }else {
+            } else {
               this.name = true
             }
           })
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)
+
       Text(`
 请设置网络名
       `)
@@ -80,7 +88,7 @@ export struct NetworkNameEditor {
 
 @Builder
 export function NetworkNameBuilder(value: NetworkName) {
-  Row({space: 10}) {
+  Row({ space: 10 }) {
     Row() {
       SymbolGlyph($r("sys.symbol.checkmark_shield"))
         .fontSize(Svp2fp(24))
@@ -91,6 +99,7 @@ export function NetworkNameBuilder(value: NetworkName) {
     .borderRadius(8)
     .alignItems(VerticalAlign.Center)
     .justifyContent(FlexAlign.Center)
+
     Text(value.toString())
       .layoutWeight(100)
       .maxLines(1)
@@ -107,33 +116,45 @@ export function NetworkNameBuilder(value: NetworkName) {
 export class NetworkName implements FieldValue {
   @Trace name: string = "easytier"
   fieldName: string | undefined
+
   @Monitor("name")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
       let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
-      if (!config) return
-      if (!this.fieldName) return
+      if (!config) {
+        return
+      }
+      if (!this.fieldName) {
+        return
+      }
       let arr = config[this.fieldName] as string[]
       let old = "" + monitor.value("name")?.before ?? this.name
       let index = arr.indexOf(old)
-      if (index < 0) return
+      if (index < 0) {
+        return
+      }
       arr[index] = this.toString()
     }
   }
+
   fromString(value: string): boolean {
     this.name = value
     return true
   }
+
   readFrom(value: string): NetworkName | undefined {
     this.name = value
     return this
   }
+
   toString(): string {
     return this.name
   }
+
   checkValid(): boolean {
     return this.name.length > 0
   }
+
   bind(fieldName: string): NetworkName {
     this.fieldName = fieldName
     return this

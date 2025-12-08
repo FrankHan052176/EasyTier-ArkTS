@@ -1,14 +1,15 @@
-import { FieldValue } from "./Basic"
-import { LengthMetrics } from "@kit.ArkUI"
-import { AppManager, Svp2fp } from "../../AppManager"
+import { FieldValue } from './Basic'
+import { LengthMetrics } from '@kit.ArkUI'
+import { AppManager, Svp2fp } from '../../AppManager'
 
 export function isIpAddr(value: string): boolean {
-  return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$").test(value)
+  return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
+    .test(value)
 }
 
 @Builder
 export function IPBuilder(value: IP) {
-  Row({space: 10}) {
+  Row({ space: 10 }) {
     Row() {
       SymbolGlyph($r("sys.symbol.arrow_left_arrow_right_and_rectangle_portrait"))
         .fontSize(Svp2fp(24))
@@ -19,6 +20,7 @@ export function IPBuilder(value: IP) {
     .borderRadius(8)
     .alignItems(VerticalAlign.Center)
     .justifyContent(FlexAlign.Center)
+
     Text(value.toString())
       .layoutWeight(100)
       .maxLines(1)
@@ -33,7 +35,12 @@ export function IPBuilder(value: IP) {
 
 @Extend(TextInput)
 function underline(textAlign: TextAlign = TextAlign.Center) {
-  .padding({left: 1, right: 1, top: 5, bottom: 5})
+  .padding({
+    left: 1,
+    right: 1,
+    top: 5,
+    bottom: 5
+  })
   .backgroundColor(Color.Transparent)
   .border({
     width: {
@@ -57,9 +64,11 @@ function underline(textAlign: TextAlign = TextAlign.Center) {
 }
 
 export let EditValue_IP: IP | undefined
+
 export function clearEditValue_IP() {
   EditValue_IP = undefined
 }
+
 export function setEditValue_IP(ip: IP) {
   EditValue_IP = ip
 }
@@ -71,7 +80,7 @@ export struct IPEditor {
   build() {
     Column() {
       Row() {
-        TextInput({text: EditValue_IP!.ip})
+        TextInput({ text: EditValue_IP!.ip })
           .underline()
           .width("90%")
           .onChange((value: string) => {
@@ -80,13 +89,14 @@ export struct IPEditor {
               if (EditValue_IP) {
                 EditValue_IP.ip = value
               }
-            }else {
+            } else {
               this.ip = true
             }
           })
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)
+
       Text(`
 请设置虚拟IP，如10.0.0.2
       `)
@@ -106,41 +116,53 @@ export struct IPEditor {
 export class IP implements FieldValue {
   @Trace ip: string = "10.0.0.1"
   fieldName: string | undefined
+
   @Monitor("ip")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
       let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
-      if (!config) return
-      if (!this.fieldName) return
+      if (!config) {
+        return
+      }
+      if (!this.fieldName) {
+        return
+      }
       let arr = config[this.fieldName] as string[]
       let old = "" + monitor.value("ip")?.before ?? this.ip
       let index = arr.indexOf(old)
-      if (index < 0) return
+      if (index < 0) {
+        return
+      }
       arr[index] = this.toString()
     }
   }
+
   fromString(value: string): boolean {
     if (isIpAddr(value)) {
       this.ip = value
       return true
-    }else {
+    } else {
       return false
     }
   }
+
   readFrom(value: string): IP | undefined {
     if (isIpAddr(value)) {
       this.ip = value
       return this
-    }else {
+    } else {
       return undefined
     }
   }
+
   toString(): string {
     return this.ip
   }
+
   checkValid(): boolean {
     return isIpAddr(this.ip)
   }
+
   bind(fieldName: string): IP {
     this.fieldName = fieldName
     return this

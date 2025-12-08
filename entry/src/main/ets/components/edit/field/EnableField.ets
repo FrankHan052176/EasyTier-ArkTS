@@ -1,7 +1,7 @@
-import { curves } from "@kit.ArkUI";
-import { ContentUtil } from "../../../ContentUtil";
-import { getFieldI18Name } from "../FieldEdit";
-import { AppManager, Svp2fp } from "../../../AppManager";
+import { curves } from '@kit.ArkUI';
+import { ContentUtil } from '../../../ContentUtil';
+import { getFieldI18Name } from '../FieldEdit';
+import { AppManager, Svp2fp } from '../../../AppManager';
 
 @ComponentV2
 export struct EnableField {
@@ -35,7 +35,7 @@ export struct EnableField {
   }
 
   updateEnable() {
-    this.enable = this.isInverse?!this.button:this.button
+    this.enable = this.isInverse ? !this.button : this.button
   }
 
   click(isOn: boolean) {
@@ -65,10 +65,10 @@ export struct EnableField {
         })
       if (this.hasTitle) {
         Text(getFieldI18Name(this.field))
-          .fontSize(Svp2fp(20)*0.7)
+          .fontSize(Svp2fp(20) * 0.7)
           .fontWeight(FontWeight.Bold)
-          .fontColor(this.button?$r("sys.color.brand"):$r("sys.color.font_primary"))
-          .margin({left: 5})
+          .fontColor(this.button ? $r("sys.color.brand") : $r("sys.color.font_primary"))
+          .margin({ left: 5 })
       }
     }
   }

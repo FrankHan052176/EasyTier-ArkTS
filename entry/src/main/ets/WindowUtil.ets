@@ -1,5 +1,5 @@
-import { AppManager, Spx2vp } from "./AppManager"
-import { Logger, LogLocate } from "./util/Logger"
+import { AppManager, Spx2vp } from './AppManager'
+import { Logger, LogLocate } from './util/Logger'
 
 export enum UIType {
   Column_1 = 2, Column_2 = 4, Column_3 = 6
@@ -32,9 +32,9 @@ export class WindowUtil {
       WindowUtil.height = Spx2vp(height)
       if (WindowUtil.width < 720) {
         WindowUtil.uiType = UIType.Column_1
-      }else if (WindowUtil.width >= 1080) {
+      } else if (WindowUtil.width >= 1080) {
         WindowUtil.uiType = UIType.Column_3
-      }else {
+      } else {
         WindowUtil.uiType = UIType.Column_2
       }
     })

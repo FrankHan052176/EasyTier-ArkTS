@@ -1,11 +1,12 @@
-import { ContentUtil } from "../../../ContentUtil";
-import { getFieldI18Name } from "../FieldEdit";
-import { AppManager } from "../../../AppManager";
-import { TertiaryButton } from "../../util/TextButton";
-import { getHostname } from "../../../util/Conversion";
+import { ContentUtil } from '../../../ContentUtil';
+import { getFieldI18Name } from '../FieldEdit';
+import { AppManager } from '../../../AppManager';
+import { TertiaryButton } from '../../util/TextButton';
+import { getHostname } from '../../../util/Conversion';
 
 @Extend(TextInput)
-function fieldTextInput(onChange:EditableTextOnChangeCallback, inputType: InputType, enterKeyType: EnterKeyType, id: string, submit: OnSubmitCallback) {
+function fieldTextInput(onChange: EditableTextOnChangeCallback, inputType: InputType, enterKeyType: EnterKeyType,
+  id: string, submit: OnSubmitCallback) {
   .padding(0)
   .borderRadius(0)
   .onChange(onChange)
@@ -52,9 +53,9 @@ export struct StringField {
   get inputType() {
     if (ContentUtil.hasTag(this.field, "username")) {
       return InputType.USER_NAME
-    }else if (ContentUtil.hasTag(this.field, "password")) {
+    } else if (ContentUtil.hasTag(this.field, "password")) {
       return InputType.Password
-    }else {
+    } else {
       return InputType.Normal
     }
   }
@@ -63,14 +64,14 @@ export struct StringField {
   get enterKey() {
     if (ContentUtil.hasTag(this.field, "enter_next")) {
       return EnterKeyType.Next
-    }else {
+    } else {
       return EnterKeyType.Done
     }
   }
 
   @Computed
   get fontColor() {
-    return this.enable?$r("sys.color.font_primary"):$r("sys.color.font_tertiary")
+    return this.enable ? $r("sys.color.font_primary") : $r("sys.color.font_tertiary")
   }
 
   @Computed
@@ -84,7 +85,7 @@ export struct StringField {
         Text(getFieldI18Name(this.field))
           .fontSize(16)
           .focusable(false)
-          .margin({right: 15})
+          .margin({ right: 15 })
       }
       Column() {
         if (this.hasTopTitle || this.isUseHostname) {
@@ -93,7 +94,7 @@ export struct StringField {
               .fontSize(16)
               .focusable(false)
             if (this.isUseHostname) {
-              TertiaryButton({text: "使用设备名", fontSize: 10})
+              TertiaryButton({ text: "使用设备名", fontSize: 10 })
                 .clickEffect({
                   level: ClickEffectLevel.MIDDLE
                 })
@@ -111,11 +112,11 @@ export struct StringField {
           .width('100%')
           .alignItems(VerticalAlign.Center)
           .justifyContent(FlexAlign.SpaceBetween)
-          .margin({bottom: 5})
+          .margin({ bottom: 5 })
           .focusable(false)
         }
         Row() {
-          TextInput({text: this.value!!, controller: this.controller})
+          TextInput({ text: this.value!!, controller: this.controller })
             .fieldTextInput((value) => {
               this.config![ContentUtil.safeFieldName(this.field)] = value
               this.preference?.putSync(this.field, this.config![this.field])
@@ -133,8 +134,14 @@ export struct StringField {
         }
         .width('100%')
         .borderWidth(2)
-        .borderColor(this.isEdit?$r("sys.color.brand"):(this.enable?$r("sys.color.comp_background_secondary"):$r("sys.color.comp_background_tertiary")))
-        .padding({left: 12, right: 12, top: 8, bottom: 8})
+        .borderColor(this.isEdit ? $r("sys.color.brand") :
+          (this.enable ? $r("sys.color.comp_background_secondary") : $r("sys.color.comp_background_tertiary")))
+        .padding({
+          left: 12,
+          right: 12,
+          top: 8,
+          bottom: 8
+        })
         .borderRadius(12)
         .animation({
           curve: Curve.Ease,
