@@ -1,6 +1,6 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit'
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Sfp2vp, Svp2fp } from '../../AppManager'
 import { HdsMenuButton, MenuButton } from '../Components'
@@ -94,22 +94,27 @@ export struct StatusPage {
 
           Column() {
             Text(peer.hostname)
+              .width('80%')
               .fontSize(14)
               .fontWeight(FontWeight.Bold)
+              .textOverflow({
+                overflow: TextOverflow.Ellipsis
+              })
             Text(peer.ip)
               .fontSize(11)
               .fontColor($r("sys.color.font_secondary"))
           }
           .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
         }
         .layoutWeight(1)
 
         // 右侧延迟丢包
         if (peer.cost === 1) Column() {
-          Text((peer.latency_us / 1000).toFixed(0) + "ms")
+          Text((Math.min(peer.latency_us / 1000, 999)).toFixed(0) + "ms")
             .fontSize(12)
             .fontWeight(FontWeight.Bold)
-          Text("Loss " + peer.loss.toFixed(1) + "%")
+          Text("Loss " + Math.min(100, Math.max(0, peer.loss)).toFixed(1) + "%")
             .fontSize(10)
             .fontColor(peer.loss === 0 ? "#22c55e" : "#f87171")
         }

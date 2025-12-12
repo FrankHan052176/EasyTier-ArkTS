@@ -124,7 +124,7 @@ export class EasyTierUtil {
           route.proxy_cidrs.forEach((cidr) => {
             needUpdate = this.addTunRoutes(cidr) || needUpdate
           })
-          if (route.ipv4_addr !== undefined && route.ipv4_addr.address !== undefined) {
+          if (route.ipv4_addr?.address) {
             needUpdate = needUpdate ||
             this.addTunRoutes(convertAddrToIp(route.ipv4_addr.address.addr) + "/" + route.ipv4_addr.network_length)
           }

@@ -27,7 +27,6 @@ export class CompSize {
   @Trace next_grid_x: number = 0
   @Trace next_grid_y: number = 0
   @Trace find_next_grid: boolean = false
-  @Trace zIndex: number = 1
 
   setPos(x: number, y: number): CompSize {
     this.grid_x = x;
@@ -215,7 +214,6 @@ export class LayoutUtil {
     this.comp_sequence.forEach((comp, index) => {
       let compSize = this.getCompSize(comp)
       if (compSize.isDragging) {
-        compSize.zIndex = 99
         EventHelper.emitterPublish("drag_overlay_off")
         animateToImmediately({
           duration: 200,
@@ -232,20 +230,15 @@ export class LayoutUtil {
               compSize.isResize = true
             })
             compSize.isDragging = false
-            compSize.zIndex = 1
           }
         }, () => {
           compSize.pan_offset_x = (compSize.next_grid_x - compSize.grid_x) * (grid_size + 10)
           compSize.pan_offset_y = (compSize.next_grid_y - compSize.grid_y) * (grid_size + 10)
         })
       } else if (compSize.find_next_grid) {
-        compSize.zIndex = 88
         animateToImmediately({
           duration: 200,
-          curve: Curve.Friction,
-          onFinish: () => {
-            compSize.zIndex = 1
-          }
+          curve: Curve.Friction
         }, () => {
           compSize.find_next_grid = false
           compSize.grid_x = compSize.next_grid_x
@@ -324,13 +317,9 @@ export class LayoutUtil {
       let compSize = this.getCompSize(comp)
       let tempPos = this.findFreeSpace(compSize.lane_w, compSize.lane_h)
       if (tempPos.x >= 0) {
-        compSize.zIndex = 88
         animateToImmediately({
           duration: 200,
-          curve: Curve.Friction,
-          onFinish: () => {
-            compSize.zIndex = 1
-          }
+          curve: Curve.Friction
         }, () => {
           compSize.find_next_grid = true
           compSize.next_grid_x = tempPos.x

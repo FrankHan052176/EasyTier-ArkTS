@@ -1,4 +1,4 @@
-import { StatusBarViewExtensionAbility } from '@kit.StatusBarExtensionKit';
+import { StatusBarViewExtensionAbility } from '@kit.DeskTopExtensionKit';
 import { UIExtensionContentSession, Want } from '@kit.AbilityKit';
 import { Logger } from '../util/Logger';
 

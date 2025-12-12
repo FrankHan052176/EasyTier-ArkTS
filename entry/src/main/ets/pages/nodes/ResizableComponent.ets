@@ -30,7 +30,6 @@ struct ResizeBall {
   @Local fingerOffset: number = 0
   @Local disable_a: boolean = false
   @Local disable_d: boolean = false
-  @BuilderParam content: () => void
 
   @Computed
   get isHorizontal() {

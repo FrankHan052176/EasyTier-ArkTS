@@ -7,7 +7,6 @@ import { hdsEffect } from '@kit.UIDesignKit';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { AppManager, Spx2vp } from '../../AppManager';
 import { ColumnIlluminatedModifier, RowIlluminatedModifier } from '../../class/modifier/LightModifier';
-Manager";
 
 export let config_name: string | undefined
 

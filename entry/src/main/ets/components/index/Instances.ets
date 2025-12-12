@@ -1,8 +1,9 @@
 import { CompTitle } from './Basic'
 import { LengthMetrics } from '@kit.ArkUI'
-import { AppManager } from '../../AppManager'
+import { AppManager, Svp2fp } from '../../AppManager'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { HMRouterTransitions } from '@hadss/hmrouter-transitions'
+import { lane } from '../../util/Conversion'
 
 @Extend(Column)
 function comp_bg() {
@@ -15,7 +16,6 @@ function comp_bg() {
 
 @ComponentV2
 export struct Instances {
-  @Local selected: number = 0;
   @Local list_height: number = 0
 
   @Computed
@@ -24,95 +24,133 @@ export struct Instances {
   }
 
   @Computed
-  get ItemHeight() {
-    return (this.list_height - (this.CompSize.lane_h == 2 ? 6 : 2)) / (this.CompSize.lane_h == 2 ? 6.5 : 2.5)
+  get ConfigName() {
+    return AppManager.data.configUUIDNameMap.get(AppManager.easytier.selected ?? "") ?? "未选择实例"
   }
 
   @Computed
-  get EmptyHeight() {
-    return this.list_height - this.ItemHeight - 3
+  get ConfigUUID() {
+    return AppManager.easytier.selected ?? "404"
+  }
+
+  @Computed
+  get rowHeight() {
+    return (lane(1)-24-16)/3
+  }
+
+  @Builder
+  button() {
+    Row({space: 4}) {
+      Row() {
+        SymbolGlyph($r("sys.symbol.star"))
+          .fontSize(Svp2fp(this.rowHeight-20))
+          .fontColor([$r("sys.color.font_secondary")])
+      }
+      .backgroundColor($r("sys.color.comp_background_tertiary"))
+      .borderRadius(12)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Center)
+      .size({width: this.rowHeight, height: this.rowHeight})
+      Row() {
+        SymbolGlyph($r("sys.symbol.square_and_pencil"))
+          .fontSize(Svp2fp(this.rowHeight-20))
+          .fontColor([$r("sys.color.font_secondary")])
+      }
+      .backgroundColor($r("sys.color.comp_background_tertiary"))
+      .borderRadius(12)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Center)
+      .size({width: this.rowHeight, height: this.rowHeight})
+    }
+    .padding({top: 2, bottom: 2})
+    .width('100%')
+    .justifyContent(FlexAlign.SpaceBetween)
+    .height(this.rowHeight)
   }
 
   build() {
     Column() {
-      CompTitle("实例", $r("sys.color.brand"), () => {
-        return AppManager.data.configUUIDMap.size
-      })
-      Column() {
-        List({ space: 2 }) {
-          ForEach(Array.from(AppManager.data.configUUIDNameMap.keys()), (uuid: string, index) => {
-            ListItem() {
-              Column() {
-                Text(AppManager.data.configUUIDNameMap.get(uuid)!)
-                  .maxLines(1)
-                  .fontWeight(index === this.selected ? FontWeight.Bold : FontWeight.Normal)
-                  .textOverflow({
-                    overflow: TextOverflow.Ellipsis
-                  })
-                Text(uuid)
-                  .fontSize(12)
-                  .fontColor($r("sys.color.font_secondary"))
-                  .maxLines(1)
-                  .textOverflow({
-                    overflow: TextOverflow.Ellipsis
-                  })
-              }
-              .alignItems(HorizontalAlign.Start)
-              .opacity(index === this.selected ? 1 : 0.5)
-              .height(this.ItemHeight)
-              .animation({
-                duration: 300,
-                curve: Curve.Ease
+      Column({ space: 8 }) {
+        Row({ space: 4 }) {
+          Row() {
+            SymbolGlyph($r("sys.symbol.protein"))
+              .fontSize(Svp2fp(this.rowHeight-20))
+              .fontColor([$r("sys.color.brand")])
+          }
+          .size({width: this.rowHeight, height: this.rowHeight})
+          .backgroundColor($r("sys.color.comp_background_tertiary"))
+          .borderRadius(12)
+          .alignItems(VerticalAlign.Center)
+          .justifyContent(FlexAlign.Center)
+          Column({ space: 4 }) {
+            Text(this.ConfigName)
+              .maxFontSize(40)
+              .minFontSize(8)
+              .layoutWeight(100)
+              .maxLines(1)
+              .textOverflow({
+                overflow: TextOverflow.Ellipsis
               })
-            }
-            .padding({ left: index === this.selected ? 5 : 10, right: index === this.selected ? 5 : 10 })
-            .animation({
-              duration: 300,
-              curve: Curve.Ease
-            })
-            .id("home_" + uuid)
-            .gesture(
-              TapGesture({ count: 2 })
-                .onAction(() => {
-                  const animator = HMRouterTransitions.cardLongTake("home_" + uuid, "edit_content", {
-                    onTransitionStart: () => {
-                    }, onTransitionEnd: () => {
-                    }
-                  });
-                  AppManager.data.editingInstance = uuid
-                  HMRouterMgr.push({ pageUrl: 'EditPage', param: uuid, animator: animator });
-                })
-            )
-          })
-          ListItem().height(this.EmptyHeight)
+              .textAlign(TextAlign.Start)
+
+            Text(this.ConfigUUID.slice(0, 7))
+              .fontSize(Svp2fp(this.rowHeight/2-8))
+              .width('100%')
+              .fontColor($r("sys.color.font_tertiary"))
+              .maxLines(1)
+              .textAlign(TextAlign.Start)
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(100)
+          .padding({top: 2, bottom: 2})
+        }
+        .borderRadius(12)
+        .width('100%')
+        .justifyContent(FlexAlign.Start)
+        .height(this.rowHeight)
+        .backgroundColor($r("sys.color.comp_background_primary"))
+
+
+
+
+        Row({space: 4}) {
+          Row() {
+            SymbolGlyph($r("sys.symbol.switch_square"))
+              .fontSize(Svp2fp(this.rowHeight-20))
+              .fontColor([$r("sys.color.font_secondary")])
+          }
+          .size({width: this.rowHeight, height: this.rowHeight})
+          .backgroundColor($r("sys.color.comp_background_tertiary"))
+          .borderRadius(12)
+          .alignItems(VerticalAlign.Center)
+          .justifyContent(FlexAlign.Center)
+          Column({ space: 4 }) {
+            Text("切换实例")
+              .maxFontSize(40)
+              .minFontSize(8)
+              .layoutWeight(100)
+              .maxLines(1)
+              .textOverflow({
+                overflow: TextOverflow.Ellipsis
+              })
+              .textAlign(TextAlign.Start)
+
+            Text("共"+AppManager.data.configUUIDMap.size+"个")
+              .fontSize(Svp2fp(this.rowHeight/2-8))
+              .width('100%')
+              .fontColor($r("sys.color.font_tertiary"))
+              .maxLines(1)
+              .textAlign(TextAlign.Start)
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(100)
+          .padding({top: 2, bottom: 2})
         }
         .width('100%')
-        .height('100%')
-        .friction(0.8)
-        .edgeEffect(EdgeEffect.None)
-        .scrollBar(BarState.Off)
-        .scrollSnapAlign(ScrollSnapAlign.START)
-        .onAreaChange((_a, b) => {
-          this.list_height = (b.height.valueOf() as number)
-        })
-        .onScrollIndex((start, end, center) => {
-          this.selected = start
-          if (AppManager.data.configUUIDNameMap.size == 0) {
-            AppManager.easytier.selected = undefined
-          } else {
-            AppManager.easytier.selected = Array.from(AppManager.data.configUUIDNameMap.keys())[this.selected]
-          }
-        })
-        .fadingEdge(true, { fadingEdgeLength: LengthMetrics.vp(3) })
+        .justifyContent(FlexAlign.Start)
+        .height(this.rowHeight)
       }
-      .padding({
-        top: 5,
-        left: 10,
-        right: 10,
-        bottom: 10
-      })
-      .width('100%')
-      .layoutWeight(100)
+      .padding(12)
     }
     .comp_bg()
   }

@@ -1,5 +1,3 @@
-export const BUILD_TIME: string = "2025-12-07T14:33:47.347Z"
-
-export const APP_VERSION: string = "0.1.0"
-
-export const APP_VERSION_CODE: string = "1001000"
+export const BUILD_TIME:string = "2025-12-11T08:20:19.479Z"
+export const APP_VERSION:string = "2.0.0"
+export const APP_VERSION_CODE:string = "3000000"

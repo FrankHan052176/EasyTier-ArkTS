@@ -1,6 +1,6 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { deviceInfo } from '@kit.BasicServicesKit';
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType } from '@hms.hds.hdsBaseComponent';
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute } from '@hms.hds.hdsBaseComponent';
 import { HdsMenuButton, MenuButton } from '../Components';
 import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { AppManager } from '../../AppManager';
@@ -36,28 +36,30 @@ export struct HomePage {
     })
     if (canIUse("SystemCapability.MultimodalAwareness.Motion")) {
       if (deviceInfo.sdkApiVersion >= 20) {
-        motion.on('holdingHandChanged', (data: motion.HoldingHandStatus) => {
-          switch (data) {
-            case motion.HoldingHandStatus.LEFT_HAND_HELD:
-            case motion.HoldingHandStatus.RIGHT_HAND_HELD: {
-              animateToImmediately({
-                duration: 300,
-                curve: curves.springMotion(0.5, 0.6, 0)
-              }, () => {
-                this.hand = data
-              })
-              break;
+        try {
+          motion.on('holdingHandChanged', (data: motion.HoldingHandStatus) => {
+            switch (data) {
+              case motion.HoldingHandStatus.LEFT_HAND_HELD:
+              case motion.HoldingHandStatus.RIGHT_HAND_HELD: {
+                animateToImmediately({
+                  duration: 300,
+                  curve: curves.springMotion(0.5, 0.6, 0)
+                }, () => {
+                  this.hand = data
+                })
+                break;
+              }
+              default: {
+                animateToImmediately({
+                  duration: 300,
+                  curve: curves.springMotion(0.5, 0.6, 0)
+                }, () => {
+                  this.hand = 0
+                })
+              }
             }
-            default: {
-              animateToImmediately({
-                duration: 300,
-                curve: curves.springMotion(0.5, 0.6, 0)
-              }, () => {
-                this.hand = 0
-              })
-            }
-          }
-        })
+          })
+        } catch (_) {}
       }
     }
   }
@@ -161,6 +163,7 @@ export struct HomePage {
     .overlay(this.actionBarAndError, {
       align: Alignment.Center
     })
+    .edgeEffect(EdgeEffect.Spring)
   }
 
   build() {
