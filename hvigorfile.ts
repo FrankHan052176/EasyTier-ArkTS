@@ -168,7 +168,7 @@ hvigor.nodesEvaluated(() => {
                     const changed = results.some(Boolean);
                     if (changed) {
                         console.log("🔄 检测到 proto 文件更新，重新生成...");
-                        execSync("C:\\Users\\23820\\scoop\\shims\\buf.exe generate", {
+                        execSync("buf generate", {
                             cwd: path.resolve(__dirname, "."),
                             stdio: "inherit"
                         });
