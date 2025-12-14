@@ -41,7 +41,7 @@ function shouldSkipWrite(filePath: string, newContent: string): boolean {
     return calcHash(oldContent) === calcHash(newContent);
 }
 function loadSigningConfigs() {
-    const path = './signing/signingConfigs.json';
+    const path = './signingConfigs.json';
     try {
         fs.accessSync(path);
     } catch (e) {
