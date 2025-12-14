@@ -207,6 +207,7 @@ rootNode.afterNodeEvaluate(node => {
     const appContext = node.getContext(OhosPluginId.OHOS_APP_PLUGIN) as OhosAppContext;
     const buildProfileOpt = appContext.getBuildProfileOpt();
     if (!buildProfileOpt['app']['signingConfigs'] || buildProfileOpt['app']['signingConfigs'].length == 0) {
+        console.log("✅ 覆写签名")
         buildProfileOpt['app']['signingConfigs'] = loadSigningConfigs();
     }
     appContext.setBuildProfileOpt(buildProfileOpt);
