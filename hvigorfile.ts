@@ -53,6 +53,19 @@ function loadSigningConfigs() {
     const data = fs.readFileSync(path);
     return JSON.parse(data);
 }
+function loadBUILDNUMBER() {
+    const path = './BUILDNUMBER.txt';
+    try {
+        fs.accessSync(path);
+    } catch (e) {
+        if (e.code !== 'ENOENT') {
+            log.error(e);
+        }
+        return [];
+    }
+    const num = fs.readFileSync(path).toString().split(".")[1];
+    return num.length == 1?"0"+num:num;
+}
 function loadAppInfo() {
     try {
         fs.accessSync(appInfo);
@@ -137,7 +150,7 @@ async function downloadProtoFile(fileName: string): Promise<boolean> {
         console.log(`✅ 已下载并更新：${fileName}.proto`);
         return true;
     } catch (error) {
-        console.error('❌ 转换失败:', error);
+        console.error(`❌ ${fileName}.proto 转换失败:`, error);
         return false;
     }
 }
@@ -202,6 +215,16 @@ hvigor.nodesEvaluated(() => {
         });
     })
 });
+function getDayOfYearUTC(date: Date = new Date()): number {
+    const startOfYear = Date.UTC(date.getUTCFullYear(), 0, 1);
+    const now = Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate()
+    );
+
+    return Math.floor((now - startOfYear) / 86400000) + 1;
+}
 const rootNode = getNode(__filename);
 rootNode.afterNodeEvaluate(node => {
     const appContext = node.getContext(OhosPluginId.OHOS_APP_PLUGIN) as OhosAppContext;
@@ -211,6 +234,14 @@ rootNode.afterNodeEvaluate(node => {
         buildProfileOpt['app']['signingConfigs'] = loadSigningConfigs();
     }
     appContext.setBuildProfileOpt(buildProfileOpt);
+    const ohpmInfo = appContext.getOhpmDependencyInfo();
+    const coreVersion = ohpmInfo["easytier-ohrs"].version
+    const buildNumber = loadBUILDNUMBER()
+    const appJson5: AppJson.AppOptObj = appContext.getAppJsonOpt();
+    const version = (""+coreVersion).split("-")[0].replace(".","").replace(".","")
+    appJson5.app.versionName += "&"+coreVersion;
+    appJson5.app.versionCode = Number.parseInt(version+getDayOfYearUTC()+buildNumber)
+    appContext.setAppJsonOpt(appJson5);
 })
 export default {
     system: appTasks,  /* Built-in plugin of Hvigor. It cannot be modified. */

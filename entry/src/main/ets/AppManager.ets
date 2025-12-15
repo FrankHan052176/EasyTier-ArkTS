@@ -28,6 +28,7 @@ export class AppManager {
       AppManager.easytier.init()
     }
     AppManager.permission.updatePermStatus()
+    "".replace(".","")
     try {
       AppManager.preference.init(preferences.getPreferencesSync(AppManager.content.context,
         { name: 'EasyTierPreferences' }))
