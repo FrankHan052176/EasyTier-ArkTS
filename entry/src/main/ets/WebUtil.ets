@@ -30,7 +30,7 @@ export class WebUtil {
         let total: number = data["total"]
         let total_pages: number = data["total_pages"]
         let items: Array<object> = data["items"]
-        Logger.info("sharedPeers total peers:" + total)
+        Logger.info("sharedPeers total peers:" + total, this)
         items.forEach((item: object) => {
 
         })

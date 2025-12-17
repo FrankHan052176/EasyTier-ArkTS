@@ -3,6 +3,7 @@ import { AppManager } from '../../AppManager'
 import { CompSize, Position } from '../../LayoutUtil'
 import { lane } from '../../util/Conversion'
 import { EventHelper } from '../../util/EventHelper'
+import { Logger } from '../../util/Logger'
 import { UIType, WindowUtil } from '../../WindowUtil'
 import { getCompNode } from './CompNode'
 
@@ -19,14 +20,11 @@ struct ResizeBall {
   @Param @Require isDeletable: () => boolean
   @Param @Require lane: number
   @Param @Require length: number
-  @Event $lane: (val: number) => void = (val: number) => {
-  }
+  @Event $lane: (val: number) => void = () => {}
   @Param @Require extra: number
-  @Event $extra: (val: number) => void = (val: number) => {
-  }
+  @Event $extra: (val: number) => void = () => {}
   @Param pos: number = 0
-  @Event $pos: (val: number) => void = (val: number) => {
-  }
+  @Event $pos: (val: number) => void = () => {}
   @Local fingerOffset: number = 0
   @Local disable_a: boolean = false
   @Local disable_d: boolean = false
@@ -254,7 +252,7 @@ export struct ResizableComponent {
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
         .width(lane(this.comp_size.lane_w) + this.offset_w)
         .height(lane(this.comp_size.lane_h) + this.offset_h)
-        .gesture(GestureGroup(GestureMode.Parallel, LongPressGesture({ repeat: false, fingers: 1, duration: 300 })
+        .gesture(GestureGroup(GestureMode.Parallel, LongPressGesture({ repeat: false, fingers: 1, duration: 300 }).tag("resizeComp_Press")
           .onAction(() => {
             vibrator.startVibration({
               type: 'time',
@@ -265,7 +263,7 @@ export struct ResizableComponent {
             }, () => {
             })
           }),
-          PanGesture({ direction: PanDirection.All, fingers: 1 })
+          PanGesture({ direction: PanDirection.All, fingers: 1 }).tag("resizeComp_Pan")
             .onActionStart(() => {
               this.comp_size.find_next_grid = true
               this.comp_size.pan_offset_x = 0
@@ -348,11 +346,7 @@ export struct ResizableComponent {
                 this.comp_size.isResize = false
               })
             }
-            if (this.comp_size.isDragging) {
-              return GestureJudgeResult.CONTINUE;
-            } else {
-              return GestureJudgeResult.REJECT;
-            }
+            if (!this.comp_size.isDragging) return GestureJudgeResult.REJECT;
           }
           return GestureJudgeResult.CONTINUE;
         })

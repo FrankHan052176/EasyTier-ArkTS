@@ -144,7 +144,7 @@ export struct HomePage {
 
   @Builder
   content() {
-    Scroll(this.scroller) {
+    Scroll() {
       Column() {
         if (deviceInfo.sdkApiVersion >= 20) {
           Column()
@@ -160,9 +160,6 @@ export struct HomePage {
     .align(Alignment.Top)
     .scrollBar(BarState.Off)
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    .overlay(this.actionBarAndError, {
-      align: Alignment.Center
-    })
     .edgeEffect(EdgeEffect.Spring)
   }
 
@@ -174,7 +171,6 @@ export struct HomePage {
         }
         .height('100%')
         .width('100%')
-        .bindToScrollable([this.scroller])
         .titleBar({
           style: {
             scrollEffectOpts: {
@@ -263,6 +259,9 @@ export struct HomePage {
       onWillDismiss: () => {
         this.sheet = false
       }
+    })
+    .overlay(this.actionBarAndError, {
+      align: Alignment.Center
     })
   }
 }

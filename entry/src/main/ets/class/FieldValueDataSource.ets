@@ -1,7 +1,8 @@
 import { AppManager } from '../AppManager';
-import { Logger } from '../util/Logger';
+import { Logger, LogLocate } from '../util/Logger';
 import { FieldValue } from './config/Basic';
 
+@LogLocate("FieldValueDataSource")
 @ObservedV2
 export class FieldValueDataSource implements IDataSource {
   private listeners: DataChangeListener[] = [];
@@ -9,7 +10,7 @@ export class FieldValueDataSource implements IDataSource {
   type: string
 
   constructor(type: string, values: FieldValue[] = []) {
-    Logger.debug("datasource with type:" + type)
+    Logger.debug("datasource with type:" + type, this)
     this.type = type
     this.values = values
   }

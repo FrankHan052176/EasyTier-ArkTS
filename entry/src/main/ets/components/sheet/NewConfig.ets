@@ -170,7 +170,7 @@ export struct NewConfig_Content {
                         message: "导入失败,请导入标准Toml配置或其他鸿蒙设备分享的链接\n导入文本为：" + value
                       })
                     } catch (e) {
-                      Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`);
+                      Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`, "NewConfig");
                     }
                   }
                 }
@@ -185,7 +185,7 @@ export struct NewConfig_Content {
                     message: "导入失败\n剪切板中没有内容！"
                   })
                 } catch (e) {
-                  Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`);
+                  Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`, "NewConfig");
                 }
               }
             }

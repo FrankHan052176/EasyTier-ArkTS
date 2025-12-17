@@ -3,7 +3,7 @@ import { NetworkInstanceRunningInfo } from './protobuf/api_manage'
 import easytier from 'easytier-ohrs'
 import { EventHelper } from './util/EventHelper'
 import { AppManager } from './AppManager'
-import { Logger } from './util/Logger'
+import { Logger, LogLocate } from './util/Logger'
 import { sendToast } from './ToastUtil'
 import { InstanceInfo } from './class/InstanceInfo'
 import { convertAddrToIp } from './util/Conversion'
@@ -12,6 +12,7 @@ import { SafeSet } from './util/SafeSet'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { ValueType } from '@kit.ArkData'
 
+@LogLocate("EasyTierUtil")
 @ObservedV2
 export class EasyTierUtil {
   @Trace appLogs: Set<string> = new Set
@@ -35,7 +36,7 @@ export class EasyTierUtil {
           }
           AppManager.preference.preferences.flushSync()
         } catch (error) {
-          Logger.error(`PreferenceUtil failed to change ${path}.\n${error}`, AppManager.preference)
+          Logger.error(`PreferenceUtil failed to change ${path}.\n${error}`, this)
         }
       }
     })
@@ -67,7 +68,7 @@ export class EasyTierUtil {
       try {
         this.tunRoutes.add(new NetworkSegment(route))
       } catch (e) {
-        Logger.error("NetworkSegment constructor throw a error:[" + route + "] is invalid.", "EasyTierUtil")
+        Logger.error("NetworkSegment constructor throw a error:[" + route + "] is invalid.", this)
         return false
       }
     }
@@ -176,7 +177,7 @@ export class EasyTierUtil {
     if (uuid) {
       let config = AppManager.data.configUUIDMap.get(uuid)
       if (config) {
-        Logger.debug("start:" + JSON.stringify(config))
+        Logger.debug("start:" + JSON.stringify(config), this)
         if (easytier.parseNetworkConfig(JSON.stringify(config))) {
           if (!config.no_tun) {
             this.needTUN = uuid

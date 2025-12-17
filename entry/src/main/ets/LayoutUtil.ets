@@ -3,7 +3,7 @@ import { MyFrameCallback } from './pages/HMRouterIndex'
 import { layoutAnimationParm } from './pages/nodes/ResizableComponent'
 import { lane } from './util/Conversion'
 import { EventHelper } from './util/EventHelper'
-import { Logger } from './util/Logger'
+import { Logger, LogLocate } from './util/Logger'
 import { WindowUtil } from './WindowUtil'
 
 @ObservedV2
@@ -59,6 +59,7 @@ export interface CompSizeWithPos {
   height: number
 }
 
+@LogLocate("LayoutUtil")
 @ObservedV2
 export class LayoutUtil {
   @Trace desktopPosX: number = 0;
@@ -108,7 +109,7 @@ export class LayoutUtil {
       this.comp_sequence.forEach((type) => {
         let size = this.getCompSize(type)
         let pos: Position = this.findFreeSpace(size.lane_w, size.lane_h, tempSequence, tempCompSizeMap)
-        Logger.debug(`updateNewUIType ${type}_${pos.x}_${pos.y}`)
+        Logger.debug(`updateNewUIType ${type}_${pos.x}_${pos.y}`, this)
         tempCompSizeMap.set(size.type,
           new CompSize().setPos(pos.x, pos.y).setSize(size.lane_w, size.lane_h).withType(size.type))
         tempSequence.push(type)

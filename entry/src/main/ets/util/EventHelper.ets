@@ -18,7 +18,7 @@ export class EventHelper {
         subscriber = data;
         commonEventManager.subscribe(subscriber, (err, data: commonEventManager.CommonEventData) => {
           if (err) {
-            Logger.error(err.message)
+            Logger.error(err.message, "EventHelper")
             return;
           }
           callback(data)

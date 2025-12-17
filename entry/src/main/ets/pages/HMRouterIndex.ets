@@ -66,7 +66,7 @@ export struct HMRouterIndex {
       onMemoryLevel: (): void => {
       },
       onConfigurationUpdated: (config: Configuration): void => {
-        console.info('onConfigurationUpdated ' + JSON.stringify(config));
+        Logger.info('onConfigurationUpdated ' + JSON.stringify(config), "HMRouterIndex");
         this.getUIContext()?.postFrameCallback(new MyFrameCallback(() => {
           Array.from(NodeNameMap.values()).forEach((value) => {
             value.updateConfiguration();
@@ -107,7 +107,7 @@ export struct HMRouterIndex {
       try {
         statusBarManager.addToStatusBar(this.getUIContext().getHostContext(), item);
       } catch (error) {
-        Logger.error(`addToStatusBar failed. error code: ${error.code}, error message: ${error.message}`);
+        Logger.error(`addToStatusBar failed. error code: ${error.code}, error message: ${error.message}`, "HMRouterIndex");
       }
     }
   }

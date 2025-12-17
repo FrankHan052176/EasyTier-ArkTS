@@ -36,7 +36,7 @@ export default class EntryAbility extends UIAbility {
       }
       return
     }
-    Logger.info("[EntryAbi] start background alive")
+    Logger.info("[EntryAbi] start background alive", this)
     let wantAgentInfo: wantAgent.WantAgentInfo = {
       wants: [
         {

@@ -3,6 +3,6 @@ import { Logger } from '../util/Logger';
 
 export default class EasyTierAbility extends VpnExtensionAbility {
   onCreate(): void {
-    Logger.debug("VpnExtAbi create")
+    Logger.debug("VpnExtAbi create", "EasyTierAbility")
   }
 }

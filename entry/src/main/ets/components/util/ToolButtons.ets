@@ -76,13 +76,13 @@ export struct ToolButtonWithPaste {
         if (PasteButtonOnClickResult.SUCCESS === result) {
           pasteboard.getSystemPasteboard().getData((err: BusinessError, pasteData: pasteboard.PasteData) => {
             if (err) {
-              console.error(`Failed to get paste data. Code is ${err.code}, message is ${err.message}`);
+              Logger.error(`Failed to get paste data. Code is ${err.code}, message is ${err.message}`, "ToolButtons");
               return;
             }
             this.pasteCallback(pasteData.getPrimaryText())
           });
         } else {
-          Logger.debug("failed get perm")
+          Logger.debug("failed get perm", "ToolButtons")
         }
       })
   }
