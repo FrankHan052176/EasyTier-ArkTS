@@ -89,10 +89,18 @@ export struct HomePage {
   }
 
   status() {
-    HMRouterMgr.to('StatusPage')
-      .withParam(AppManager.easytier.selected)
-      .withAnimator(new BottomAnimator())
-      .pushAsync()
+    let uuid = AppManager.easytier.selected
+    if (!uuid || !AppManager.easytier.runningNetworks.has(uuid)) {
+      if (AppManager.easytier.runningNetworks.size > 0) {
+        uuid = AppManager.easytier.runningNetworks.keys().next().value
+      }
+    }
+    if (uuid) {
+      HMRouterMgr.to('StatusPage')
+        .withParam(uuid)
+        .withAnimator(new BottomAnimator())
+        .pushAsync()
+    }
   }
 
   @Builder

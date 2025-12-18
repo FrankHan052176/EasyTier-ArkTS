@@ -86,11 +86,23 @@ export class EasyTierUtil {
         this.stop()
         continue
       }
+      let isNew: boolean = false
+      if (!this.runningNetworks.has(info.key)) {
+        isNew = true
+      }
       this.runningNetworks.set(info.key, newInfo)
       if (!this.instanceInfos.has(info.key)) {
         this.instanceInfos.set(info.key, new InstanceInfo())
+      }else {
+        this.instanceInfos.get(info.key)?.update(newInfo)
       }
-      this.instanceInfos.get(info.key)?.update(newInfo)
+      if (isNew) {
+        EventHelper.emitterPublish("running_instance_added", {
+          data: {
+            id: info.key
+          }
+        })
+      }
       EventHelper.emitterPublish("updateInfo_" + info.key)
       if (this.needTUN === info.key && newInfo.my_node_info?.virtual_ipv4 &&
         newInfo.my_node_info?.virtual_ipv4?.address) {
@@ -184,7 +196,8 @@ export class EasyTierUtil {
           }
           EventHelper.emitterPublish("start_bg", {
             data: {
-              cfg: JSON.stringify(config)
+              cfg: JSON.stringify(config),
+              id: uuid
             }
           })
         } else {
@@ -202,5 +215,32 @@ export class EasyTierUtil {
   public stop() {
     EventHelper.emitterPublish("stop_bg")
     easytier.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
+  }
+
+  public isRunning(uuid?: string): boolean {
+    if (uuid) {
+      return this.runningNetworks.has(uuid)
+    }
+    return false
+  }
+
+  public getConfig(uuid: string) {
+    return AppManager.data.configUUIDMap.get(uuid)
+  }
+
+  public getEditingConfig() {
+    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+  }
+
+  public getEditingInstance() {
+    return AppManager.data.editingInstance
+  }
+
+  public isEditingRunning(): boolean {
+    return this.isRunning(this.getEditingInstance())
+  }
+
+  public isFavoritesRunning(): boolean {
+    return this.isRunning(AppManager.data.favoriteInstance)
   }
 }

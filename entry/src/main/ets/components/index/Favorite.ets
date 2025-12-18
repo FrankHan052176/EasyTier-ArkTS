@@ -24,7 +24,7 @@ export struct Favorite {
 
   @Computed
   get isRunning() {
-    return AppManager.easytier.runningNetworks.has(AppManager.data.favoriteInstance ?? "") ? 1 : 0
+    return AppManager.easytier.isFavoritesRunning() ? 1 : 0
   }
 
   build() {

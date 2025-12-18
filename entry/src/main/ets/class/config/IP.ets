@@ -79,10 +79,17 @@ export struct IPEditor {
 
   build() {
     Column() {
-      Row() {
-        TextInput({ text: EditValue_IP!.ip })
-          .underline()
-          .width("90%")
+      Column({ space: 8 }) {
+        Text("虚拟 IP 地址")
+          .fontSize(14)
+          .fontColor($r("sys.color.font_secondary"))
+          .width('100%')
+
+        TextInput({ text: EditValue_IP!.ip, placeholder: "请输入 IP 地址" })
+          .width('100%')
+          .backgroundColor($r("sys.color.comp_background_tertiary"))
+          .borderRadius(8)
+          .padding(10)
           .onChange((value: string) => {
             if (isIpAddr(value)) {
               this.ip = false
@@ -95,15 +102,23 @@ export struct IPEditor {
           })
       }
       .width('100%')
-      .justifyContent(FlexAlign.Center)
+      .padding(16)
+      .backgroundColor($r("sys.color.comp_background_primary"))
+      .borderRadius(16)
 
-      Text(`
-请设置虚拟IP，如10.0.0.2
-      `)
-        .width('100%')
-        .fontSize(14)
-        .fontColor($r("sys.color.font_secondary"))
-        .textAlign(TextAlign.Center)
+      Row() {
+        SymbolGlyph($r('sys.symbol.info_circle'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.font_secondary')])
+          .margin({ right: 8 })
+        Text("请设置虚拟 IP，如 10.0.0.2")
+          .fontSize(12)
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .width('100%')
+      .padding({ top: 12, left: 16, right: 16 })
+      .alignItems(VerticalAlign.Top)
+
       Blank()
         .width('100%')
         .height(100)
@@ -120,7 +135,7 @@ export class IP implements FieldValue {
   @Monitor("ip")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
-      let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+      let config = AppManager.easytier.getEditingConfig()
       if (!config) {
         return
       }

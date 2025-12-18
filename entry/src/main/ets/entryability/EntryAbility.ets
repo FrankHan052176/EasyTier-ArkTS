@@ -20,17 +20,16 @@ import { DialogHub } from '@hadss/dialoghub';
 import { sendToast } from '../ToastUtil';
 import { isIpAddr } from '../class/config/IP';
 import { distributedKVStore } from '@kit.ArkData';
+import { BottomAnimator } from '../class/animator/BottomAnimator';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
   vpnConnection: vpnExtension.VpnConnection | undefined
 
-  startContinuousTask(cfg: string) {
+  startContinuousTask(cfg: string, id: string) {
     if (!AppManager.permission.isGetLocPerm() ||
       !canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
-      if (easytier.runNetworkInstance(cfg)) {
-        sendToast("实例启动成功", $r("sys.symbol.wifi"))
-      } else {
+      if (!easytier.runNetworkInstance(cfg)) {
         sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
         Logger.error("启动失败", this)
       }
@@ -55,7 +54,6 @@ export default class EntryAbility extends UIAbility {
         try {
           backgroundTaskManager.startBackgroundRunning(this.context, ["location"], wantAgentObj).then(() => {
             if (easytier.runNetworkInstance(cfg)) {
-              sendToast("实例启动成功", $r("sys.symbol.wifi"))
               geoLocationManager.on('locationChange', request, () => {
                 Logger.debug("GeoLoc alive", this)
               });
@@ -99,6 +97,13 @@ export default class EntryAbility extends UIAbility {
     this.start_bg_Listener()
     this.stop_bg_Listener()
     this.setup_tun_Listener()
+    EventHelper.emitterListener("running_instance_added", (data) => {
+      let id = data.data!.id as string
+      HMRouterMgr.to('StatusPage')
+        .withParam(id)
+        .withAnimator(new BottomAnimator())
+        .pushAsync()
+    })
     this.readSharedData(want)
   }
 
@@ -134,7 +139,7 @@ export default class EntryAbility extends UIAbility {
     EventHelper.emitterListener("start_bg", (data) => {
       this.prepare_vpn(() => {
         Logger.info("start_bg_task", this)
-        this.startContinuousTask(data.data!.cfg);
+        this.startContinuousTask(data.data!.cfg, data.data!.id);
       })
     })
   }

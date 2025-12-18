@@ -25,7 +25,7 @@ export struct ListField {
 
   @Computed
   get config() {
-    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+    return AppManager.easytier.getEditingConfig()
   }
 
   @Computed
@@ -34,8 +34,7 @@ export struct ListField {
   }
 
   updateItems() {
-    this.items = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ??
-      "")![this.field].map((value: string | PortForwardConfig) => {
+    this.items = AppManager.easytier.getEditingConfig()![this.field].map((value: string | PortForwardConfig) => {
       switch (this.type) {
         case "cidr":
           return new Cidr().readFrom(value as string)?.bind(this.field)

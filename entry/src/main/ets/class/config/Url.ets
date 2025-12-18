@@ -2,6 +2,7 @@ import { convertToProtocol, Protocol, protocolBGColor, protocolColor, protocols 
 import { FieldValue } from './Basic'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Svp2fp } from '../../AppManager'
+import { ProtocolSelector } from '../../components/util/ProtocolSelector'
 
 function isDomainOrIP(value: string): boolean {
   return /^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,})$/.test(value)
@@ -183,66 +184,107 @@ export struct UrlEditor {
   @Param protocolArr: Protocol[] = protocols
   @Local domain: boolean = false
   @Local port: boolean = false
+  @Local protocol: Protocol = EditValue_Url!.proto
 
   build() {
     Column() {
-      Row() {
-        TextPicker({ range: this.protocolArr, selected: this.protocolArr.indexOf(EditValue_Url!.proto) })
-          .onChange((_value: string | string[], index: number | number[]) => {
-            if (EditValue_Url) {
-              EditValue_Url.proto = this.protocolArr[index as number]
+      Column({ space: 8 }) {
+        // Protocol Section
+        Row() {
+          Text("协议类型")
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+            .fontColor($r("sys.color.font_primary"))
+          Blank()
+          ProtocolSelector({
+            protocols: this.protocolArr,
+            selected: this.protocol,
+            onChange: (protocol) => {
+              EditValue_Url!.proto = protocol
+              this.protocol = protocol
             }
           })
-          .canLoop(false)
-          .defaultPickerItemHeight(36)
-          .width(70)
-        Text("://")
-          .fontSize(18)
-          .margin({ left: 2, right: 2 })
-        TextInput({ text: EditValue_Url!.domain })
-          .underline()
-          .width(150)
-          .onChange((value: string) => {
-            if (isDomainOrIP(value)) {
-              this.domain = false
-              if (EditValue_Url) {
-                EditValue_Url.domain = value
-              }
-            } else {
-              this.domain = true
-            }
-          })
-        Text(":")
-          .fontSize(18)
-          .margin({ left: 2, right: 2 })
-        TextInput({ text: EditValue_Url!.port })
-          .underline()
-          .width(60)
-          .maxLength(5)
-          .enabled(EditValue_Url?.proto !== Protocol.TXT)
-          .type(InputType.Number)
-          .onChange((value: string) => {
-            if (isPort(value)) {
-              this.port = false
-              if (EditValue_Url) {
-                EditValue_Url.port = value
-              }
-            } else {
-              this.port = true
-            }
-          })
-      }
-      .width('100%')
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceBetween)
+        .alignItems(VerticalAlign.Center)
+        .padding({ left: 4, right: 4 })
 
-      Text(`
-协议、域名、端口请分别设置
-      `)
-        .tips()
+        Divider().color($r("sys.color.comp_divider"))
+
+        // Address Section
+        Column({ space: 8 }) {
+          Text("地址与端口")
+            .fontSize(14)
+            .fontColor($r("sys.color.font_secondary"))
+            .width('100%')
+
+          Row({ space: 8 }) {
+            TextInput({ text: EditValue_Url!.domain, placeholder: "IP 或 域名" })
+              .layoutWeight(3)
+              .backgroundColor($r("sys.color.comp_background_tertiary"))
+              .borderRadius(8)
+              .padding(10)
+              .onChange((value: string) => {
+                if (isDomainOrIP(value)) {
+                  this.domain = false
+                  if (EditValue_Url) {
+                    EditValue_Url.domain = value
+                  }
+                } else {
+                  this.domain = true
+                }
+              })
+
+            Text(":")
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r("sys.color.font_tertiary"))
+
+            TextInput({ text: EditValue_Url!.port, placeholder: "端口" })
+              .layoutWeight(1)
+              .maxLength(5)
+              .type(InputType.Number)
+              .backgroundColor($r("sys.color.comp_background_tertiary"))
+              .borderRadius(8)
+              .padding(10)
+              .textAlign(TextAlign.Center)
+              .onChange((value: string) => {
+                if (isPort(value)) {
+                  this.port = false
+                  if (EditValue_Url) {
+                    EditValue_Url.port = value
+                  }
+                } else {
+                  this.port = true
+                }
+              })
+              .enabled(EditValue_Url?.proto !== Protocol.TXT)
+          }
+          .width('100%')
+        }
+        .width('100%')
+        Row() {
+          SymbolGlyph($r('sys.symbol.info_circle'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.font_secondary')])
+            .margin({ right: 8 })
+          Text("协议、域名、端口请分别设置")
+            .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .padding({ top: 12})
+        .alignItems(VerticalAlign.Top)
+      }
+      .width('90%')
+      .padding(16)
+      .backgroundColor($r("sys.color.comp_background_primary"))
+      .borderRadius(16)
       Blank()
         .width('100%')
         .height(100)
     }
-    .width('90%')
   }
 }
 
@@ -256,7 +298,7 @@ export class Url implements FieldValue {
   @Monitor("proto","domain","port")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
-      let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+      let config = AppManager.easytier.getEditingConfig()
       if (!config) {
         return
       }

@@ -41,7 +41,7 @@ export struct StringField {
 
   @Computed
   get config() {
-    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+    return AppManager.easytier.getEditingConfig()
   }
 
   @Computed

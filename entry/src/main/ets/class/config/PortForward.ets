@@ -9,6 +9,7 @@ import { FieldValue } from './Basic'
 import { AppManager, Svp2fp } from '../../AppManager'
 import { LengthMetrics } from '@kit.ArkUI'
 import { PortForwardConfig } from '../../protobuf/api_manage'
+import { ProtocolSelector } from '../../components/util/ProtocolSelector'
 
 function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
@@ -94,7 +95,7 @@ function tips() {
   .width('100%')
   .fontSize(14)
   .fontColor($r("sys.color.font_secondary"))
-  .textAlign(TextAlign.Center)
+  .textAlign(TextAlign.Start)
 }
 
 @Extend(TextInput)
@@ -142,107 +143,138 @@ export struct PortForwardEditor {
   @Local domain: boolean = false
   @Local port: boolean = false
 
-  build() {
-    Column() {
-      Column() {
-        Row() {
-          TextPicker({
-            range: protocolsOnlyTcpAndUdp,
-            selected: protocolsOnlyTcpAndUdp.indexOf(EditValue_PortForward!.proto)
-          })
-            .onChange((_value: string | string[], index: number | number[]) => {
-              if (EditValue_PortForward) {
-                EditValue_PortForward.proto = protocolsOnlyTcpAndUdp[index as number]
-              }
-            })
-            .canLoop(false)
-            .defaultPickerItemHeight(36)
-            .width(70)
-          Text("://")
-            .fontSize(18)
-            .margin({ left: 2, right: 2 })
-          TextInput({ text: EditValue_PortForward!.from })
-            .underline()
-            .width(150)
-            .onChange((value: string) => {
-              if (isIpAddr(value)) {
-                this.domain = false
-                if (EditValue_PortForward) {
-                  EditValue_PortForward.from = value
-                }
-              } else {
-                this.domain = true
-              }
-            })
-          Text(":")
-            .fontSize(18)
-            .margin({ left: 2, right: 2 })
-          TextInput({ text: EditValue_PortForward!.from_port })
-            .underline()
-            .width(60)
-            .maxLength(5)
-            .type(InputType.Number)
-            .onChange((value: string) => {
-              if (isPort(value)) {
-                this.port = false
-                if (EditValue_PortForward) {
-                  EditValue_PortForward.from_port = value
-                }
-              } else {
-                this.port = true
-              }
-            })
-        }
+  @Builder
+  inputGroup(title: string, ip: string, port: string, onIpChange: (value: string) => void,
+    onPortChange: (value: string) => void) {
+    Column({ space: 8 }) {
+      Text(title)
+        .fontSize(14)
+        .fontColor($r("sys.color.font_secondary"))
         .width('100%')
 
-        Row() {
-          Text("/")
-            .fontSize(18)
-            .margin({ left: 2, right: 2 })
-          TextInput({ text: EditValue_PortForward!.to })
-            .underline()
-            .width(150)
-            .onChange((value: string) => {
-              if (isIpAddr(value)) {
-                this.domain = false
-                if (EditValue_PortForward) {
-                  EditValue_PortForward.to = value
-                }
-              } else {
-                this.domain = true
-              }
-            })
-          Text(":")
-            .fontSize(18)
-            .margin({ left: 2, right: 2 })
-          TextInput({ text: EditValue_PortForward!.to_port })
-            .underline()
-            .width(60)
-            .maxLength(5)
-            .type(InputType.Number)
-            .onChange((value: string) => {
-              if (isPort(value)) {
-                this.port = false
-                if (EditValue_PortForward) {
-                  EditValue_PortForward.to_port = value
-                }
-              } else {
-                this.port = true
-              }
-            })
-        }
+      Row({ space: 8 }) {
+        TextInput({ text: ip, placeholder: "IP地址 / 域名" })
+          .layoutWeight(3)
+          .backgroundColor($r("sys.color.comp_background_tertiary"))
+          .borderRadius(8)
+          .padding(10)
+          .onChange(onIpChange)
+
+        Text(":")
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r("sys.color.font_tertiary"))
+
+        TextInput({ text: port, placeholder: "端口" })
+          .layoutWeight(1)
+          .type(InputType.Number)
+          .maxLength(5)
+          .backgroundColor($r("sys.color.comp_background_tertiary"))
+          .borderRadius(8)
+          .padding(10)
+          .textAlign(TextAlign.Center)
+          .onChange(onPortChange)
       }
       .width('100%')
+    }
+    .width('100%')
+  }
 
-      Text(`
-协议、域名、端口请分别设置
-      `)
-        .tips()
+  build() {
+    Column() {
+      Column({ space: 8 }) {
+        // Protocol Section
+        Row() {
+          Text("协议类型")
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+          Blank()
+          ProtocolSelector({
+            protocols: protocolsOnlyTcpAndUdp,
+            selected: EditValue_PortForward!.proto,
+            onChange: (p) => {
+              if (EditValue_PortForward) {
+                EditValue_PortForward.proto = p
+              }
+            }
+          })
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.SpaceBetween)
+        .alignItems(VerticalAlign.Center)
+        .padding({ bottom: 4 })
+
+        Divider().color($r("sys.color.comp_divider"))
+
+        // Source Address
+        this.inputGroup(
+          "源地址 (本地监听)",
+          EditValue_PortForward!.from,
+          EditValue_PortForward!.from_port,
+          (value) => {
+            if (isIpAddr(value)) {
+              this.domain = false
+              if (EditValue_PortForward) EditValue_PortForward.from = value
+            } else {
+              this.domain = true
+            }
+          },
+          (value) => {
+            if (isPort(value)) {
+              this.port = false
+              if (EditValue_PortForward) EditValue_PortForward.from_port = value
+            } else {
+              this.port = true
+            }
+          }
+        )
+
+        Divider().color($r("sys.color.comp_divider"))
+
+        // Destination Address
+        this.inputGroup(
+          "目标地址 (转发至)",
+          EditValue_PortForward!.to,
+          EditValue_PortForward!.to_port,
+          (value) => {
+            if (isIpAddr(value)) {
+              this.domain = false
+              if (EditValue_PortForward) EditValue_PortForward.to = value
+            } else {
+              this.domain = true
+            }
+          },
+          (value) => {
+            if (isPort(value)) {
+              this.port = false
+              if (EditValue_PortForward) EditValue_PortForward.to_port = value
+            } else {
+              this.port = true
+            }
+          }
+        )
+        Row() {
+          SymbolGlyph($r('sys.symbol.info_circle'))
+            .fontSize(16)
+            .fontColor([$r('sys.color.font_secondary')])
+            .margin({ right: 8 })
+          Text("协议、域名、端口请分别设置")
+            .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .width('100%')
+        .padding({ top: 12 })
+        .alignItems(VerticalAlign.Top)
+      }
+      .width('90%')
+      .padding(16)
+      .backgroundColor($r("sys.color.comp_background_primary"))
+      .borderRadius(16)
+
       Blank()
         .width('100%')
         .height(100)
     }
-    .width('90%')
   }
 }
 
@@ -258,7 +290,7 @@ export class PortForward implements FieldValue {
   @Monitor("proto","from","from_port","to","to_port")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
-      let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+      let config = AppManager.easytier.getEditingConfig()
       if (!config) {
         return
       }

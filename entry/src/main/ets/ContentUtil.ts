@@ -60,7 +60,7 @@ export class ContentUtil {
     "routes": "route[]",
     "exit_nodes": "ip[]",
     "relay_network_whitelist": "network_name[]",
-    "mapped_listeners": "mappedListener[]",
+    "mapped_listeners": "mapped_listener[]",
     "port_forwards": "port_forward[]",
     "data_compress_algo": "number"
   }

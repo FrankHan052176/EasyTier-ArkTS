@@ -200,7 +200,7 @@ export function confirmCheck(type: string): boolean {
 }
 
 export function addValue(name: string, type: string) {
-  let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance!)!
+  let config = AppManager.easytier.getEditingConfig()!
   switch (type) {
     case "route":
     case "cidr": {

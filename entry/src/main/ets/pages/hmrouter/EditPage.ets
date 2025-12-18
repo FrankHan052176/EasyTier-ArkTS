@@ -191,7 +191,7 @@ export struct EditPage {
                   }),
                 HdsMenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"),
                   async () => {
-                    let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+                    let config = AppManager.easytier.getEditingConfig()
                     if (config) {
                       let str = await compressStr(mappedJson(config))
                       let cfg = unmappedJson(await uncompressStr(str))

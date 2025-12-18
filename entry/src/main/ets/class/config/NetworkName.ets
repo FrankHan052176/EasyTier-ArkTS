@@ -56,10 +56,17 @@ export struct NetworkNameEditor {
 
   build() {
     Column() {
-      Row() {
-        TextInput({ text: EditValue_NetworkName!.name })
-          .underline()
-          .width('80%')
+      Column({ space: 8 }) {
+        Text("网络名称")
+          .fontSize(14)
+          .fontColor($r("sys.color.font_secondary"))
+          .width('100%')
+
+        TextInput({ text: EditValue_NetworkName!.name, placeholder: "请输入网络名称" })
+          .width('100%')
+          .backgroundColor($r("sys.color.comp_background_tertiary"))
+          .borderRadius(8)
+          .padding(10)
           .onChange((value: string) => {
             if (value.length > 0) {
               this.name = false
@@ -72,12 +79,23 @@ export struct NetworkNameEditor {
           })
       }
       .width('100%')
-      .justifyContent(FlexAlign.Center)
+      .padding(16)
+      .backgroundColor($r("sys.color.comp_background_primary"))
+      .borderRadius(16)
 
-      Text(`
-请设置网络名
-      `)
-        .tips()
+      Row() {
+        SymbolGlyph($r('sys.symbol.info_circle'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.font_secondary')])
+          .margin({ right: 8 })
+        Text("请设置网络名")
+          .fontSize(12)
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .width('100%')
+      .padding({ top: 12, left: 16, right: 16 })
+      .alignItems(VerticalAlign.Top)
+      
       Blank()
         .width('100%')
         .height(100)
@@ -120,7 +138,7 @@ export class NetworkName implements FieldValue {
   @Monitor("name")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
-      let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+      let config = AppManager.easytier.getEditingConfig()
       if (!config) {
         return
       }

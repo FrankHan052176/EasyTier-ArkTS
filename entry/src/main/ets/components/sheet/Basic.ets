@@ -4,6 +4,7 @@ import { NetworkNameEditor } from '../../class/config/NetworkName'
 import { PortForwardEditor } from '../../class/config/PortForward'
 import { UrlEditor } from '../../class/config/Url'
 import { protocolsWithoutTXT } from '../../util/ETConfig'
+import { Logger } from '../../util/Logger'
 import { AddTitle, EditTitle } from './AddAndEditTitle'
 import { NewConfig_Content, NewConfig_Title } from './NewConfig'
 import { Rename_Content, Rename_Title } from './Rename'
@@ -31,12 +32,14 @@ export struct SheetContent {
 
   @Computed
   get addFieldType() {
-    return this.type.substring(4).substring(0, this.type.substring(4).indexOf('|'))
+    let result = this.type.substring(4).substring(0, this.type.substring(4).indexOf('|'))
+    return result
   }
 
   @Computed
   get addFieldName() {
-    return this.type.substring(4).substring(this.type.substring(4).indexOf('|') + 1)
+    let result = this.type.substring(4).substring(this.type.substring(4).indexOf('|') + 1)
+    return result
   }
 
   @Computed

@@ -20,44 +20,6 @@ function isMask(value: string): boolean {
   }
 }
 
-@Extend(Text)
-function tips() {
-  .width('100%')
-  .fontSize(14)
-  .fontColor($r("sys.color.font_secondary"))
-  .textAlign(TextAlign.Center)
-}
-
-@Extend(TextInput)
-function underline(textAlign: TextAlign = TextAlign.Center) {
-  .padding({
-    left: 1,
-    right: 1,
-    top: 5,
-    bottom: 5
-  })
-  .backgroundColor(Color.Transparent)
-  .border({
-    width: {
-      start: LengthMetrics.vp(0),
-      end: LengthMetrics.vp(0),
-      top: LengthMetrics.vp(0),
-      bottom: LengthMetrics.vp(1)
-    },
-    color: {
-      bottom: $r("sys.color.comp_divider")
-    },
-    radius: {
-      bottomStart: LengthMetrics.vp(0),
-      bottomEnd: LengthMetrics.vp(0)
-    },
-    style: {
-      bottom: BorderStyle.Solid
-    }
-  })
-  .textAlign(textAlign)
-}
-
 export let EditValue_Cidr: Cidr | undefined
 
 export function clearEditValue_Cidr() {
@@ -75,45 +37,73 @@ export struct CidrEditor {
 
   build() {
     Column() {
-      Row() {
-        TextInput({ text: EditValue_Cidr!.ip })
-          .underline()
-          .width(70)
-          .onChange((value: string) => {
-            if (isIpAddr(value)) {
-              this.ip = false
-              if (EditValue_Cidr) {
-                EditValue_Cidr.ip = value
+      Column({ space: 8 }) {
+        Text("CIDR 网段")
+          .fontSize(14)
+          .fontColor($r("sys.color.font_secondary"))
+          .width('100%')
+
+        Row({ space: 8 }) {
+          TextInput({ text: EditValue_Cidr!.ip, placeholder: "IP地址" })
+            .layoutWeight(3)
+            .backgroundColor($r("sys.color.comp_background_tertiary"))
+            .borderRadius(8)
+            .padding(10)
+            .onChange((value: string) => {
+              if (isIpAddr(value)) {
+                this.ip = false
+                if (EditValue_Cidr) {
+                  EditValue_Cidr.ip = value
+                }
+              } else {
+                this.ip = true
               }
-            } else {
-              this.ip = true
-            }
-          })
-        Text("/")
-          .fontSize(18)
-          .margin({ left: 2, right: 2 })
-        TextInput({ text: "" + EditValue_Cidr!.mask })
-          .underline()
-          .maxLength(2)
-          .width(30)
-          .onChange((value: string) => {
-            if (isMask(value)) {
-              this.Mask = false
-              if (EditValue_Cidr) {
-                EditValue_Cidr.mask = value
+            })
+
+          Text("/")
+            .fontSize(16)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r("sys.color.font_tertiary"))
+
+          TextInput({ text: "" + EditValue_Cidr!.mask, placeholder: "掩码" })
+            .layoutWeight(1)
+            .type(InputType.Number)
+            .maxLength(2)
+            .backgroundColor($r("sys.color.comp_background_tertiary"))
+            .borderRadius(8)
+            .padding(10)
+            .textAlign(TextAlign.Center)
+            .onChange((value: string) => {
+              if (isMask(value)) {
+                this.Mask = false
+                if (EditValue_Cidr) {
+                  EditValue_Cidr.mask = value
+                }
+              } else {
+                this.Mask = true
               }
-            } else {
-              this.Mask = true
-            }
-          })
+            })
+        }
+        .width('100%')
       }
       .width('100%')
-      .justifyContent(FlexAlign.Center)
+      .padding(16)
+      .backgroundColor($r("sys.color.comp_background_primary"))
+      .borderRadius(16)
 
-      Text(`
-请设置网段，如10.0.0.0/24
-      `)
-        .tips()
+      Row() {
+        SymbolGlyph($r('sys.symbol.info_circle'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.font_secondary')])
+          .margin({ right: 8 })
+        Text("请设置网段，如 10.0.0.0/24")
+          .fontSize(12)
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .width('100%')
+      .padding({ top: 12, left: 16, right: 16 })
+      .alignItems(VerticalAlign.Top)
+      
       Blank()
         .width('100%')
         .height(100)
@@ -183,7 +173,7 @@ export class Cidr implements FieldValue {
   @Monitor("ip","mask")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
-      let config = AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+      let config = AppManager.easytier.getEditingConfig()
       if (!config) {
         return
       }
