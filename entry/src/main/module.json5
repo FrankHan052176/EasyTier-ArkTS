@@ -22,10 +22,17 @@
         "orientation": "auto_rotation_restricted",
         "label": "$string:EntryAbility_label",
         "startWindowIcon": "$media:easytier_256",
-        "backgroundModes": ["dataTransfer", "location"],
+        "backgroundModes": [
+          "dataTransfer",
+          "location"
+        ],
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
-        "supportWindowMode": ["fullscreen", "split", "floating"],
+        "supportWindowMode": [
+          "fullscreen",
+          "split",
+          "floating"
+        ],
         "skills": [
           {
             "entities": [
@@ -94,6 +101,19 @@
         "type": "statusBarView",
         "exported": true,
         "srcEntry": "./ets/entryability/StatusBarViewAbility.ets"
+      },
+      {
+        "name": "EntryFormAbility",
+        "srcEntry": "./ets/entryformability/EntryFormAbility.ets",
+        "label": "$string:EntryFormAbility_label",
+        "description": "$string:EntryFormAbility_desc",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
       }
     ],
     "requestPermissions": [
@@ -107,7 +127,7 @@
           "abilities": [
             "EntryAbility"
           ],
-          "when":"inuse"
+          "when": "inuse"
         }
       },
       {
@@ -117,7 +137,7 @@
           "abilities": [
             "EntryAbility"
           ],
-          "when":"inuse"
+          "when": "inuse"
         }
       },
       {

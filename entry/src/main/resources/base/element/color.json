@@ -91,6 +91,10 @@
     {
       "name": "point_light",
       "value": "#0a59f7"
+    },
+    {
+      "name": "item_title_font",
+      "value": "#E6000000"
     }
   ]
 }

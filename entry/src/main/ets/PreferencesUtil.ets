@@ -79,6 +79,9 @@ export class PreferenceUtil {
       let selected = this.preferences.getSync("selected", "").toString()
       AppManager.easytier.selected =
         (selected.length > 0 && AppManager.data.configUUIDMap.has(selected)) ? selected : undefined
+      let favorite = this.preferences.getSync("favorite", "").toString()
+      AppManager.data.favorite =
+        (favorite.length > 0 && AppManager.data.configUUIDMap.has(favorite)) ? favorite : undefined
       this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
       AppManager.layout.initSequence(this.raw_comp_sequence)
     } catch (error) {

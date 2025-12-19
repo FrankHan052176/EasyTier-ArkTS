@@ -6,7 +6,7 @@ import { NetworkConfig, NetworkingMethod } from './protobuf/api_manage';
 import { ContentUtil } from './ContentUtil';
 import { AppManager } from './AppManager';
 import { getHostname } from './util/Conversion';
-import { distributedKVStore, preferences } from '@kit.ArkData';
+import { distributedKVStore, preferences, ValueType } from '@kit.ArkData';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { FieldValue } from './class/config/Basic';
 import { Cidr } from './class/config/Cidr';
@@ -21,18 +21,41 @@ export class DataUtil {
   @Trace configUUIDMap: Map<string, NetworkConfig> = new Map
   @Trace configNameUUIDMap: Map<string, string> = new Map
   @Trace configUUIDNameMap: Map<string, string> = new Map
-  @Trace favoriteInstance: string | undefined
+  @Trace favorite: string | undefined
   @Trace editingInstance: string | undefined
 
-  public isFavorite(uuid: string) {
-    return uuid === this.favoriteInstance
+  @Monitor("favorite")
+  onChange(monitor: IMonitor) {
+    monitor.dirty.forEach((path: string) => {
+      if (AppManager.preference.preferences !== undefined && !AppManager.preference.isInit) {
+        try {
+          if (monitor.value(path)?.now) {
+            AppManager.preference.preferences.putSync(path, monitor.value(path)?.now as ValueType)
+          } else {
+            AppManager.preference.preferences.putSync(path, "" as ValueType)
+          }
+          AppManager.preference.preferences.flushSync()
+        } catch (error) {
+          Logger.error(`PreferenceUtil failed to change ${path}.\n${error}`, this)
+        }
+      }
+    })
   }
 
-  public changeFavorite(uuid: string) {
+  public isFavorite(uuid: string | undefined) {
+    if (uuid) {
+      return uuid === this.favorite
+    }else {
+      return false
+    }
+  }
+
+  public changeFavorite(uuid: string | undefined) {
+    if (!uuid) return
     if (this.isFavorite(uuid)) {
-      this.favoriteInstance = undefined
+      this.favorite = undefined
     } else {
-      this.favoriteInstance = uuid
+      this.favorite = uuid
     }
   }
 
@@ -179,8 +202,8 @@ export class DataUtil {
   }
 
   public delConfig(uuid: string): boolean {
-    if (AppManager.data.favoriteInstance === uuid) {
-      AppManager.data.favoriteInstance = undefined
+    if (AppManager.data.favorite === uuid) {
+      AppManager.data.favorite = undefined
     }
     if (AppManager.easytier.selected === uuid) {
       AppManager.easytier.selected = undefined

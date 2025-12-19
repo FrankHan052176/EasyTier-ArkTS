@@ -1,119 +1,278 @@
-import { CompTitle } from './Basic'
-import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { HMRouterTransitions } from '@hadss/hmrouter-transitions'
-
-@Extend(Column)
-function comp_bg() {
-  .borderRadius(18)
-  .width('100%')
-  .height('100%')
-  .backgroundColor($r("sys.color.comp_background_primary"))
-  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-}
+import { InstanceSelector } from '../util/InstanceSelector'
 
 @ComponentV2
 export struct Instances {
-  @Local selected: number = 0;
-  @Local list_height: number = 0
-
   @Computed
-  get CompSize() {
-    return AppManager.layout.getCompSize("Instances")
+  get w(): number {
+    return AppManager.layout.getCompSize('Instances').lane_w
   }
 
   @Computed
-  get ItemHeight() {
-    return (this.list_height - (this.CompSize.lane_h == 2 ? 6 : 2)) / (this.CompSize.lane_h == 2 ? 6.5 : 2.5)
+  get h(): number {
+    return AppManager.layout.getCompSize('Instances').lane_h
   }
 
   @Computed
-  get EmptyHeight() {
-    return this.list_height - this.ItemHeight - 3
+  get uuids() {
+    return Array.from(AppManager.data.configUUIDNameMap.keys())
+  }
+
+  @Computed
+  get selectedUuid() {
+    return AppManager.easytier.selected
+  }
+
+  select(uuid: string) {
+    AppManager.easytier.selected = uuid
+  }
+
+  next() {
+    if (this.uuids.length === 0) return
+    const currentIndex = this.uuids.indexOf(this.selectedUuid ?? "")
+    let nextIndex = currentIndex + 1
+    if (nextIndex >= this.uuids.length || nextIndex < 0) {
+      nextIndex = 0
+    }
+    this.select(this.uuids[nextIndex])
+  }
+
+  toEdit(uuid: string) {
+    const animator = HMRouterTransitions.cardLongTake("instance_card_" + uuid, "edit_content");
+    AppManager.data.editingInstance = uuid
+    HMRouterMgr.push({ pageUrl: 'EditPage', param: uuid, animator: animator });
+  }
+
+  toggleFavorite(uuid: string) {
+
+  }
+
+  // --- 1x1 布局 ---
+  @Builder
+  Size1x1() {
+    Column() {
+      if (this.uuids.length === 0) {
+        this.EmptyView(24, 10)
+      } else {
+        Row() {
+          SymbolGlyph($r('sys.symbol.key_shield'))
+            .fontSize(24)
+            .fontColor([$r('sys.color.brand')])
+        }
+        .width('100%')
+        .justifyContent(FlexAlign.Start)
+
+        InstanceSelector({
+          selectedUuid: this.selectedUuid ?? "",
+          onSelect: (uuid: string): void => this.select(uuid)
+        })
+
+        Row() {
+          Blank()
+          SymbolGlyph($r("sys.symbol.square_and_pencil"))
+            .fontSize(18)
+            .fontColor([$r("sys.color.font_tertiary")])
+            .id("instance_card_" + this.selectedUuid)
+            .onClick(() => this.toEdit(this.selectedUuid!))
+        }
+        .width('100%')
+      }
+    }
+    .padding(12)
+    .width('100%')
+    .height('100%')
+  }
+
+  // --- 2x1 布局: 1高2宽 (含收藏) ---
+  @Builder
+  Size2x1() {
+    Row() {
+      if (this.uuids.length === 0) {
+        this.EmptyView(32, 12)
+      } else {
+        InstanceSelector({
+          selectedUuid: this.selectedUuid ?? "",
+          onSelect: (uuid: string): void => this.select(uuid)
+        })
+        .layoutWeight(1)
+
+        Row({ space: 12 }) {
+          this.IconButton(AppManager.data.isFavorite(this.selectedUuid) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"),
+            (): void => AppManager.data.changeFavorite(this.selectedUuid),
+            AppManager.data.isFavorite(this.selectedUuid) ? $r("sys.color.brand") : $r("sys.color.font_primary"))
+          
+          this.IconButton($r("sys.symbol.square_and_pencil"), (): void => this.toEdit(this.selectedUuid!), 
+            $r("sys.color.font_primary"), "instance_card_" + this.selectedUuid)
+        }
+      }
+    }
+    .padding(16)
+    .width('100%')
+    .height('100%')
+  }
+
+  // --- 1x2 布局 ---
+  @Builder
+  Size1x2() {
+    Column() {
+      Text("实例列表")
+        .fontSize(16)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .width('100%')
+        .margin({ bottom: 12 })
+
+      if (this.uuids.length === 0) {
+        this.EmptyView(32, 12)
+      } else {
+        List({ space: 8 }) {
+          ForEach(this.uuids, (uuid: string) => {
+            ListItem() {
+              this.ListItemView(uuid, false)
+            }
+          })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+      }
+    }
+    .padding(16)
+    .width('100%')
+    .height('100%')
+  }
+
+  // --- 2x2 布局 (含收藏) ---
+  @Builder
+  Size2x2() {
+    Column() {
+      Row() {
+        Text("所有实例")
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor($r('sys.color.font_primary'))
+        Blank()
+        Text(this.uuids.length.toString())
+          .fontSize(14)
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .width('100%')
+      .margin({ bottom: 12 })
+
+      if (this.uuids.length === 0) {
+        this.EmptyView(48, 14)
+      } else {
+        List({ space: 8 }) {
+          ForEach(this.uuids, (uuid: string) => {
+            ListItem() {
+              this.ListItemView(uuid, true)
+            }
+          })
+        }
+        .width('100%')
+        .layoutWeight(1)
+        .scrollBar(BarState.Off)
+      }
+    }
+    .padding(16)
+    .width('100%')
+    .height('100%')
+  }
+
+  @Builder
+  ListItemView(uuid: string, showFavorite: boolean) {
+    Row() {
+      Column() {
+        Text(AppManager.data.configUUIDNameMap.get(uuid))
+          .fontSize(14)
+          .fontWeight(this.selectedUuid === uuid ? FontWeight.Bold : FontWeight.Medium)
+          .fontColor(this.selectedUuid === uuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        
+        if (showFavorite) {
+          Text(uuid)
+            .fontSize(10)
+            .fontColor($r('sys.color.font_tertiary'))
+            .margin({ top: 2 })
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+      .onClick(() => this.select(uuid))
+
+      Row({ space: 10 }) {
+        if (showFavorite) {
+          SymbolGlyph(AppManager.data.isFavorite(uuid) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"))
+            .fontSize(18)
+            .fontColor([AppManager.data.isFavorite(uuid) ? $r("sys.color.brand") : $r("sys.color.font_secondary")])
+            .onClick(() => AppManager.data.changeFavorite(uuid))
+        }
+        
+        SymbolGlyph($r("sys.symbol.square_and_pencil"))
+          .fontSize(18)
+          .fontColor([$r("sys.color.font_secondary")])
+          .id(this.selectedUuid === uuid ? "instance_card_" + uuid : "")
+          .onClick(() => this.toEdit(uuid))
+      }
+    }
+    .width('100%')
+    .padding(10)
+    .backgroundColor($r('sys.color.comp_background_tertiary'))
+    .borderRadius(8)
+  }
+
+  @Builder
+  IconButton(icon: Resource, action: () => void, color: Resource, id?: string) {
+    Column() {
+      SymbolGlyph(icon)
+        .fontSize(24)
+        .fontColor([color])
+    }
+    .id(id ?? "")
+    .width(44)
+    .height(44)
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor($r('sys.color.comp_background_tertiary'))
+    .borderRadius(22)
+    .onClick(action)
+  }
+
+  @Builder
+  EmptyView(iconSize: number, fontSize: number) {
+    Column() {
+      SymbolGlyph($r('sys.symbol.link_slash'))
+        .fontSize(iconSize)
+        .fontColor([$r('sys.color.font_secondary')])
+      Text("暂无实例")
+        .fontColor($r('sys.color.font_secondary'))
+        .fontSize(fontSize)
+        .margin({ top: 8 })
+    }
+    .width('100%')
+    .layoutWeight(1)
+    .justifyContent(FlexAlign.Center)
   }
 
   build() {
-    Column() {
-      CompTitle("实例", $r("sys.color.brand"), () => {
-        return AppManager.data.configUUIDMap.size
-      })
-      Column() {
-        List({ space: 2 }) {
-          ForEach(Array.from(AppManager.data.configUUIDNameMap.keys()), (uuid: string, index) => {
-            ListItem() {
-              Column() {
-                Text(AppManager.data.configUUIDNameMap.get(uuid)!)
-                  .maxLines(1)
-                  .fontWeight(index === this.selected ? FontWeight.Bold : FontWeight.Normal)
-                  .textOverflow({
-                    overflow: TextOverflow.Ellipsis
-                  })
-                Text(uuid)
-                  .fontSize(12)
-                  .fontColor($r("sys.color.font_secondary"))
-                  .maxLines(1)
-                  .textOverflow({
-                    overflow: TextOverflow.Ellipsis
-                  })
-              }
-              .alignItems(HorizontalAlign.Start)
-              .opacity(index === this.selected ? 1 : 0.5)
-              .height(this.ItemHeight)
-              .animation({
-                duration: 300,
-                curve: Curve.Ease
-              })
-            }
-            .padding({ left: index === this.selected ? 5 : 10, right: index === this.selected ? 5 : 10 })
-            .animation({
-              duration: 300,
-              curve: Curve.Ease
-            })
-            .id("home_" + uuid)
-            .gesture(
-              TapGesture({ count: 2 })
-                .onAction(() => {
-                  const animator = HMRouterTransitions.cardLongTake("home_" + uuid, "edit_content", {
-                    onTransitionStart: () => {
-                    }, onTransitionEnd: () => {
-                    }
-                  });
-                  AppManager.data.editingInstance = uuid
-                  HMRouterMgr.push({ pageUrl: 'EditPage', param: uuid, animator: animator });
-                })
-            )
-          })
-          ListItem().height(this.EmptyHeight)
-        }
-        .width('100%')
-        .height('100%')
-        .friction(0.8)
-        .edgeEffect(EdgeEffect.None)
-        .scrollBar(BarState.Off)
-        .scrollSnapAlign(ScrollSnapAlign.START)
-        .onAreaChange((_a, b) => {
-          this.list_height = (b.height.valueOf() as number)
-        })
-        .onScrollIndex((start, end, center) => {
-          this.selected = start
-          if (AppManager.data.configUUIDNameMap.size == 0) {
-            AppManager.easytier.selected = undefined
-          } else {
-            AppManager.easytier.selected = Array.from(AppManager.data.configUUIDNameMap.keys())[this.selected]
-          }
-        })
-        .fadingEdge(true, { fadingEdgeLength: LengthMetrics.vp(3) })
+    Stack() {
+      if (this.w === 1 && this.h === 1) {
+        this.Size1x1()
+      } else if (this.w === 2 && this.h === 1) {
+        this.Size2x1()
+      } else if (this.w === 1 && this.h === 2) {
+        this.Size1x2()
+      } else {
+        this.Size2x2()
       }
-      .padding({
-        top: 5,
-        left: 10,
-        right: 10,
-        bottom: 10
-      })
-      .width('100%')
-      .layoutWeight(100)
     }
-    .comp_bg()
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r("sys.color.comp_background_primary"))
+    .borderRadius(18)
   }
 }

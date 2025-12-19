@@ -87,6 +87,22 @@
     {
       "name": "encryption_algorithm",
       "value": "Encryption Algorithm"
+    },
+    {
+      "name": "EntryFormAbility_desc",
+      "value": "form_description"
+    },
+    {
+      "name": "EntryFormAbility_label",
+      "value": "form_label"
+    },
+    {
+      "name": "favoriteWidget_desc",
+      "value": "收藏实例"
+    },
+    {
+      "name": "favoriteWidget_display_name",
+      "value": "收藏实例"
     }
   ]
 }

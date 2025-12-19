@@ -241,6 +241,6 @@ export class EasyTierUtil {
   }
 
   public isFavoritesRunning(): boolean {
-    return this.isRunning(AppManager.data.favoriteInstance)
+    return this.isRunning(AppManager.data.favorite)
   }
 }
