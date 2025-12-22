@@ -1,47 +1,21 @@
-import { AppManager, Sfp2vp } from '../../AppManager'
-import { CompTitle } from './Basic'
+import { AppManager } from '../../AppManager'
 import { common } from '@kit.AbilityKit'
 import { Logger } from '../../util/Logger'
 import { EventHelper } from '../../util/EventHelper'
 
-@Extend(Column)
-function comp_bg() {
-  .width('100%')
-  .height('100%')
-  .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-}
-
-@Builder
-export function QQ_Content(name: string | Resource, qqgroup: string) {
-  Column({ space: 6 }) {
-    Image(name === "App反馈群" ? $r("app.media.app") : $r("app.media.easytier"))
-      .height("50%")
-    Row() {
-      Text() {
-        SymbolSpan($r("sys.symbol.message_on_message")).fontColor([$r("sys.color.font_primary")]).fontSize(16)
-      }
-      .margin({ right: 5 })
-
-      Text(name).maxLines(1).fontColor($r("sys.color.font_primary"))
-    }
-    .height(Sfp2vp(16))
-  }
-  .height('100%')
-  .width('100%')
-  .alignItems(HorizontalAlign.Center)
-  .justifyContent(FlexAlign.Start)
-  .onClick(() => {
-    (AppManager.content.context as common.UIAbilityContext).startAbility({
-      uri: "mqqapi://card/show_pslcard?src_type=internal&version=1&uin=" + qqgroup + "&card_type=group&source=qrcode"
-    }).catch(() => {
-      Logger.error(`QQGroupButton::An unexpected error occurred.`, "QQGroups");
-    })
-  })
-}
-
 @ComponentV2
 export struct QQGroups {
   @Local groups: string[] = []
+
+  @Computed
+  get w(): number {
+    return AppManager.layout.getCompSize('QQGroups').lane_w
+  }
+
+  @Computed
+  get h(): number {
+    return AppManager.layout.getCompSize('QQGroups').lane_h
+  }
 
   aboutToAppear(): void {
     AppManager.web.updateQQGroups()
@@ -50,24 +24,163 @@ export struct QQGroups {
     })
   }
 
-  build() {
+  openGroup(qqgroup: string) {
+    (AppManager.content.context as common.UIAbilityContext).startAbility({
+      uri: "mqqapi://card/show_pslcard?src_type=internal&version=1&uin=" + qqgroup + "&card_type=group&source=qrcode"
+    }).catch(() => {
+      Logger.error(`QQGroupButton::An unexpected error occurred.`, "QQGroups");
+    })
+  }
+
+  @Builder
+  QQCard(name: string, qqgroup: string) {
     Column() {
-      CompTitle("QQ群", '#0052d9', () => {
-        return -1
-      })
-      Swiper() {
-        ForEach(this.groups, (qqgroup: string, index: number) => {
-          QQ_Content("EasyTier" + (index + 1) + "群", qqgroup)
-        })
-        QQ_Content("App反馈群", "630809530")
-      }
-      .loop(true)
-      .autoPlay(true)
-      .interval(4000)
-      .width('100%')
-      .layoutWeight(100)
-      .padding({ top: 10, left: 10, right: 10 })
+      Image(name === "App反馈群" ? $r("app.media.app") : $r("app.media.easytier"))
+        .height(this.h === 1 && this.w === 1 ? 32 : 48)
+        .objectFit(ImageFit.Contain)
+        .margin({ bottom: 8 })
+      
+      Text(name)
+        .fontSize(14)
+        .fontColor($r("sys.color.font_primary"))
+        .fontWeight(FontWeight.Medium)
     }
-    .comp_bg()
+    .width('100%')
+    .justifyContent(FlexAlign.Center)
+    .onClick(() => this.openGroup(qqgroup))
+  }
+
+  @Builder
+  ContentSwiper() {
+    Swiper() {
+      ForEach(this.groups, (qqgroup: string, index: number) => {
+        this.QQCard("EasyTier" + (index + 1) + "群", qqgroup)
+      })
+      this.QQCard("App反馈群", "630809530")
+    }
+    .loop(true)
+    .autoPlay(true)
+    .interval(4000)
+    .width('100%')
+    .height('100%')
+    .indicator(false)
+  }
+
+  // --- 1x1 布局 ---
+  @Builder
+  Size1x1() {
+    Column() {
+      Row() {
+        SymbolGlyph($r('sys.symbol.message_on_message'))
+          .fontSize(24)
+          .fontColor(['#0052d9'])
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+
+      Column() {
+        this.ContentSwiper()
+      }
+      .layoutWeight(1)
+      .width('100%')
+    }
+    .padding(12)
+    .width('100%')
+    .height('100%')
+  }
+
+  // --- 2x1 布局 ---
+  @Builder
+  Size2x1() {
+    Column() {
+      Row() {
+        SymbolGlyph($r('sys.symbol.message_on_message'))
+          .fontSize(24)
+          .fontColor(['#0052d9'])
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .margin({ bottom: 8 })
+
+      Column() {
+        this.ContentSwiper()
+      }
+      .layoutWeight(1)
+      .width('100%')
+    }
+    .padding(16)
+    .width('100%')
+    .height('100%')
+  }
+
+  // --- 1x2 布局 ---
+  @Builder
+  Size1x2() {
+    Column() {
+      Row() {
+        SymbolGlyph($r('sys.symbol.message_on_message'))
+          .fontSize(24)
+          .fontColor(['#0052d9'])
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .margin({ bottom: 8 })
+
+      Column() {
+        this.ContentSwiper()
+      }
+      .layoutWeight(1)
+      .width('100%')
+    }
+    .padding(16)
+    .width('100%')
+    .height('100%')
+  }
+
+  // --- 2x2 布局 ---
+  @Builder
+  Size2x2() {
+    Column() {
+      Row() {
+        SymbolGlyph($r('sys.symbol.message_on_message'))
+          .fontSize(24)
+          .fontColor(['#0052d9'])
+        
+        Blank()
+        
+        Text((this.groups.length + 1).toString())
+          .fontSize(14)
+          .fontColor($r('sys.color.font_secondary'))
+      }
+      .width('100%')
+      .margin({ bottom: 8 })
+
+      Column() {
+        this.ContentSwiper()
+      }
+      .layoutWeight(1)
+      .width('100%')
+    }
+    .padding(16)
+    .width('100%')
+    .height('100%')
+  }
+
+  build() {
+    Stack() {
+      if (this.w === 1 && this.h === 1) {
+        this.Size1x1()
+      } else if (this.w === 2 && this.h === 1) {
+        this.Size2x1()
+      } else if (this.w === 1 && this.h === 2) {
+        this.Size1x2()
+      } else {
+        this.Size2x2()
+      }
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor($r("sys.color.comp_background_primary"))
+    .borderRadius(18)
   }
 }

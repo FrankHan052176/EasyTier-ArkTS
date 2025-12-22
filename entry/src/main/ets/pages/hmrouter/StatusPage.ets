@@ -13,6 +13,11 @@ import { NatType, natTypeToJSON } from '../../protobuf/common'
 import { PeerInfo } from '../../class/InstanceInfo'
 import { Protocol, protocolBGColor, protocolColor } from '../../util/ETConfig'
 import { WindowUtil } from '../../WindowUtil'
+import { compressStr } from '../../CompressUtil'
+import { harmonyShare, systemShare } from '@kit.ShareKit'
+import { uniformTypeDescriptor } from '@kit.ArkData'
+import { Logger } from '../../util/Logger'
+import { mappedJson } from '../../MappedUtil'
 
 @HMRouter({ pageUrl: "StatusPage" })
 @ComponentV2
@@ -28,6 +33,26 @@ export struct StatusPage {
   @Local tx_rate: number = 0
   @Local rx_unit: string = "B/s"
   @Local tx_unit: string = "B/s"
+
+  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
+    if (this.config) {
+      compressStr(mappedJson(this.config)).then((data) => {
+        try {
+          let shareData: systemShare.SharedData = new systemShare.SharedData({
+            utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
+            content: 'https://easytier.cn/comp_cfg?cfg='+data,
+            title: '分享配置 '+this.name,
+            description: this.uuid ?? ""
+          });
+          sharableTarget.share(shareData);
+        }catch (e) {
+          Logger.error("systemShare"+JSON.stringify(e), "EdiStatusPagetPage")
+        }
+      }).catch((e:Error) => {
+        Logger.error("compressedConfig"+JSON.stringify(e), "StatusPage")
+      })
+    }
+  }
 
   aboutToAppear(): void {
     this.uuid = HMRouterMgr.getCurrentParam() as string;
@@ -63,6 +88,25 @@ export struct StatusPage {
         }
       }
     }, 1000)
+    harmonyShare.on('knockShare', (target) => {
+      this.immersiveCallback(target)
+    });
+    if (deviceInfo.sdkApiVersion >= 20) {
+      harmonyShare.on('gesturesShare', (target) => {
+        this.immersiveCallback(target)
+      });
+    }
+  }
+
+  aboutToDisappear(): void {
+    harmonyShare.off('knockShare', (target) => {
+      this.immersiveCallback(target)
+    });
+    if (deviceInfo.sdkApiVersion >= 20) {
+      harmonyShare.off('gesturesShare', (target) => {
+        this.immersiveCallback(target)
+      });
+    }
   }
 
   @Computed

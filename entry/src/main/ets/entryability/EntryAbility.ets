@@ -109,6 +109,7 @@ export default class EntryAbility extends UIAbility {
 
   onNewWant(want: Want) {
     Logger.debug("onNetWant", this)
+    Logger.debug(JSON.stringify(want), this)
     this.readSharedData(want)
   }
 

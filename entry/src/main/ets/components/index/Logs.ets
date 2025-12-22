@@ -147,63 +147,84 @@ export struct Logs {
   // --- 2x1 布局 ---
   @Builder
   Size2x1() {
-    Row() {
-      Column() {
-        Text("日志中心")
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r('sys.color.font_primary'))
-        Text(this.totalCount.toString())
-          .fontSize(36)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-          .margin({ top: 4 })
+    Column() {
+      Row() {
+        SymbolGlyph($r('sys.symbol.list_bullet_square'))
+          .fontSize(24)
+          .fontColor([$r('sys.color.font_primary')])
       }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .margin({ bottom: 8 })
 
-      Row({ space: 16 }) {
-        this.MiniStatItem($r('sys.symbol.house'), this.appCount)
-        this.MiniStatItem($r('sys.symbol.wifi'), this.netCount)
-        this.MiniStatItem($r('sys.symbol.HarmonyOS'), this.ohCount)
+      Row() {
+        Column() {
+          Text(this.totalCount.toString())
+            .fontSize(36)
+            .fontWeight(FontWeight.Bold)
+            .fontColor($r('sys.color.font_primary'))
+            
+          Text("日志总数")
+            .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+        .justifyContent(FlexAlign.Center)
+
+        Row({ space: 16 }) {
+          this.MiniStatItem($r('sys.symbol.house'), 0)
+          this.MiniStatItem($r('sys.symbol.wifi'), 1)
+          this.MiniStatItem($r('sys.symbol.HarmonyOS'), 2)
+        }
       }
+      .width('100%')
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .alignItems(VerticalAlign.Center)
     }
     .padding(16)
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.SpaceBetween)
-    .alignItems(VerticalAlign.Center)
   }
 
   @Builder
-  MiniStatItem(icon: Resource, count: number) {
+  MiniStatItem(icon: Resource, tabIdx: number) {
     Column({ space: 4 }) {
       SymbolGlyph(icon)
         .fontSize(20)
         .fontColor([$r('sys.color.font_secondary')])
-      Text(count.toString())
+      Text((tabIdx===0?this.appCount:(tabIdx===1?this.netCount:this.ohCount)).toString())
         .fontSize(14)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
     }
+    .onClick(() => {
+      this.tab_index = tabIdx
+      this.showSheet = true
+    })
   }
 
   // --- 1x2 布局 ---
   @Builder
   Size1x2() {
     Column() {
-      Text("日志概览")
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .margin({ bottom: 12 })
+      Row() {
+        SymbolGlyph($r('sys.symbol.list_bullet_square'))
+          .fontSize(24)
+          .fontColor([$r('sys.color.font_primary')])
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .margin({ bottom: 8 })
 
       Column({ space: 8 }) {
         this.ListStatItem("App", this.appCount, $r('sys.symbol.house'), 0)
         this.ListStatItem("网络", this.netCount, $r('sys.symbol.wifi'), 1)
         this.ListStatItem("系统", this.ohCount, $r('sys.symbol.HarmonyOS'), 2)
       }
+      .justifyContent(FlexAlign.Center)
+      .height('100%')
     }
     .padding(16)
     .width('100%')
@@ -242,10 +263,9 @@ export struct Logs {
   Size2x2() {
     Column() {
       Row() {
-        Text("日志监控")
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
+        SymbolGlyph($r('sys.symbol.list_bullet_square'))
+          .fontSize(24)
+          .fontColor([$r('sys.color.font_primary')])
         
         Blank()
         
@@ -257,9 +277,9 @@ export struct Logs {
       .margin({ bottom: 12 })
 
       Row({ space: 8 }) {
-        this.CardStatItem("App日志", this.appCount, $r('sys.symbol.house'), 0)
-        this.CardStatItem("网络日志", this.netCount, $r('sys.symbol.wifi'), 1)
-        this.CardStatItem("ArkUI", this.ohCount, $r('sys.symbol.HarmonyOS'), 2)
+        this.CardStatItem("App日志", $r('sys.symbol.house'), 0)
+        this.CardStatItem("网络日志", $r('sys.symbol.wifi'), 1)
+        this.CardStatItem("ArkUI", $r('sys.symbol.HarmonyOS'), 2)
       }
       .width('100%')
       .justifyContent(FlexAlign.SpaceBetween)
@@ -274,7 +294,7 @@ export struct Logs {
           .fontSize(12)
           .fontColor($r('sys.color.font_primary'))
           .fontFamily('Monospace')
-          .maxLines(3)
+          .maxLines(5)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .padding(8)
           .backgroundColor($r('sys.color.comp_background_tertiary'))
@@ -292,13 +312,13 @@ export struct Logs {
   }
 
   @Builder
-  CardStatItem(name: string, count: number, icon: Resource, tabIdx: number) {
+  CardStatItem(name: string, icon: Resource, tabIdx: number) {
     Column() {
       SymbolGlyph(icon)
         .fontSize(24)
         .fontColor([$r('sys.color.interactive_active')])
         .margin({ bottom: 4 })
-      Text(count.toString())
+      Text((tabIdx===0?this.appCount:(tabIdx===1?this.netCount:this.ohCount)).toString())
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.font_primary'))

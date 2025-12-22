@@ -1,32 +1,37 @@
 import { formBindingData, FormExtensionAbility, formInfo } from '@kit.FormKit';
 import { Want } from '@kit.AbilityKit';
+import { Logger } from '../util/Logger';
 
 export default class EntryFormAbility extends FormExtensionAbility {
   onAddForm(want: Want) {
-    // Called to return a FormBindingData object.
+    if (want.parameters) {
+      let formId = want.parameters[formInfo.FormParam.IDENTITY_KEY] as string;
+      let formType = want.parameters[formInfo.FormParam.NAME_KEY] as string;
+      let dimension = want.parameters[formInfo.FormParam.DIMENSION_KEY] as string;
+      let temp = want.parameters[formInfo.FormParam.TEMPORARY_KEY] as string;
+      Logger.debug("form:"+formId+formType+dimension+temp)
+    }
     const formData = '';
     return formBindingData.createFormBindingData(formData);
   }
 
   onCastToNormalForm(formId: string) {
-    // Called when the form provider is notified that a temporary form is successfully
-    // converted to a normal form.
+    Logger.debug("Normal:"+formId)
   }
 
   onUpdateForm(formId: string) {
-    // Called to notify the form provider to update a specified form.
+
   }
 
   onFormEvent(formId: string, message: string) {
-    // Called when a specified message event defined by the form provider is triggered.
+
   }
 
   onRemoveForm(formId: string) {
-    // Called to notify the form provider that a specified form has been destroyed.
+
   }
 
   onAcquireFormState(want: Want) {
-    // Called to return a {@link FormState} object.
     return formInfo.FormState.READY;
   }
 }

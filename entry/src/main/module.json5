@@ -66,6 +66,11 @@
                 "scheme": "file",
                 "utd": "general.hyperlink",
                 "maxFileSupported": 1
+              },
+              {
+                "scheme": "file",
+                "utd": "general.file",
+                "maxFileSupported": 1
               }
             ]
           }

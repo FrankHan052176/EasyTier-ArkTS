@@ -25,6 +25,20 @@ export struct Instances {
     return AppManager.easytier.selected
   }
 
+  @Computed
+  get isFavorite() {
+    if (AppManager.easytier.selected) {
+      return AppManager.easytier.selected === AppManager.data.favorite
+    }else {
+      return false
+    }
+  }
+
+  @Computed
+  get favoriteIcon() {
+    return this.isFavorite ? $r("sys.symbol.star_fill") : $r("sys.symbol.star")
+  }
+
   select(uuid: string) {
     AppManager.easytier.selected = uuid
   }
@@ -45,10 +59,6 @@ export struct Instances {
     HMRouterMgr.push({ pageUrl: 'EditPage', param: uuid, animator: animator });
   }
 
-  toggleFavorite(uuid: string) {
-
-  }
-
   // --- 1x1 布局 ---
   @Builder
   Size1x1() {
@@ -64,18 +74,26 @@ export struct Instances {
         .width('100%')
         .justifyContent(FlexAlign.Start)
 
-        InstanceSelector({
-          selectedUuid: this.selectedUuid ?? "",
-          onSelect: (uuid: string): void => this.select(uuid)
-        })
+        Column() {
+          InstanceSelector({
+            selectedUuid: this.selectedUuid ?? "",
+            onSelect: (uuid: string): void => this.select(uuid)
+          })
+        }
+        .layoutWeight(1)
+        .width('100%')
+        .alignItems(HorizontalAlign.Center)
+        .justifyContent(FlexAlign.Center)
 
         Row() {
           Blank()
-          SymbolGlyph($r("sys.symbol.square_and_pencil"))
-            .fontSize(18)
-            .fontColor([$r("sys.color.font_tertiary")])
-            .id("instance_card_" + this.selectedUuid)
-            .onClick(() => this.toEdit(this.selectedUuid!))
+          if (this.selectedUuid) {
+            SymbolGlyph($r("sys.symbol.square_and_pencil"))
+              .fontSize(18)
+              .fontColor([$r("sys.color.font_tertiary")])
+              .onClick(() => this.toEdit(this.selectedUuid!))
+              .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
+          }
         }
         .width('100%')
       }
@@ -83,46 +101,64 @@ export struct Instances {
     .padding(12)
     .width('100%')
     .height('100%')
+    .id("instance_card_" + this.selectedUuid)
   }
 
   // --- 2x1 布局: 1高2宽 (含收藏) ---
   @Builder
   Size2x1() {
-    Row() {
-      if (this.uuids.length === 0) {
-        this.EmptyView(32, 12)
-      } else {
-        InstanceSelector({
-          selectedUuid: this.selectedUuid ?? "",
-          onSelect: (uuid: string): void => this.select(uuid)
-        })
-        .layoutWeight(1)
+    Column() {
+      Row() {
+        SymbolGlyph($r('sys.symbol.key_shield'))
+          .fontSize(24)
+          .fontColor([$r('sys.color.brand')])
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .margin({ bottom: 8 })
 
-        Row({ space: 12 }) {
-          this.IconButton(AppManager.data.isFavorite(this.selectedUuid) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"),
-            (): void => AppManager.data.changeFavorite(this.selectedUuid),
-            AppManager.data.isFavorite(this.selectedUuid) ? $r("sys.color.brand") : $r("sys.color.font_primary"))
-          
-          this.IconButton($r("sys.symbol.square_and_pencil"), (): void => this.toEdit(this.selectedUuid!), 
-            $r("sys.color.font_primary"), "instance_card_" + this.selectedUuid)
+      Row() {
+        if (this.uuids.length === 0) {
+          this.EmptyView(32, 12)
+        } else {
+          InstanceSelector({
+            selectedUuid: this.selectedUuid ?? "",
+            onSelect: (uuid: string): void => this.select(uuid)
+          })
+          .layoutWeight(1)
+
+          Row({ space: 12 }) {
+            if (this.selectedUuid) {
+              this.IconButton(true,
+                (): void => AppManager.data.changeFavorite(this.selectedUuid))
+              
+              this.IconButton(false, (): void => this.toEdit(this.selectedUuid!))
+            }
+          }
+          .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
         }
       }
+      .width('100%')
+      .layoutWeight(1)
     }
     .padding(16)
     .width('100%')
     .height('100%')
+    .id("instance_card_" + this.selectedUuid)
   }
 
   // --- 1x2 布局 ---
   @Builder
   Size1x2() {
     Column() {
-      Text("实例列表")
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .margin({ bottom: 12 })
+      Row() {
+        SymbolGlyph($r('sys.symbol.key_shield'))
+          .fontSize(24)
+          .fontColor([$r('sys.color.brand')])
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .margin({ bottom: 8 })
 
       if (this.uuids.length === 0) {
         this.EmptyView(32, 12)
@@ -142,6 +178,7 @@ export struct Instances {
     .padding(16)
     .width('100%')
     .height('100%')
+    .id("instance_card_" + this.selectedUuid)
   }
 
   // --- 2x2 布局 (含收藏) ---
@@ -149,17 +186,16 @@ export struct Instances {
   Size2x2() {
     Column() {
       Row() {
-        Text("所有实例")
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
+        SymbolGlyph($r('sys.symbol.key_shield'))
+          .fontSize(24)
+          .fontColor([$r('sys.color.brand')])
         Blank()
         Text(this.uuids.length.toString())
           .fontSize(14)
           .fontColor($r('sys.color.font_secondary'))
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .margin({ bottom: 8 })
 
       if (this.uuids.length === 0) {
         this.EmptyView(48, 14)
@@ -179,6 +215,7 @@ export struct Instances {
     .padding(16)
     .width('100%')
     .height('100%')
+    .id("instance_card_" + this.selectedUuid)
   }
 
   @Builder
@@ -216,7 +253,6 @@ export struct Instances {
         SymbolGlyph($r("sys.symbol.square_and_pencil"))
           .fontSize(18)
           .fontColor([$r("sys.color.font_secondary")])
-          .id(this.selectedUuid === uuid ? "instance_card_" + uuid : "")
           .onClick(() => this.toEdit(uuid))
       }
     }
@@ -227,18 +263,17 @@ export struct Instances {
   }
 
   @Builder
-  IconButton(icon: Resource, action: () => void, color: Resource, id?: string) {
+  IconButton(favorite: boolean, action: () => void) {
     Column() {
-      SymbolGlyph(icon)
+      SymbolGlyph(favorite?this.favoriteIcon:$r("sys.symbol.square_and_pencil"))
         .fontSize(24)
-        .fontColor([color])
+        .fontColor([this.isFavorite && favorite ? 'rgba(255,200,50,1)' : $r("sys.color.font_primary")])
     }
-    .id(id ?? "")
     .width(44)
     .height(44)
     .justifyContent(FlexAlign.Center)
     .backgroundColor($r('sys.color.comp_background_tertiary'))
-    .borderRadius(22)
+    .borderRadius(12)
     .onClick(action)
   }
 

@@ -111,45 +111,53 @@ export struct Favorite {
   // --- 2x1 布局 ---
   @Builder
   Size2x1() {
-    Row() {
-      if (!this.favoriteUuid) {
-        this.EmptyView(32, 14)
-      } else {
-        Column() {
-          Text("收藏实例")
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-            .fontColor($r('sys.color.font_primary'))
-          Text(this.favoriteName)
-            .fontSize(24)
-            .fontWeight(FontWeight.Bold)
-            .fontColor($r('sys.color.font_primary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .margin({ top: 4 })
-          
-          Text(this.favoriteUuid)
-            .fontSize(10)
-            .fontColor($r('sys.color.font_secondary'))
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .margin({ top: 2 })
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-
-        Column() {
-          SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_round_triangle_fill"))
-            .fontSize(56)
-            .fontColor([this.brandColor])
-            .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
-            .onClick(() => this.toggle())
-        }
-        .justifyContent(FlexAlign.Center)
-        .height('100%')
-        .padding({ left: 16 })
+    Column() {
+      Row() {
+        SymbolGlyph($r('sys.symbol.star_fill'))
+          .fontSize(24)
+          .fontColor([this.brandColor])
       }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .margin({ bottom: 8 })
+
+      Row() {
+        if (!this.favoriteUuid) {
+          this.EmptyView(32, 14)
+        } else {
+          Column() {
+            Text(this.favoriteName)
+              .fontSize(24)
+              .fontWeight(FontWeight.Bold)
+              .fontColor($r('sys.color.font_primary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            
+            Text(this.favoriteUuid)
+              .fontSize(12)
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .margin({ top: 2 })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+          .justifyContent(FlexAlign.Center)
+
+          Column() {
+            SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_round_triangle_fill"))
+              .fontSize(56)
+              .fontColor([this.brandColor])
+              .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
+              .onClick(() => this.toggle())
+          }
+          .justifyContent(FlexAlign.Center)
+          .height('100%')
+          .padding({ left: 16 })
+        }
+      }
+      .width('100%')
+      .layoutWeight(1)
     }
     .padding(16)
     .width('100%')
@@ -160,12 +168,14 @@ export struct Favorite {
   @Builder
   Size1x2() {
     Column() {
-      Text("收藏实例")
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor($r('sys.color.font_primary'))
-        .width('100%')
-        .margin({ bottom: 12 })
+      Row() {
+        SymbolGlyph($r('sys.symbol.star_fill'))
+          .fontSize(24)
+          .fontColor([this.brandColor])
+      }
+      .width('100%')
+      .justifyContent(FlexAlign.Start)
+      .margin({ bottom: 8 })
 
       if (!this.favoriteUuid) {
         this.EmptyView(32, 14)
@@ -208,19 +218,13 @@ export struct Favorite {
   Size2x2() {
     Column() {
       Row() {
-        Text("收藏实例")
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r('sys.color.font_primary'))
-        Blank()
-        if (this.favoriteUuid) {
-           SymbolGlyph($r('sys.symbol.star_fill'))
-            .fontSize(20)
-            .fontColor([this.brandColor])
-        }
+        SymbolGlyph($r('sys.symbol.star_fill'))
+          .fontSize(24)
+          .fontColor([this.brandColor])
       }
       .width('100%')
-      .margin({ bottom: 12 })
+      .justifyContent(FlexAlign.Start)
+      .margin({ bottom: 8 })
 
       if (!this.favoriteUuid) {
         this.EmptyView(48, 16)

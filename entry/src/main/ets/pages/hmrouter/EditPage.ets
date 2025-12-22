@@ -11,6 +11,10 @@ import { EventHelper } from '../../util/EventHelper'
 import { WindowUtil } from '../../WindowUtil'
 import { compressStr, uncompressStr } from '../../CompressUtil'
 import { mappedJson, unmappedJson } from '../../MappedUtil'
+import { harmonyShare, systemShare } from '@kit.ShareKit'
+import { uniformTypeDescriptor } from '@kit.ArkData'
+import { Logger } from '../../util/Logger'
+import { common } from '@kit.AbilityKit'
 
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
@@ -27,6 +31,27 @@ export struct EditPage {
     return ""
   }
 
+  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
+    let config = AppManager.data.configUUIDMap.get(this.uuid ?? "")
+    if (config) {
+      compressStr(mappedJson(config)).then((data) => {
+        try {
+          let shareData: systemShare.SharedData = new systemShare.SharedData({
+            utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
+            content: 'https://easytier.cn/comp_cfg?cfg='+data,
+            title: '分享配置 '+this.name,
+            description: this.uuid ?? ""
+          });
+          sharableTarget.share(shareData);
+        }catch (e) {
+          Logger.error("systemShare"+JSON.stringify(e), "EditPage")
+        }
+      }).catch((e:Error) => {
+        Logger.error("compressedConfig"+JSON.stringify(e), "EditPage")
+      })
+    }
+  }
+
   aboutToAppear(): void {
     this.uuid = HMRouterMgr.getCurrentParam() as string;
     EventHelper.emitterListener("edit_open_sheet", (data) => {
@@ -36,9 +61,25 @@ export struct EditPage {
     EventHelper.emitterListener("edit_close_sheet", () => {
       this.sheet = false
     })
+    harmonyShare.on('knockShare', (target) => {
+      this.immersiveCallback(target)
+    });
+    if (deviceInfo.sdkApiVersion >= 20) {
+      harmonyShare.on('gesturesShare', (target) => {
+        this.immersiveCallback(target)
+      });
+    }
   }
 
   aboutToDisappear(): void {
+    harmonyShare.off('knockShare', (target) => {
+      this.immersiveCallback(target)
+    });
+    if (deviceInfo.sdkApiVersion >= 20) {
+      harmonyShare.off('gesturesShare', (target) => {
+        this.immersiveCallback(target)
+      });
+    }
     AppManager.data.editingInstance = undefined
   }
 
@@ -194,7 +235,22 @@ export struct EditPage {
                     let config = AppManager.easytier.getEditingConfig()
                     if (config) {
                       let str = await compressStr(mappedJson(config))
-                      let cfg = unmappedJson(await uncompressStr(str))
+                      let shareData: systemShare.SharedData = new systemShare.SharedData({
+                        utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
+                        content: 'https://easytier.cn/comp_cfg?cfg='+(str),
+                        title: AppManager.data.configUUIDNameMap.get(config.instance_id ?? ""),
+                        description: config.instance_id,
+                      });
+                      let controller: systemShare.ShareController = new systemShare.ShareController(shareData);
+                      let uiContext: UIContext = this.getUIContext();
+                      let context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
+                      controller.show(context, {
+                        selectionMode: systemShare.SelectionMode.SINGLE,
+                        previewMode: systemShare.SharePreviewMode.DEFAULT,
+                        excludedAbilities: [systemShare.ShareAbilityType.PRINT, systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
+                      }).catch(() => {
+                        Logger.error(`[Index] systemShareConfig::An unexpected error occurred.`);
+                      })
                     }
                   }),
                 HdsMenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), () => {

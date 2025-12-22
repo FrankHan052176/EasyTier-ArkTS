@@ -5,7 +5,7 @@ import { NetworkConfig } from './protobuf/api_manage';
 import { Logger, LogLocate } from './util/Logger';
 import { buffer, util } from '@kit.ArkTS';
 
-const defaultSequence = 'Instances_0_0_1_1|Favorite_1_0_1_1|Logs_0_1_1_1|SharedPeers_1_1_1_2|QQ_0_2_1_1'
+const defaultSequence = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
 
 @LogLocate("PreferenceUtil")
 @ObservedV2
@@ -26,7 +26,7 @@ export class PreferenceUtil {
   init(preference: preferences.Preferences) {
     this.preferences = preference
     this.configIDPreferences = preferences.getPreferencesSync(AppManager.content.context, { name: 'EasyTierConfigIDs' })
-    this.configIDPreferences.getAll((err, obj) => {
+    this.configIDPreferences.getAll(async (err, obj) => {
       if (err) {
         Logger.error(JSON.stringify(err), this)
         return
@@ -34,28 +34,30 @@ export class PreferenceUtil {
       for (const field of Object.keys(obj)) {
         let esObj: ESObject = obj
         try {
-          preferences.getPreferences(AppManager.content.context, { name: field }, (err, data) => {
-            if (err) {
-              Logger.error(JSON.stringify(err), this)
-              return
-            }
-            let textDecoderOptions: util.TextDecoderOptions = {
-              fatal: false,
-              ignoreBOM: true
-            }
-            let decodeToStringOptions: util.DecodeToStringOptions = {
-              stream: false
-            }
-            let textDecoder = util.TextDecoder.create('utf-8', textDecoderOptions);
-            let name = textDecoder.decodeToString(esObj[field] as Uint8Array, decodeToStringOptions);
-            this.configPreferences.set(field, data)
-            let config = data.getAllSync() as NetworkConfig
-            Logger.debug("read config: " + JSON.stringify(config, null, 2), this)
-            AppManager.data.readConfig(field, name as string, config)
-          })
-        } catch (_) {
-        }
+          let data = preferences.getPreferencesSync(AppManager.content.context, { name: field })
+          let textDecoderOptions: util.TextDecoderOptions = {
+            fatal: false,
+            ignoreBOM: true
+          }
+          let decodeToStringOptions: util.DecodeToStringOptions = {
+            stream: false
+          }
+          let textDecoder = util.TextDecoder.create('utf-8', textDecoderOptions);
+          let name = textDecoder.decodeToString(esObj[field] as Uint8Array, decodeToStringOptions);
+          this.configPreferences.set(field, data)
+          let config = data.getAllSync() as NetworkConfig
+          Logger.debug("read config: " + JSON.stringify(config, null, 2), this)
+          AppManager.data.readConfig(field, name as string, config)
+        } catch (_) {}
       }
+      let selected = this.preferences!.getSync("selected", "").toString()
+      AppManager.easytier.selected =
+        (selected.length > 0 && AppManager.data.configUUIDMap.has(selected)) ? selected : undefined
+      Logger.debug("read selected:" + selected+" set:"+AppManager.easytier.selected, this)
+      let favorite = this.preferences!.getSync("favorite", "").toString()
+      AppManager.data.favorite =
+        (favorite.length > 0 && AppManager.data.configUUIDMap.has(favorite)) ? favorite : undefined
+      Logger.debug("read favorite:" + favorite+" set:"+AppManager.data.favorite, this)
     })
     this.globalConfigs = preferences.getPreferencesSync(AppManager.content.context, { name: 'EasyTierGlobalConfigs' })
     this.globalConfigs.getAll((err, obj) => {
@@ -76,12 +78,6 @@ export class PreferenceUtil {
       this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
       this.dns = this.preferences.getSync("dns", false).valueOf() as string
       this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
-      let selected = this.preferences.getSync("selected", "").toString()
-      AppManager.easytier.selected =
-        (selected.length > 0 && AppManager.data.configUUIDMap.has(selected)) ? selected : undefined
-      let favorite = this.preferences.getSync("favorite", "").toString()
-      AppManager.data.favorite =
-        (favorite.length > 0 && AppManager.data.configUUIDMap.has(favorite)) ? favorite : undefined
       this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
       AppManager.layout.initSequence(this.raw_comp_sequence)
     } catch (error) {
