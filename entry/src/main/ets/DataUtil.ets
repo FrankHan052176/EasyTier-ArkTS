@@ -13,6 +13,8 @@ import { Cidr } from './class/config/Cidr';
 import { PortForward } from './class/config/PortForward';
 import { NetworkName } from './class/config/NetworkName';
 import { IP } from './class/config/IP';
+import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
+import { HMRouterMgr } from '@hadss/hmrouter';
 
 @LogLocate("DataUtil")
 @ObservedV2
@@ -170,6 +172,9 @@ export class DataUtil {
     this.configNameUUIDMap.set(name, config.instance_id)
     this.configUUIDNameMap.set(config.instance_id, name)
     AppManager.preference.addConfig(config.instance_id, name, config)
+    const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
+    AppManager.data.editingInstance = config.instance_id
+    HMRouterMgr.push({ pageUrl: 'EditPage', param: config.instance_id, animator: animator });
     return config
   }
 
@@ -189,6 +194,8 @@ export class DataUtil {
     if (cfg.startsWith("ERROR")) {
       return false
     }
+    let instance_name = cfg_toml.match(/^\s*instance_name\s*=\s*["'](.+?)["']\s*(?:#.*)?$/m)
+    let name = instance_name ? instance_name[1] : undefined
     let config: NetworkConfig = JSON.parse(cfg)
     if (config.networking_method === NetworkingMethod.PublicServer && config.public_server_url) {
       config.hostname = getHostname()
@@ -196,9 +203,12 @@ export class DataUtil {
       config.peer_urls.push(config.public_server_url)
     }
     this.configUUIDMap.set(config.instance_id!, config)
-    this.configNameUUIDMap.set(config.instance_id!, config.instance_id!)
-    this.configUUIDNameMap.set(config.instance_id!, config.instance_id!)
+    this.configNameUUIDMap.set(name ?? config.instance_id!, config.instance_id!)
+    this.configUUIDNameMap.set(config.instance_id!, name ?? config.instance_id!)
     AppManager.preference.addConfig(config.instance_id!, config.instance_id!, config)
+    const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
+    AppManager.data.editingInstance = config.instance_id
+    HMRouterMgr.push({ pageUrl: 'EditPage', param: config.instance_id, animator: animator });
     return true
   }
 

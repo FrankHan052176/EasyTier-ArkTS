@@ -70,9 +70,12 @@ export struct Instances {
           SymbolGlyph($r('sys.symbol.key_shield'))
             .fontSize(24)
             .fontColor([$r('sys.color.brand')])
+          Blank()
+          Text(this.uuids.length.toString())
+            .fontSize(14)
+            .fontColor($r('sys.color.font_secondary'))
         }
         .width('100%')
-        .justifyContent(FlexAlign.Start)
 
         Column() {
           InstanceSelector({
@@ -112,9 +115,12 @@ export struct Instances {
         SymbolGlyph($r('sys.symbol.key_shield'))
           .fontSize(24)
           .fontColor([$r('sys.color.brand')])
+        Blank()
+        Text(this.uuids.length.toString())
+          .fontSize(14)
+          .fontColor($r('sys.color.font_secondary'))
       }
       .width('100%')
-      .justifyContent(FlexAlign.Start)
       .margin({ bottom: 8 })
 
       Row() {
@@ -155,9 +161,12 @@ export struct Instances {
         SymbolGlyph($r('sys.symbol.key_shield'))
           .fontSize(24)
           .fontColor([$r('sys.color.brand')])
+        Blank()
+        Text(this.uuids.length.toString())
+          .fontSize(14)
+          .fontColor($r('sys.color.font_secondary'))
       }
       .width('100%')
-      .justifyContent(FlexAlign.Start)
       .margin({ bottom: 8 })
 
       if (this.uuids.length === 0) {
@@ -168,6 +177,7 @@ export struct Instances {
             ListItem() {
               this.ListItemView(uuid, false)
             }
+            .swipeAction({ end: this.DeleteAction(uuid) })
           })
         }
         .width('100%')
@@ -205,6 +215,7 @@ export struct Instances {
             ListItem() {
               this.ListItemView(uuid, true)
             }
+            .swipeAction({ end: this.DeleteAction(uuid) })
           })
         }
         .width('100%')
@@ -228,19 +239,16 @@ export struct Instances {
           .fontColor(this.selectedUuid === uuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        
-        if (showFavorite) {
-          Text(uuid)
-            .fontSize(10)
-            .fontColor($r('sys.color.font_tertiary'))
-            .margin({ top: 2 })
-            .maxLines(1)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-        }
+
+        Text(uuid)
+          .fontSize(10)
+          .fontColor($r('sys.color.font_tertiary'))
+          .margin({ top: 2 })
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
-      .onClick(() => this.select(uuid))
 
       Row({ space: 10 }) {
         if (showFavorite) {
@@ -260,6 +268,7 @@ export struct Instances {
     .padding(10)
     .backgroundColor($r('sys.color.comp_background_tertiary'))
     .borderRadius(8)
+    .onClick(() => this.select(uuid))
   }
 
   @Builder
@@ -275,6 +284,25 @@ export struct Instances {
     .backgroundColor($r('sys.color.comp_background_tertiary'))
     .borderRadius(12)
     .onClick(action)
+  }
+
+  @Builder
+  DeleteAction(uuid: string) {
+    Row() {
+      Button({ type: ButtonType.Circle }) {
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(22)
+          .fontColor([Color.White])
+      }
+      .width(40)
+      .height(40)
+      .backgroundColor($r('sys.color.warning'))
+      .onClick(() => {
+        AppManager.data.delConfig(uuid)
+      })
+    }
+    .justifyContent(FlexAlign.Center)
+    .padding({ left: 10 })
   }
 
   @Builder

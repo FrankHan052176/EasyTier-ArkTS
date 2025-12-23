@@ -7,6 +7,8 @@ import { hdsEffect } from '@kit.UIDesignKit';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { AppManager, Spx2vp } from '../../AppManager';
 import { ColumnIlluminatedModifier, RowIlluminatedModifier } from '../../class/modifier/LightModifier';
+import { uncompressStr } from '../../CompressUtil';
+import { unmappedJson } from '../../MappedUtil';
 
 export let config_name: string | undefined
 
@@ -151,34 +153,22 @@ export struct NewConfig_Content {
             .margin({ right: 10 })
             .fontColor($r("sys.color.font_primary"))
           ToolButtonWithPaste({
-            pasteCallback: (value) => {
+            pasteCallback: async (value) => {
               if (value) {
-                try {
-                  let urlObject = url.URL.parseURL(value);
-                  let cfg = urlObject.params.get("cfg")
-                  if (cfg) {
-                    // TODO 解压缩配置
-                  }
-                } catch (err) {
-                  if (AppManager.data.importToml(value)) {
+                if (AppManager.data.importToml(value)) {
+                  this.getUIContext().getPromptAction().showToast({
+                    message: "导入成功"
+                  })
+                } else {
+                  try {
                     this.getUIContext().getPromptAction().showToast({
-                      message: "导入成功"
+                      message: "导入失败,请导入标准Toml配置或其他鸿蒙设备分享的链接\n导入文本为：" + value
                     })
-                  } else {
-                    try {
-                      this.getUIContext().getPromptAction().showToast({
-                        message: "导入失败,请导入标准Toml配置或其他鸿蒙设备分享的链接\n导入文本为：" + value
-                      })
-                    } catch (e) {
-                      Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`, "NewConfig");
-                    }
+                  } catch (e) {
+                    Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`, "NewConfig");
                   }
                 }
-                EventHelper.emitterPublish("close_sheet", {
-                  data: {
-                    type: "new"
-                  }
-                })
+                EventHelper.emitterPublish("home_close_sheet")
               } else {
                 try {
                   this.getUIContext().getPromptAction().showToast({
