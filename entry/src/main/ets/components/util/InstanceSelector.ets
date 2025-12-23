@@ -136,7 +136,7 @@ export struct InstanceSelector {
           .fontColor($r('sys.color.font_secondary'))
           .margin({ top: 4 })
       }
-      .width(160)
+      .width('100%')
       .justifyContent(FlexAlign.Center)
     }
     .layoutWeight(1)

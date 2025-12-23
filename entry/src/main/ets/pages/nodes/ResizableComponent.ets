@@ -288,13 +288,14 @@ export struct ResizableComponent {
               if (floatPos.x >= 0 && !AppManager.layout.isOutOfBounds(floatPos.x, floatPos.y, this.comp_size.lane_w,
                 this.comp_size.lane_h)) {
                 if (this.comp_size.next_grid_x != floatPos.x || this.comp_size.next_grid_y != floatPos.y) {
-                  this.comp_size.next_grid_x = floatPos.x
-                  this.comp_size.next_grid_y = floatPos.y
-                  this.comp_size.find_next_grid = true
-                  AppManager.layout.pushObstacle(this.comp_type, {
-                    x: this.comp_size.next_grid_x,
-                    y: this.comp_size.next_grid_y,
-                  }, this.comp_size.lane_w, this.comp_size.lane_h)
+                  if (AppManager.layout.pushObstacle(this.comp_type, {
+                    x: floatPos.x,
+                    y: floatPos.y,
+                  }, this.comp_size.lane_w, this.comp_size.lane_h)) {
+                    this.comp_size.next_grid_x = floatPos.x
+                    this.comp_size.next_grid_y = floatPos.y
+                    this.comp_size.find_next_grid = true
+                  }
                 }
               } else {
                 AppManager.layout.cancelTempPos()

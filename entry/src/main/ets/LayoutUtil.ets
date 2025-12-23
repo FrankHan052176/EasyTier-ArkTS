@@ -260,6 +260,8 @@ export class LayoutUtil {
       if (compSize.find_next_grid) {
         animateToImmediately(layoutAnimationParm, () => {
           compSize.find_next_grid = false
+          compSize.next_grid_x = compSize.grid_x
+          compSize.next_grid_y = compSize.grid_y
         })
       }
     })
@@ -304,8 +306,10 @@ export class LayoutUtil {
     return overlapComps
   }
 
-  pushObstacle(comp_name: string, pos: Position, width: number, height: number) {
+  pushObstacle(comp_name: string, pos: Position, width: number, height: number): boolean {
     let overlapComps: string[] = this.getObstacles(comp_name, pos, width, height)
+    if (overlapComps.length === 0) return true;
+
     overlapComps.sort((a, b) => {
       let size1 = this.getCompSize(a)
       let size2 = this.getCompSize(b)
@@ -314,22 +318,42 @@ export class LayoutUtil {
       }
       return size1.grid_x - size2.grid_x;
     })
-    overlapComps.forEach((comp) => {
+
+    let simulatedMoves = new Map<string, CompSize>();
+
+    for (const comp of overlapComps) {
       let compSize = this.getCompSize(comp)
-      let tempPos = this.findFreeSpace(compSize.lane_w, compSize.lane_h)
+      let otherComps = this.comp_sequence.filter(c => c !== comp)
+      let tempPos = this.findFreeSpace(compSize.lane_w, compSize.lane_h, otherComps, simulatedMoves)
+
       if (tempPos.x >= 0) {
-        animateToImmediately({
-          duration: 200,
-          curve: Curve.Friction
-        }, () => {
-          compSize.find_next_grid = true
-          compSize.next_grid_x = tempPos.x
-          compSize.next_grid_y = tempPos.y
-        })
+        let simSize = new CompSize()
+        simSize.grid_x = compSize.grid_x
+        simSize.grid_y = compSize.grid_y
+        simSize.lane_w = compSize.lane_w
+        simSize.lane_h = compSize.lane_h
+        simSize.find_next_grid = true
+        simSize.next_grid_x = tempPos.x
+        simSize.next_grid_y = tempPos.y
+        simulatedMoves.set(comp, simSize)
       } else {
-        this.comp_sequence.splice(this.comp_sequence.indexOf(comp_name))
+        return false
       }
+    }
+
+    simulatedMoves.forEach((simSize, comp) => {
+      let realCompSize = this.getCompSize(comp)
+      animateToImmediately({
+        duration: 200,
+        curve: Curve.Friction
+      }, () => {
+        realCompSize.find_next_grid = true
+        realCompSize.next_grid_x = simSize.next_grid_x
+        realCompSize.next_grid_y = simSize.next_grid_y
+      })
     })
+
+    return true
   }
 
   canPlaceAt(
@@ -341,7 +365,7 @@ export class LayoutUtil {
     overrideCompSize: Map<string, CompSize> | undefined
   ): boolean {
     for (const comp of overrideSequence) {
-      let compSize = overrideCompSize ? overrideCompSize.get(comp)! : this.getCompSize(comp)
+      let compSize = (overrideCompSize && overrideCompSize.has(comp)) ? overrideCompSize.get(comp)! : this.getCompSize(comp)
       let comp_x = compSize.find_next_grid ? compSize.next_grid_x : compSize.grid_x;
       let comp_y = compSize.find_next_grid ? compSize.next_grid_y : compSize.grid_y;
       const overlap =
