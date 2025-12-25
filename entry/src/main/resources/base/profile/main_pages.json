@@ -1,6 +1,5 @@
 {
   "src": [
-    "pages/HMRouterIndex",
-    "pages/StatusBarPage"
+    "pages/HMRouterIndex"
   ]
 }

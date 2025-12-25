@@ -133,6 +133,52 @@ export function Setting_Sheet() {
         bottom: 5
       })
     }
+    .margin({ bottom: 10 })
+
+    ListItem() {
+      Row() {
+        Row() {
+          SymbolGlyph($r("sys.symbol.disconnect"))
+            .fontColor([$r("sys.color.font_primary")])
+            .fontSize(16)
+            .margin({ right: 5 })
+          Text("UI 设置")
+            .fontColor($r("sys.color.font_primary"))
+            .fontSize(16)
+        }
+
+        SymbolGlyph($r("sys.symbol.arrow_right"))
+          .fontColor([$r("sys.color.font_primary")])
+          .fontSize(16)
+          .margin({ right: 5 })
+      }
+      .height(49)
+      .borderRadius(18)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .backgroundColor($r("sys.color.background_secondary"))
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
+      .clickEffect({
+        level: ClickEffectLevel.LIGHT
+      })
+      .onClick(() => {
+        EventHelper.emitterPublish("home_close_sheet")
+        setTimeout(() => {
+          EventHelper.emitterPublish("home_open_sheet", {
+            data: {
+              type: "ui"
+            }
+          })
+        }, 10)
+      })
+    }
+    .margin({ bottom: 10 })
 
     ListItemGroup({ header: settingGroupHeader("高级") }) {
       ListItem() {
@@ -217,20 +263,25 @@ export function Setting_Sheet() {
                 .fontSize(16)
                 .margin({ right: 5 })
             }
-
-            TextInput({ text: AppManager.preference.dns })
-              .width(150)
-              .onChange((value) => {
-                AppManager.preference.dns = value
-              })
+            .padding(10)
+            Row() {
+              TextInput({ text: AppManager.preference.dns })
+                .padding(4)
+                .width(150)
+                .height('100%')
+                .borderRadius(4)
+                .onChange((value) => {
+                  AppManager.preference.dns = value
+                })
+            }
+            .padding(10)
           }
-          .height(60)
+          .height(49)
           .borderRadius(18)
           .alignItems(VerticalAlign.Center)
           .justifyContent(FlexAlign.SpaceBetween)
           .width('100%')
           .backgroundColor($r("sys.color.background_secondary"))
-          .padding(10)
         }
       }
     }

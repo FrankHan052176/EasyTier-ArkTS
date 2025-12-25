@@ -132,7 +132,9 @@ export class LayoutUtil {
     if (this.compSizeMap.has(type)) {
       return this.compSizeMap.get(type)!
     } else {
-      return new CompSize().withType(type)
+      let size = new CompSize()
+      this.compSizeMap.set(type, size)
+      return size.withType(type)
     }
   }
 
@@ -320,6 +322,12 @@ export class LayoutUtil {
     })
 
     let simulatedMoves = new Map<string, CompSize>();
+    let draggingSimSize = new CompSize();
+    draggingSimSize.grid_x = pos.x;
+    draggingSimSize.grid_y = pos.y;
+    draggingSimSize.lane_w = width;
+    draggingSimSize.lane_h = height;
+    simulatedMoves.set(comp_name, draggingSimSize);
 
     for (const comp of overlapComps) {
       let compSize = this.getCompSize(comp)
@@ -342,6 +350,9 @@ export class LayoutUtil {
     }
 
     simulatedMoves.forEach((simSize, comp) => {
+      if (comp === comp_name) {
+        return
+      }
       let realCompSize = this.getCompSize(comp)
       animateToImmediately({
         duration: 200,
@@ -386,7 +397,7 @@ export class LayoutUtil {
     overrideSequence: string[] = this.comp_sequence,
     overrideCompSize: Map<string, CompSize> | undefined = undefined
   ): Position {
-    for (let y = 0; y + itemH <= this.LayoutHeight(); y++) {
+    for (let y = 0; y + itemH <= this.LayoutHeight()+10; y++) {
       for (let x = 0; x + itemW <= this.LayoutWidth(); x++) {
         if (this.canPlaceAt(x, y, itemW, itemH, overrideSequence, overrideCompSize)) {
           return { x: x, y: y };
@@ -394,5 +405,62 @@ export class LayoutUtil {
       }
     }
     return { x: -1, y: -1 };
+  }
+
+  updateVisibleComponents(newTypes: string[]) {
+    let oldSequence = this.comp_sequence
+    this.comp_sequence = oldSequence.filter(type => newTypes.includes(type))
+    let added = newTypes.filter(type => !oldSequence.includes(type))
+
+    added.forEach(type => {
+      let compSize = this.getCompSize(type)
+      if (compSize.lane_w <= 0) {
+        compSize.lane_w = 2
+      }
+      if (compSize.lane_h <= 0) {
+        compSize.lane_h = 1
+      }
+      let pos = this.findFreeSpace(compSize.lane_w, compSize.lane_h)
+      if (pos.x === -1) {
+        let maxY = 0
+        this.comp_sequence.forEach(t => {
+          let s = this.getCompSize(t)
+          maxY = Math.max(maxY, s.grid_y + s.lane_h)
+        })
+        pos = { x: 0, y: maxY }
+      }
+      compSize.grid_x = pos.x
+      compSize.grid_y = pos.y
+      this.comp_sequence.push(type)
+    })
+    this.updateSequence()
+    this.updateNewUIType()
+  }
+
+  @Computed
+  get hidden_comps(): string[] {
+    return this.comp_types.filter(type => !this.comp_sequence.includes(type))
+  }
+
+  removeComponent(type: string) {
+    const index = this.comp_sequence.indexOf(type);
+    if (index > -1) {
+      let compSize = this.getCompSize(type);
+      compSize.isResize = false; 
+      
+      this.comp_sequence.splice(index, 1);
+      this.updateSequence();
+    }
+  }
+
+  addComponent(type: string) {
+    if (this.comp_sequence.includes(type)) return;
+    let compSize = this.getCompSize(type);
+    compSize.setSize(1, 1)
+    let pos = this.findFreeSpace(1, 1);
+    compSize.setPos(pos.x, pos.y)
+    Logger.debug(JSON.stringify(pos))
+    this.comp_sequence.push(type);
+    this.updateSequence();
   }
 }

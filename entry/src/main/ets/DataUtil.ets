@@ -106,8 +106,10 @@ export class DataUtil {
     }
   }
 
-  public init() {
+  public async init() {
     if (AppManager.KVManager && !AppManager.preference.noOldData) {
+      Logger.warn('Find old Data.', this)
+      AppManager.preference.noOldData = true
       const options: distributedKVStore.Options = {
         createIfMissing: true,
         encrypt: false,
@@ -117,42 +119,44 @@ export class DataUtil {
         securityLevel: distributedKVStore.SecurityLevel.S2
       };
       try {
-        AppManager.KVManager.getKVStore<distributedKVStore.DeviceKVStore>('configs', options,
-          (err, store: distributedKVStore.DeviceKVStore) => {
+        let store = await AppManager.KVManager.getKVStore<distributedKVStore.DeviceKVStore>('configs', options)
+        Logger.debug('Succeeded in getting KVStore.', this)
+        store.getEntries("peer_", (err, entries) => {
+          if (err) {
+            Logger.error(`Failed to get KVStore: Code:${err.code},message:${err.message}`, this);
+            return;
+          }
+          if (entries.length == 0) {
+            Logger.debug('No Peer', this)
+          }else {
+            entries.forEach((entry) => {
+              let value = new Url()
+              if (value.fromString(entry.value.value.toString())) {
+                Logger.debug('Read Peer: '+value.toString(), this)
+                this.getDataSource("peer").add(value)
+              }
+            })
+          }
+          store.getEntries("config_", (err, entries) => {
             if (err) {
               Logger.error(`Failed to get KVStore: Code:${err.code},message:${err.message}`, this);
               return;
             }
-            Logger.debug('Succeeded in getting KVStore.', this);
-            store.getEntries("config_", (err, entries) => {
-              if (err) {
-                return;
-              }
-              if (entries.length == 0) {
-                return;
-              }
+            if (entries.length == 0) {
+              Logger.debug('No Config', this)
+            }else {
               entries.forEach((entry) => {
                 let toml = entry.value.value.toString()
+                Logger.debug('Read Config: '+entry.key, this)
                 this.importToml(toml)
               })
-            })
-            store.getEntries("peer_", (err, entries) => {
-              if (err) {
-                return;
-              }
-              if (entries.length == 0) {
-                return;
-              }
-              entries.forEach((entry) => {
-                let value = new Url()
-                if (value.fromString(entry.value.value.toString())) {
-                  this.getDataSource("peer").add(value)
-                }
-              })
-            })
+            }
+            AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs')
           })
-        AppManager.preference.noOldData = true
-      } catch (_) {
+        })
+      } catch (err) {
+        Logger.error(`Failed to get KVStore: Code:${err.code},message:${err.message}`, this);
+        AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs')
       }
     }
   }
@@ -195,6 +199,7 @@ export class DataUtil {
       return false
     }
     let instance_name = cfg_toml.match(/^\s*instance_name\s*=\s*["'](.+?)["']\s*(?:#.*)?$/m)
+    Logger.debug("import toml find name: "+JSON.stringify(instance_name))
     let name = instance_name ? instance_name[1] : undefined
     let config: NetworkConfig = JSON.parse(cfg)
     if (config.networking_method === NetworkingMethod.PublicServer && config.public_server_url) {
@@ -205,7 +210,7 @@ export class DataUtil {
     this.configUUIDMap.set(config.instance_id!, config)
     this.configNameUUIDMap.set(name ?? config.instance_id!, config.instance_id!)
     this.configUUIDNameMap.set(config.instance_id!, name ?? config.instance_id!)
-    AppManager.preference.addConfig(config.instance_id!, config.instance_id!, config)
+    AppManager.preference.addConfig(config.instance_id!, name ?? config.instance_id!, config)
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
     AppManager.data.editingInstance = config.instance_id
     HMRouterMgr.push({ pageUrl: 'EditPage', param: config.instance_id, animator: animator });

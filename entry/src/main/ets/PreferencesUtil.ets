@@ -20,6 +20,7 @@ export class PreferenceUtil {
   @Trace dev: boolean = false
   @Trace dns: string = ""
   @Trace noOldData: boolean = false
+  @Trace posture_detection: boolean = false
   inittedLog: boolean = false
   isInit: boolean = true
 
@@ -78,6 +79,7 @@ export class PreferenceUtil {
       this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
       this.dns = this.preferences.getSync("dns", false).valueOf() as string
       this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
+      this.posture_detection = this.preferences.getSync("posture_detection", false).valueOf() as boolean
       this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
       AppManager.layout.initSequence(this.raw_comp_sequence)
     } catch (error) {
@@ -102,7 +104,7 @@ export class PreferenceUtil {
     }
   }
 
-  @Monitor("show_log","vpn_routes","dev","dns")
+  @Monitor("show_log","vpn_routes","dev","dns","posture_detection","noOldData")
   onChange(monitor: IMonitor) {
     monitor.dirty.forEach((path: string) => {
       if (this.preferences !== undefined && !this.isInit) {

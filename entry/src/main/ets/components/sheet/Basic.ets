@@ -9,6 +9,7 @@ import { AddTitle, EditTitle } from './AddAndEditTitle'
 import { NewConfig_Content, NewConfig_Title } from './NewConfig'
 import { Rename_Content, Rename_Title } from './Rename'
 import { Setting_Sheet, Setting_Title } from './Settings'
+import { UI_Content, UI_Title } from './UIModifier'
 
 @Builder
 export function SheetContentBuilder(type: string) {
@@ -87,6 +88,8 @@ export struct SheetContent {
       }
     } else if (this.type === "rename") {
       Rename_Content()
+    } else if (this.type === "ui") {
+      UI_Content()
     } else {
       Text(this.type)
     }
@@ -128,6 +131,8 @@ export struct SheetTitle {
       EditTitle({ fieldType: this.editFieldType, fieldName: this.editFieldName })
     } else if (this.type === "rename") {
       Rename_Title()
+    } else if (this.type === "ui") {
+      UI_Title()
     } else {
       Text(this.type)
     }

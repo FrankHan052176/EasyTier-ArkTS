@@ -61,6 +61,10 @@ export struct HomePage {
   }
 
   aboutToAppear(): void {
+    EventHelper.emitterListener("home_open_sheet", (data) => {
+      this.sheet_type = data.data!.type as string
+      this.sheet = true
+    })
     EventHelper.emitterListener("home_close_sheet", () => {
       this.sheet = false
     })

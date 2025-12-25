@@ -6,6 +6,9 @@ import { AddFormMenuItem } from '@kit.ArkUI'
 import { formBindingData } from '@kit.FormKit'
 import { EventHelper } from '../../util/EventHelper'
 import { layoutAnimationParm } from '../../pages/nodes/ResizableComponent'
+import { symbolWithSize } from '../../pages/hmrouter/HomePage'
+import { Logger } from '../../util/Logger'
+import { JSON } from '@kit.ArkTS'
 
 @Builder
 export function DragOverlayBuilder(type: string | undefined, onlyDrag: boolean = false, compPos: Position | undefined) {
@@ -20,6 +23,20 @@ export struct DragOverlay {
   @Param @Require type: string | undefined
   @Param @Require onlyDrag: boolean
   @Local openMenu: boolean = false
+
+  aboutToAppear(): void {
+    EventHelper.emitterListener("drag_overlay_move", () => {
+      this.openMenu = false
+    })
+    Logger.debug("Drag Overlay "+this.type)
+    if (!this.onlyDrag) {
+      setTimeout(() => {
+        animateToImmediately(layoutAnimationParm, () => {
+          this.openMenu = true
+        })
+      }, 1)
+    }
+  }
 
   @Computed
   get GridSize() {
@@ -43,37 +60,13 @@ export struct DragOverlay {
   @Builder
   MyMenu() {
     Menu() {
-      AddFormMenuItem(
-        {
-          bundleName: 'top.frankhan.easytier', // 包名
-          abilityName: 'EntryFormAbility', // 模块ability名称
-          parameters: {
-            'ohos.extra.param.key.form_dimension': 2, // 卡片尺寸，1代表1*2卡片，2代表2*2卡片，3代表2*4卡片，4代表4*4卡片，7代表6*4卡片
-            'ohos.extra.param.key.form_name': 'widget', // 卡片名称
-            'ohos.extra.param.key.module_name': 'entry' // 卡片所属的模块名称
-          },
-        },
-        this.type!,
-        {
-          formBindingData: formBindingData.createFormBindingData({ type: this.type }),
-          callback: (error, formId) => {
-
-          }
-        }
-      )
-    }
-  }
-
-  aboutToAppear(): void {
-    EventHelper.emitterListener("drag_overlay_move", () => {
-      this.openMenu = false
-    })
-    if (!this.onlyDrag) {
-      setTimeout(() => {
-        animateToImmediately(layoutAnimationParm, () => {
-          this.openMenu = true
-        })
-      }, 1)
+      MenuItem({
+        symbolStartIcon: symbolWithSize($r('sys.symbol.eye_slash'), 24),
+        content: "隐藏组件"
+      })
+      .onClick(() => {
+        AppManager.layout.removeComponent(this.type!)
+      })
     }
   }
 
