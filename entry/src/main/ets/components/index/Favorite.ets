@@ -1,9 +1,15 @@
 import { AppManager } from '../../AppManager'
 import { sendToast } from '../../ToastUtil'
+import { LightModifier } from '../../class/modifier/SymbolLight'
+import { hdsEffect } from '@kit.UIDesignKit'
+import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 
 @ComponentV2
 export struct Favorite {
   @Local trigger: number = 0
+  @Local lightMod: LightModifier = new LightModifier('rgba(255,200,50,1)')
+  @Local lightMod2: LightModifier = new LightModifier('rgba(255,200,50,1)', 1, 48)
+  @Local bgMode: StackLightModifier = new StackLightModifier()
 
   @Computed
   get w(): number {
@@ -66,16 +72,38 @@ export struct Favorite {
     .width('100%')
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
+    .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
   }
 
-  // --- 1x1 布局 ---
+  @Builder
+  point() {
+    Column()
+      .size({width:1,height:1})
+      .attributeModifier(this.lightMod)
+  }
+
+  @Builder
+  point2() {
+    Column()
+      .size({width:1,height:1})
+      .attributeModifier(this.lightMod2)
+  }
+
+  @Builder
+  Logo() {
+    SymbolGlyph($r('sys.symbol.star_fill'))
+      .fontSize(24)
+      .fontColor([this.brandColor])
+      .overlay(this.point,{
+        align: Alignment.Center
+      })
+  }
+
   @Builder
   Size1x1() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.star_fill'))
-          .fontSize(24)
-          .fontColor([this.brandColor])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -84,11 +112,16 @@ export struct Favorite {
         this.EmptyView(24, 12)
       } else {
         Column() {
-          SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_round_triangle_fill"))
-            .fontSize(48)
-            .fontColor([this.brandColor])
-            .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
-            .onClick(() => this.toggle())
+          Column() {
+            SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_round_triangle_fill"))
+              .fontSize(48)
+              .fontColor([this.brandColor])
+              .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
+              .onClick(() => this.toggle())
+          }
+          .overlay(this.point2,{
+            align: Alignment.Center
+          })
           
           Text(this.favoriteName)
             .fontSize(14)
@@ -101,9 +134,10 @@ export struct Favorite {
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
         .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
       }
     }
-    .padding(12)
+    .padding(16)
     .width('100%')
     .height('100%')
   }
@@ -113,9 +147,7 @@ export struct Favorite {
   Size2x1() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.star_fill'))
-          .fontSize(24)
-          .fontColor([this.brandColor])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -143,6 +175,7 @@ export struct Favorite {
           .alignItems(HorizontalAlign.Start)
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
+          .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
 
           Column() {
             SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_round_triangle_fill"))
@@ -154,6 +187,7 @@ export struct Favorite {
           .justifyContent(FlexAlign.Center)
           .height('100%')
           .padding({ left: 16 })
+          .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
         }
       }
       .width('100%')
@@ -169,9 +203,7 @@ export struct Favorite {
   Size1x2() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.star_fill'))
-          .fontSize(24)
-          .fontColor([this.brandColor])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -206,6 +238,7 @@ export struct Favorite {
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
         .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
       }
     }
     .padding(16)
@@ -218,9 +251,7 @@ export struct Favorite {
   Size2x2() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.star_fill'))
-          .fontSize(24)
-          .fontColor([this.brandColor])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -264,6 +295,7 @@ export struct Favorite {
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
         .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
       }
     }
     .padding(16)
@@ -285,5 +317,6 @@ export struct Favorite {
     }
     .width('100%')
     .height('100%')
+    .attributeModifier(this.bgMode)
   }
 }

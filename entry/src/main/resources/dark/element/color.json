@@ -91,6 +91,14 @@
     {
       "name": "point_light",
       "value": "#ffffff"
+    },
+    {
+      "name": "bg_light_green",
+      "value": "#000000"
+    },
+    {
+      "name": "bg_light_yellow",
+      "value": "#000000"
     }
   ]
 }

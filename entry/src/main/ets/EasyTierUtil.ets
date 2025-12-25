@@ -11,6 +11,7 @@ import { NetworkSegment } from './class/NetworkSegment'
 import { SafeSet } from './util/SafeSet'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { ValueType } from '@kit.ArkData'
+import { ContentUtil } from './ContentUtil'
 
 @LogLocate("EasyTierUtil")
 @ObservedV2
@@ -230,7 +231,7 @@ export class EasyTierUtil {
   }
 
   public getEditingConfig() {
-    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "")
+    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "") ?? ContentUtil.getDefaultConfig("")
   }
 
   public getEditingInstance() {

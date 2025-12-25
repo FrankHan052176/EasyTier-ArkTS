@@ -2,9 +2,14 @@ import { AppManager } from '../../AppManager'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { HMRouterTransitions } from '@hadss/hmrouter-transitions'
 import { InstanceSelector } from '../util/InstanceSelector'
+import { LightModifier } from '../../class/modifier/SymbolLight'
+import { StackLightModifier } from '../../class/modifier/BackgroundLight'
+import { hdsEffect } from '@kit.UIDesignKit'
 
 @ComponentV2
 export struct Instances {
+  @Local lightMod: LightModifier = new LightModifier($r('sys.color.brand'))
+  @Local bgMode: StackLightModifier = new StackLightModifier()
   @Computed
   get w(): number {
     return AppManager.layout.getCompSize('Instances').lane_w
@@ -59,7 +64,23 @@ export struct Instances {
     HMRouterMgr.push({ pageUrl: 'EditPage', param: uuid, animator: animator });
   }
 
-  // --- 1x1 布局 ---
+  @Builder
+  point() {
+    Column()
+      .size({width:1,height:1})
+      .attributeModifier(this.lightMod)
+  }
+
+  @Builder
+  Logo() {
+    SymbolGlyph($r('sys.symbol.key_shield'))
+      .fontSize(24)
+      .fontColor([$r('sys.color.brand')])
+      .overlay(this.point,{
+        align: Alignment.Center
+      })
+  }
+
   @Builder
   Size1x1() {
     Column() {
@@ -67,9 +88,7 @@ export struct Instances {
         this.EmptyView(24, 10)
       } else {
         Row() {
-          SymbolGlyph($r('sys.symbol.key_shield'))
-            .fontSize(24)
-            .fontColor([$r('sys.color.brand')])
+          this.Logo()
           Blank()
           Text(this.uuids.length.toString())
             .fontSize(14)
@@ -101,7 +120,7 @@ export struct Instances {
         .width('100%')
       }
     }
-    .padding(12)
+    .padding(16)
     .width('100%')
     .height('100%')
     .id("instance_card_" + this.selectedUuid)
@@ -112,9 +131,7 @@ export struct Instances {
   Size2x1() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.key_shield'))
-          .fontSize(24)
-          .fontColor([$r('sys.color.brand')])
+        this.Logo()
         Blank()
         Text(this.uuids.length.toString())
           .fontSize(14)
@@ -158,9 +175,7 @@ export struct Instances {
   Size1x2() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.key_shield'))
-          .fontSize(24)
-          .fontColor([$r('sys.color.brand')])
+        this.Logo()
         Blank()
         Text(this.uuids.length.toString())
           .fontSize(14)
@@ -196,9 +211,7 @@ export struct Instances {
   Size2x2() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.key_shield'))
-          .fontSize(24)
-          .fontColor([$r('sys.color.brand')])
+        this.Logo()
         Blank()
         Text(this.uuids.length.toString())
           .fontSize(14)
@@ -254,7 +267,7 @@ export struct Instances {
         if (showFavorite) {
           SymbolGlyph(AppManager.data.isFavorite(uuid) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"))
             .fontSize(18)
-            .fontColor([AppManager.data.isFavorite(uuid) ? $r("sys.color.brand") : $r("sys.color.font_secondary")])
+            .fontColor([AppManager.data.isFavorite(uuid) ? 'rgba(255,200,50,1)' : $r("sys.color.font_secondary")])
             .onClick(() => AppManager.data.changeFavorite(uuid))
         }
         
@@ -335,7 +348,7 @@ export struct Instances {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r("sys.color.comp_background_primary"))
     .borderRadius(18)
+    .attributeModifier(this.bgMode)
   }
 }

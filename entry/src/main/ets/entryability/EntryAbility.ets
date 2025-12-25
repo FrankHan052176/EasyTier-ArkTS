@@ -1,4 +1,4 @@
-import { UIAbility, Want, WantAgent, wantAgent } from '@kit.AbilityKit';
+import { Configuration, UIAbility, Want, WantAgent, wantAgent } from '@kit.AbilityKit';
 import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
 import { geoLocationManager } from '@kit.LocationKit';
 import { window } from '@kit.ArkUI';
@@ -105,6 +105,7 @@ export default class EntryAbility extends UIAbility {
         .pushAsync()
     })
     this.readSharedData(want)
+    WindowUtil.colorMode = this.context.config.colorMode ?? -1
   }
 
   onNewWant(want: Want) {
@@ -239,8 +240,7 @@ export default class EntryAbility extends UIAbility {
     })
   }
 
-  prepare_vpn(callback: () => void = () => {
-  }) {
+  prepare_vpn(callback: () => void = () => {}) {
     if (this.vpnConnection !== undefined) {
       callback()
       return;
@@ -297,5 +297,10 @@ export default class EntryAbility extends UIAbility {
 
   onBackground(): void {
     WindowUtil.background()
+  }
+
+  onConfigurationUpdate(newConfig: Configuration): void {
+    WindowUtil.colorMode = newConfig.colorMode ?? -1
+    EventHelper.emitterPublish("update_color_mode")
   }
 }

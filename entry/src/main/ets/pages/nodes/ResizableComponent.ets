@@ -3,7 +3,6 @@ import { AppManager } from '../../AppManager'
 import { CompSize, Position } from '../../LayoutUtil'
 import { lane } from '../../util/Conversion'
 import { EventHelper } from '../../util/EventHelper'
-import { Logger } from '../../util/Logger'
 import { UIType, WindowUtil } from '../../WindowUtil'
 import { getCompNode } from './CompNode'
 
@@ -239,9 +238,6 @@ export struct ResizableComponent {
             x: (this.comp_size.next_grid_x - this.comp_size.grid_x) * (lane(1) + 10),
             y: (this.comp_size.next_grid_y - this.comp_size.grid_y) * (lane(1) + 10)
           })
-          .transition(TransitionEffect.asymmetric(
-            TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.Ease }),
-            TransitionEffect.OPACITY.animation({ duration: 1, curve: Curve.Ease })))
       }
       Stack() {
         Column() {

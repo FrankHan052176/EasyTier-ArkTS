@@ -16,6 +16,7 @@ import { compressStr } from '../../CompressUtil';
 import { uniformTypeDescriptor } from '@kit.ArkData';
 import { Logger } from '../../util/Logger';
 import { mappedJson } from '../../MappedUtil';
+import { WindowUtil } from '../../WindowUtil';
 
 export function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
   let result = new SymbolGlyphModifier(symbol)
@@ -32,7 +33,6 @@ export struct HomePage {
   @Local sheet_type: string = ""
   @Local tips: string | undefined = ""
   @Local actionText: string | undefined = ""
-  @Local actionBar: boolean = true
   @Local hand: number = 0
 
   private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
@@ -68,6 +68,9 @@ export struct HomePage {
     EventHelper.emitterListener("home_close_sheet", () => {
       this.sheet = false
     })
+    EventHelper.emitterListener("reset_holding_detector", () => {
+      this.hand = 0
+    })
     if (canIUse("SystemCapability.MultimodalAwareness.Motion")) {
       if (deviceInfo.sdkApiVersion >= 20) {
         try {
@@ -75,12 +78,14 @@ export struct HomePage {
             switch (data) {
               case motion.HoldingHandStatus.LEFT_HAND_HELD:
               case motion.HoldingHandStatus.RIGHT_HAND_HELD: {
-                animateToImmediately({
-                  duration: 300,
-                  curve: curves.springMotion(0.5, 0.6, 0)
-                }, () => {
-                  this.hand = data
-                })
+                if (AppManager.preference.holding_detector) {
+                  animateToImmediately({
+                    duration: 300,
+                    curve: curves.springMotion(0.5, 0.6, 0)
+                  }, () => {
+                    this.hand = data
+                  })
+                }
                 break;
               }
               default: {
@@ -147,41 +152,87 @@ export struct HomePage {
   }
 
   @Builder
-  actionBarAndError() {
+  actionBar() {
     Column() {
-      if (this.actionBar) {
-        if (deviceInfo.sdkApiVersion >= 20) {
-          HdsActionBar({
-            startButtons: [new ActionBarButton({
-              baseIcon: $r('sys.symbol.thumbnails'),
-              onClick: () => {
-                this.status()
-              }
-            })],
-            endButtons: [new ActionBarButton({
-              baseIcon: $r('sys.symbol.arrow_clockwise'),
-              onClick: () => {
-                this.restart()
-              }
-            })],
-            primaryButton: new ActionBarButton({
-              baseIcon: $r('sys.symbol.play_fill'),
-              altIcon: $r('sys.symbol.pause_fill'),
-              onClick: () => {
-                this.startAndStop()
-              },
-              hoverTips: '启停'
-            }),
-            actionBarStyle: new ActionBarStyle({
-              backgroundBlurStyle: BlurStyle.COMPONENT_ULTRA_THIN,
-              isPrimaryIconChanged: AppManager.easytier.runningNetworks.size > 0,
-              backgroundColor: ColorMetrics.resourceColor($r("sys.color.interactive_select"))
-            }),
-            isExpand: AppManager.easytier.runningNetworks.size > 0
+      if (deviceInfo.sdkApiVersion >= 20) {
+        HdsActionBar({
+          startButtons: [new ActionBarButton({
+            baseIcon: $r('sys.symbol.thumbnails'),
+            onClick: () => {
+              this.status()
+            }
+          })],
+          endButtons: [new ActionBarButton({
+            baseIcon: $r('sys.symbol.arrow_clockwise'),
+            onClick: () => {
+              this.restart()
+            }
+          })],
+          primaryButton: new ActionBarButton({
+            baseIcon: $r('sys.symbol.play_fill'),
+            altIcon: $r('sys.symbol.pause_fill'),
+            onClick: () => {
+              this.startAndStop()
+            },
+            hoverTips: '启停'
+          }),
+          actionBarStyle: new ActionBarStyle({
+            backgroundBlurStyle: BlurStyle.COMPONENT_ULTRA_THIN,
+            isPrimaryIconChanged: AppManager.easytier.runningNetworks.size > 0,
+            backgroundColor: ColorMetrics.resourceColor($r("sys.color.interactive_select"))
+          }),
+          isExpand: AppManager.easytier.runningNetworks.size > 0
+        })
+      } else {
+        Row() {
+          if (AppManager.easytier.runningNetworks.size > 0) {
+            Button({ type: ButtonType.Circle }) {
+              SymbolGlyph($r('sys.symbol.thumbnails'))
+                .fontSize(24)
+                .fontColor([$r("sys.color.font_primary")])
+            }
+            .width(48)
+            .height(48)
+            .backgroundColor(Color.Transparent)
+            .onClick(() => {
+              this.status()
+            })
+          }
+
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph(AppManager.easytier.runningNetworks.size > 0 ? $r('sys.symbol.pause_fill') :
+            $r('sys.symbol.play_fill'))
+              .fontSize(28)
+              .fontColor([$r("sys.color.font_primary")])
+          }
+          .width(56)
+          .height(56)
+          .backgroundColor(Color.Transparent)
+          .onClick(() => {
+            this.startAndStop()
           })
-        } else {
-          // TODO 20- actionbar
+
+          if (AppManager.easytier.runningNetworks.size > 0) {
+            Button({ type: ButtonType.Circle }) {
+              SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+                .fontSize(24)
+                .fontColor([$r("sys.color.font_primary")])
+            }
+            .width(48)
+            .height(48)
+            .backgroundColor(Color.Transparent)
+            .onClick(() => {
+              this.restart()
+            })
+          }
         }
+        .padding(8)
+        .backgroundColor($r("sys.color.interactive_select"))
+        .backgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THIN)
+        .borderRadius(36)
+        .margin({ bottom: 12 })
+        .shadow(ShadowStyle.OUTER_DEFAULT_SM)
+        .animation({ duration: 300, curve: Curve.Friction })
       }
     }
     .alignItems(this.hand === 1 ? HorizontalAlign.Start :
@@ -300,19 +351,20 @@ export struct HomePage {
     .height('100%')
     .width('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    .bindSheet(this.sheet, SheetContentBuilder(this.sheet_type), {
+    .bindSheet($$this.sheet, SheetContentBuilder(this.sheet_type), {
       height: this.sheet_type === "setting" ? SheetSize.LARGE : SheetSize.FIT_CONTENT,
       preferType: SheetType.CENTER,
       showClose: false,
       dragBar: false,
       blurStyle: BlurStyle.Thin,
-      title: SheetTitleBuilder(this.sheet_type),
-      onWillDismiss: () => {
-        this.sheet = false
-      }
+      title: SheetTitleBuilder(this.sheet_type)
     })
-    .overlay(this.actionBarAndError, {
-      align: Alignment.Center
+    .overlay(this.actionBar, {
+      align: Alignment.Bottom,
+      offset: {
+        x:0,
+        y:WindowUtil.navigationBarHeight+WindowUtil.statusBarHeight
+      }
     })
   }
 }

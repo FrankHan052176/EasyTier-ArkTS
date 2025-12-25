@@ -1,5 +1,6 @@
 import { AppManager, Spx2vp } from './AppManager'
 import { Logger, LogLocate } from './util/Logger'
+import { ConfigurationConstant } from '@kit.AbilityKit'
 
 export enum UIType {
   Column_1 = 2, Column_2 = 4, Column_3 = 6
@@ -13,6 +14,7 @@ export class WindowUtil {
   @Trace public static width: number = 0
   @Trace public static height: number = 0
   @Trace public static uiType: UIType = UIType.Column_1
+  @Trace public static colorMode: ConfigurationConstant.ColorMode = ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET
 
   static set setStatusBarHeight(value: number) {
     WindowUtil.statusBarHeight = Spx2vp(value)

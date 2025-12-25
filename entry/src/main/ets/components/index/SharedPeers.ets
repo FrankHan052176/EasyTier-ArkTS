@@ -1,7 +1,12 @@
 import { AppManager } from '../../AppManager'
+import { LightModifier } from '../../class/modifier/SymbolLight'
+import { hdsEffect } from '@kit.UIDesignKit'
+import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 
 @ComponentV2
 export struct SharedPeers {
+  @Local lightMod: LightModifier = new LightModifier('rgba(0,230,118,1)')
+  @Local bgMode: StackLightModifier = new StackLightModifier()
   @Computed
   get w(): number {
     return AppManager.layout.getCompSize('SharedPeers').lane_w
@@ -15,14 +20,28 @@ export struct SharedPeers {
   readonly brandColor: string = 'rgba(0,230,118,1)'
   readonly infoText: string = "为了 EasyTier和MC 社区的长远发展，我们会尽快完成完全合规化运营，在此之前 社区共享节点 会临时关闭，在不久的将来，他会与各位重新见面。"
 
-  // --- 1x1 布局 ---
+  @Builder
+  point() {
+    Column()
+      .size({width:1,height:1})
+      .attributeModifier(this.lightMod)
+  }
+
+  @Builder
+  Logo() {
+    SymbolGlyph($r('sys.symbol.share'))
+      .fontSize(24)
+      .fontColor([this.brandColor])
+      .overlay(this.point,{
+        align: Alignment.Center
+      })
+  }
+
   @Builder
   Size1x1() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.share'))
-          .fontSize(24)
-          .fontColor([this.brandColor])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -40,7 +59,7 @@ export struct SharedPeers {
       .width('100%')
       .justifyContent(FlexAlign.Center)
     }
-    .padding(12)
+    .padding(16)
     .width('100%')
     .height('100%')
   }
@@ -50,9 +69,7 @@ export struct SharedPeers {
   Size2x1() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.share'))
-          .fontSize(24)
-          .fontColor([this.brandColor])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -79,9 +96,7 @@ export struct SharedPeers {
   Size1x2() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.share'))
-          .fontSize(24)
-          .fontColor([this.brandColor])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -108,9 +123,7 @@ export struct SharedPeers {
   Size2x2() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.share'))
-          .fontSize(24)
-          .fontColor([this.brandColor])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -144,7 +157,7 @@ export struct SharedPeers {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r("sys.color.comp_background_primary"))
     .borderRadius(18)
+    .attributeModifier(this.bgMode)
   }
 }

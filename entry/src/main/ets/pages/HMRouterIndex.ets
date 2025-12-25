@@ -12,6 +12,7 @@ import { statusBarManager } from '@kit.StatusBarExtensionKit';
 import { image } from '@kit.ImageKit';
 import { Logger } from '../util/Logger';
 import { deviceInfo } from '@kit.BasicServicesKit';
+import { WindowUtil } from '../WindowUtil';
 
 class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
   initializeModifier(instance: NavigationAttribute): void {
@@ -66,7 +67,6 @@ export struct HMRouterIndex {
       onMemoryLevel: (): void => {
       },
       onConfigurationUpdated: (config: Configuration): void => {
-        Logger.info('onConfigurationUpdated ' + JSON.stringify(config), "HMRouterIndex");
         this.getUIContext()?.postFrameCallback(new MyFrameCallback(() => {
           Array.from(NodeNameMap.values()).forEach((value) => {
             value.updateConfiguration();

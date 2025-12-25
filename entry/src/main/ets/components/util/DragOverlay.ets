@@ -2,13 +2,10 @@ import { AppManager } from '../../AppManager'
 import { CompSize, Position } from '../../LayoutUtil'
 import { getCompNode } from '../../pages/nodes/CompNode'
 import { lane } from '../../util/Conversion'
-import { AddFormMenuItem } from '@kit.ArkUI'
-import { formBindingData } from '@kit.FormKit'
 import { EventHelper } from '../../util/EventHelper'
 import { layoutAnimationParm } from '../../pages/nodes/ResizableComponent'
 import { symbolWithSize } from '../../pages/hmrouter/HomePage'
 import { Logger } from '../../util/Logger'
-import { JSON } from '@kit.ArkTS'
 
 @Builder
 export function DragOverlayBuilder(type: string | undefined, onlyDrag: boolean = false, compPos: Position | undefined) {

@@ -1,14 +1,10 @@
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics, uiAppearance } from '@kit.ArkUI';
 import { ToolButtonWithPaste } from '../util/ToolButtons';
-import { url } from '@kit.ArkTS';
 import { Logger } from '../../util/Logger';
 import { EventHelper } from '../../util/EventHelper';
 import { hdsEffect } from '@kit.UIDesignKit';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { AppManager, Spx2vp } from '../../AppManager';
-import { ColumnIlluminatedModifier, RowIlluminatedModifier } from '../../class/modifier/LightModifier';
-import { uncompressStr } from '../../CompressUtil';
-import { unmappedJson } from '../../MappedUtil';
 
 export let config_name: string | undefined
 
@@ -55,8 +51,6 @@ function fieldTextInput(onChange: EditableTextOnChangeCallback, editChange: Call
 
 @ComponentV2
 export struct NewConfig_Content {
-  @Local column_modifier: ColumnIlluminatedModifier = new ColumnIlluminatedModifier();
-  @Local row_modifier: RowIlluminatedModifier = new RowIlluminatedModifier();
   @Local pastePopup: boolean = false
   @Local intensity: number = 0;
   controller: TextInputController = new TextInputController()
@@ -131,7 +125,6 @@ export struct NewConfig_Content {
       .width('100%')
       .borderWidth(0)
       .borderRadius(12)
-      .attributeModifier(this.column_modifier)
       .bindPopup(this.pastePopup!!, {
         message: '实例名称不能为空',
         placement: Placement.Top,
@@ -189,7 +182,6 @@ export struct NewConfig_Content {
         })
         .borderRadius(24)
         .backgroundColor($r("sys.color.comp_background_tertiary"))
-        .attributeModifier(this.row_modifier)
       }
       .width('100%')
       .alignItems(VerticalAlign.Center)

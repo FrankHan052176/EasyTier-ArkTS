@@ -20,8 +20,103 @@ export struct UI_Title {
 }
 
 @ComponentV2
+struct PostureDemo {
+  @Local alignItem: FlexAlign = FlexAlign.Center
+  @Local leftHandOpacity: number = 0
+  @Local rightHandOpacity: number = 0
+  private timer: number = -1
+
+  aboutToAppear() {
+    let step = 0
+    this.timer = setInterval(() => {
+      step++
+      animateTo({ duration: 600, curve: Curve.FastOutSlowIn }, () => {
+        if (step % 4 === 0) {
+          this.alignItem = FlexAlign.Center
+          this.leftHandOpacity = 0
+          this.rightHandOpacity = 0
+        } else if (step % 4 === 1) {
+          this.alignItem = FlexAlign.Start
+          this.leftHandOpacity = 1
+          this.rightHandOpacity = 0
+        } else if (step % 4 === 2) {
+          this.alignItem = FlexAlign.Center
+          this.leftHandOpacity = 0
+          this.rightHandOpacity = 0
+        } else if (step % 4 === 3) {
+          this.alignItem = FlexAlign.End
+          this.leftHandOpacity = 0
+          this.rightHandOpacity = 1
+        }
+      })
+    }, 2000)
+  }
+
+  aboutToDisappear() {
+    clearInterval(this.timer)
+  }
+
+  build() {
+    Column() {
+      Stack() {
+        // Hands simulation
+        Row() {
+          if (this.leftHandOpacity === 1) {
+            SymbolGlyph($r('sys.symbol.hand_thumbsup_fill'))
+              .fontSize(40)
+              .fontColor([$r('sys.color.font_secondary')])
+              .offset({ x: -40, y: 10 })
+              .transition(TransitionEffect.move(TransitionEdge.BOTTOM))
+          }
+          Blank()
+          if (this.rightHandOpacity === 1) {
+            SymbolGlyph($r('sys.symbol.hand_thumbsup_fill'))
+              .fontSize(40)
+              .fontColor([$r('sys.color.font_secondary')])
+              .scale({ x: -1, y: 1 })
+              .offset({ x: 40, y: 10 })
+              .transition(TransitionEffect.move(TransitionEdge.BOTTOM))
+          }
+        }
+        .width('40%')
+        .height(48)
+        .padding({ left: 12, right: 12 })
+        .alignItems(VerticalAlign.Center)
+        .hitTestBehavior(HitTestMode.Transparent)
+        .zIndex(2)
+
+        // Bar container
+        Row() {
+          Row() {
+            Circle({ width: 8, height: 8 }).fill($r('sys.color.font_tertiary'))
+            Circle({ width: 12, height: 12 }).fill($r('sys.color.brand')).margin({ left: 8, right: 8 })
+            Circle({ width: 8, height: 8 }).fill($r('sys.color.font_tertiary'))
+          }
+          .height(28)
+          .padding({ left: 12, right: 12 })
+          .backgroundColor($r('sys.color.interactive_select'))
+          .borderRadius(14)
+          .shadow(ShadowStyle.OUTER_DEFAULT_XS)
+        }
+        .width('40%')
+        .justifyContent(this.alignItem)
+        .height(48)
+        .backgroundColor($r('sys.color.background_tertiary'))
+        .borderRadius(12)
+        .padding({ left: 12, right: 12 })
+        .alignItems(VerticalAlign.Center)
+        .zIndex(1)
+      }
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+    .clip(true)
+  }
+}
+
+@ComponentV2
 export struct UI_Content {
-  @Local isPosture: boolean = AppManager.preference.posture_detection
+  @Local isPosture: boolean = AppManager.preference.holding_detector
 
   getLabel(type: string): ResourceStr {
     if (type === 'Instances') {
@@ -55,6 +150,7 @@ export struct UI_Content {
 
   build() {
     Column() {
+      PostureDemo()
       Row() {
         Column() {
           Text('适人握持')
@@ -70,7 +166,10 @@ export struct UI_Content {
         Toggle({ type: ToggleType.Switch, isOn: this.isPosture })
           .onChange((isOn) => {
             this.isPosture = isOn
-            AppManager.preference.posture_detection = isOn
+            AppManager.preference.holding_detector = isOn
+            if (!isOn) {
+              EventHelper.emitterPublish("reset_holding_detector")
+            }
           })
       }
       .width('100%')
@@ -80,6 +179,16 @@ export struct UI_Content {
         top: 12,
         bottom: 12
       })
+      Divider()
+        .strokeWidth(1)
+        .opacity(0.1)
+        .color(Color.Black)
+        .padding({ left: 16, right: 16 })
+      Text('组件管理')
+        .fontSize(14)
+        .fontColor($r('sys.color.font_secondary'))
+        .width('100%')
+        .padding({ left: 16, top: 12, bottom: 4 })
       List() {
         ForEach(AppManager.layout.comp_types, (type: string) => {
           ListItem() {

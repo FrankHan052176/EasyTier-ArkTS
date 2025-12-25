@@ -2,10 +2,15 @@ import { AppManager } from '../../AppManager'
 import { common } from '@kit.AbilityKit'
 import { Logger } from '../../util/Logger'
 import { EventHelper } from '../../util/EventHelper'
+import { LightModifier } from '../../class/modifier/SymbolLight'
+import { hdsEffect } from '@kit.UIDesignKit'
+import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 
 @ComponentV2
 export struct QQGroups {
   @Local groups: string[] = []
+  @Local lightMod: LightModifier = new LightModifier('#0052d9')
+  @Local bgMode: StackLightModifier = new StackLightModifier()
 
   @Computed
   get w(): number {
@@ -66,14 +71,28 @@ export struct QQGroups {
     .indicator(false)
   }
 
-  // --- 1x1 布局 ---
+  @Builder
+  point() {
+    Column()
+      .size({width:1,height:1})
+      .attributeModifier(this.lightMod)
+  }
+
+  @Builder
+  Logo() {
+    SymbolGlyph($r('sys.symbol.message_on_message'))
+      .fontSize(24)
+      .fontColor(['#0052d9'])
+      .overlay(this.point,{
+        align: Alignment.Center
+      })
+  }
+
   @Builder
   Size1x1() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.message_on_message'))
-          .fontSize(24)
-          .fontColor(['#0052d9'])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -84,7 +103,7 @@ export struct QQGroups {
       .layoutWeight(1)
       .width('100%')
     }
-    .padding(12)
+    .padding(16)
     .width('100%')
     .height('100%')
   }
@@ -94,9 +113,7 @@ export struct QQGroups {
   Size2x1() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.message_on_message'))
-          .fontSize(24)
-          .fontColor(['#0052d9'])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -118,9 +135,7 @@ export struct QQGroups {
   Size1x2() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.message_on_message'))
-          .fontSize(24)
-          .fontColor(['#0052d9'])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -142,9 +157,7 @@ export struct QQGroups {
   Size2x2() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.message_on_message'))
-          .fontSize(24)
-          .fontColor(['#0052d9'])
+        this.Logo()
         
         Blank()
         
@@ -180,7 +193,7 @@ export struct QQGroups {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r("sys.color.comp_background_primary"))
     .borderRadius(18)
+    .attributeModifier(this.bgMode)
   }
 }

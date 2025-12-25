@@ -1,10 +1,15 @@
 import { AppManager } from '../../AppManager'
 import { logColor } from '../../util/Conversion'
+import { LightModifier } from '../../class/modifier/SymbolLight'
+import { hdsEffect } from '@kit.UIDesignKit'
+import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 
 @ComponentV2
 export struct Logs {
   @Local showSheet: boolean = false
   @Local tab_index: number = 0
+  @Local lightMod: LightModifier = new LightModifier($r('sys.color.font_primary'))
+  @Local bgMode: StackLightModifier = new StackLightModifier()
 
   @Computed
   get w(): number {
@@ -115,14 +120,28 @@ export struct Logs {
     .padding({ left: 16, right: 16, top: 8, bottom: 8 })
   }
 
-  // --- 1x1 布局 ---
+  @Builder
+  point() {
+    Column()
+      .size({width:1,height:1})
+      .attributeModifier(this.lightMod)
+  }
+
+  @Builder
+  Logo() {
+    SymbolGlyph($r('sys.symbol.list_bullet_square'))
+      .fontSize(24)
+      .fontColor([$r('sys.color.font_primary')])
+      .overlay(this.point,{
+        align: Alignment.Center
+      })
+  }
+
   @Builder
   Size1x1() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.list_bullet_square'))
-          .fontSize(24)
-          .fontColor([$r('sys.color.font_primary')])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -139,7 +158,7 @@ export struct Logs {
       .layoutWeight(1)
       .justifyContent(FlexAlign.Center)
     }
-    .padding(12)
+    .padding(16)
     .width('100%')
     .height('100%')
   }
@@ -149,9 +168,7 @@ export struct Logs {
   Size2x1() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.list_bullet_square'))
-          .fontSize(24)
-          .fontColor([$r('sys.color.font_primary')])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -210,9 +227,7 @@ export struct Logs {
   Size1x2() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.list_bullet_square'))
-          .fontSize(24)
-          .fontColor([$r('sys.color.font_primary')])
+        this.Logo()
       }
       .width('100%')
       .justifyContent(FlexAlign.Start)
@@ -263,9 +278,7 @@ export struct Logs {
   Size2x2() {
     Column() {
       Row() {
-        SymbolGlyph($r('sys.symbol.list_bullet_square'))
-          .fontSize(24)
-          .fontColor([$r('sys.color.font_primary')])
+        this.Logo()
         
         Blank()
         
@@ -363,5 +376,6 @@ export struct Logs {
       title: { title: "日志中心" },
       blurStyle: BlurStyle.Thin
     })
+    .attributeModifier(this.bgMode)
   }
 }
