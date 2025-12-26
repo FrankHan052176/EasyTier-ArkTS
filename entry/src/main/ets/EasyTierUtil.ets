@@ -198,8 +198,7 @@ export class EasyTierUtil {
           }
           EventHelper.emitterPublish("start_bg", {
             data: {
-              cfg: JSON.stringify(config),
-              id: uuid
+              cfg: JSON.stringify(config)
             }
           })
         } else {

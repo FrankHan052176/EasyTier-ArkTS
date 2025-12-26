@@ -1,7 +1,6 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute,
-  HdsNavigationBadgeIconOptions } from '@kit.UIDesignKit'
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Sfp2vp, Svp2fp } from '../../AppManager'
 import { HdsMenuButton, MenuButton } from '../Components'

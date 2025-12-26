@@ -151,12 +151,12 @@ export class DataUtil {
                 this.importToml(toml)
               })
             }
-            AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs')
+            AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs').catch(() => {})
           })
         })
       } catch (err) {
         Logger.error(`Failed to get KVStore: Code:${err.code},message:${err.message}`, this);
-        AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs')
+        AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs').catch(() => {})
       }
     }
   }
@@ -226,10 +226,12 @@ export class DataUtil {
     }
     if (this.configUUIDMap.has(uuid)) {
       let name = this.configUUIDNameMap.get(uuid)
-      AppManager.preference.configIDPreferences?.deleteSync(uuid)
-      AppManager.preference.configIDPreferences?.flushSync()
-      AppManager.preference.configPreferences.delete(uuid)
-      preferences.deletePreferences(AppManager.content.context!, uuid)
+      try {
+        AppManager.preference.configIDPreferences?.deleteSync(uuid)
+        AppManager.preference.configPreferences.delete(uuid)
+        AppManager.preference.configIDPreferences?.flushSync()
+      } catch (error) {}
+      preferences.deletePreferences(AppManager.content.context!, uuid).catch(() => {})
       return this.configUUIDMap.delete(uuid) && this.configNameUUIDMap.delete(name ?? "") &&
       this.configUUIDNameMap.delete(uuid)
     } else {

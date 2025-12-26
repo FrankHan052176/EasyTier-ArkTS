@@ -1,5 +1,4 @@
 import { HMDefaultGlobalAnimator, HMNavigation } from '@hadss/hmrouter';
-import { Configuration } from '@ohos.app.ability.Configuration';
 import { AttributeUpdater, FrameCallback } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
 import { EnvironmentCallback } from '@kit.AbilityKit';
@@ -8,11 +7,14 @@ import { DragOverlayBuilder } from '../components/util/DragOverlay';
 import { NodeNameMap } from './nodes/CompNode';
 import { Position } from '../LayoutUtil';
 import { DialogHub, DialogMode } from '@hadss/dialoghub';
-import { statusBarManager } from '@kit.StatusBarExtensionKit';
+import { statusBarManager } from '@kit.DeskTopExtensionKit';
 import { image } from '@kit.ImageKit';
 import { Logger } from '../util/Logger';
 import { deviceInfo } from '@kit.BasicServicesKit';
-import { WindowUtil } from '../WindowUtil';
+import { deferredLink } from '@kit.AppLinkingKit';
+import { url } from '@kit.ArkTS';
+import { uncompressStr } from '../CompressUtil';
+import { unmappedJson } from '../MappedUtil';
 
 class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
   initializeModifier(instance: NavigationAttribute): void {
@@ -66,7 +68,7 @@ export struct HMRouterIndex {
     let environmentCallback: EnvironmentCallback = {
       onMemoryLevel: (): void => {
       },
-      onConfigurationUpdated: (config: Configuration): void => {
+      onConfigurationUpdated: (): void => {
         this.getUIContext()?.postFrameCallback(new MyFrameCallback(() => {
           Array.from(NodeNameMap.values()).forEach((value) => {
             value.updateConfiguration();
@@ -76,39 +78,56 @@ export struct HMRouterIndex {
     };
     this.getUIContext().getHostContext()?.getApplicationContext().on('environment', environmentCallback);
     if (canIUse("SystemCapability.PCService.StatusBarManager")) {
-      const blackFileData =
-        this.getUIContext().getHostContext()!.resourceManager.getRawFileContentSync('statusBar.svg');
-      const blackBuffer = blackFileData.buffer;
-      const blackImageSource = image.createImageSource(blackBuffer);
-      let blackPixelMap = await blackImageSource.createPixelMap();
-      let item: statusBarManager.StatusBarItem = {
-        icons: {
-          white: blackPixelMap,
-          black: blackPixelMap
-        },
-        quickOperation: {
-          abilityName: "StatusBarViewAbility",
-          title: "EasyTier v" +
-            (deviceInfo.productModel !== "emulator" ? AppManager.easytier.version().split("-")[0] : "N/A"),
-          height: 300
-        },
-        statusBarGroupMenu: [
-          [
-            {
-              title: "打开主界面",
-              menuAction: {
-                abilityName: "EntryAbility"
-              }
-            }
-          ]
-        ]
-      };
-
       try {
+        const blackFileData =
+          this.getUIContext().getHostContext()!.resourceManager.getRawFileContentSync('statusBar.svg');
+        const blackBuffer = blackFileData.buffer;
+        const blackImageSource = image.createImageSource(blackBuffer);
+        let blackPixelMap = await blackImageSource.createPixelMap();
+        let item: statusBarManager.StatusBarItem = {
+          icons: {
+            white: blackPixelMap,
+            black: blackPixelMap
+          },
+          quickOperation: {
+            abilityName: "StatusBarViewAbility",
+            title: "EasyTier v" +
+              (deviceInfo.productModel !== "emulator" ? AppManager.easytier.version().split("-")[0] : "N/A"),
+            height: 300
+          },
+          statusBarGroupMenu: [
+            [
+              {
+                title: "打开主界面",
+                menuAction: {
+                  abilityName: "EntryAbility"
+                }
+              }
+            ]
+          ]
+        };
         statusBarManager.addToStatusBar(this.getUIContext().getHostContext(), item);
       } catch (error) {
         Logger.error(`addToStatusBar failed. error code: ${error.code}, error message: ${error.message}`, "HMRouterIndex");
       }
+    }
+    if (canIUse("SystemCapability.BundleManager.AppLinking.DeferredLink")) {
+      EventHelper.commonListener("usual.event.PRIVACY_STATE_CHANGED", () => {
+        deferredLink.popDeferredLink().then(async (link: string) => {
+          if (link) {
+            try {
+              let urlObject = url.URL.parseURL(link);
+              let cfg = urlObject.params.get('cfg');
+              let config = unmappedJson(await uncompressStr(cfg))
+              let uuid = AppManager.data.safeUUID()
+              if (!config.instance_id) {
+                config.instance_id = uuid
+              }
+              AppManager.data.readConfig(config.instance_id!, config.instance_id!, config)
+            } catch (_) {}
+          }
+        })
+      }, undefined)
     }
   }
 

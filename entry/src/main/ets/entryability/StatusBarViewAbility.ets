@@ -1,14 +1,17 @@
 import { StatusBarViewExtensionAbility } from '@kit.DeskTopExtensionKit';
 import { UIExtensionContentSession, Want } from '@kit.AbilityKit';
-import { Logger } from '../util/Logger';
+import { Logger, LogLocate } from '../util/Logger';
 
+@LogLocate("StatusBarViewAbility")
 export default class StatusBarViewAbility extends StatusBarViewExtensionAbility {
   onCreate() {
-    Logger.debug("oncreate", "StatusBarViewAbility")
+    Logger.debug("onCreate", this)
   }
 
   onSessionCreate(want: Want, session: UIExtensionContentSession) {
-    session.loadContent("pages/StatusBarPage")
+    try {
+      session.loadContent("pages/StatusBarPage")
+    } catch (error) {}
   }
 
   onForeground() {

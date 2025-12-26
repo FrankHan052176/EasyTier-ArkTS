@@ -21,12 +21,14 @@ import { sendToast } from '../ToastUtil';
 import { isIpAddr } from '../class/config/IP';
 import { distributedKVStore } from '@kit.ArkData';
 import { BottomAnimator } from '../class/animator/BottomAnimator';
+import { uncompressStr } from '../CompressUtil';
+import { unmappedJson } from '../MappedUtil';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
   vpnConnection: vpnExtension.VpnConnection | undefined
 
-  startContinuousTask(cfg: string, id: string) {
+  startContinuousTask(cfg: string) {
     if (!AppManager.permission.isGetLocPerm() ||
       !canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
       if (!easytier.runNetworkInstance(cfg)) {
@@ -62,13 +64,10 @@ export default class EntryAbility extends UIAbility {
               Logger.error("启动失败", this)
               this.stopContinuousTask()
             }
-          }).catch(() => {
-          });
-        } catch (error) {
-        }
-      });
-    } catch (error) {
-    }
+          }).catch(() => {});
+        } catch (error) {}
+      }).catch(() => {});
+    } catch (error) {}
   }
 
   stopContinuousTask() {
@@ -76,11 +75,12 @@ export default class EntryAbility extends UIAbility {
       return;
     }
     Logger.info("stop background alive", this)
-    geoLocationManager.off("locationChange")
+    try {
+      geoLocationManager.off("locationChange")
+    } catch (error) {}
     backgroundTaskManager.stopBackgroundRunning(this.context).then(() => {
-      this.vpnConnection?.destroy()
-    }).catch(() => {
-    });
+      this.vpnConnection?.destroy().catch(() => {})
+    }).catch(() => {});
   }
 
   onCreate(want: Want) {
@@ -114,7 +114,7 @@ export default class EntryAbility extends UIAbility {
     this.readSharedData(want)
   }
 
-  readSharedData(want: Want) {
+  async readSharedData(want: Want) {
     let uri = want.uri;
     if (uri) {
       Logger.info("get uri:" + uri, this)
@@ -122,7 +122,12 @@ export default class EntryAbility extends UIAbility {
         let urlObject = url.URL.parseURL(uri);
         let cfg = urlObject.params.get("cfg")
         if (cfg) {
-          // TODO 解压缩配置
+          let config = unmappedJson(await uncompressStr(cfg))
+          let uuid = AppManager.data.safeUUID()
+          if (!config.instance_id) {
+            config.instance_id = uuid
+          }
+          AppManager.data.readConfig(config.instance_id!, config.instance_id!, config)
         }
       } catch (err) {
         let error = err as BusinessError;
@@ -141,7 +146,7 @@ export default class EntryAbility extends UIAbility {
     EventHelper.emitterListener("start_bg", (data) => {
       this.prepare_vpn(() => {
         Logger.info("start_bg_task", this)
-        this.startContinuousTask(data.data!.cfg, data.data!.id);
+        this.startContinuousTask(data.data!.cfg);
       })
     })
   }
@@ -237,7 +242,7 @@ export default class EntryAbility extends UIAbility {
     Logger.debug("VPN配置:" + JSON.stringify(vpnConfig), this)
     this.vpnConnection!.create(vpnConfig).then((fd) => {
       easytier.setTunFd(inst_id, fd)
-    })
+    }).catch(() => {})
   }
 
   prepare_vpn(callback: () => void = () => {}) {
@@ -266,24 +271,28 @@ export default class EntryAbility extends UIAbility {
       let error = e as BusinessError;
       Logger.info(`Failed to create KVManager. Code:${error.code},message:${error.message}`, this);
     }
-    windowStage.getMainWindowSync().on('windowSizeChange', (data) => {
-      WindowUtil.update(data.width, data.height)
-    });
-    windowStage.getMainWindowSync().on('avoidAreaChange', (data) => {
-      if (data.type == window.AvoidAreaType.TYPE_SYSTEM) {
-        WindowUtil.setStatusBarHeight = data.area.topRect.height
-      } else if (data.type == window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) {
-        WindowUtil.setNavigationBarHeight = data.area.bottomRect.height
-      }
-    })
+    try {
+      windowStage.getMainWindowSync().on('windowSizeChange', (data) => {
+        WindowUtil.update(data.width, data.height)
+      });
+      windowStage.getMainWindowSync().on('avoidAreaChange', (data) => {
+        if (data.type == window.AvoidAreaType.TYPE_SYSTEM) {
+          WindowUtil.setStatusBarHeight = data.area.topRect.height
+        } else if (data.type == window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) {
+          WindowUtil.setNavigationBarHeight = data.area.bottomRect.height
+        }
+      })
+    } catch (error) {}
     windowStage.loadContent('pages/HMRouterIndex', (err) => {
       if (err.code) {
         Logger.error('Failed to load the content. Cause: ' + JSON.stringify(err), this);
         return;
       }
       windowStage.getMainWindow().then((windowObj) => {
-        DialogHub.init(windowObj.getUIContext());
-      })
+        try {
+          DialogHub.init(windowObj.getUIContext());
+        } catch (error) {}
+      }).catch(() => {})
     });
   }
 

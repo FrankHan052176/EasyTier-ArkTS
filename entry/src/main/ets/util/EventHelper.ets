@@ -2,12 +2,12 @@ import { BusinessError, commonEventManager, emitter } from '@kit.BasicServicesKi
 import { Logger } from './Logger';
 
 export class EventHelper {
-  private static bundleName = "top.frankhan.et4hm"
+  private static bundleName = "top.frankhan.easytier"
 
-  public static commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void) {
+  public static commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void, publisherBundleName: string | undefined = EventHelper.bundleName) {
     let subscribeInfo: commonEventManager.CommonEventSubscribeInfo = {
       events: [event],
-      publisherBundleName: EventHelper.bundleName
+      publisherBundleName: publisherBundleName
     };
     let subscriber: commonEventManager.CommonEventSubscriber | null = null;
     commonEventManager.createSubscriber(subscribeInfo,
@@ -27,8 +27,7 @@ export class EventHelper {
   }
 
   public static commonPublish(event: string) {
-    commonEventManager.publish(event, () => {
-    })
+    commonEventManager.publish(event, () => {})
   }
 
   public static commonPublishCode(event: string, code: number) {
