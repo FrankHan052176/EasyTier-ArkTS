@@ -232,8 +232,10 @@ export class DataUtil {
         AppManager.preference.configIDPreferences?.flushSync()
       } catch (error) {}
       preferences.deletePreferences(AppManager.content.context!, uuid).catch(() => {})
-      return this.configUUIDMap.delete(uuid) && this.configNameUUIDMap.delete(name ?? "") &&
+      let result = this.configUUIDMap.delete(uuid)
+      this.configNameUUIDMap.delete(name ?? "")
       this.configUUIDNameMap.delete(uuid)
+      return result
     } else {
       return false
     }

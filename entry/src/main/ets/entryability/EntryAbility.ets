@@ -123,9 +123,8 @@ export default class EntryAbility extends UIAbility {
         let cfg = urlObject.params.get("cfg")
         if (cfg) {
           let config = unmappedJson(await uncompressStr(cfg))
-          let uuid = AppManager.data.safeUUID()
           if (!config.instance_id) {
-            config.instance_id = uuid
+            config.instance_id = AppManager.data.safeUUID()
           }
           AppManager.data.readConfig(config.instance_id!, config.instance_id!, config)
         }
