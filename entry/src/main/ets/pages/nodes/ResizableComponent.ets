@@ -486,7 +486,6 @@ export struct ResizableComponent {
     .clip(false)
     .id(this.comp_type)
     .onTouch((event) => {
-      event.stopPropagation()
       if (event.type == TouchType.Down) {
         if (!this.comp_size.isResize) {
           EventHelper.emitterPublish("resize_off")
