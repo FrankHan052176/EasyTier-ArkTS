@@ -18,13 +18,9 @@ import { JSON, taskpool } from '@kit.ArkTS'
 async function readInfoWorker() : Promise<void> {
   setInterval(() => {
     let infos = easytier.collectNetworkInfos()
-    let parsedInfos: Record<string, Object>[] = []
-    for (const info of infos) {
-      parsedInfos[info.key] = JSON.parse(info.value)
-    }
     EventHelper.emitterPublish("worker_readInfo", {
       data: {
-        infos: parsedInfos
+        infos: infos
       }
     })
   }, 100)

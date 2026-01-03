@@ -351,13 +351,19 @@ export struct HomePage {
     .height('100%')
     .width('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    .bindSheet($$this.sheet, SheetContentBuilder(this.sheet_type), {
+    .bindSheet(this.sheet, SheetContentBuilder(this.sheet_type), {
       height: this.sheet_type === "setting" ? SheetSize.LARGE : SheetSize.FIT_CONTENT,
       preferType: SheetType.CENTER,
       showClose: false,
       dragBar: false,
       blurStyle: BlurStyle.Thin,
-      title: SheetTitleBuilder(this.sheet_type)
+      title: SheetTitleBuilder(this.sheet_type),
+      onWillDismiss: (action) => {
+        if (action.reason != DismissReason.SLIDE_DOWN) {
+          action.dismiss()
+          this.sheet = false
+        }
+      }
     })
     .overlay(this.actionBar, {
       align: Alignment.Bottom,
