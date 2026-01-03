@@ -1,5 +1,6 @@
 import { AppManager } from './AppManager'
 import { MyFrameCallback } from './pages/HMRouterIndex'
+import { NodeNameMap } from './pages/nodes/CompNode'
 import { layoutAnimationParm } from './pages/nodes/ResizableComponent'
 import { lane } from './util/Conversion'
 import { EventHelper } from './util/EventHelper'
@@ -20,6 +21,7 @@ export class CompSize {
   @Trace isResize: boolean = false
   @Trace isOnOverlay: boolean = false
   @Trace isDragging: boolean = false
+  @Trace willHide: boolean = false
   @Trace floatingX: number = 0
   @Trace floatingY: number = 0
   @Trace pan_offset_x: number = 0
@@ -442,14 +444,15 @@ export class LayoutUtil {
     return this.comp_types.filter(type => !this.comp_sequence.includes(type))
   }
 
-  removeComponent(type: string) {
+  async removeComponent(type: string) {
     const index = this.comp_sequence.indexOf(type);
     if (index > -1) {
-      let compSize = this.getCompSize(type);
-      compSize.isResize = false; 
-      
-      this.comp_sequence.splice(index, 1);
-      this.updateSequence();
+      let compSize = this.getCompSize(type)
+      compSize.isResize = false
+      this.comp_sequence.splice(index, 1)
+      this.updateSequence()
+      this.compSizeMap.delete(type)
+      NodeNameMap.delete(type)
     }
   }
 

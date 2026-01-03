@@ -24,7 +24,6 @@ import { BottomAnimator } from '../class/animator/BottomAnimator';
 import { uncompressStr } from '../CompressUtil';
 import { unmappedJson } from '../MappedUtil';
 import { ContentUtil } from '../ContentUtil';
-import { wantConstant } from '@kit.AbilityKit';
 import { fileIo as fs, fileUri } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 

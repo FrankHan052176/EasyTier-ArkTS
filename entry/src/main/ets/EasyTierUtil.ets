@@ -12,6 +12,7 @@ import { SafeSet } from './util/SafeSet'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { ValueType } from '@kit.ArkData'
 import { ContentUtil } from './ContentUtil'
+import { PermissionUtil } from './PermissionUtil'
 
 @LogLocate("EasyTierUtil")
 @ObservedV2
@@ -196,10 +197,12 @@ export class EasyTierUtil {
           if (!config.no_tun) {
             this.needTUN = uuid
           }
-          EventHelper.emitterPublish("start_bg", {
-            data: {
-              cfg: JSON.stringify(config)
-            }
+          AppManager.permission.requestLocPerm().then(() => {
+            EventHelper.emitterPublish("start_bg", {
+              data: {
+                cfg: JSON.stringify(config)
+              }
+            })
           })
         } else {
           sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)

@@ -172,6 +172,8 @@ export struct ResizableComponent {
   @Param @Require comp_type: string
   @Local comp_size: CompSize = AppManager.layout.getCompSize(this.comp_type)
   @BuilderParam content: () => void
+  @Local scale_rate: number = 1
+  @Local isExploding: boolean = false
 
   @Computed
   get offset_w() {
@@ -219,6 +221,21 @@ export struct ResizableComponent {
         this.comp_size.isResize = false
         this.comp_size.isDragging = false
         this.comp_size.find_next_grid = false
+      })
+    })
+    EventHelper.emitterListener(this.comp_size.type + "_hide", () => {
+      this.comp_size.isResize = false
+      animateToImmediately({
+        duration: 200,
+        curve: Curve.EaseOut,
+        onFinish: () => {
+          this.isExploding = true
+          setTimeout(() => {
+            AppManager.layout.removeComponent(this.comp_size.type)
+          }, 700)
+        }
+      }, () => {
+        this.scale_rate = 0.05
       })
     })
   }
@@ -469,5 +486,10 @@ export struct ResizableComponent {
         }
       }
     })
+    .scale({
+      x: this.scale_rate,
+      y: this.scale_rate
+    })
+    .opacity(this.scale_rate)
   }
 }

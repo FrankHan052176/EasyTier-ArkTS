@@ -25,7 +25,6 @@ export struct DragOverlay {
     EventHelper.emitterListener("drag_overlay_move", () => {
       this.openMenu = false
     })
-    Logger.debug("Drag Overlay "+this.type)
     if (!this.onlyDrag) {
       setTimeout(() => {
         animateToImmediately(layoutAnimationParm, () => {
@@ -62,35 +61,34 @@ export struct DragOverlay {
         content: "隐藏组件"
       })
       .onClick(() => {
-        AppManager.layout.removeComponent(this.type!)
+        EventHelper.emitterPublish("hide_comp_and_overlay_off")
       })
     }
   }
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      NodeContainer(getCompNode(this.type))
-        .bindContextMenu(this.openMenu, this.MyMenu, {
-          placement: Placement.TopRight,
-          onDisappear: () => {
-            animateToImmediately({
-              duration: 300,
-              curve: Curve.Friction
-            }, () => {
-              this.openMenu = false
-            })
-            if (!this.compSize.isDragging) {
-              EventHelper.emitterPublish("drag_overlay_off")
+      if (AppManager.layout.comp_sequence.includes(this.compSize.type)) {
+        NodeContainer(getCompNode(this.type))
+          .bindContextMenu(this.openMenu, this.MyMenu, {
+            placement: Placement.TopRight,
+            onDisappear: () => {
+              animateToImmediately({
+                duration: 300,
+                curve: Curve.Friction
+              }, () => {
+                this.openMenu = false
+              })
+              if (!this.compSize.isDragging) {
+                EventHelper.emitterPublish("drag_overlay_off")
+              }
             }
-          }
-        })
-        .onTouch((event) => {
-          event.stopPropagation()
-        })
-        .offset({
-          x: this.comp_pos!.x,
-          y: this.comp_pos!.y
-        })
+          })
+          .offset({
+            x: this.comp_pos!.x,
+            y: this.comp_pos!.y
+          })
+      }
     }
     .backgroundColor(Color.Transparent)
     .backdropBlur(this.openMenu ? 20 : 0)

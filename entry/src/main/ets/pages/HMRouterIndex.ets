@@ -65,12 +65,18 @@ export struct HMRouterIndex {
       this.dragType = undefined
       this.dragOverlay = false
     })
+    EventHelper.emitterListener("hide_comp_and_overlay_off", () => {
+      AppManager.layout.getCompSize(this.dragType!).isOnOverlay = false
+      this.dragOverlay = false
+      EventHelper.emitterPublish(this.dragType+"_hide")
+      this.dragType = undefined
+    })
     let environmentCallback: EnvironmentCallback = {
       onMemoryLevel: (): void => {
       },
       onConfigurationUpdated: (): void => {
         this.getUIContext()?.postFrameCallback(new MyFrameCallback(() => {
-          Array.from(NodeNameMap.values()).forEach((value) => {
+          NodeNameMap.forEach((value) => {
             value.updateConfiguration();
           })
         }));
