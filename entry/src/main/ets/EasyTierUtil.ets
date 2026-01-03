@@ -77,7 +77,7 @@ export class EasyTierUtil {
     return result
   }
 
-  private readInfo() {
+  private async readInfo() {
     let infos = easytier.collectNetworkInfos()
     let networks = new Set<string>()
     for (const info of infos) {
@@ -166,7 +166,7 @@ export class EasyTierUtil {
     }
   }
 
-  private readLogs() {
+  private async readLogs() {
     let appLogs = entry.getAppLog()
     if (this.appLogs.size < appLogs.length) {
       appLogs.forEach((value) => {

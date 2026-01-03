@@ -9,6 +9,7 @@ import {
   NetworkName,
   setEditValue_NetworkName
 } from './NetworkName';
+import { collections } from '@kit.ArkTS';
 import {
   clearEditValue_PortForward,
   EditValue_PortForward,
@@ -16,6 +17,7 @@ import {
   setEditValue_PortForward
 } from './PortForward';
 import { clearEditValue_Url, EditValue_Url, setEditValue_Url, Url } from './Url';
+import { SafePortForwardConfig } from '../SafeProtoClass';
 
 export interface FieldValue {
   fromString(value: string): boolean
@@ -135,14 +137,20 @@ export function deleteFieldValue(config: NetworkConfig, type: string, name: stri
     if (i >= 0) {
       arr.splice(i, 1)
     }
-    AppManager.preference.configPreferences.get(config.instance_id!)?.putSync(name,
-      (config[name] as PortForwardConfig[]))
+    let arr_pw = config[name] as PortForwardConfig[]
+    let SafeArr = new collections.Array<SafePortForwardConfig>()
+    arr_pw.forEach((value) => {
+      SafeArr.push(new SafePortForwardConfig(value))
+    })
+    AppManager.preference.configPreferences.get(config.instance_id!)?.putSync(name, SafeArr)
   } else {
     const pos = (config[name] as string[]).indexOf(value.toString())
     if (pos >= 0) {
       (config[name] as string[]).splice(pos, 1)
     }
-    AppManager.preference.configPreferences.get(config.instance_id!)?.putSync(name, (config[name] as string[]))
+    let arr = config[name] as string[]
+    let SafeArr = new collections.Array<string>(...arr)
+    AppManager.preference.configPreferences.get(config.instance_id!)?.putSync(name, SafeArr)
   }
   AppManager.preference.configPreferences.get(config.instance_id!)?.flushSync()
 }

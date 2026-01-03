@@ -111,6 +111,7 @@ export interface NetworkConfig {
   p2p_only?: boolean | undefined;
   data_compress_algo?: CompressionAlgoPb | undefined;
   encryption_algorithm?: string | undefined;
+  disable_tcp_hole_punching?: boolean | undefined;
 }
 
 export interface PortForwardConfig {
@@ -276,6 +277,7 @@ function createBaseNetworkConfig(): NetworkConfig {
     p2p_only: undefined,
     data_compress_algo: undefined,
     encryption_algorithm: undefined,
+    disable_tcp_hole_punching: undefined,
   };
 }
 
@@ -372,6 +374,9 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
         : undefined,
       encryption_algorithm: isSet(object.encryption_algorithm)
         ? globalThis.String(object.encryption_algorithm)
+        : undefined,
+      disable_tcp_hole_punching: isSet(object.disable_tcp_hole_punching)
+        ? globalThis.Boolean(object.disable_tcp_hole_punching)
         : undefined,
     };
   },
@@ -531,6 +536,9 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     if (message.encryption_algorithm !== undefined) {
       obj.encryption_algorithm = message.encryption_algorithm;
     }
+    if (message.disable_tcp_hole_punching !== undefined) {
+      obj.disable_tcp_hole_punching = message.disable_tcp_hole_punching;
+    }
     return obj;
   },
 
@@ -590,6 +598,7 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     message.p2p_only = object.p2p_only ?? undefined;
     message.data_compress_algo = object.data_compress_algo ?? undefined;
     message.encryption_algorithm = object.encryption_algorithm ?? undefined;
+    message.disable_tcp_hole_punching = object.disable_tcp_hole_punching ?? undefined;
     return message;
   },
 };

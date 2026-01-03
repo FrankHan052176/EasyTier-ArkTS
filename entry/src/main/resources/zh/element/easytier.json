@@ -453,6 +453,14 @@
       "value": "禁用对等节点通信的加密，默认为false，必须与对等节点相同"
     },
     {
+      "name": "disable_tcp_hole_punching",
+      "value": "禁用TCP打洞"
+    },
+    {
+      "name": "disable_tcp_hole_punching_help",
+      "value": "禁用TCP打洞功能"
+    },
+    {
       "name": "disable_udp_hole_punching",
       "value": "禁用UDP打洞"
     },
@@ -711,6 +719,10 @@
     {
       "name": "event_PortForwardAdded",
       "value": "端口转发添加"
+    },
+    {
+      "name": "event_ProxyCidrsUpdated",
+      "value": "子网代理CIDR更新"
     },
     {
       "name": "web_login_title",

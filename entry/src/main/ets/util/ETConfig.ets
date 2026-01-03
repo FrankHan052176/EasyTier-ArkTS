@@ -12,7 +12,7 @@ export enum Protocol {
   WG = "wg",
   WG6 = "wg6",
   TXT = "txt",
-  UNKNOWN = ""
+  UNKNOWN = "N/A"
 }
 
 export const protocols =
@@ -24,6 +24,10 @@ export const protocolsOnlyTcpAndUdp = [Protocol.TCP, Protocol.UDP]
 
 export function convertToProtocol(input: string): Protocol {
   switch (input) {
+    case "tcp":
+      return Protocol.TCP;
+    case "tcp6":
+      return Protocol.TCP6;
     case "udp":
       return Protocol.UDP;
     case "udp6":
@@ -47,7 +51,7 @@ export function convertToProtocol(input: string): Protocol {
     case "txt":
       return Protocol.TXT;
     default:
-      return Protocol.TCP;
+      return Protocol.UNKNOWN;
   }
 }
 

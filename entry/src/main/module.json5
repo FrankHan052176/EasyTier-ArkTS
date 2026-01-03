@@ -69,7 +69,7 @@
               },
               {
                 "scheme": "file",
-                "utd": "general.file",
+                "utd": "general.entity",
                 "maxFileSupported": 1
               }
             ]

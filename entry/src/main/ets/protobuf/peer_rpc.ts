@@ -62,7 +62,7 @@ export interface RoutePeerInfo {
   ipv4_addr?: Ipv4Addr | undefined;
   proxy_cidrs: string[];
   hostname?: string | undefined;
-  udp_stun_info: NatType;
+  udp_nat_type: NatType;
   last_update: Date | undefined;
   version: number;
   easytier_version: string;
@@ -72,6 +72,7 @@ export interface RoutePeerInfo {
   quic_port?: number | undefined;
   ipv6_addr?: Ipv6Inet | undefined;
   groups: PeerGroupInfo[];
+  tcp_nat_type: NatType;
 }
 
 export interface PeerIdVersion {
@@ -226,6 +227,14 @@ export interface SendPunchPacketBothEasySymResponse {
   base_mapped_addr: SocketAddr | undefined;
 }
 
+export interface TcpHolePunchRequest {
+  connector_mapped_addr: SocketAddr | undefined;
+}
+
+export interface TcpHolePunchResponse {
+  listener_mapped_addr: SocketAddr | undefined;
+}
+
 export interface DirectConnectedPeerInfo {
   latency_ms: number;
 }
@@ -292,7 +301,7 @@ function createBaseRoutePeerInfo(): RoutePeerInfo {
     ipv4_addr: undefined,
     proxy_cidrs: [],
     hostname: undefined,
-    udp_stun_info: 0,
+    udp_nat_type: 0,
     last_update: undefined,
     version: 0,
     easytier_version: "",
@@ -302,6 +311,7 @@ function createBaseRoutePeerInfo(): RoutePeerInfo {
     quic_port: undefined,
     ipv6_addr: undefined,
     groups: [],
+    tcp_nat_type: 0,
   };
 }
 
@@ -316,7 +326,7 @@ export const RoutePeerInfo: MessageFns<RoutePeerInfo> = {
         ? object.proxy_cidrs.map((e: any) => globalThis.String(e))
         : [],
       hostname: isSet(object.hostname) ? globalThis.String(object.hostname) : undefined,
-      udp_stun_info: isSet(object.udp_stun_info) ? natTypeFromJSON(object.udp_stun_info) : 0,
+      udp_nat_type: isSet(object.udp_nat_type) ? natTypeFromJSON(object.udp_nat_type) : 0,
       last_update: isSet(object.last_update) ? fromJsonTimestamp(object.last_update) : undefined,
       version: isSet(object.version) ? globalThis.Number(object.version) : 0,
       easytier_version: isSet(object.easytier_version) ? globalThis.String(object.easytier_version) : "",
@@ -328,6 +338,7 @@ export const RoutePeerInfo: MessageFns<RoutePeerInfo> = {
       groups: globalThis.Array.isArray(object?.groups)
         ? object.groups.map((e: any) => PeerGroupInfo.fromJSON(e))
         : [],
+      tcp_nat_type: isSet(object.tcp_nat_type) ? natTypeFromJSON(object.tcp_nat_type) : 0,
     };
   },
 
@@ -351,8 +362,8 @@ export const RoutePeerInfo: MessageFns<RoutePeerInfo> = {
     if (message.hostname !== undefined) {
       obj.hostname = message.hostname;
     }
-    if (message.udp_stun_info !== 0) {
-      obj.udp_stun_info = natTypeToJSON(message.udp_stun_info);
+    if (message.udp_nat_type !== 0) {
+      obj.udp_nat_type = natTypeToJSON(message.udp_nat_type);
     }
     if (message.last_update !== undefined) {
       obj.last_update = message.last_update.toISOString();
@@ -381,6 +392,9 @@ export const RoutePeerInfo: MessageFns<RoutePeerInfo> = {
     if (message.groups?.length) {
       obj.groups = message.groups.map((e) => PeerGroupInfo.toJSON(e));
     }
+    if (message.tcp_nat_type !== 0) {
+      obj.tcp_nat_type = natTypeToJSON(message.tcp_nat_type);
+    }
     return obj;
   },
 
@@ -399,7 +413,7 @@ export const RoutePeerInfo: MessageFns<RoutePeerInfo> = {
       : undefined;
     message.proxy_cidrs = object.proxy_cidrs?.map((e) => e) || [];
     message.hostname = object.hostname ?? undefined;
-    message.udp_stun_info = object.udp_stun_info ?? 0;
+    message.udp_nat_type = object.udp_nat_type ?? 0;
     message.last_update = object.last_update ?? undefined;
     message.version = object.version ?? 0;
     message.easytier_version = object.easytier_version ?? "";
@@ -413,6 +427,7 @@ export const RoutePeerInfo: MessageFns<RoutePeerInfo> = {
       ? Ipv6Inet.fromPartial(object.ipv6_addr)
       : undefined;
     message.groups = object.groups?.map((e) => PeerGroupInfo.fromPartial(e)) || [];
+    message.tcp_nat_type = object.tcp_nat_type ?? 0;
     return message;
   },
 };
@@ -1526,6 +1541,73 @@ export const SendPunchPacketBothEasySymResponse: MessageFns<SendPunchPacketBothE
     message.is_busy = object.is_busy ?? false;
     message.base_mapped_addr = (object.base_mapped_addr !== undefined && object.base_mapped_addr !== null)
       ? SocketAddr.fromPartial(object.base_mapped_addr)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseTcpHolePunchRequest(): TcpHolePunchRequest {
+  return { connector_mapped_addr: undefined };
+}
+
+export const TcpHolePunchRequest: MessageFns<TcpHolePunchRequest> = {
+  fromJSON(object: any): TcpHolePunchRequest {
+    return {
+      connector_mapped_addr: isSet(object.connector_mapped_addr)
+        ? SocketAddr.fromJSON(object.connector_mapped_addr)
+        : undefined,
+    };
+  },
+
+  toJSON(message: TcpHolePunchRequest): unknown {
+    const obj: any = {};
+    if (message.connector_mapped_addr !== undefined) {
+      obj.connector_mapped_addr = SocketAddr.toJSON(message.connector_mapped_addr);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TcpHolePunchRequest>, I>>(base?: I): TcpHolePunchRequest {
+    return TcpHolePunchRequest.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TcpHolePunchRequest>, I>>(object: I): TcpHolePunchRequest {
+    const message = createBaseTcpHolePunchRequest();
+    message.connector_mapped_addr =
+      (object.connector_mapped_addr !== undefined && object.connector_mapped_addr !== null)
+        ? SocketAddr.fromPartial(object.connector_mapped_addr)
+        : undefined;
+    return message;
+  },
+};
+
+function createBaseTcpHolePunchResponse(): TcpHolePunchResponse {
+  return { listener_mapped_addr: undefined };
+}
+
+export const TcpHolePunchResponse: MessageFns<TcpHolePunchResponse> = {
+  fromJSON(object: any): TcpHolePunchResponse {
+    return {
+      listener_mapped_addr: isSet(object.listener_mapped_addr)
+        ? SocketAddr.fromJSON(object.listener_mapped_addr)
+        : undefined,
+    };
+  },
+
+  toJSON(message: TcpHolePunchResponse): unknown {
+    const obj: any = {};
+    if (message.listener_mapped_addr !== undefined) {
+      obj.listener_mapped_addr = SocketAddr.toJSON(message.listener_mapped_addr);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<TcpHolePunchResponse>, I>>(base?: I): TcpHolePunchResponse {
+    return TcpHolePunchResponse.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<TcpHolePunchResponse>, I>>(object: I): TcpHolePunchResponse {
+    const message = createBaseTcpHolePunchResponse();
+    message.listener_mapped_addr = (object.listener_mapped_addr !== undefined && object.listener_mapped_addr !== null)
+      ? SocketAddr.fromPartial(object.listener_mapped_addr)
       : undefined;
     return message;
   },

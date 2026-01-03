@@ -1,5 +1,5 @@
 import { AppManager } from '../../../AppManager';
-import { deleteFieldValue, FieldValue } from '../../../class/config/Basic';
+import { deleteFieldValue as deleteListValue, FieldValue } from '../../../class/config/Basic';
 import { FieldValueDataSource } from '../../../class/FieldValueDataSource';
 import { lane } from '../../../util/Conversion';
 import { ToolButton } from '../../util/ToolButtons';
@@ -13,6 +13,8 @@ import { NetworkName, setEditValue_NetworkName } from '../../../class/config/Net
 import { EventHelper } from '../../../util/EventHelper';
 import { PortForward, setEditValue_PortForward } from '../../../class/config/PortForward';
 import { PortForwardConfig } from '../../../protobuf/api_manage';
+import { collections } from '@kit.ArkTS';
+import { SafePortForwardConfig } from '../../../class/SafeProtoClass';
 
 @ComponentV2
 export struct ListField {
@@ -68,7 +70,18 @@ export struct ListField {
     this.updateItems()
     EventHelper.emitterListener("edit_refresh_" + this.field, () => {
       this.updateItems()
-      this.preference?.putSync(this.field, this.config![this.field])
+      if (this.type === "port_forward") {
+        let arr_pw = this.config![this.field] as PortForwardConfig[]
+        let SafeArr = new collections.Array<SafePortForwardConfig>()
+        arr_pw.forEach((value) => {
+          SafeArr.push(new SafePortForwardConfig(value))
+        })
+        this.preference?.putSync(this.field, SafeArr)
+      } else {
+        let arr = this.config![this.field] as string[]
+        let SafeArr = new collections.Array<string>(...arr)
+        this.preference?.putSync(this.field, SafeArr)
+      }
       this.preference?.flushSync()
     })
   }
@@ -140,7 +153,7 @@ export struct ListField {
         })
         .onClick(() => {
           this.scroller.closeAllSwipeActions()
-          deleteFieldValue(this.config!, this.type, this.field, value)
+          deleteListValue(this.config!, this.type, this.field, value)
           this.updateItems()
         })
     }

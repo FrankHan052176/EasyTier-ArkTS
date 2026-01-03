@@ -213,6 +213,7 @@ export interface FlagsInConfig {
   /** tld dns zone for magic dns */
   tld_dns_zone: string;
   p2p_only: boolean;
+  disable_tcp_hole_punching: boolean;
 }
 
 export interface RpcDescriptor {
@@ -390,6 +391,7 @@ function createBaseFlagsInConfig(): FlagsInConfig {
     disable_sym_hole_punching: false,
     tld_dns_zone: "",
     p2p_only: false,
+    disable_tcp_hole_punching: false,
   };
 }
 
@@ -440,6 +442,9 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
         : false,
       tld_dns_zone: isSet(object.tld_dns_zone) ? globalThis.String(object.tld_dns_zone) : "",
       p2p_only: isSet(object.p2p_only) ? globalThis.Boolean(object.p2p_only) : false,
+      disable_tcp_hole_punching: isSet(object.disable_tcp_hole_punching)
+        ? globalThis.Boolean(object.disable_tcp_hole_punching)
+        : false,
     };
   },
 
@@ -541,6 +546,9 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     if (message.p2p_only !== false) {
       obj.p2p_only = message.p2p_only;
     }
+    if (message.disable_tcp_hole_punching !== false) {
+      obj.disable_tcp_hole_punching = message.disable_tcp_hole_punching;
+    }
     return obj;
   },
 
@@ -581,6 +589,7 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     message.disable_sym_hole_punching = object.disable_sym_hole_punching ?? false;
     message.tld_dns_zone = object.tld_dns_zone ?? "";
     message.p2p_only = object.p2p_only ?? false;
+    message.disable_tcp_hole_punching = object.disable_tcp_hole_punching ?? false;
     return message;
   },
 };

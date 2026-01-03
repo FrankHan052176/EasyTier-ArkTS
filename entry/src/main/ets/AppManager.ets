@@ -1,14 +1,12 @@
-import { ContentUtil } from './ContentUtil';
 import { ContextUtil } from './ContextUtil';
 import { DataUtil } from './DataUtil';
 import { EasyTierUtil } from './EasyTierUtil';
-import { Logger, LogLocate } from './util/Logger';
-import { distributedKVStore, preferences } from '@kit.ArkData';
+import { LogLocate } from './util/Logger';
+import { distributedKVStore } from '@kit.ArkData';
 import { PermissionUtil } from './PermissionUtil';
 import { PreferenceUtil } from './PreferencesUtil';
 import { LayoutUtil } from './LayoutUtil';
 import { WebUtil } from './WebUtil';
-import { deviceInfo } from '@kit.BasicServicesKit';
 
 @LogLocate("AppManager")
 export class AppManager {
@@ -22,20 +20,8 @@ export class AppManager {
   public static web: WebUtil = new WebUtil()
 
   static init(uiContext: UIContext) {
-    ContentUtil.initConfigFields()
     AppManager.content.init(uiContext)
-    if (deviceInfo.productModel !== "emulator") {
-      AppManager.easytier.init()
-    }
     AppManager.permission.updatePermStatus()
-    "".replace(".","")
-    try {
-      AppManager.preference.init(preferences.getPreferencesSync(AppManager.content.context,
-        { name: 'EasyTierPreferences' }))
-    } catch (error) {
-      Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
-    }
-    AppManager.data.init()
   }
 }
 

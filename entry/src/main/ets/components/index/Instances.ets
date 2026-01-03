@@ -1,4 +1,4 @@
-import { AppManager } from '../../AppManager'
+import { AppManager, Sfp2vp } from '../../AppManager'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { HMRouterTransitions } from '@hadss/hmrouter-transitions'
 import { InstanceSelector } from '../util/InstanceSelector'
@@ -76,7 +76,7 @@ export struct Instances {
     SymbolGlyph($r('sys.symbol.key_shield'))
       .fontSize(24)
       .fontColor([$r('sys.color.brand')])
-      .overlay(this.point,{
+      .overlay(this.point, {
         align: Alignment.Center
       })
   }

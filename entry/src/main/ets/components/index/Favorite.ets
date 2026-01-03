@@ -1,7 +1,6 @@
 import { AppManager } from '../../AppManager'
 import { sendToast } from '../../ToastUtil'
 import { LightModifier } from '../../class/modifier/SymbolLight'
-import { hdsEffect } from '@kit.UIDesignKit'
 import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 
 @ComponentV2
@@ -317,6 +316,7 @@ export struct Favorite {
     }
     .width('100%')
     .height('100%')
+    .borderRadius(18)
     .attributeModifier(this.bgMode)
   }
 }

@@ -13,9 +13,10 @@ export class LightModifier implements AttributeModifier<CommonAttribute> {
   applyNormalAttribute(instance: CommonAttribute): void {
     if (deviceInfo.sdkApiVersion >= 20) {
       instance
+        .opacity(0)
         .visualEffect(new hdsEffect.HdsEffectBuilder()
           .pointLight({
-            illuminatedType: hdsEffect.PointLightIlluminatedType.CONTENT,
+            illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
             options: {
               color: this.color,
               intensity: this.intensity,
@@ -23,7 +24,6 @@ export class LightModifier implements AttributeModifier<CommonAttribute> {
             }
           }).buildEffect()
         )
-        .opacity(0)
     }
   }
 }

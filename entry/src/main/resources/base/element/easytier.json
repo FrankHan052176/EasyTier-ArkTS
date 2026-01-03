@@ -453,6 +453,14 @@
       "value": "Disable encryption for peers communication, default is false, must be same with peers"
     },
     {
+      "name": "disable_tcp_hole_punching",
+      "value": "Disable TCP Hole Punching"
+    },
+    {
+      "name": "disable_tcp_hole_punching_help",
+      "value": "Disable tcp hole punching"
+    },
+    {
       "name": "disable_udp_hole_punching",
       "value": "Disable UDP Hole Punching"
     },
@@ -711,6 +719,10 @@
     {
       "name": "event_PortForwardAdded",
       "value": "PortForwardAdded"
+    },
+    {
+      "name": "event_ProxyCidrsUpdated",
+      "value": "ProxyCidrsUpdated"
     },
     {
       "name": "web_login_title",

@@ -7,6 +7,7 @@
 #include <array>
 #include <string>
 #include <vector>
+#include <mutex>
 
 template<size_t N>
 class LockFreeRingBuffer {
@@ -14,10 +15,12 @@ private:
     std::array<std::string, N> buffer_;
     std::atomic<size_t> write_index_{0};
     std::atomic<size_t> read_index_{0};
+    mutable std::mutex buffer_mutex_;
 
 public:
     // 多线程安全写入
     bool write(const std::string& message) {
+        std::lock_guard<std::mutex> lock(buffer_mutex_);
         size_t current_write = write_index_.load(std::memory_order_relaxed);
         size_t next_write = (current_write + 1) % N;
         
@@ -34,6 +37,8 @@ public:
     // 单线程安全读取所有可用消息
     std::vector<std::string> read_all() {
         std::vector<std::string> result;
+        
+        std::lock_guard<std::mutex> lock(buffer_mutex_);
         
         size_t current_read = read_index_.load(std::memory_order_relaxed);
         size_t current_write = write_index_.load(std::memory_order_acquire);
@@ -63,6 +68,7 @@ public:
 
     // 清空缓冲区
     void clear() {
+        std::lock_guard<std::mutex> lock(buffer_mutex_);
         read_index_.store(write_index_.load(std::memory_order_acquire), std::memory_order_release);
     }
 };

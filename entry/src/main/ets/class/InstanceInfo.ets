@@ -3,6 +3,7 @@ import { convertToProtocol, Protocol } from '../util/ETConfig'
 import { CircleArray } from './container/CircleArray'
 import { PeerInfoDataSource } from './PeerInfoDataSource'
 import { convertAddrToIp } from '../util/Conversion'
+import { Logger } from '../util/Logger'
 
 function fixedRate(value: number): number {
   if (value > 107374182) {
@@ -99,20 +100,20 @@ export class InstanceInfo {
         let bytes = 0
         let loss = 0
         let latency_us = 99999999999
-        let protocols: Protocol[] = []
+        let protocols: Set<Protocol> = new Set
         for (const conn of pair.peer?.conns ?? []) {
           if (conn.stats) {
             bytes += conn.stats.rx_bytes + conn.stats.tx_bytes
             latency_us = Math.min(conn.stats.latency_us, latency_us)
           }
           if (conn.tunnel) {
-            protocols.push(convertToProtocol(conn.tunnel.tunnel_type))
+            protocols.add(convertToProtocol(conn.tunnel.tunnel_type.toLowerCase()))
             loss = Math.max(conn.loss_rate, loss)
           }
         }
         peerInfo.latency_us = latency_us
         peerInfo.loss = loss
-        peerInfo.protocol = protocols
+        peerInfo.protocol = Array.from(protocols)
         peerInfo.last_bytes = bytes
         this.peers.set(peerInfo)
       }

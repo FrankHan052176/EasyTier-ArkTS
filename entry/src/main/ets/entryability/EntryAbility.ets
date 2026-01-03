@@ -8,7 +8,7 @@ import { BusinessError, deviceInfo, emitter } from '@kit.BasicServicesKit';
 import easytier from 'easytier-ohrs';
 import { vpnExtension } from '@kit.NetworkKit';
 import { stringArr2RouteArr } from '../util/Conversion';
-import { url } from '@kit.ArkTS';
+import { JSON, url } from '@kit.ArkTS';
 import entry from 'libentry.so';
 import { BUILD_TIME } from '../util/info/BuildTime';
 import { SpiderMan } from '@simplepeng/spider-man';
@@ -23,6 +23,10 @@ import { distributedKVStore } from '@kit.ArkData';
 import { BottomAnimator } from '../class/animator/BottomAnimator';
 import { uncompressStr } from '../CompressUtil';
 import { unmappedJson } from '../MappedUtil';
+import { ContentUtil } from '../ContentUtil';
+import { wantConstant } from '@kit.AbilityKit';
+import { fileIo as fs, fileUri } from '@kit.CoreFileKit';
+import { systemShare } from '@kit.ShareKit';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
@@ -106,17 +110,30 @@ export default class EntryAbility extends UIAbility {
     })
     this.readSharedData(want)
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
+    this.initApp()
+  }
+
+  async initApp() {
+    ContentUtil.initConfigFields()
+    if (deviceInfo.productModel !== "emulator") {
+      AppManager.easytier.init()
+    }
+    try {
+      AppManager.preference.init(this.context)
+    } catch (error) {
+      Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
+    }
+    AppManager.data.init()
   }
 
   onNewWant(want: Want) {
     Logger.debug("onNetWant", this)
-    Logger.debug(JSON.stringify(want), this)
     this.readSharedData(want)
   }
 
   async readSharedData(want: Want) {
     let uri = want.uri;
-    if (uri) {
+    if (uri && uri.length > 0) {
       Logger.info("get uri:" + uri, this)
       try {
         let urlObject = url.URL.parseURL(uri);
@@ -132,6 +149,45 @@ export default class EntryAbility extends UIAbility {
         let error = err as BusinessError;
         Logger.error(`readSharedData error, code: ${error.code}, mesage: ${error.message}`, this);
       }
+    }else {
+      Logger.info("get systemShare", this)
+      systemShare.getSharedData(want)
+        .then((data: systemShare.SharedData) => {
+          data?.getRecords()?.forEach(async (record: systemShare.SharedRecord) => {
+            if (record.uri && record.uri.length > 0) {
+              Logger.debug("read shared file: " + JSON.stringify(record), this)
+              try {
+                let cfg = fs.readTextSync(new fileUri.FileUri(record.uri).path)
+                AppManager.data.importToml(cfg)
+              } catch (error) {
+                Logger.debug("read file error: " + JSON.stringify(error), this)
+              }
+            }else if (record.content && record.content.length > 0) {
+              Logger.debug("read shared url: " + JSON.stringify(record), this)
+              let urlObject = url.URL.parseURL(record.content);
+              let hostname = urlObject.hostname
+              switch (hostname) {
+                case "appgallery.huawei.com": {
+                  // TODO 处理获取应用包名
+                  Logger.debug("get AppId: "+urlObject.params.get("id"), this)
+                  break;
+                }
+                case "easytier.cn": {
+                  Logger.debug("get Cfg: "+urlObject.params.get("cfg"), this)
+                  let cfg = urlObject.params.get("cfg")
+                  if (cfg) {
+                    let config = unmappedJson(await uncompressStr(cfg))
+                    if (!config.instance_id) {
+                      config.instance_id = AppManager.data.safeUUID()
+                    }
+                    AppManager.data.readConfig(config.instance_id!, config.instance_id!, config)
+                  }
+                  break;
+                }
+              }
+            }
+          })
+        })
     }
   }
 

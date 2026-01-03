@@ -70,7 +70,7 @@ export class DataUtil {
         if (value.fromString(raw)) {
           values.push(value)
         }
-      } else if (type === "peer" || type === "listener" || type === "mappedListener") {
+      } else if (type === "peer" || type === "listener" || type === "mapped_listener") {
         let value = new Url()
         if (value.fromString(raw)) {
           values.push(value)
@@ -80,7 +80,7 @@ export class DataUtil {
         if (value.fromString(raw)) {
           values.push(value)
         }
-      } else if (type === "string") {
+      } else if (type === "network_name") {
         let value = new NetworkName()
         if (value.fromString(raw)) {
           values.push(value)
@@ -207,9 +207,58 @@ export class DataUtil {
       config.networking_method = NetworkingMethod.Manual
       config.peer_urls.push(config.public_server_url)
     }
+    config.proxy_cidrs.forEach(cidrStr => {
+      let cidr = new Cidr()
+      if (cidr.fromString(cidrStr)) {
+        this.getDataSource("cidr").add(cidr)
+      }
+    })
+    config.routes.forEach(routeStr => {
+      let route = new Cidr()
+      if (route.fromString(routeStr)) {
+        this.getDataSource("route").add(route)
+      }
+    })
+    config.peer_urls.forEach(urlStr => {
+      let url = new Url()
+      if (url.fromString(urlStr)) {
+        this.getDataSource("peer").add(url)
+      }
+    })
+    config.listener_urls.forEach(urlStr => {
+      let url = new Url()
+      if (url.fromString(urlStr)) {
+        this.getDataSource("listener").add(url)
+      }
+    })
+    config.mapped_listeners.forEach(urlStr => {
+      let url = new Url()
+      if (url.fromString(urlStr)) {
+        this.getDataSource("mapped_listener").add(url)
+      }
+    })
+    config.exit_nodes.forEach(nodeStr => {
+      let ip = new IP()
+      if (ip.fromString(nodeStr)) {
+        this.getDataSource("ip").add(ip)
+      }
+    })
+    config.relay_network_whitelist.forEach(wlStr => {
+      let name = new NetworkName()
+      if (name.fromString(wlStr)) {
+        this.getDataSource("network_name").add(name)
+      }
+    })
+    config.port_forwards.forEach(pfConfig => {
+      let pf = new PortForward()
+      if (pf.readFrom(pfConfig)) {
+        this.getDataSource("port_forward").add(pf)
+      }
+    })
     this.configUUIDMap.set(config.instance_id!, config)
     this.configNameUUIDMap.set(name ?? config.instance_id!, config.instance_id!)
     this.configUUIDNameMap.set(config.instance_id!, name ?? config.instance_id!)
+
     AppManager.preference.addConfig(config.instance_id!, name ?? config.instance_id!, config)
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
     AppManager.data.editingInstance = config.instance_id

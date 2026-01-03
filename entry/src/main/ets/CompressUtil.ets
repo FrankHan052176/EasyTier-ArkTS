@@ -8,14 +8,14 @@ export async function compressStr(str: string): Promise<string> {
   let zip = zlib.createZipSync();
   let comp = await zip.compress2(outBuf, buf, zlib.CompressLevel.COMPRESS_LEVEL_BEST_COMPRESSION)
   let compressed = buffer.from(outBuf.slice(0, comp.destLen))
-  let result = compressed.toString("latin1")
+  let result = compressed.toString("base64url")
   Logger.debug("compressed:" + result, "CompressUtil")
   Logger.debug("length:" + result.length, "CompressUtil")
   return result
 }
 
 export async function uncompressStr(compressed: string): Promise<string> {
-  let outBuf2 = buffer.from(compressed, "latin1").buffer
+  let outBuf2 = buffer.from(compressed, "base64url").buffer
   let arrayBufferOut2 = new ArrayBuffer(4000);
   let zip = zlib.createZipSync();
   let uncomp = await zip.uncompress2(arrayBufferOut2, outBuf2)
