@@ -173,7 +173,7 @@ export struct ResizableComponent {
   @Local comp_size: CompSize = AppManager.layout.getCompSize(this.comp_type)
   @BuilderParam content: () => void
   @Local scale_rate: number = 1
-  @Local isExploding: boolean = false
+  @Local rotate_angle: number = 0
 
   @Computed
   get offset_w() {
@@ -226,16 +226,15 @@ export struct ResizableComponent {
     EventHelper.emitterListener(this.comp_size.type + "_hide", () => {
       this.comp_size.isResize = false
       animateToImmediately({
-        duration: 200,
-        curve: Curve.EaseOut,
+        duration: 350,
+        curve: Curve.EaseInOut,
         onFinish: () => {
-          this.isExploding = true
-          setTimeout(() => {
-            AppManager.layout.removeComponent(this.comp_size.type)
-          }, 700)
+          AppManager.layout.removeComponent(this.comp_size.type)
         }
       }, () => {
-        this.scale_rate = 0.05
+        this.scale_rate = 0.5
+        this.rotate_angle = 15
+        this.scale_rate = 0
       })
     })
   }
@@ -471,6 +470,14 @@ export struct ResizableComponent {
       .height(lane(this.comp_size.lane_h) + this.offset_h)
       .borderRadius(18)
       .backgroundColor($r("sys.color.comp_background_primary"))
+      .scale({
+        x: this.scale_rate,
+        y: this.scale_rate
+      })
+      .opacity(this.scale_rate)
+      .rotate({
+        angle: this.rotate_angle
+      })
     }
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .backgroundColor(Color.Transparent)
@@ -486,10 +493,5 @@ export struct ResizableComponent {
         }
       }
     })
-    .scale({
-      x: this.scale_rate,
-      y: this.scale_rate
-    })
-    .opacity(this.scale_rate)
   }
 }
