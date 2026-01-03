@@ -1,6 +1,6 @@
 import entry from 'libentry.so'
 import { NetworkInstanceRunningInfo } from './protobuf/api_manage'
-import easytier from 'easytier-ohrs'
+import easytier, { KeyValuePair } from 'easytier-ohrs'
 import { EventHelper } from './util/EventHelper'
 import { AppManager } from './AppManager'
 import { Logger, LogLocate } from './util/Logger'
@@ -12,7 +12,38 @@ import { SafeSet } from './util/SafeSet'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { ValueType } from '@kit.ArkData'
 import { ContentUtil } from './ContentUtil'
-import { PermissionUtil } from './PermissionUtil'
+import { JSON, taskpool } from '@kit.ArkTS'
+
+@Concurrent
+async function readInfoWorker() : Promise<void> {
+  setInterval(() => {
+    let infos = easytier.collectNetworkInfos()
+    let parsedInfos: Record<string, Object>[] = []
+    for (const info of infos) {
+      parsedInfos[info.key] = JSON.parse(info.value)
+    }
+    EventHelper.emitterPublish("worker_readInfo", {
+      data: {
+        infos: parsedInfos
+      }
+    })
+  }, 100)
+}
+@Concurrent
+async function readLogsWorker() : Promise<void> {
+  setInterval(() => {
+    let appLogs = entry.getAppLog()
+    let nmLogs = entry.getNetworkManagerLog()
+    let ohLogs = entry.getOHLog()
+    EventHelper.emitterPublish("worker_readLogs", {
+      data: {
+        appLogs: appLogs,
+        nmLogs: nmLogs,
+        ohLogs: ohLogs
+      }
+    })
+  }, 500)
+}
 
 @LogLocate("EasyTierUtil")
 @ObservedV2
@@ -46,12 +77,21 @@ export class EasyTierUtil {
   }
 
   init() {
-    setInterval(() => {
-      this.readLogs()
-    }, 500)
-    setInterval(() => {
-      this.readInfo()
-    }, 100)
+    EventHelper.emitterListener("worker_readInfo", (event) => {
+      if (event?.data?.infos) {
+        this.processNetworkInfos(event.data.infos)
+      }
+    })
+    EventHelper.emitterListener("worker_readLogs", (event) => {
+      if (event?.data) {
+        this.processLogs(event.data.appLogs, event.data.nmLogs, event.data.ohLogs)
+      }
+    })
+
+    let task1 = new taskpool.LongTask(readInfoWorker)
+    let task2 = new taskpool.LongTask(readLogsWorker)
+    taskpool.execute(task1)
+    taskpool.execute(task2)
   }
 
   version() {
@@ -78,12 +118,11 @@ export class EasyTierUtil {
     return result
   }
 
-  private async readInfo() {
-    let infos = easytier.collectNetworkInfos()
+  processNetworkInfos(infos: KeyValuePair[]) {
     let networks = new Set<string>()
     for (const info of infos) {
       networks.add(info.key)
-      let newInfo: NetworkInstanceRunningInfo = JSON.parse(info.value)
+      let newInfo = JSON.parse(info.value) as NetworkInstanceRunningInfo
       if (!newInfo.running) {
         Logger.error("ReadErrorInfo: " + newInfo.error_msg, this)
         this.stop()
@@ -167,20 +206,17 @@ export class EasyTierUtil {
     }
   }
 
-  private async readLogs() {
-    let appLogs = entry.getAppLog()
+  processLogs(appLogs: string[], nmLogs: string[], ohLogs: string[]) {
     if (this.appLogs.size < appLogs.length) {
       appLogs.forEach((value) => {
         this.appLogs.add(value)
       })
     }
-    let nmLogs = entry.getNetworkManagerLog()
     if (this.nmLogs.size < nmLogs.length) {
       nmLogs.forEach((value) => {
         this.nmLogs.add(value)
       })
     }
-    let ohLogs = entry.getOHLog()
     if (this.ohLogs.size < ohLogs.length) {
       ohLogs.forEach((value) => {
         this.ohLogs.add(value)
