@@ -191,8 +191,6 @@ export class PreferenceUtil {
     return taskpool.execute(task).then((value: object) => {
       let config = value.toString()
       AppManager.data.readConfig(field, name as string, JSON.parse(config) as NetworkConfig)
-    }).catch((err: BusinessError) => {
-      Logger.error("taskpool error: " + JSON.stringify(err), this)
     })
   }
 
