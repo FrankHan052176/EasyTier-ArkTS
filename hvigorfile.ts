@@ -215,7 +215,7 @@ hvigor.nodesEvaluated(() => {
         });
     })
 });
-function getDayOfYearUTC(date: Date = new Date()): number {
+function getDayOfYearUTC(date: Date = new Date()): string {
     const startOfYear = Date.UTC(date.getUTCFullYear(), 0, 1);
     const now = Date.UTC(
         date.getUTCFullYear(),
@@ -223,7 +223,8 @@ function getDayOfYearUTC(date: Date = new Date()): number {
         date.getUTCDate()
     );
 
-    return Math.floor((now - startOfYear) / 86400000) + 1;
+    const day = Math.floor((now - startOfYear) / 86400000) + 1;
+    return String(day).padStart(3, '0');
 }
 const rootNode = getNode(__filename);
 rootNode.afterNodeEvaluate(node => {
