@@ -3,7 +3,6 @@ import { common } from '@kit.AbilityKit'
 import { Logger } from '../../util/Logger'
 import { EventHelper } from '../../util/EventHelper'
 import { LightModifier } from '../../class/modifier/SymbolLight'
-import { hdsEffect } from '@kit.UIDesignKit'
 import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 
 @ComponentV2
@@ -44,7 +43,7 @@ export struct QQGroups {
         .height(this.h === 1 && this.w === 1 ? 32 : 48)
         .objectFit(ImageFit.Contain)
         .margin({ bottom: 8 })
-      
+
       Text(name)
         .fontSize(14)
         .fontColor($r("sys.color.font_primary"))
@@ -74,7 +73,7 @@ export struct QQGroups {
   @Builder
   point() {
     Column()
-      .size({width:1,height:1})
+      .size({ width: 1, height: 1 })
       .attributeModifier(this.lightMod)
   }
 
@@ -83,7 +82,7 @@ export struct QQGroups {
     SymbolGlyph($r('sys.symbol.message_on_message'))
       .fontSize(24)
       .fontColor(['#0052d9'])
-      .overlay(this.point,{
+      .overlay(this.point, {
         align: Alignment.Center
       })
   }
@@ -158,9 +157,9 @@ export struct QQGroups {
     Column() {
       Row() {
         this.Logo()
-        
+
         Blank()
-        
+
         Text((this.groups.length + 1).toString())
           .fontSize(14)
           .fontColor($r('sys.color.font_secondary'))

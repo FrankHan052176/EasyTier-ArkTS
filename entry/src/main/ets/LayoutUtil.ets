@@ -64,6 +64,8 @@ export interface CompSizeWithPos {
 @LogLocate("LayoutUtil")
 @ObservedV2
 export class LayoutUtil {
+  public static readonly MIN_COMP_WIDTH = 1;
+  public static readonly MIN_COMP_HEIGHT = 1;
   @Trace desktopPosX: number = 0;
   @Trace desktopPosY: number = 0;
   @Trace desktopWidth: number = 0;
@@ -73,8 +75,11 @@ export class LayoutUtil {
   @Trace compSizeMap: Map<string, CompSize> = new Map
   @Trace MaxHeight: number = 0
   @Trace MaxWidth: number = 0
-  public static readonly MIN_COMP_WIDTH = 1;
-  public static readonly MIN_COMP_HEIGHT = 1;
+
+  @Computed
+  get hidden_comps(): string[] {
+    return this.comp_types.filter(type => !this.comp_sequence.includes(type))
+  }
 
   initSequence(sequence: string) {
     sequence.split("|").forEach((data) => {
@@ -312,7 +317,9 @@ export class LayoutUtil {
 
   pushObstacle(comp_name: string, pos: Position, width: number, height: number): boolean {
     let overlapComps: string[] = this.getObstacles(comp_name, pos, width, height)
-    if (overlapComps.length === 0) return true;
+    if (overlapComps.length === 0) {
+      return true;
+    }
 
     overlapComps.sort((a, b) => {
       let size1 = this.getCompSize(a)
@@ -378,7 +385,8 @@ export class LayoutUtil {
     overrideCompSize: Map<string, CompSize> | undefined
   ): boolean {
     for (const comp of overrideSequence) {
-      let compSize = (overrideCompSize && overrideCompSize.has(comp)) ? overrideCompSize.get(comp)! : this.getCompSize(comp)
+      let compSize =
+        (overrideCompSize && overrideCompSize.has(comp)) ? overrideCompSize.get(comp)! : this.getCompSize(comp)
       let comp_x = compSize.find_next_grid ? compSize.next_grid_x : compSize.grid_x;
       let comp_y = compSize.find_next_grid ? compSize.next_grid_y : compSize.grid_y;
       const overlap =
@@ -399,7 +407,7 @@ export class LayoutUtil {
     overrideSequence: string[] = this.comp_sequence,
     overrideCompSize: Map<string, CompSize> | undefined = undefined
   ): Position {
-    for (let y = 0; y + itemH <= this.LayoutHeight()+10; y++) {
+    for (let y = 0; y + itemH <= this.LayoutHeight() + 10; y++) {
       for (let x = 0; x + itemW <= this.LayoutWidth(); x++) {
         if (this.canPlaceAt(x, y, itemW, itemH, overrideSequence, overrideCompSize)) {
           return { x: x, y: y };
@@ -439,11 +447,6 @@ export class LayoutUtil {
     this.updateNewUIType()
   }
 
-  @Computed
-  get hidden_comps(): string[] {
-    return this.comp_types.filter(type => !this.comp_sequence.includes(type))
-  }
-
   async removeComponent(type: string) {
     const index = this.comp_sequence.indexOf(type);
     if (index > -1) {
@@ -457,7 +460,9 @@ export class LayoutUtil {
   }
 
   addComponent(type: string) {
-    if (this.comp_sequence.includes(type)) return;
+    if (this.comp_sequence.includes(type)) {
+      return;
+    }
     let compSize = this.getCompSize(type);
     compSize.setSize(1, 1)
     let pos = this.findFreeSpace(1, 1);

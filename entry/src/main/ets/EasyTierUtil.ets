@@ -15,7 +15,7 @@ import { ContentUtil } from './ContentUtil'
 import { JSON, taskpool } from '@kit.ArkTS'
 
 @Concurrent
-async function readInfoWorker() : Promise<void> {
+async function readInfoWorker(): Promise<void> {
   setInterval(() => {
     let infos = easytier.collectNetworkInfos()
     EventHelper.emitterPublish("worker_readInfo", {
@@ -25,8 +25,9 @@ async function readInfoWorker() : Promise<void> {
     })
   }, 100)
 }
+
 @Concurrent
-async function readLogsWorker() : Promise<void> {
+async function readLogsWorker(): Promise<void> {
   setInterval(() => {
     let appLogs = entry.getAppLog()
     let nmLogs = entry.getNetworkManagerLog()
@@ -98,22 +99,6 @@ export class EasyTierUtil {
     return easytier.convertTomlToNetworkConfig(toml)
   }
 
-  private addTunRoutes(route: string): boolean {
-    let result = true
-    this.tunRoutes.forEach((oldRoute) => {
-      result = !oldRoute.contains(route) && result
-    })
-    if (result) {
-      try {
-        this.tunRoutes.add(new NetworkSegment(route))
-      } catch (e) {
-        Logger.error("NetworkSegment constructor throw a error:[" + route + "] is invalid.", this)
-        return false
-      }
-    }
-    return result
-  }
-
   processNetworkInfos(infos: KeyValuePair[]) {
     let networks = new Set<string>()
     for (const info of infos) {
@@ -131,7 +116,7 @@ export class EasyTierUtil {
       this.runningNetworks.set(info.key, newInfo)
       if (!this.instanceInfos.has(info.key)) {
         this.instanceInfos.set(info.key, new InstanceInfo())
-      }else {
+      } else {
         this.instanceInfos.get(info.key)?.update(newInfo)
       }
       if (isNew) {
@@ -278,5 +263,21 @@ export class EasyTierUtil {
 
   public isFavoritesRunning(): boolean {
     return this.isRunning(AppManager.data.favorite)
+  }
+
+  private addTunRoutes(route: string): boolean {
+    let result = true
+    this.tunRoutes.forEach((oldRoute) => {
+      result = !oldRoute.contains(route) && result
+    })
+    if (result) {
+      try {
+        this.tunRoutes.add(new NetworkSegment(route))
+      } catch (e) {
+        Logger.error("NetworkSegment constructor throw a error:[" + route + "] is invalid.", this)
+        return false
+      }
+    }
+    return result
   }
 }

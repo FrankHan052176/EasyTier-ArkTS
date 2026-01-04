@@ -3,7 +3,7 @@ import easytier from 'easytier-ohrs';
 import { AppManager } from './AppManager';
 import { NetworkConfig, PortForwardConfig } from './protobuf/api_manage';
 import { Logger, LogLocate } from './util/Logger';
-import { buffer, lang, taskpool, util, collections, JSON } from '@kit.ArkTS';
+import { buffer, collections, JSON, taskpool, util } from '@kit.ArkTS';
 import { SafePortForwardConfig } from './class/SafeProtoClass';
 import { ContentUtil } from './ContentUtil';
 
@@ -30,7 +30,7 @@ async function readConfigFromPreference(id: String, data: sendablePreferences.Pr
         })
         config[key] = arr
       }
-    }else {
+    } else {
       config[key] = rawConfig[key]
     }
   }
@@ -54,25 +54,6 @@ export class PreferenceUtil {
   inittedLog: boolean = false
   isInit: boolean = true
 
-  private async readConfig(field: string, nameBytes: Uint8Array, preference: sendablePreferences.Preferences) {
-    let textDecoderOptions: util.TextDecoderOptions = {
-      fatal: false,
-      ignoreBOM: true
-    }
-    let decodeToStringOptions: util.DecodeToStringOptions = {
-      stream: false
-    }
-    let textDecoder = util.TextDecoder.create('utf-8', textDecoderOptions);
-    let name = textDecoder.decodeToString(new Uint8Array(nameBytes), decodeToStringOptions);
-    const task: taskpool.Task = new taskpool.Task(readConfigFromPreference, field as String, preference);
-    return taskpool.execute(task).then((value: object) => {
-      let config = value.toString()
-      AppManager.data.readConfig(field, name as string, JSON.parse(config) as NetworkConfig)
-    }).catch((err: BusinessError) => {
-      Logger.error("taskpool error: "+JSON.stringify(err), this)
-    })
-  }
-
   init(context: Context) {
     this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
     this.configIDPreferences = preferences.getPreferencesSync(context, { name: 'EasyTierConfigIDs' })
@@ -86,18 +67,18 @@ export class PreferenceUtil {
       for (const field of keys) {
         let esObj: ESObject = obj
         let nameBytes = esObj[field] as Uint8Array
-        let preference = sendablePreferences.getPreferencesSync(context, {name: field})
+        let preference = sendablePreferences.getPreferencesSync(context, { name: field })
         this.configPreferences.set(field, preference)
         this.readConfig(field, nameBytes, preference)
       }
       let selected = this.preferences!.getSync("selected", "").toString()
       AppManager.easytier.selected =
         (selected.length > 0 && this.configPreferences.has(selected)) ? selected : undefined
-      Logger.debug("read selected:" + selected+" set:"+AppManager.easytier.selected, this)
+      Logger.debug("read selected:" + selected + " set:" + AppManager.easytier.selected, this)
       let favorite = this.preferences!.getSync("favorite", "").toString()
       AppManager.data.favorite =
         (favorite.length > 0 && this.configPreferences.has(favorite)) ? favorite : undefined
-      Logger.debug("read favorite:" + favorite+" set:"+AppManager.data.favorite, this)
+      Logger.debug("read favorite:" + favorite + " set:" + AppManager.data.favorite, this)
     })
     this.globalConfigs = preferences.getPreferencesSync(context, { name: 'EasyTierGlobalConfigs' })
     this.globalConfigs.getAll((err, obj) => {
@@ -143,7 +124,7 @@ export class PreferenceUtil {
     }
   }
 
-  @Monitor("show_log","vpn_routes","dev","dns","noOldData","holding_detector")
+  @Monitor("show_log", "vpn_routes", "dev", "dns", "noOldData", "holding_detector")
   onChange(monitor: IMonitor) {
     monitor.dirty.forEach((path: string) => {
       if (this.preferences !== undefined && !this.isInit) {
@@ -163,30 +144,50 @@ export class PreferenceUtil {
       this.configIDPreferences?.putSync(uuid, new Uint8Array(buffer.from(name, 'utf-8').buffer))
       this.configIDPreferences?.flushSync()
       let preference = sendablePreferences.getPreferencesSync(AppManager.content.context!, { name: uuid })
-      Object.entries(config).forEach((value: [string,  undefined | Array<string | PortForwardConfig> | string | boolean | number]) => {
-        if (value[1]) {
-          if (Array.isArray(value[1])) {
-            if (value[0] === 'port_forwards') {
-              let arr = value[1] as PortForwardConfig[]
-              let safeArr = new collections.Array<SafePortForwardConfig>()
-              arr.forEach((v) => {
-                safeArr.push(new SafePortForwardConfig(v))
-              })
-              preference.putSync(value[0], safeArr)
+      Object.entries(config)
+        .forEach((value: [string, undefined | Array<string | PortForwardConfig> | string | boolean | number]) => {
+          if (value[1]) {
+            if (Array.isArray(value[1])) {
+              if (value[0] === 'port_forwards') {
+                let arr = value[1] as PortForwardConfig[]
+                let safeArr = new collections.Array<SafePortForwardConfig>()
+                arr.forEach((v) => {
+                  safeArr.push(new SafePortForwardConfig(v))
+                })
+                preference.putSync(value[0], safeArr)
+              } else {
+                let arr = value[1] as string[]
+                let safeArr = new collections.Array<string>(...arr)
+                preference.putSync(value[0], safeArr)
+              }
             } else {
-              let arr = value[1] as string[]
-              let safeArr = new collections.Array<string>(...arr)
-              preference.putSync(value[0], safeArr)
+              preference.putSync(value[0], value[1])
             }
-          } else {
-            preference.putSync(value[0], value[1])
           }
-        }
-      })
+        })
       preference.flushSync()
       this.configPreferences.set(uuid, preference)
     } catch (error) {
       Logger.error(JSON.stringify(error), this)
     }
+  }
+
+  private async readConfig(field: string, nameBytes: Uint8Array, preference: sendablePreferences.Preferences) {
+    let textDecoderOptions: util.TextDecoderOptions = {
+      fatal: false,
+      ignoreBOM: true
+    }
+    let decodeToStringOptions: util.DecodeToStringOptions = {
+      stream: false
+    }
+    let textDecoder = util.TextDecoder.create('utf-8', textDecoderOptions);
+    let name = textDecoder.decodeToString(new Uint8Array(nameBytes), decodeToStringOptions);
+    const task: taskpool.Task = new taskpool.Task(readConfigFromPreference, field as String, preference);
+    return taskpool.execute(task).then((value: object) => {
+      let config = value.toString()
+      AppManager.data.readConfig(field, name as string, JSON.parse(config) as NetworkConfig)
+    }).catch((err: BusinessError) => {
+      Logger.error("taskpool error: " + JSON.stringify(err), this)
+    })
   }
 }

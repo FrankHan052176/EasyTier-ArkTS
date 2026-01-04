@@ -4,7 +4,8 @@ import { Logger } from './Logger';
 export class EventHelper {
   private static bundleName = "top.frankhan.easytier"
 
-  public static commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void, publisherBundleName: string | undefined = EventHelper.bundleName) {
+  public static commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void,
+    publisherBundleName: string | undefined = EventHelper.bundleName) {
     let subscribeInfo: commonEventManager.CommonEventSubscribeInfo = {
       events: [event],
       publisherBundleName: publisherBundleName
@@ -27,7 +28,8 @@ export class EventHelper {
   }
 
   public static commonPublish(event: string) {
-    commonEventManager.publish(event, () => {})
+    commonEventManager.publish(event, () => {
+    })
   }
 
   public static commonPublishCode(event: string, code: number) {

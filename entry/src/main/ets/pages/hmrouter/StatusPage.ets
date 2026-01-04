@@ -33,24 +33,9 @@ export struct StatusPage {
   @Local rx_unit: string = "B/s"
   @Local tx_unit: string = "B/s"
 
-  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
-    if (this.config) {
-      compressStr(mappedJson(this.config)).then((data) => {
-        try {
-          let shareData: systemShare.SharedData = new systemShare.SharedData({
-            utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-            content: 'https://easytier.cn/comp_cfg?cfg='+data,
-            title: '分享配置 '+this.name,
-            description: this.uuid ?? ""
-          });
-          sharableTarget.share(shareData);
-        }catch (e) {
-          Logger.error("systemShare"+JSON.stringify(e), "EdiStatusPagetPage")
-        }
-      }).catch((e:Error) => {
-        Logger.error("compressedConfig"+JSON.stringify(e), "StatusPage")
-      })
-    }
+  @Computed
+  get instanceInfo() {
+    return AppManager.easytier.instanceInfos.get(this.uuid)
   }
 
   aboutToAppear(): void {
@@ -106,11 +91,6 @@ export struct StatusPage {
         this.immersiveCallback(target)
       });
     }
-  }
-
-  @Computed
-  get instanceInfo() {
-    return AppManager.easytier.instanceInfos.get(this.uuid)
   }
 
   getRouteCost(cost: number): string {
@@ -445,5 +425,25 @@ export struct StatusPage {
     }
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
+    if (this.config) {
+      compressStr(mappedJson(this.config)).then((data) => {
+        try {
+          let shareData: systemShare.SharedData = new systemShare.SharedData({
+            utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
+            content: 'https://easytier.cn/comp_cfg?cfg=' + data,
+            title: '分享配置 ' + this.name,
+            description: this.uuid ?? ""
+          });
+          sharableTarget.share(shareData);
+        } catch (e) {
+          Logger.error("systemShare" + JSON.stringify(e), "EdiStatusPagetPage")
+        }
+      }).catch((e: Error) => {
+        Logger.error("compressedConfig" + JSON.stringify(e), "StatusPage")
+      })
+    }
   }
 }

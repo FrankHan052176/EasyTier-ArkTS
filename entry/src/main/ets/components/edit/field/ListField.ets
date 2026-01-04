@@ -35,6 +35,17 @@ export struct ListField {
     return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
   }
 
+  @Computed
+  get comp_height() {
+    if (this.items.length == 0) {
+      return 70
+    } else if (this.items.length <= 2) {
+      return this.items.length * this.item_height + (this.items.length - 1) * 10
+    } else {
+      return 2.5 * this.item_height + 10
+    }
+  }
+
   updateItems() {
     this.items = AppManager.easytier.getEditingConfig()![this.field].map((value: string | PortForwardConfig) => {
       switch (this.type) {
@@ -84,17 +95,6 @@ export struct ListField {
       }
       this.preference?.flushSync()
     })
-  }
-
-  @Computed
-  get comp_height() {
-    if (this.items.length == 0) {
-      return 70
-    } else if (this.items.length <= 2) {
-      return this.items.length * this.item_height + (this.items.length - 1) * 10
-    } else {
-      return 2.5 * this.item_height + 10
-    }
   }
 
   @Builder

@@ -1,9 +1,9 @@
 @ObservedV2
 export class CircleArray<T> {
   @Trace arr: Array<T>
+  @Trace sum: number = 0
   @Trace private index: number = 0
   @Trace private size: number
-  @Trace sum: number = 0
   @Trace private full: boolean = false
 
   constructor(size: number) {

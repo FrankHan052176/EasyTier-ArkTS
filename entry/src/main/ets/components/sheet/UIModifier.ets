@@ -109,7 +109,12 @@ struct PostureDemo {
       }
     }
     .width('100%')
-    .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+    .padding({
+      left: 16,
+      right: 16,
+      top: 12,
+      bottom: 12
+    })
     .clip(true)
   }
 }
@@ -162,6 +167,7 @@ export struct UI_Content {
             .margin({ top: 4 })
         }
         .alignItems(HorizontalAlign.Start)
+
         Blank()
         Toggle({ type: ToggleType.Switch, isOn: this.isPosture })
           .onChange((isOn) => {
@@ -179,6 +185,7 @@ export struct UI_Content {
         top: 12,
         bottom: 12
       })
+
       Divider()
         .strokeWidth(1)
         .opacity(0.1)

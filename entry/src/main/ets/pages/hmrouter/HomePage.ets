@@ -1,6 +1,11 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { deviceInfo } from '@kit.BasicServicesKit';
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute } from '@hms.hds.hdsBaseComponent';
+import {
+  HdsNavigation,
+  HdsNavigationTitleMode,
+  ScrollEffectType,
+  HdsNavigationAttribute
+} from '@hms.hds.hdsBaseComponent';
 import { HdsMenuButton, MenuButton } from '../Components';
 import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { AppManager } from '../../AppManager';
@@ -34,31 +39,6 @@ export struct HomePage {
   @Local tips: string | undefined = ""
   @Local actionText: string | undefined = ""
   @Local hand: number = 0
-
-  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
-    if (AppManager.easytier.selected) {
-      let config = AppManager.data.configUUIDMap.get(AppManager.easytier.selected)
-      if (config) {
-        compressStr(mappedJson(config)).then((data) => {
-          try {
-            let shareData: systemShare.SharedData = new systemShare.SharedData({
-              utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-              content: 'https://easytier.cn/comp_cfg?cfg='+data,
-              title: '分享配置 '+AppManager.data.configUUIDNameMap.get(AppManager.easytier.selected!),
-              description: AppManager.easytier.selected ?? ""
-            });
-            sharableTarget.share(shareData);
-          }catch (e) {
-            Logger.error("systemShare"+JSON.stringify(e), "HomePage")
-          }
-        }).catch((e:Error) => {
-          Logger.error("compressedConfig"+JSON.stringify(e), "HomePage")
-        })
-      }
-    }else {
-      sendToast("先选择一个实例，再分享吧")
-    }
-  }
 
   aboutToAppear(): void {
     EventHelper.emitterListener("home_open_sheet", (data) => {
@@ -98,7 +78,8 @@ export struct HomePage {
               }
             }
           })
-        } catch (_) {}
+        } catch (_) {
+        }
       }
     }
     harmonyShare.on('knockShare', (target) => {
@@ -140,7 +121,9 @@ export struct HomePage {
     let uuid = AppManager.easytier.selected
     if (!uuid || !AppManager.easytier.runningNetworks.has(uuid)) {
       if (AppManager.easytier.runningNetworks.size > 0) {
-        uuid = AppManager.easytier.runningNetworks.keys().next().value
+        uuid = AppManager.easytier.runningNetworks.keys()
+          .next()
+          .value
       }
     }
     if (uuid) {
@@ -201,7 +184,7 @@ export struct HomePage {
 
           Button({ type: ButtonType.Circle }) {
             SymbolGlyph(AppManager.easytier.runningNetworks.size > 0 ? $r('sys.symbol.pause_fill') :
-            $r('sys.symbol.play_fill'))
+              $r('sys.symbol.play_fill'))
               .fontSize(28)
               .fontColor([$r("sys.color.font_primary")])
           }
@@ -368,9 +351,34 @@ export struct HomePage {
     .overlay(this.actionBar, {
       align: Alignment.Bottom,
       offset: {
-        x:0,
-        y:WindowUtil.navigationBarHeight+WindowUtil.statusBarHeight
+        x: 0,
+        y: WindowUtil.navigationBarHeight + WindowUtil.statusBarHeight
       }
     })
+  }
+
+  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
+    if (AppManager.easytier.selected) {
+      let config = AppManager.data.configUUIDMap.get(AppManager.easytier.selected)
+      if (config) {
+        compressStr(mappedJson(config)).then((data) => {
+          try {
+            let shareData: systemShare.SharedData = new systemShare.SharedData({
+              utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
+              content: 'https://easytier.cn/comp_cfg?cfg=' + data,
+              title: '分享配置 ' + AppManager.data.configUUIDNameMap.get(AppManager.easytier.selected!),
+              description: AppManager.easytier.selected ?? ""
+            });
+            sharableTarget.share(shareData);
+          } catch (e) {
+            Logger.error("systemShare" + JSON.stringify(e), "HomePage")
+          }
+        }).catch((e: Error) => {
+          Logger.error("compressedConfig" + JSON.stringify(e), "HomePage")
+        })
+      }
+    } else {
+      sendToast("先选择一个实例，再分享吧")
+    }
   }
 }

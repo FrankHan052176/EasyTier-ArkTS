@@ -48,13 +48,15 @@ export class DataUtil {
   public isFavorite(uuid: string | undefined) {
     if (uuid) {
       return uuid === this.favorite
-    }else {
+    } else {
       return false
     }
   }
 
   public changeFavorite(uuid: string | undefined) {
-    if (!uuid) return
+    if (!uuid) {
+      return
+    }
     if (this.isFavorite(uuid)) {
       this.favorite = undefined
     } else {
@@ -128,11 +130,11 @@ export class DataUtil {
           }
           if (entries.length == 0) {
             Logger.debug('No Peer', this)
-          }else {
+          } else {
             entries.forEach((entry) => {
               let value = new Url()
               if (value.fromString(entry.value.value.toString())) {
-                Logger.debug('Read Peer: '+value.toString(), this)
+                Logger.debug('Read Peer: ' + value.toString(), this)
                 this.getDataSource("peer").add(value)
               }
             })
@@ -144,19 +146,21 @@ export class DataUtil {
             }
             if (entries.length == 0) {
               Logger.debug('No Config', this)
-            }else {
+            } else {
               entries.forEach((entry) => {
                 let toml = entry.value.value.toString()
-                Logger.debug('Read Config: '+entry.key, this)
+                Logger.debug('Read Config: ' + entry.key, this)
                 this.importToml(toml)
               })
             }
-            AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs').catch(() => {})
+            AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs').catch(() => {
+            })
           })
         })
       } catch (err) {
         Logger.error(`Failed to get KVStore: Code:${err.code},message:${err.message}`, this);
-        AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs').catch(() => {})
+        AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs').catch(() => {
+        })
       }
     }
   }
@@ -199,7 +203,7 @@ export class DataUtil {
       return false
     }
     let instance_name = cfg_toml.match(/^\s*instance_name\s*=\s*["'](.+?)["']\s*(?:#.*)?$/m)
-    Logger.debug("import toml find name: "+JSON.stringify(instance_name))
+    Logger.debug("import toml find name: " + JSON.stringify(instance_name))
     let name = instance_name ? instance_name[1] : undefined
     let config: NetworkConfig = JSON.parse(cfg)
     if (config.networking_method === NetworkingMethod.PublicServer && config.public_server_url) {
@@ -279,8 +283,10 @@ export class DataUtil {
         AppManager.preference.configIDPreferences?.deleteSync(uuid)
         AppManager.preference.configPreferences.delete(uuid)
         AppManager.preference.configIDPreferences?.flushSync()
-      } catch (error) {}
-      preferences.deletePreferences(AppManager.content.context!, uuid).catch(() => {})
+      } catch (error) {
+      }
+      preferences.deletePreferences(AppManager.content.context!, uuid).catch(() => {
+      })
       let result = this.configUUIDMap.delete(uuid)
       this.configNameUUIDMap.delete(name ?? "")
       this.configUUIDNameMap.delete(uuid)

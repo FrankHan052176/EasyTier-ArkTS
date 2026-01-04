@@ -264,6 +264,7 @@ export struct UrlEditor {
           .width('100%')
         }
         .width('100%')
+
         Row() {
           SymbolGlyph($r('sys.symbol.info_circle'))
             .fontSize(16)
@@ -274,13 +275,14 @@ export struct UrlEditor {
             .fontColor($r('sys.color.font_secondary'))
         }
         .width('100%')
-        .padding({ top: 12})
+        .padding({ top: 12 })
         .alignItems(VerticalAlign.Top)
       }
       .width('90%')
       .padding(16)
       .backgroundColor($r("sys.color.comp_background_primary"))
       .borderRadius(16)
+
       Blank()
         .width('100%')
         .height(100)
@@ -295,7 +297,7 @@ export class Url implements FieldValue {
   @Trace port: string = "11010"
   fieldName: string | undefined
 
-  @Monitor("proto","domain","port")
+  @Monitor("proto", "domain", "port")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
       let config = AppManager.easytier.getEditingConfig()

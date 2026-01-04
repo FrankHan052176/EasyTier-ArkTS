@@ -1,5 +1,4 @@
 import { FieldValue } from './Basic'
-import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Svp2fp } from '../../AppManager'
 
 function isIpAddr(value: string): boolean {
@@ -103,7 +102,7 @@ export struct CidrEditor {
       .width('100%')
       .padding({ top: 12, left: 16, right: 16 })
       .alignItems(VerticalAlign.Top)
-      
+
       Blank()
         .width('100%')
         .height(100)
@@ -170,7 +169,7 @@ export class Cidr implements FieldValue {
   @Trace mask: string = "24"
   fieldName: string | undefined
 
-  @Monitor("ip","mask")
+  @Monitor("ip", "mask")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
       let config = AppManager.easytier.getEditingConfig()

@@ -1,4 +1,4 @@
-import { PortForwardConfig } from "../protobuf/api_manage";
+import { PortForwardConfig } from '../protobuf/api_manage';
 
 @Sendable
 export class SafePortForwardConfig {
@@ -7,13 +7,15 @@ export class SafePortForwardConfig {
   dst_ip: string;
   dst_port: number;
   proto: string;
-  constructor(value:PortForwardConfig) {
+
+  constructor(value: PortForwardConfig) {
     this.bind_ip = value.bind_ip
     this.bind_port = value.bind_port
     this.dst_ip = value.dst_ip
     this.dst_port = value.dst_port
     this.proto = value.proto
   }
+
   toInterface(): PortForwardConfig {
     return {
       bind_ip: this.bind_ip,

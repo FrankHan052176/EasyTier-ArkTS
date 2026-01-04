@@ -6,6 +6,29 @@ export class NetworkSegment {
     this.parseSegment(segmentStr);
   }
 
+  contains(target: string): boolean {
+    try {
+      const targetNetwork = target.includes('/')
+        ? new NetworkSegment(target)
+        : this.ipToNetwork(target, 32);
+
+      const networkNum = this.ipToNumber(this.networkAddress);
+      const targetNetworkNum = this.ipToNumber(targetNetwork.networkAddress);
+
+      const mask = this.prefixToMask(this.prefix);
+      const maskNum = this.ipToNumber(mask.join('.'));
+
+      return (networkNum & maskNum) === (targetNetworkNum & maskNum) &&
+        this.prefix <= targetNetwork.prefix;
+    } catch {
+      return false;
+    }
+  }
+
+  toString(): string {
+    return `${this.networkAddress}/${this.prefix}`;
+  }
+
   private parseSegment(segmentStr: string): void {
     const split = segmentStr.split('/');
     const ip = split[0];
@@ -51,33 +74,10 @@ export class NetworkSegment {
     return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
   }
 
-  contains(target: string): boolean {
-    try {
-      const targetNetwork = target.includes('/')
-        ? new NetworkSegment(target)
-        : this.ipToNetwork(target, 32);
-
-      const networkNum = this.ipToNumber(this.networkAddress);
-      const targetNetworkNum = this.ipToNumber(targetNetwork.networkAddress);
-
-      const mask = this.prefixToMask(this.prefix);
-      const maskNum = this.ipToNumber(mask.join('.'));
-
-      return (networkNum & maskNum) === (targetNetworkNum & maskNum) &&
-        this.prefix <= targetNetwork.prefix;
-    } catch {
-      return false;
-    }
-  }
-
   private ipToNetwork(ip: string, prefix: number): NetworkSegment {
     const segment = new NetworkSegment('0.0.0.0/0');
     segment.networkAddress = this.calculateNetworkAddress(ip, prefix);
     segment.prefix = prefix;
     return segment;
-  }
-
-  toString(): string {
-    return `${this.networkAddress}/${this.prefix}`;
   }
 }

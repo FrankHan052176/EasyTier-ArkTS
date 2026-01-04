@@ -5,13 +5,14 @@ import { WindowUtil } from '../../WindowUtil'
 @ComponentV2
 export struct InstanceSelector {
   @Param selectedUuid: string = ""
-  @Event onSelect: (uuid: string) => void = () => {}
-
   @Local isSelecting: boolean = false
-  
+
   @Computed
   get uuids() {
     return Array.from(AppManager.data.configUUIDNameMap.keys())
+  }
+
+  @Event onSelect: (uuid: string) => void = () => {
   }
 
   aboutToAppear(): void {
@@ -48,7 +49,7 @@ export struct InstanceSelector {
           .fontSize(24)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
-        
+
         Blank()
 
         Button({ type: ButtonType.Circle, stateEffect: true }) {
@@ -64,7 +65,12 @@ export struct InstanceSelector {
         })
       }
       .width('100%')
-      .padding({ top: 16, bottom: 16, left: 24, right: 24 })
+      .padding({
+        top: 16,
+        bottom: 16,
+        left: 24,
+        right: 24
+      })
       .alignItems(VerticalAlign.Center)
 
       // List
@@ -79,7 +85,7 @@ export struct InstanceSelector {
                   .fontColor(uuid === this.selectedUuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
-                
+
                 Text(uuid)
                   .fontSize(12)
                   .fontColor($r('sys.color.font_tertiary'))
@@ -91,10 +97,10 @@ export struct InstanceSelector {
               .alignItems(HorizontalAlign.Start)
 
               if (uuid === this.selectedUuid) {
-                 SymbolGlyph($r('sys.symbol.checkmark'))
-                   .fontSize(24)
-                   .fontColor([$r('sys.color.brand')])
-                   .margin({ left: 12 })
+                SymbolGlyph($r('sys.symbol.checkmark'))
+                  .fontSize(24)
+                  .fontColor([$r('sys.color.brand')])
+                  .margin({ left: 12 })
               }
             }
             .width('100%')
@@ -117,7 +123,7 @@ export struct InstanceSelector {
     .width('100%')
     .height('100%')
     .backgroundColor($r("sys.color.comp_background_primary"))
-    .padding({top: WindowUtil.statusBarHeight})
+    .padding({ top: WindowUtil.statusBarHeight })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 
@@ -130,7 +136,7 @@ export struct InstanceSelector {
           .fontColor($r('sys.color.font_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        
+
         Text("点击切换实例")
           .fontSize(12)
           .fontColor($r('sys.color.font_secondary'))
@@ -142,7 +148,7 @@ export struct InstanceSelector {
     .layoutWeight(1)
     .justifyContent(FlexAlign.Center)
     .onClick(() => {
-        this.isSelecting = true
+      this.isSelecting = true
     })
     .bindContentCover(this.isSelecting!!, this.ModalView(), {
       modalTransition: ModalTransition.DEFAULT,

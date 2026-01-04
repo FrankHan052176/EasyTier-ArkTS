@@ -3,7 +3,6 @@ import { convertToProtocol, Protocol } from '../util/ETConfig'
 import { CircleArray } from './container/CircleArray'
 import { PeerInfoDataSource } from './PeerInfoDataSource'
 import { convertAddrToIp } from '../util/Conversion'
-import { Logger } from '../util/Logger'
 
 function fixedRate(value: number): number {
   if (value > 107374182) {
@@ -79,13 +78,13 @@ export class PeerInfo {
 
 @ObservedV2
 export class InstanceInfo {
+  @Trace peers: PeerInfoDataSource = new PeerInfoDataSource()
   @Trace private download_rate: number = 0
   @Trace private download_arr: CircleArray<number> = new CircleArray(10)
   @Trace private last_download: number = 0
   @Trace private upload_rate: number = 0
   @Trace private upload_arr: CircleArray<number> = new CircleArray(10)
   @Trace private last_upload: number = 0
-  @Trace peers: PeerInfoDataSource = new PeerInfoDataSource()
 
   update(info: NetworkInstanceRunningInfo) {
     //      下载  上传

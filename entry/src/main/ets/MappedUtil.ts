@@ -1,12 +1,17 @@
-import { ContentUtil } from "./ContentUtil";
-import { NetworkConfig } from "./protobuf/api_manage";
-import { NetworkConfigFieldIdMap, NetworkConfigIdFieldMap } from "./protobuf/proto-type-map";
+import { ContentUtil } from './ContentUtil';
+import { NetworkConfig } from './protobuf/api_manage';
+import { NetworkConfigFieldIdMap, NetworkConfigIdFieldMap } from './protobuf/proto-type-map';
 
 function cleanEmpty(value: any) {
-  if (value === undefined) return undefined;
-  if (Array.isArray(value) && value.length === 0) return undefined;
+  if (value === undefined) {
+    return undefined;
+  }
+  if (Array.isArray(value) && value.length === 0) {
+    return undefined;
+  }
   return value;
 }
+
 export function mappedJson(raw: NetworkConfig): string {
   let data = {};
   for (const [key, value] of Object.entries(raw)) {

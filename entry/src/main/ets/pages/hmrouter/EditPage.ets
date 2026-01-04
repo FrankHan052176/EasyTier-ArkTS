@@ -31,27 +31,6 @@ export struct EditPage {
     return ""
   }
 
-  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
-    let config = AppManager.data.configUUIDMap.get(this.uuid ?? "")
-    if (config) {
-      compressStr(mappedJson(config)).then((data) => {
-        try {
-          let shareData: systemShare.SharedData = new systemShare.SharedData({
-            utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-            content: 'https://easytier.cn/comp_cfg?cfg='+data,
-            title: '分享配置 '+this.name,
-            description: this.uuid ?? ""
-          });
-          sharableTarget.share(shareData);
-        }catch (e) {
-          Logger.error("systemShare"+JSON.stringify(e), "EditPage")
-        }
-      }).catch((e:Error) => {
-        Logger.error("compressedConfig"+JSON.stringify(e), "EditPage")
-      })
-    }
-  }
-
   aboutToAppear(): void {
     this.uuid = HMRouterMgr.getCurrentParam() as string;
     EventHelper.emitterListener("edit_open_sheet", (data) => {
@@ -237,7 +216,7 @@ export struct EditPage {
                       let str = await compressStr(mappedJson(config))
                       let shareData: systemShare.SharedData = new systemShare.SharedData({
                         utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-                        content: 'https://easytier.cn/comp_cfg?cfg='+(str),
+                        content: 'https://easytier.cn/comp_cfg?cfg=' + (str),
                         title: AppManager.data.configUUIDNameMap.get(config.instance_id ?? ""),
                         description: config.instance_id,
                       });
@@ -247,7 +226,8 @@ export struct EditPage {
                       controller.show(context, {
                         selectionMode: systemShare.SelectionMode.SINGLE,
                         previewMode: systemShare.SharePreviewMode.DEFAULT,
-                        excludedAbilities: [systemShare.ShareAbilityType.PRINT, systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
+                        excludedAbilities: [systemShare.ShareAbilityType.PRINT,
+                          systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
                       }).catch(() => {
                         Logger.error(`[Index] systemShareConfig::An unexpected error occurred.`);
                       })
@@ -319,5 +299,26 @@ export struct EditPage {
         this.sheet = false
       }
     })
+  }
+
+  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
+    let config = AppManager.data.configUUIDMap.get(this.uuid ?? "")
+    if (config) {
+      compressStr(mappedJson(config)).then((data) => {
+        try {
+          let shareData: systemShare.SharedData = new systemShare.SharedData({
+            utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
+            content: 'https://easytier.cn/comp_cfg?cfg=' + data,
+            title: '分享配置 ' + this.name,
+            description: this.uuid ?? ""
+          });
+          sharableTarget.share(shareData);
+        } catch (e) {
+          Logger.error("systemShare" + JSON.stringify(e), "EditPage")
+        }
+      }).catch((e: Error) => {
+        Logger.error("compressedConfig" + JSON.stringify(e), "EditPage")
+      })
+    }
   }
 }

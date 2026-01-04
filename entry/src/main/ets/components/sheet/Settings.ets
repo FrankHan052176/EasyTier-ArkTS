@@ -264,6 +264,7 @@ export function Setting_Sheet() {
                 .margin({ right: 5 })
             }
             .padding(10)
+
             Row() {
               TextInput({ text: AppManager.preference.dns })
                 .padding(4)

@@ -1,8 +1,8 @@
-import { NetworkConfig } from "./protobuf/api_manage";
-import { LogLocate } from "./util/Logger";
-import easytier from "easytier-ohrs"
-import { NetworkConfigTypeMap } from "./protobuf/proto-type-map";
-import { deviceInfo } from "@kit.BasicServicesKit";
+import { NetworkConfig } from './protobuf/api_manage';
+import { LogLocate } from './util/Logger';
+import easytier from 'easytier-ohrs';
+import { NetworkConfigTypeMap } from './protobuf/proto-type-map';
+import { deviceInfo } from '@kit.BasicServicesKit';
 
 const ignoreField: Set<string> = new Set([
   "networking_method", "public_server_url", "advanced_settings", "dev_name",
@@ -12,6 +12,7 @@ type fieldType = string | ConfigField[]
 export class ConfigField {
   name: string
   type: fieldType
+
   constructor(name: string, type: fieldType) {
     this.name = name
     this.type = type
@@ -37,7 +38,7 @@ export class ContentUtil {
     "algorithm_setting": ["data_compress_algo", "encryption_algorithm"],
     "virtual_ipv4_comp": ["dhcp", "virtual_ip"],
     "identity": ["network_name", "network_secret"],
-    "vpn_portal": ["enable_vpn_portal",  "vpn_portal_listen_port", "vpn_portal_client_network"],
+    "vpn_portal": ["enable_vpn_portal", "vpn_portal_listen_port", "vpn_portal_client_network"],
     "socks5": ["enable_socks5", "socks5_port"],
     "virtual_ip": ["virtual_ipv4", "network_length"],
     "vpn_portal_client_network": ["vpn_portal_client_network_addr", "vpn_portal_client_network_len"]
@@ -103,19 +104,8 @@ export class ContentUtil {
     return value
   }
 
-  private static findCombinedFieldKey(value: string): string | undefined {
-    for (const [key, fields] of Object.entries(this.combinedField)) {
-      if (fields.includes(value)) return key
-    }
-    return undefined
-  }
-
-  private static getFieldType(field: string): string {
-    return this.overrideFieldType[field] || NetworkConfigTypeMap[field]
-  }
-
   public static getDefaultConfig(hostname: string): NetworkConfig {
-    let cfg = NetworkConfig.fromJSON(deviceInfo.productModel !== "emulator"?easytier.defaultNetworkConfig():"{}")
+    let cfg = NetworkConfig.fromJSON(deviceInfo.productModel !== "emulator" ? easytier.defaultNetworkConfig() : "{}")
     cfg.networking_method = 1
     cfg.enable_relay_network_whitelist = true
     cfg.enable_manual_routes = true
@@ -133,33 +123,12 @@ export class ContentUtil {
     return cfg
   }
 
-
-  private static findTopCombinedParent(field: string): string | undefined {
-    const parent = this.findCombinedFieldKey(field)
-    if (!parent) return undefined
-    return this.findTopCombinedParent(parent) ?? parent
-  }
-
-  private static buildCombinedField(parent: string): ConfigField[] {
-    const children = this.combinedField[parent] ?? []
-    const result: ConfigField[] = []
-
-    for (const child of children) {
-      if (this.combinedField[child]) {
-        result.push(new ConfigField(child, this.buildCombinedField(child)))
-      } else {
-        result.push(new ConfigField(child, this.getFieldType(child)))
-      }
-    }
-
-    return result
-  }
-
-
   public static initConfigFields() {
     let added = new Set<string>()
     for (const field of Object.keys(this.getDefaultConfig(""))) {
-      if (ignoreField.has(field)) continue
+      if (ignoreField.has(field)) {
+        continue
+      }
       const top = this.findTopCombinedParent(field)
       if (top) {
         if (!added.has(top)) {
@@ -182,7 +151,7 @@ export class ContentUtil {
       }
       added.add(field)
     }
-    this.fieldList.sort((a,b) => {
+    this.fieldList.sort((a, b) => {
       return this.getFieldCategory(a.name) - this.getFieldCategory(b.name)
     }).forEach((field) => {
       let category = this.getFieldCategory(field.name)
@@ -201,5 +170,41 @@ export class ContentUtil {
         }
       }
     })
+  }
+
+  private static findCombinedFieldKey(value: string): string | undefined {
+    for (const [key, fields] of Object.entries(this.combinedField)) {
+      if (fields.includes(value)) {
+        return key
+      }
+    }
+    return undefined
+  }
+
+  private static getFieldType(field: string): string {
+    return this.overrideFieldType[field] || NetworkConfigTypeMap[field]
+  }
+
+  private static findTopCombinedParent(field: string): string | undefined {
+    const parent = this.findCombinedFieldKey(field)
+    if (!parent) {
+      return undefined
+    }
+    return this.findTopCombinedParent(parent) ?? parent
+  }
+
+  private static buildCombinedField(parent: string): ConfigField[] {
+    const children = this.combinedField[parent] ?? []
+    const result: ConfigField[] = []
+
+    for (const child of children) {
+      if (this.combinedField[child]) {
+        result.push(new ConfigField(child, this.buildCombinedField(child)))
+      } else {
+        result.push(new ConfigField(child, this.getFieldType(child)))
+      }
+    }
+
+    return result
   }
 }

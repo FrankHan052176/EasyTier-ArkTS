@@ -31,6 +31,11 @@ export struct PortField {
     return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
   }
 
+  @Computed
+  get fontColor() {
+    return this.enable ? $r("sys.color.font_primary") : $r("sys.color.font_tertiary")
+  }
+
   insert(value: InsertValue): boolean {
     let newValue = this.value.substring(0, value.insertOffset)
       + value.insertValue
@@ -58,11 +63,6 @@ export struct PortField {
     this.config![ContentUtil.safeFieldName(this.field)] = Number.isNaN(num) ? 0 : num
     this.preference?.putSync(this.field, this.config![this.field])
     this.preference?.flushSync()
-  }
-
-  @Computed
-  get fontColor() {
-    return this.enable ? $r("sys.color.font_primary") : $r("sys.color.font_tertiary")
   }
 
   build() {

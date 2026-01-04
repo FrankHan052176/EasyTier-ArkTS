@@ -1,15 +1,15 @@
-import { AppManager, Sfp2vp } from '../../AppManager'
+import { AppManager } from '../../AppManager'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { HMRouterTransitions } from '@hadss/hmrouter-transitions'
 import { InstanceSelector } from '../util/InstanceSelector'
 import { LightModifier } from '../../class/modifier/SymbolLight'
 import { StackLightModifier } from '../../class/modifier/BackgroundLight'
-import { hdsEffect } from '@kit.UIDesignKit'
 
 @ComponentV2
 export struct Instances {
   @Local lightMod: LightModifier = new LightModifier($r('sys.color.brand'))
   @Local bgMode: StackLightModifier = new StackLightModifier()
+
   @Computed
   get w(): number {
     return AppManager.layout.getCompSize('Instances').lane_w
@@ -34,7 +34,7 @@ export struct Instances {
   get isFavorite() {
     if (AppManager.easytier.selected) {
       return AppManager.easytier.selected === AppManager.data.favorite
-    }else {
+    } else {
       return false
     }
   }
@@ -49,7 +49,9 @@ export struct Instances {
   }
 
   next() {
-    if (this.uuids.length === 0) return
+    if (this.uuids.length === 0) {
+      return
+    }
     const currentIndex = this.uuids.indexOf(this.selectedUuid ?? "")
     let nextIndex = currentIndex + 1
     if (nextIndex >= this.uuids.length || nextIndex < 0) {
@@ -67,7 +69,7 @@ export struct Instances {
   @Builder
   point() {
     Column()
-      .size({width:1,height:1})
+      .size({ width: 1, height: 1 })
       .attributeModifier(this.lightMod)
   }
 
@@ -148,13 +150,13 @@ export struct Instances {
             selectedUuid: this.selectedUuid ?? "",
             onSelect: (uuid: string): void => this.select(uuid)
           })
-          .layoutWeight(1)
+            .layoutWeight(1)
 
           Row({ space: 12 }) {
             if (this.selectedUuid) {
               this.IconButton(true,
                 (): void => AppManager.data.changeFavorite(this.selectedUuid))
-              
+
               this.IconButton(false, (): void => this.toEdit(this.selectedUuid!))
             }
           }
@@ -270,7 +272,7 @@ export struct Instances {
             .fontColor([AppManager.data.isFavorite(uuid) ? 'rgba(255,200,50,1)' : $r("sys.color.font_secondary")])
             .onClick(() => AppManager.data.changeFavorite(uuid))
         }
-        
+
         SymbolGlyph($r("sys.symbol.square_and_pencil"))
           .fontSize(18)
           .fontColor([$r("sys.color.font_secondary")])
@@ -287,7 +289,7 @@ export struct Instances {
   @Builder
   IconButton(favorite: boolean, action: () => void) {
     Column() {
-      SymbolGlyph(favorite?this.favoriteIcon:$r("sys.symbol.square_and_pencil"))
+      SymbolGlyph(favorite ? this.favoriteIcon : $r("sys.symbol.square_and_pencil"))
         .fontSize(24)
         .fontColor([this.isFavorite && favorite ? 'rgba(255,200,50,1)' : $r("sys.color.font_primary")])
     }

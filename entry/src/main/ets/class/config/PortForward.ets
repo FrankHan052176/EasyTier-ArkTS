@@ -214,7 +214,9 @@ export struct PortForwardEditor {
           (value) => {
             if (isIpAddr(value)) {
               this.domain = false
-              if (EditValue_PortForward) EditValue_PortForward.from = value
+              if (EditValue_PortForward) {
+                EditValue_PortForward.from = value
+              }
             } else {
               this.domain = true
             }
@@ -222,7 +224,9 @@ export struct PortForwardEditor {
           (value) => {
             if (isPort(value)) {
               this.port = false
-              if (EditValue_PortForward) EditValue_PortForward.from_port = value
+              if (EditValue_PortForward) {
+                EditValue_PortForward.from_port = value
+              }
             } else {
               this.port = true
             }
@@ -239,7 +243,9 @@ export struct PortForwardEditor {
           (value) => {
             if (isIpAddr(value)) {
               this.domain = false
-              if (EditValue_PortForward) EditValue_PortForward.to = value
+              if (EditValue_PortForward) {
+                EditValue_PortForward.to = value
+              }
             } else {
               this.domain = true
             }
@@ -247,7 +253,9 @@ export struct PortForwardEditor {
           (value) => {
             if (isPort(value)) {
               this.port = false
-              if (EditValue_PortForward) EditValue_PortForward.to_port = value
+              if (EditValue_PortForward) {
+                EditValue_PortForward.to_port = value
+              }
             } else {
               this.port = true
             }
@@ -287,7 +295,7 @@ export class PortForward implements FieldValue {
   @Trace to_port: string = "11010"
   fieldName: string | undefined
 
-  @Monitor("proto","from","from_port","to","to_port")
+  @Monitor("proto", "from", "from_port", "to", "to_port")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
       let config = AppManager.easytier.getEditingConfig()

@@ -31,7 +31,7 @@ export struct DesktopLayout {
               x: size.grid_x * this.GridSize,
               y: size.grid_y * this.GridSize
             })
-            .zIndex(size.isResize?99:(size.find_next_grid?98:1))
+            .zIndex(size.isResize ? 99 : (size.find_next_grid ? 98 : 1))
         }
       }, (item: CompSize) => item.type)
     }

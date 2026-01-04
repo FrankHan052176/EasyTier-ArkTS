@@ -1,12 +1,14 @@
 @ObservedV2
 export class SafeSet<T> implements Iterable<T> {
+  @Trace map = new Map<String,T>()
+  get size() {
+    return this.map.size
+  }
+
   [Symbol.iterator](): IterableIterator<T> {
     return this.map.values()
   }
 
-  @Trace map = new Map < String
-  , T
-  >
   has(value: T): boolean {
     return this.map.has(`${value}`)
   }
@@ -33,10 +35,6 @@ export class SafeSet<T> implements Iterable<T> {
       return result
     }
     return result
-  }
-
-  get size() {
-    return this.map.size
   }
 
   values(): IterableIterator<T> {

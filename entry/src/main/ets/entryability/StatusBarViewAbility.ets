@@ -11,7 +11,8 @@ export default class StatusBarViewAbility extends StatusBarViewExtensionAbility 
   onSessionCreate(want: Want, session: UIExtensionContentSession) {
     try {
       session.loadContent("pages/StatusBarPage")
-    } catch (error) {}
+    } catch (error) {
+    }
   }
 
   onForeground() {

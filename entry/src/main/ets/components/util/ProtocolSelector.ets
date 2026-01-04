@@ -1,5 +1,5 @@
-import { Protocol, protocolBGColor, protocolColor } from "../../util/ETConfig"
-import { WindowUtil } from "../../WindowUtil"
+import { Protocol, protocolBGColor, protocolColor } from '../../util/ETConfig'
+import { WindowUtil } from '../../WindowUtil'
 
 @ComponentV2
 export struct ProtocolSelector {
@@ -15,14 +15,16 @@ export struct ProtocolSelector {
 
   @Computed
   get scrollWidth() {
-    let availableWidth = Math.floor(WindowUtil.width*0.9)
+    let availableWidth = Math.floor(WindowUtil.width * 0.9)
     let n = Math.min(Math.floor(availableWidth / this.comp_width), this.selectorProtocols.length)
-    return n*this.comp_width
+    return n * this.comp_width
   }
 
   @Computed
   get otherProtocols() {
-    return Array.from(this.protocols).filter((value) => {return value !== this.selected}).reverse()
+    return Array.from(this.protocols).filter((value) => {
+      return value !== this.selected
+    }).reverse()
   }
 
   @Computed
@@ -34,24 +36,24 @@ export struct ProtocolSelector {
   selector() {
     List({
       scroller: this.scroller,
-      initialIndex: this.selectorProtocols.length-1
+      initialIndex: this.selectorProtocols.length - 1
     }) {
       ForEach(this.selectorProtocols, (value: Protocol) => {
         ListItem() {
           Column() {
             Text(value.toString().toUpperCase())
-              .fontColor(value === this.newSelected?protocolColor(value):$r("sys.color.font_primary"))
+              .fontColor(value === this.newSelected ? protocolColor(value) : $r("sys.color.font_primary"))
           }
           .padding(12)
           .width(this.comp_width)
           .alignItems(HorizontalAlign.Center)
-          .backgroundColor(value === this.newSelected?protocolBGColor(value):$r("sys.color.background_primary"))
+          .backgroundColor(value === this.newSelected ? protocolBGColor(value) : $r("sys.color.background_primary"))
         }
       })
     }
     .listDirection(Axis.Horizontal)
     .width(this.scrollWidth)
-    .height(this.comp_height+12)
+    .height(this.comp_height + 12)
     .scrollBar(BarState.Off)
     .enableScrollInteraction(false)
   }
@@ -76,12 +78,12 @@ export struct ProtocolSelector {
         .opacity(0.6)
         .margin({ top: 2 })
     }
-    .padding({bottom: 10 })
+    .padding({ bottom: 10 })
     .borderRadius(12)
     .onTouch((event) => {
       if (event.type === TouchType.Down) {
         this.isSelecting = true
-      }else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
         this.isSelecting = false
       }
     })
@@ -94,7 +96,7 @@ export struct ProtocolSelector {
         .onActionUpdate((event: GestureEvent) => {
           const x = event.fingerList[0].localX
           const currentOffset = this.scroller.currentOffset()?.xOffset ?? 0
-          
+
           const listLeftRelativeToComponent = this.comp_width - this.scrollWidth
           const effectiveX = x - listLeftRelativeToComponent
 

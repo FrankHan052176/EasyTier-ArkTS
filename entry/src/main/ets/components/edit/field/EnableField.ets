@@ -9,11 +9,6 @@ export struct EnableField {
   @Consumer("field_edit_enable") enable: boolean = true
   @Local button: boolean = true;
 
-  aboutToAppear(): void {
-    this.button = this.config![ContentUtil.safeFieldName(this.field)] ?? false
-    this.updateEnable()
-  }
-
   @Computed
   get config() {
     return AppManager.easytier.getEditingConfig()
@@ -32,6 +27,11 @@ export struct EnableField {
   @Computed
   get isInverse() {
     return ContentUtil.hasTag(this.field, "inverse")
+  }
+
+  aboutToAppear(): void {
+    this.button = this.config![ContentUtil.safeFieldName(this.field)] ?? false
+    this.updateEnable()
   }
 
   updateEnable() {

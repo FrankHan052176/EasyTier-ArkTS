@@ -7,6 +7,9 @@ import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 export struct SharedPeers {
   @Local lightMod: LightModifier = new LightModifier('rgba(0,230,118,1)')
   @Local bgMode: StackLightModifier = new StackLightModifier()
+  readonly brandColor: string = 'rgba(0,230,118,1)'
+  readonly infoText: string = "为了 EasyTier和MC 社区的长远发展，我们会尽快完成完全合规化运营，在此之前 社区共享节点 会临时关闭，在不久的将来，他会与各位重新见面。"
+
   @Computed
   get w(): number {
     return AppManager.layout.getCompSize('SharedPeers').lane_w
@@ -17,13 +20,10 @@ export struct SharedPeers {
     return AppManager.layout.getCompSize('SharedPeers').lane_h
   }
 
-  readonly brandColor: string = 'rgba(0,230,118,1)'
-  readonly infoText: string = "为了 EasyTier和MC 社区的长远发展，我们会尽快完成完全合规化运营，在此之前 社区共享节点 会临时关闭，在不久的将来，他会与各位重新见面。"
-
   @Builder
   point() {
     Column()
-      .size({width:1,height:1})
+      .size({ width: 1, height: 1 })
       .attributeModifier(this.lightMod)
   }
 
@@ -32,7 +32,7 @@ export struct SharedPeers {
     SymbolGlyph($r('sys.symbol.share'))
       .fontSize(24)
       .fontColor([this.brandColor])
-      .overlay(this.point,{
+      .overlay(this.point, {
         align: Alignment.Center
       })
   }
@@ -48,8 +48,8 @@ export struct SharedPeers {
 
       Column() {
         SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
-           .fontSize(32)
-           .fontColor([$r('sys.color.font_secondary')])
+          .fontSize(32)
+          .fontColor([$r('sys.color.font_secondary')])
         Text("暂时关闭")
           .fontSize(12)
           .fontColor($r('sys.color.font_secondary'))
@@ -130,7 +130,7 @@ export struct SharedPeers {
       .margin({ bottom: 8 })
 
       Column() {
-         Text(this.infoText)
+        Text(this.infoText)
           .fontSize(14)
           .fontColor($r('sys.color.font_primary'))
       }

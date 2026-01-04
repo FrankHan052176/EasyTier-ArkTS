@@ -19,11 +19,8 @@ struct ResizeBall {
   @Param @Require isDeletable: () => boolean
   @Param @Require lane: number
   @Param @Require length: number
-  @Event $lane: (val: number) => void = () => {}
   @Param @Require extra: number
-  @Event $extra: (val: number) => void = () => {}
   @Param pos: number = 0
-  @Event $pos: (val: number) => void = () => {}
   @Local fingerOffset: number = 0
   @Local disable_a: boolean = false
   @Local disable_d: boolean = false
@@ -31,6 +28,15 @@ struct ResizeBall {
   @Computed
   get isHorizontal() {
     return this.addDirection == PanDirection.Left || this.addDirection == PanDirection.Right
+  }
+
+  @Event $lane: (val: number) => void = () => {
+  }
+
+  @Event $extra: (val: number) => void = () => {
+  }
+
+  @Event $pos: (val: number) => void = () => {
   }
 
   getFixScale(): number {
@@ -264,17 +270,18 @@ export struct ResizableComponent {
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
         .width(lane(this.comp_size.lane_w) + this.offset_w)
         .height(lane(this.comp_size.lane_h) + this.offset_h)
-        .gesture(GestureGroup(GestureMode.Parallel, LongPressGesture({ repeat: false, fingers: 1, duration: 300 }).tag("resizeComp_Press")
-          .onAction(() => {
-            vibrator.startVibration({
-              type: 'time',
-              duration: 1,
-            }, {
-              id: 0,
-              usage: 'touch'
-            }, () => {
-            })
-          }),
+        .gesture(GestureGroup(GestureMode.Parallel,
+          LongPressGesture({ repeat: false, fingers: 1, duration: 300 }).tag("resizeComp_Press")
+            .onAction(() => {
+              vibrator.startVibration({
+                type: 'time',
+                duration: 1,
+              }, {
+                id: 0,
+                usage: 'touch'
+              }, () => {
+              })
+            }),
           PanGesture({ direction: PanDirection.All, fingers: 1 }).tag("resizeComp_Pan")
             .onActionStart(() => {
               this.comp_size.find_next_grid = true
@@ -359,7 +366,9 @@ export struct ResizableComponent {
                 this.comp_size.isResize = false
               })
             }
-            if (!this.comp_size.isDragging) return GestureJudgeResult.REJECT;
+            if (!this.comp_size.isDragging) {
+              return GestureJudgeResult.REJECT;
+            }
           }
           return GestureJudgeResult.CONTINUE;
         })

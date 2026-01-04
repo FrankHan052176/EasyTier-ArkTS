@@ -95,7 +95,7 @@ export struct NetworkNameEditor {
       .width('100%')
       .padding({ top: 12, left: 16, right: 16 })
       .alignItems(VerticalAlign.Top)
-      
+
       Blank()
         .width('100%')
         .height(100)

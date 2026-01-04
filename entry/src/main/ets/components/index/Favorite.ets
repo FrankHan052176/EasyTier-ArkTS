@@ -9,6 +9,7 @@ export struct Favorite {
   @Local lightMod: LightModifier = new LightModifier('rgba(255,200,50,1)')
   @Local lightMod2: LightModifier = new LightModifier('rgba(255,200,50,1)', 1, 48)
   @Local bgMode: StackLightModifier = new StackLightModifier()
+  readonly brandColor: string = 'rgba(255,200,50,1)'
 
   @Computed
   get w(): number {
@@ -34,8 +35,6 @@ export struct Favorite {
   get favoriteName(): string {
     return this.favoriteUuid ? AppManager.data.configUUIDNameMap.get(this.favoriteUuid) ?? "Unknown" : "无收藏"
   }
-
-  readonly brandColor: string = 'rgba(255,200,50,1)'
 
   toggle() {
     if (!this.favoriteUuid) {
@@ -77,14 +76,14 @@ export struct Favorite {
   @Builder
   point() {
     Column()
-      .size({width:1,height:1})
+      .size({ width: 1, height: 1 })
       .attributeModifier(this.lightMod)
   }
 
   @Builder
   point2() {
     Column()
-      .size({width:1,height:1})
+      .size({ width: 1, height: 1 })
       .attributeModifier(this.lightMod2)
   }
 
@@ -93,7 +92,7 @@ export struct Favorite {
     SymbolGlyph($r('sys.symbol.star_fill'))
       .fontSize(24)
       .fontColor([this.brandColor])
-      .overlay(this.point,{
+      .overlay(this.point, {
         align: Alignment.Center
       })
   }
@@ -112,16 +111,17 @@ export struct Favorite {
       } else {
         Column() {
           Column() {
-            SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_round_triangle_fill"))
+            SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") :
+              $r("sys.symbol.play_round_triangle_fill"))
               .fontSize(48)
               .fontColor([this.brandColor])
               .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
               .onClick(() => this.toggle())
           }
-          .overlay(this.point2,{
+          .overlay(this.point2, {
             align: Alignment.Center
           })
-          
+
           Text(this.favoriteName)
             .fontSize(14)
             .fontWeight(FontWeight.Medium)
@@ -163,7 +163,7 @@ export struct Favorite {
               .fontColor($r('sys.color.font_primary'))
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
-            
+
             Text(this.favoriteUuid)
               .fontSize(12)
               .fontColor($r('sys.color.font_secondary'))
@@ -177,7 +177,8 @@ export struct Favorite {
           .transition(TransitionEffect.OPACITY.animation({ duration: 300 }))
 
           Column() {
-            SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_round_triangle_fill"))
+            SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") :
+              $r("sys.symbol.play_round_triangle_fill"))
               .fontSize(56)
               .fontColor([this.brandColor])
               .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
@@ -212,12 +213,13 @@ export struct Favorite {
         this.EmptyView(32, 14)
       } else {
         Column() {
-          SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_round_triangle_fill"))
+          SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") :
+            $r("sys.symbol.play_round_triangle_fill"))
             .fontSize(64)
             .fontColor([this.brandColor])
             .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
             .onClick(() => this.toggle())
-          
+
           Text(this.favoriteName)
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
@@ -226,7 +228,7 @@ export struct Favorite {
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .textAlign(TextAlign.Center)
             .margin({ top: 16 })
-            
+
           Text(this.favoriteUuid)
             .fontSize(12)
             .fontColor($r('sys.color.font_secondary'))
@@ -260,12 +262,13 @@ export struct Favorite {
         this.EmptyView(48, 16)
       } else {
         Column() {
-          SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") : $r("sys.symbol.play_round_triangle_fill"))
+          SymbolGlyph(this.isRunning ? $r("sys.symbol.pause_round_triangle_fill") :
+            $r("sys.symbol.play_round_triangle_fill"))
             .fontSize(80)
             .fontColor([this.brandColor])
             .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
             .onClick(() => this.toggle())
-            
+
           Text(this.favoriteName)
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
@@ -273,20 +276,25 @@ export struct Favorite {
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .margin({ top: 20 })
-            
+
           Text(this.favoriteUuid)
             .fontSize(14)
             .fontColor($r('sys.color.font_secondary'))
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .margin({ top: 4 })
-            
+
           if (this.isRunning) {
             Text("正在运行")
               .fontSize(14)
               .fontColor(this.brandColor)
               .margin({ top: 8 })
-              .padding({ left: 12, right: 12, top: 4, bottom: 4 })
+              .padding({
+                left: 12,
+                right: 12,
+                top: 4,
+                bottom: 4
+              })
               .backgroundColor($r('sys.color.comp_background_tertiary'))
               .borderRadius(12)
           }

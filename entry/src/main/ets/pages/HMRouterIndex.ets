@@ -68,7 +68,7 @@ export struct HMRouterIndex {
     EventHelper.emitterListener("hide_comp_and_overlay_off", () => {
       AppManager.layout.getCompSize(this.dragType!).isOnOverlay = false
       this.dragOverlay = false
-      EventHelper.emitterPublish(this.dragType+"_hide")
+      EventHelper.emitterPublish(this.dragType + "_hide")
       this.dragType = undefined
     })
     let environmentCallback: EnvironmentCallback = {
@@ -114,7 +114,8 @@ export struct HMRouterIndex {
         };
         statusBarManager.addToStatusBar(this.getUIContext().getHostContext(), item);
       } catch (error) {
-        Logger.error(`addToStatusBar failed. error code: ${error.code}, error message: ${error.message}`, "HMRouterIndex");
+        Logger.error(`addToStatusBar failed. error code: ${error.code}, error message: ${error.message}`,
+          "HMRouterIndex");
       }
     }
     if (canIUse("SystemCapability.BundleManager.AppLinking.DeferredLink")) {
@@ -130,7 +131,8 @@ export struct HMRouterIndex {
                 config.instance_id = uuid
               }
               AppManager.data.readConfig(config.instance_id!, config.instance_id!, config)
-            } catch (_) {}
+            } catch (_) {
+            }
           }
         })
       }, undefined)

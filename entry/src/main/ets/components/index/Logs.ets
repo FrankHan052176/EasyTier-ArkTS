@@ -1,7 +1,6 @@
 import { AppManager } from '../../AppManager'
 import { logColor } from '../../util/Conversion'
 import { LightModifier } from '../../class/modifier/SymbolLight'
-import { hdsEffect } from '@kit.UIDesignKit'
 import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 
 @ComponentV2
@@ -117,13 +116,18 @@ export struct Logs {
     .height('100%')
     .scrollBar(BarState.Auto)
     .alignListItem(ListItemAlign.Start)
-    .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+    .padding({
+      left: 16,
+      right: 16,
+      top: 8,
+      bottom: 8
+    })
   }
 
   @Builder
   point() {
     Column()
-      .size({width:1,height:1})
+      .size({ width: 1, height: 1 })
       .attributeModifier(this.lightMod)
   }
 
@@ -132,7 +136,7 @@ export struct Logs {
     SymbolGlyph($r('sys.symbol.list_bullet_square'))
       .fontSize(24)
       .fontColor([$r('sys.color.font_primary')])
-      .overlay(this.point,{
+      .overlay(this.point, {
         align: Alignment.Center
       })
   }
@@ -180,7 +184,7 @@ export struct Logs {
             .fontSize(36)
             .fontWeight(FontWeight.Bold)
             .fontColor($r('sys.color.font_primary'))
-            
+
           Text("日志总数")
             .fontSize(12)
             .fontColor($r('sys.color.font_secondary'))
@@ -211,7 +215,7 @@ export struct Logs {
       SymbolGlyph(icon)
         .fontSize(20)
         .fontColor([$r('sys.color.font_secondary')])
-      Text((tabIdx===0?this.appCount:(tabIdx===1?this.netCount:this.ohCount)).toString())
+      Text((tabIdx === 0 ? this.appCount : (tabIdx === 1 ? this.netCount : this.ohCount)).toString())
         .fontSize(14)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
@@ -257,6 +261,7 @@ export struct Logs {
           .fontSize(14)
           .fontColor($r('sys.color.font_primary'))
       }
+
       Text(count.toString())
         .fontSize(14)
         .fontWeight(FontWeight.Bold)
@@ -279,9 +284,9 @@ export struct Logs {
     Column() {
       Row() {
         this.Logo()
-        
+
         Blank()
-        
+
         Text("Total: " + this.totalCount)
           .fontSize(14)
           .fontColor($r('sys.color.font_secondary'))
@@ -331,7 +336,7 @@ export struct Logs {
         .fontSize(24)
         .fontColor([$r('sys.color.interactive_active')])
         .margin({ bottom: 4 })
-      Text((tabIdx===0?this.appCount:(tabIdx===1?this.netCount:this.ohCount)).toString())
+      Text((tabIdx === 0 ? this.appCount : (tabIdx === 1 ? this.netCount : this.ohCount)).toString())
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.font_primary'))

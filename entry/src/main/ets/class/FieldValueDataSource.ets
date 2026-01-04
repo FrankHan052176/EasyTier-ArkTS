@@ -5,9 +5,9 @@ import { FieldValue } from './config/Basic';
 @LogLocate("FieldValueDataSource")
 @ObservedV2
 export class FieldValueDataSource implements IDataSource {
-  private listeners: DataChangeListener[] = [];
   @Trace values: FieldValue[] = [];
   type: string
+  private listeners: DataChangeListener[] = [];
 
   constructor(type: string, values: FieldValue[] = []) {
     Logger.debug("datasource with type:" + type, this)

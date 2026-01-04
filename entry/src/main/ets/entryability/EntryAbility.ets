@@ -24,7 +24,7 @@ import { BottomAnimator } from '../class/animator/BottomAnimator';
 import { uncompressStr } from '../CompressUtil';
 import { unmappedJson } from '../MappedUtil';
 import { ContentUtil } from '../ContentUtil';
-import { fileIo as fs, fileUri } from '@kit.CoreFileKit';
+import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 
 @LogLocate("EntryAbility")
@@ -67,10 +67,14 @@ export default class EntryAbility extends UIAbility {
               Logger.error("启动失败", this)
               this.stopContinuousTask()
             }
-          }).catch(() => {});
-        } catch (error) {}
-      }).catch(() => {});
-    } catch (error) {}
+          }).catch(() => {
+          });
+        } catch (error) {
+        }
+      }).catch(() => {
+      });
+    } catch (error) {
+    }
   }
 
   stopContinuousTask() {
@@ -80,10 +84,13 @@ export default class EntryAbility extends UIAbility {
     Logger.info("stop background alive", this)
     try {
       geoLocationManager.off("locationChange")
-    } catch (error) {}
+    } catch (error) {
+    }
     backgroundTaskManager.stopBackgroundRunning(this.context).then(() => {
-      this.vpnConnection?.destroy().catch(() => {})
-    }).catch(() => {});
+      this.vpnConnection?.destroy().catch(() => {
+      })
+    }).catch(() => {
+    });
   }
 
   onCreate(want: Want) {
@@ -148,7 +155,7 @@ export default class EntryAbility extends UIAbility {
         let error = err as BusinessError;
         Logger.error(`readSharedData error, code: ${error.code}, mesage: ${error.message}`, this);
       }
-    }else {
+    } else {
       Logger.info("get systemShare", this)
       systemShare.getSharedData(want)
         .then((data: systemShare.SharedData) => {
@@ -161,18 +168,18 @@ export default class EntryAbility extends UIAbility {
               } catch (error) {
                 Logger.debug("read file error: " + JSON.stringify(error), this)
               }
-            }else if (record.content && record.content.length > 0) {
+            } else if (record.content && record.content.length > 0) {
               Logger.debug("read shared url: " + JSON.stringify(record), this)
               let urlObject = url.URL.parseURL(record.content);
               let hostname = urlObject.hostname
               switch (hostname) {
                 case "appgallery.huawei.com": {
                   // TODO 处理获取应用包名
-                  Logger.debug("get AppId: "+urlObject.params.get("id"), this)
+                  Logger.debug("get AppId: " + urlObject.params.get("id"), this)
                   break;
                 }
                 case "easytier.cn": {
-                  Logger.debug("get Cfg: "+urlObject.params.get("cfg"), this)
+                  Logger.debug("get Cfg: " + urlObject.params.get("cfg"), this)
                   let cfg = urlObject.params.get("cfg")
                   if (cfg) {
                     let config = unmappedJson(await uncompressStr(cfg))
@@ -296,10 +303,12 @@ export default class EntryAbility extends UIAbility {
     Logger.debug("VPN配置:" + JSON.stringify(vpnConfig), this)
     this.vpnConnection!.create(vpnConfig).then((fd) => {
       easytier.setTunFd(inst_id, fd)
-    }).catch(() => {})
+    }).catch(() => {
+    })
   }
 
-  prepare_vpn(callback: () => void = () => {}) {
+  prepare_vpn(callback: () => void = () => {
+  }) {
     if (this.vpnConnection !== undefined) {
       callback()
       return;
@@ -336,7 +345,8 @@ export default class EntryAbility extends UIAbility {
           WindowUtil.setNavigationBarHeight = data.area.bottomRect.height
         }
       })
-    } catch (error) {}
+    } catch (error) {
+    }
     windowStage.loadContent('pages/HMRouterIndex', (err) => {
       if (err.code) {
         Logger.error('Failed to load the content. Cause: ' + JSON.stringify(err), this);
@@ -345,8 +355,10 @@ export default class EntryAbility extends UIAbility {
       windowStage.getMainWindow().then((windowObj) => {
         try {
           DialogHub.init(windowObj.getUIContext());
-        } catch (error) {}
-      }).catch(() => {})
+        } catch (error) {
+        }
+      }).catch(() => {
+      })
     });
   }
 

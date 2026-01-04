@@ -35,6 +35,46 @@ export struct FieldEdit {
     return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
   }
 
+  @Computed
+  get isHidden() {
+    if (ContentUtil.hasTag(this.field.name, "hidable") && !this.enable) {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  @Computed
+  get isHideTitle() {
+    return ContentUtil.hasTag(this.field.name, "hideTitle")
+  }
+
+  @Computed
+  get isCidr() {
+    return Array.isArray(this.field.type) && this.field.type.length === 2 && this.field.type[0].type === "cidr_ip" &&
+      this.field.type[1].type === "cidr_mask"
+  }
+
+  @Computed
+  get isUseDivider() {
+    return ContentUtil.hasTag(this.field.name, "useDivider")
+  }
+
+  @Computed
+  get titleFontSize() {
+    return this.layer === 0 ? 14 : 16
+  }
+
+  @Computed
+  get isSingleField() {
+    return this.layer >= 1 || this.isLisType(this.field) || this.field.name === "flags_switch"
+  }
+
+  @Computed
+  get Padding() {
+    return this.isSingleField ? 0 : 16
+  }
+
   getFieldName(): string {
     return this.field.name
   }
@@ -51,33 +91,8 @@ export struct FieldEdit {
     }
   }
 
-  @Computed
-  get isHidden() {
-    if (ContentUtil.hasTag(this.field.name, "hidable") && !this.enable) {
-      return true
-    } else {
-      return false
-    }
-  }
-
-  @Computed
-  get isHideTitle() {
-    return ContentUtil.hasTag(this.field.name, "hideTitle")
-  }
-
   isLisType(field: ConfigField): boolean {
     return typeof field.type === "string" && field.type.endsWith("[]")
-  }
-
-  @Computed
-  get isCidr() {
-    return Array.isArray(this.field.type) && this.field.type.length === 2 && this.field.type[0].type === "cidr_ip" &&
-      this.field.type[1].type === "cidr_mask"
-  }
-
-  @Computed
-  get isUseDivider() {
-    return ContentUtil.hasTag(this.field.name, "useDivider")
   }
 
   @Styles
@@ -87,21 +102,6 @@ export struct FieldEdit {
     .backgroundColor(this.isSingleField ? Color.Transparent : $r("sys.color.comp_background_primary"))
     .clip(true)
     .padding({ top: this.Padding, bottom: this.Padding })
-  }
-
-  @Computed
-  get titleFontSize() {
-    return this.layer === 0 ? 14 : 16
-  }
-
-  @Computed
-  get isSingleField() {
-    return this.layer >= 1 || this.isLisType(this.field) || this.field.name === "flags_switch"
-  }
-
-  @Computed
-  get Padding() {
-    return this.isSingleField ? 0 : 16
   }
 
   @Builder

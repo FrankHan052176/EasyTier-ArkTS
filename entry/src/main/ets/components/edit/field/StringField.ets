@@ -22,8 +22,8 @@ function fieldTextInput(onChange: EditableTextOnChangeCallback, inputType: Input
 @ComponentV2
 export struct StringField {
   @Param @Require field: string;
-  @Consumer("field_edit_enable") enable: boolean = true
   @Local value: string = this.config![ContentUtil.safeFieldName(this.field)] || "";
+  @Consumer("field_edit_enable") enable: boolean = true
   @Local intensity: number = 0;
   controller: TextInputController = new TextInputController()
   @Local offsetX: number = 0;

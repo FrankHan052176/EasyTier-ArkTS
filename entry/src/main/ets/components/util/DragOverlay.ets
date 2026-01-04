@@ -5,7 +5,6 @@ import { lane } from '../../util/Conversion'
 import { EventHelper } from '../../util/EventHelper'
 import { layoutAnimationParm } from '../../pages/nodes/ResizableComponent'
 import { symbolWithSize } from '../../pages/hmrouter/HomePage'
-import { Logger } from '../../util/Logger'
 
 @Builder
 export function DragOverlayBuilder(type: string | undefined, onlyDrag: boolean = false, compPos: Position | undefined) {
@@ -20,19 +19,6 @@ export struct DragOverlay {
   @Param @Require type: string | undefined
   @Param @Require onlyDrag: boolean
   @Local openMenu: boolean = false
-
-  aboutToAppear(): void {
-    EventHelper.emitterListener("drag_overlay_move", () => {
-      this.openMenu = false
-    })
-    if (!this.onlyDrag) {
-      setTimeout(() => {
-        animateToImmediately(layoutAnimationParm, () => {
-          this.openMenu = true
-        })
-      }, 1)
-    }
-  }
 
   @Computed
   get GridSize() {
@@ -53,6 +39,19 @@ export struct DragOverlay {
     return AppManager.layout.getCompSize(this.type!)
   }
 
+  aboutToAppear(): void {
+    EventHelper.emitterListener("drag_overlay_move", () => {
+      this.openMenu = false
+    })
+    if (!this.onlyDrag) {
+      setTimeout(() => {
+        animateToImmediately(layoutAnimationParm, () => {
+          this.openMenu = true
+        })
+      }, 1)
+    }
+  }
+
   @Builder
   MyMenu() {
     Menu() {
@@ -60,9 +59,9 @@ export struct DragOverlay {
         symbolStartIcon: symbolWithSize($r('sys.symbol.eye_slash'), 24),
         content: "隐藏组件"
       })
-      .onClick(() => {
-        EventHelper.emitterPublish("hide_comp_and_overlay_off")
-      })
+        .onClick(() => {
+          EventHelper.emitterPublish("hide_comp_and_overlay_off")
+        })
     }
   }
 
