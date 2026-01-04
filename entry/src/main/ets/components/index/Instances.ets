@@ -265,16 +265,16 @@ export struct Instances {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
 
-      Row({ space: 10 }) {
+      Row({ space: 12 }) {
         if (showFavorite) {
           SymbolGlyph(AppManager.data.isFavorite(uuid) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"))
-            .fontSize(18)
+            .fontSize(24)
             .fontColor([AppManager.data.isFavorite(uuid) ? 'rgba(255,200,50,1)' : $r("sys.color.font_secondary")])
             .onClick(() => AppManager.data.changeFavorite(uuid))
         }
 
         SymbolGlyph($r("sys.symbol.square_and_pencil"))
-          .fontSize(18)
+          .fontSize(24)
           .fontColor([$r("sys.color.font_secondary")])
           .onClick(() => this.toEdit(uuid))
       }

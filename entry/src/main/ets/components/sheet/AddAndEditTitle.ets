@@ -2,6 +2,7 @@ import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkU
 import { AppManager } from '../../AppManager';
 import { addValue, clearEditValue, confirmCheck } from '../../class/config/Basic';
 import { EventHelper } from '../../util/EventHelper';
+import { Logger } from '../../util/Logger';
 import { GlobalConfigSuggestions } from '../edit/GlobalConfigSuggestion';
 
 function getI18_FieldName(fieldName: string): string {
@@ -13,15 +14,16 @@ function getI18_FieldName(fieldName: string): string {
 }
 
 @Builder
-export function GlobalConfig(field: string, type: string) {
-  GlobalConfigSuggestions({ field: field, type: type })
+export function GlobalConfig(field: string, type: string, width: number) {
+  GlobalConfigSuggestions({ field: field, type: type, comp_width: width })
 }
 
 @ComponentV2
 export struct AddTitle {
   @Param @Require fieldName: string
   @Param @Require fieldType: string
-  @Local popup: boolean = true
+  @Local popup: boolean = false
+  @Local sugWidth: number = 344
 
   aboutToAppear(): void {
     EventHelper.commonListener("edit_will_dismiss", () => {
@@ -53,7 +55,7 @@ export struct AddTitle {
       }
     })
       .bindPopup(this.popup, {
-        builder: GlobalConfig(this.fieldName, this.fieldType),
+        builder: GlobalConfig(this.fieldName, this.fieldType, this.sugWidth),
         placement: Placement.Top,
         autoCancel: true,
         enableArrow: false,
@@ -63,6 +65,12 @@ export struct AddTitle {
         mask: false,
         radius: 18
       })
+      .onAreaChange((a,b) => {
+        this.sugWidth = b.width.valueOf() as number
+        if (!this.popup) {
+          this.popup = true
+        }
+      })
   }
 }
 
@@ -70,7 +78,8 @@ export struct AddTitle {
 export struct EditTitle {
   @Param @Require fieldName: string
   @Param @Require fieldType: string
-  @Local popup: boolean = true
+  @Local popup: boolean = false
+  @Local sugWidth: number = 344
 
   build() {
     EditableTitleBar({
@@ -90,7 +99,7 @@ export struct EditTitle {
       }
     })
       .bindPopup(this.popup, {
-        builder: GlobalConfig(this.fieldName, this.fieldType),
+        builder: GlobalConfig(this.fieldName, this.fieldType, this.sugWidth),
         placement: Placement.Top,
         autoCancel: true,
         enableArrow: false,
@@ -99,6 +108,12 @@ export struct EditTitle {
         },
         mask: false,
         radius: 18
+      })
+      .onAreaChange((a,b) => {
+        this.sugWidth = b.width.valueOf() as number
+        if (!this.popup) {
+          this.popup = true
+        }
       })
   }
 }

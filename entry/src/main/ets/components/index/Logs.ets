@@ -2,6 +2,7 @@ import { AppManager } from '../../AppManager'
 import { logColor } from '../../util/Conversion'
 import { LightModifier } from '../../class/modifier/SymbolLight'
 import { StackLightModifier } from '../../class/modifier/BackgroundLight'
+import { LogDataSource } from '../../class/data_source/LogDataSource'
 
 @ComponentV2
 export struct Logs {
@@ -22,17 +23,17 @@ export struct Logs {
 
   @Computed
   get appCount(): number {
-    return AppManager.easytier.appLogs.size
+    return AppManager.easytier.appLogs.totalCount()
   }
 
   @Computed
   get netCount(): number {
-    return AppManager.easytier.nmLogs.size
+    return AppManager.easytier.nmLogs.totalCount()
   }
 
   @Computed
   get ohCount(): number {
-    return AppManager.easytier.ohLogs.size
+    return AppManager.easytier.ohLogs.totalCount()
   }
 
   @Computed
@@ -44,13 +45,13 @@ export struct Logs {
   get latestLog(): string {
     // 简单的获取最后一条日志的逻辑，优先显示App日志，其次网络
     if (this.appCount > 0) {
-      return Array.from(AppManager.easytier.appLogs)[this.appCount - 1]
+      return AppManager.easytier.appLogs.getData(this.appCount - 1)
     }
     if (this.netCount > 0) {
-      return Array.from(AppManager.easytier.nmLogs)[this.netCount - 1]
+      return AppManager.easytier.nmLogs.getData(this.appCount - 1)
     }
     if (this.ohCount > 0) {
-      return Array.from(AppManager.easytier.ohLogs)[this.ohCount - 1]
+      return AppManager.easytier.ohLogs.getData(this.appCount - 1)
     }
     return "暂无日志数据"
   }
@@ -60,15 +61,15 @@ export struct Logs {
     Column() {
       Tabs({ barPosition: BarPosition.Start, index: this.tab_index }) {
         TabContent() {
-          this.LogList(Array.from(AppManager.easytier.appLogs.values()))
+          this.LogList(AppManager.easytier.appLogs)
         }.tabBar("App日志")
 
         TabContent() {
-          this.LogList(Array.from(AppManager.easytier.nmLogs.values()))
+          this.LogList(AppManager.easytier.nmLogs)
         }.tabBar("网络日志")
 
         TabContent() {
-          this.LogList(Array.from(AppManager.easytier.ohLogs.values()))
+          this.LogList(AppManager.easytier.ohLogs)
         }.tabBar("ArkUI日志")
       }
       .barMode(BarMode.Fixed)
@@ -81,10 +82,10 @@ export struct Logs {
   }
 
   @Builder
-  LogList(list: Array<string>) {
+  LogList(list: LogDataSource) {
     List() {
-      if (list.length > 0) {
-        ForEach(list, (msg: string) => {
+      if (list.totalCount() > 0) {
+        LazyForEach(list, (msg: string) => {
           ListItem() {
             Text(msg.substring(1))
               .fontSize(12)

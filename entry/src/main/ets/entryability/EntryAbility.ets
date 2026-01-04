@@ -40,7 +40,7 @@ export default class EntryAbility extends UIAbility {
       }
       return
     }
-    Logger.info("[EntryAbi] start background alive", this)
+    Logger.info("start background alive", this)
     let wantAgentInfo: wantAgent.WantAgentInfo = {
       wants: [
         {
@@ -114,9 +114,9 @@ export default class EntryAbility extends UIAbility {
         .withAnimator(new BottomAnimator())
         .pushAsync()
     })
-    this.readSharedData(want)
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
     this.initApp()
+    this.readSharedData(want)
   }
 
   async initApp() {
@@ -169,13 +169,15 @@ export default class EntryAbility extends UIAbility {
                 Logger.debug("read file error: " + JSON.stringify(error), this)
               }
             } else if (record.content && record.content.length > 0) {
-              Logger.debug("read shared url: " + JSON.stringify(record), this)
               let urlObject = url.URL.parseURL(record.content);
               let hostname = urlObject.hostname
               switch (hostname) {
                 case "appgallery.huawei.com": {
-                  // TODO 处理获取应用包名
-                  Logger.debug("get AppId: " + urlObject.params.get("id"), this)
+                  let app = urlObject.params.get("id")
+                  Logger.debug("get AppId: " + app, this)
+                  AppManager.web.getAppInfo(app!, (name, icon) => {
+                    AppManager.preference.setAppInfo(app!, name, icon)
+                  })
                   break;
                 }
                 case "easytier.cn": {
@@ -274,7 +276,8 @@ export default class EntryAbility extends UIAbility {
         }
       ],
       blockedApplications: [
-        "top.frankhan.easytier"
+        "top.frankhan.easytier",
+        ...AppManager.preference.getBlackList()
       ],
       trustedApplications: [],
       dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.preference.dev ? [this.safeDns()] : ["223.5.5.5"]),
@@ -291,7 +294,8 @@ export default class EntryAbility extends UIAbility {
         }
       ],
       blockedApplications: [
-        "top.frankhan.easytier"
+        "top.frankhan.easytier",
+        ...AppManager.preference.getBlackList()
       ],
       trustedApplications: [],
       dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.preference.dev ? [this.safeDns()] : ["223.5.5.5"]),

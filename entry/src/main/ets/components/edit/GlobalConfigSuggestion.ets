@@ -9,6 +9,7 @@ import { LengthMetrics } from '@kit.ArkUI';
 
 @ComponentV2
 export struct GlobalConfigSuggestions {
+  @Param @Require comp_width: number;
   @Param @Require field: string;
   @Param @Require type: string;
   @Local dataSource: FieldValueDataSource = AppManager.data.getDataSource(this.type)
@@ -138,5 +139,6 @@ export struct GlobalConfigSuggestions {
       }
       .backgroundColumn()
     }
+    .width(this.comp_width)
   }
 }

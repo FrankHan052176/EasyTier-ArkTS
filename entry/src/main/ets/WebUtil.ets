@@ -2,6 +2,7 @@ import { rcp } from '@kit.RemoteCommunicationKit';
 import { AppManager } from './AppManager';
 import { EventHelper } from './util/EventHelper';
 import { Logger, LogLocate } from './util/Logger';
+import { http } from '@kit.NetworkKit';
 
 @LogLocate("WebUtil")
 @ObservedV2
@@ -81,6 +82,29 @@ export class WebUtil {
       })
     } catch (e) {
       Logger.error(`An unexpected error occurred. Code:${e.code},message:${e.message}`, WebUtil);
+    }
+  }
+
+  public async getAppInfo(pkgName: string, callback: (name: string, icon: string) => void) {
+    const httpRequest = http.createHttp();
+    let response = await httpRequest.request("http://shenjack.top:10003/api/v0/apps/pkg_name/"+pkgName,
+      {
+        method: http.RequestMethod.GET,
+        header: {
+          'User-Agent': 'EasyTier',
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+    let obj: ESObject = JSON.parse(response.result!.toString())
+    if (obj["success"]) {
+      let data: ESObject = obj["data"]
+      let info: ESObject = data["full_info"]
+      let name = info["name"] as string
+      let icon = info["icon_url"] as string
+      callback(name, icon)
+    }else {
+      callback("未收录", "")
     }
   }
 }

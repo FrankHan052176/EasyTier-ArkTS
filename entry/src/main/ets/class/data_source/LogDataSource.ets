@@ -1,17 +1,16 @@
-import { PeerInfo } from './InstanceInfo';
+import { PeerInfo } from '../InstanceInfo';
 
 @ObservedV2
-export class PeerInfoDataSource implements IDataSource {
+export class LogDataSource implements IDataSource {
   private listeners: DataChangeListener[] = [];
-  @Trace private values: Map<number, PeerInfo> = new Map();
-  @Trace private idArray: number[] = [];
+  @Trace private logs: string[] = [];
 
   totalCount(): number {
-    return this.idArray.length
+    return this.logs.length
   }
 
-  getData(index: number): PeerInfo {
-    return this.values.get(this.idArray[index])!
+  getData(index: number): string {
+    return this.logs[index]
   }
 
   registerDataChangeListener(listener: DataChangeListener): void {
@@ -63,26 +62,23 @@ export class PeerInfoDataSource implements IDataSource {
     });
   }
 
-  set(peer: PeerInfo) {
-    if (this.values.has(peer.peerId)) {
-      let index = this.idArray.indexOf(peer.peerId)
-      let info = this.values.get(peer.peerId)
-      if (info) {
-        info.update(peer)
-        this.notifyDataChange(index)
-      }
-    } else {
-      let index = this.idArray.push(peer.peerId) - 1
-      this.values.set(peer.peerId, peer)
-      this.notifyDataAdd(index)
-    }
+  add(log: string) {
+    this.notifyDataAdd(this.logs.push(log)-1)
   }
 
-  del(peerId: number) {
-    if (this.values.has(peerId)) {
-      let index = this.idArray.indexOf(peerId)
-      this.idArray.splice(index, 1)
-      this.notifyDataDelete(index)
-    }
+  addFrom(log: string[]) {
+    let len = this.logs.push(...log)
+    this.notifyDatasetChange([
+      {
+        type: DataOperationType.ADD,
+        index: len-log.length,
+        count: log.length
+      }
+    ])
+  }
+
+  del(index: number) {
+    this.logs.splice(index,1)
+    this.notifyDataDelete(index)
   }
 }

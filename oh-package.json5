@@ -6,7 +6,7 @@
     "@simplepeng/spider-man": "1.0.1",
     "@hadss/hmrouter-transitions": "^1.2.0",
     "@hadss/dialoghub": "^1.1.3",
-    "easytier-ohrs": "2.4.5-28cd6da"
+    "easytier-ohrs": "2.5.0-1"
   },
   "devDependencies": {
     "@ohos/hypium": "1.0.24",

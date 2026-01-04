@@ -91,21 +91,7 @@ struct ResizeBall {
   }
 
   getNextLane(): number {
-    if (this.isHorizontal) {
-      switch (WindowUtil.uiType) {
-        case UIType.Column_1: {
-          return Math.min(2, this.lane + 1)
-        }
-        case UIType.Column_2: {
-          return Math.min(4, this.lane + 1)
-        }
-        case UIType.Column_3: {
-          return Math.min(6, this.lane + 1)
-        }
-      }
-    } else {
-      return Math.min(10, this.lane + 1)
-    }
+    return Math.min(2, this.lane + 1)
   }
 
   getPreLane(): number {

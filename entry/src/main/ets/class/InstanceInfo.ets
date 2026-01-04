@@ -1,7 +1,7 @@
 import { NetworkInstanceRunningInfo } from '../protobuf/api_manage'
 import { convertToProtocol, Protocol } from '../util/ETConfig'
 import { CircleArray } from './container/CircleArray'
-import { PeerInfoDataSource } from './PeerInfoDataSource'
+import { PeerInfoDataSource } from './data_source/PeerInfoDataSource'
 import { convertAddrToIp } from '../util/Conversion'
 
 function fixedRate(value: number): number {

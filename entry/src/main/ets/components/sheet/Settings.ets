@@ -180,6 +180,51 @@ export function Setting_Sheet() {
     }
     .margin({ bottom: 10 })
 
+    ListItem() {
+      Row() {
+        Row() {
+          SymbolGlyph($r("sys.symbol.list_xmark"))
+            .fontColor([$r("sys.color.font_primary")])
+            .fontSize(16)
+            .margin({ right: 5 })
+          Text("App 黑名单")
+            .fontColor($r("sys.color.font_primary"))
+            .fontSize(16)
+        }
+
+        SymbolGlyph($r("sys.symbol.arrow_right"))
+          .fontColor([$r("sys.color.font_primary")])
+          .fontSize(16)
+          .margin({ right: 5 })
+      }
+      .height(49)
+      .borderRadius(18)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .backgroundColor($r("sys.color.background_secondary"))
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
+      .clickEffect({
+        level: ClickEffectLevel.LIGHT
+      })
+      .onClick(() => {
+        EventHelper.emitterPublish("home_close_sheet")
+        setTimeout(() => {
+          EventHelper.emitterPublish("home_open_sheet", {
+            data: {
+              type: "black_list"
+            }
+          })
+        }, 10)
+      })
+    }
+    .margin({ bottom: 10 })
+
     ListItemGroup({ header: settingGroupHeader("高级") }) {
       ListItem() {
         Row() {

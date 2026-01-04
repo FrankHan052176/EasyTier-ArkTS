@@ -59,10 +59,6 @@ export struct ListFieldValue {
       bottom: 13
     })
     .backgroundColor($r("sys.color.comp_background_primary"))
-    .clickEffect({
-      level: ClickEffectLevel.LIGHT
-    })
-    .clip(true)
   }
 
   build() {
@@ -72,7 +68,6 @@ export struct ListFieldValue {
     }
     .backgroundStyle()
     .width('100%')
-    .clip(true)
     .onTouch((event) => {
       event.stopPropagation()
     })

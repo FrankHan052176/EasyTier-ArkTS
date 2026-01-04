@@ -6,6 +6,7 @@ import { Logger, LogLocate } from './util/Logger';
 import { buffer, collections, JSON, taskpool, util } from '@kit.ArkTS';
 import { SafePortForwardConfig } from './class/SafeProtoClass';
 import { ContentUtil } from './ContentUtil';
+import { AppInfo } from './components/sheet/BlackList';
 
 const defaultSequence = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
 
@@ -44,6 +45,8 @@ export class PreferenceUtil {
   @Trace configIDPreferences: preferences.Preferences | undefined
   @Trace globalConfigs: preferences.Preferences | undefined
   @Trace preferences: preferences.Preferences | undefined
+  @Trace private black_list_preference: preferences.Preferences | undefined
+  @Trace black_list_apps: Map<string, AppInfo> = new Map()
   @Trace show_log: boolean = false
   @Trace raw_comp_sequence: string = defaultSequence
   @Trace vpn_routes: boolean = false
@@ -93,6 +96,8 @@ export class PreferenceUtil {
         AppManager.data.initDataSource(field, value)
       }
     })
+    this.black_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierBlackListApp' })
+    this.updateBlackListApps()
     try {
       this.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean
       this.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean
@@ -189,5 +194,50 @@ export class PreferenceUtil {
     }).catch((err: BusinessError) => {
       Logger.error("taskpool error: " + JSON.stringify(err), this)
     })
+  }
+
+  getAppInfo(pkgName: string): AppInfo | undefined {
+    return this.black_list_apps.get(pkgName)
+	}
+
+  setAppInfo(pkgName: string, name: string, icon: string) {
+    let info = new AppInfo(pkgName, name, icon)
+    this.black_list_preference!.putSync(pkgName, info)
+    this.black_list_preference!.flushSync()
+    if (!this.black_list_apps.has(pkgName)) {
+      this.black_list_apps.set(pkgName, info)
+    }else {
+      this.black_list_apps.get(pkgName)!.name = name
+      this.black_list_apps.get(pkgName)!.icon = icon
+    }
+  }
+
+  private updateBlackListApps() {
+    let obj: ESObject = this.black_list_preference!.getAllSync()
+    for (const pkgName of Object.keys(obj)) {
+      let info = obj[pkgName] as AppInfo
+      this.black_list_apps.set(pkgName, info)
+    }
+  }
+
+  delAppInfo(pkgName: string) {
+    this.black_list_preference!.deleteSync(pkgName)
+    this.black_list_preference!.flushSync()
+    this.black_list_apps.delete(pkgName)
+  }
+
+  updateAppInfo(info: AppInfo) {
+    this.black_list_preference!.putSync(info.pkgName, info)
+    this.black_list_preference!.flushSync()
+  }
+
+  getBlackList(): string[] {
+    let list: string[] = []
+    this.black_list_apps.forEach((value, key) => {
+      if (value.enable) {
+        list.push(key)
+      }
+    })
+    return list
   }
 }

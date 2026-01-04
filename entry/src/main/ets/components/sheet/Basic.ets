@@ -5,6 +5,7 @@ import { PortForwardEditor } from '../../class/config/PortForward'
 import { UrlEditor } from '../../class/config/Url'
 import { protocolsWithoutTXT } from '../../util/ETConfig'
 import { AddTitle, EditTitle } from './AddAndEditTitle'
+import { BlackList_Content, BlackList_Title } from './BlackList'
 import { NewConfig_Content, NewConfig_Title } from './NewConfig'
 import { Rename_Content, Rename_Title } from './Rename'
 import { Setting_Sheet, Setting_Title } from './Settings'
@@ -89,6 +90,8 @@ export struct SheetContent {
       Rename_Content()
     } else if (this.type === "ui") {
       UI_Content()
+    } else if (this.type === "black_list") {
+      BlackList_Content()
     } else {
       Text(this.type)
     }
@@ -132,6 +135,8 @@ export struct SheetTitle {
       Rename_Title()
     } else if (this.type === "ui") {
       UI_Title()
+    } else if (this.type === "black_list") {
+      BlackList_Title()
     } else {
       Text(this.type)
     }

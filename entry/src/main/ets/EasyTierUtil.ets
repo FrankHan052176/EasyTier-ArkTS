@@ -13,6 +13,7 @@ import { deviceInfo } from '@kit.BasicServicesKit'
 import { ValueType } from '@kit.ArkData'
 import { ContentUtil } from './ContentUtil'
 import { JSON, taskpool } from '@kit.ArkTS'
+import { LogDataSource } from './class/data_source/LogDataSource'
 
 @Concurrent
 async function readInfoWorker(): Promise<void> {
@@ -39,15 +40,15 @@ async function readLogsWorker(): Promise<void> {
         ohLogs: ohLogs
       }
     })
-  }, 500)
+  }, 100)
 }
 
 @LogLocate("EasyTierUtil")
 @ObservedV2
 export class EasyTierUtil {
-  @Trace appLogs: Set<string> = new Set
-  @Trace nmLogs: Set<string> = new Set
-  @Trace ohLogs: Set<string> = new Set
+  @Trace appLogs: LogDataSource = new LogDataSource
+  @Trace nmLogs: LogDataSource = new LogDataSource
+  @Trace ohLogs: LogDataSource = new LogDataSource
   @Trace runningNetworks: Map<string, NetworkInstanceRunningInfo> = new Map
   @Trace instanceInfos: Map<string, InstanceInfo> = new Map
   @Trace selected: string | undefined
@@ -188,28 +189,21 @@ export class EasyTierUtil {
   }
 
   processLogs(appLogs: string[], nmLogs: string[], ohLogs: string[]) {
-    if (this.appLogs.size < appLogs.length) {
-      appLogs.forEach((value) => {
-        this.appLogs.add(value)
-      })
-    }
-    if (this.nmLogs.size < nmLogs.length) {
-      nmLogs.forEach((value) => {
-        this.nmLogs.add(value)
-      })
-    }
-    if (this.ohLogs.size < ohLogs.length) {
-      ohLogs.forEach((value) => {
-        this.ohLogs.add(value)
-      })
-    }
+    appLogs.forEach((value) => {
+      this.appLogs.add(value)
+    })
+    nmLogs.forEach((value) => {
+      this.nmLogs.add(value)
+    })
+    ohLogs.forEach((value) => {
+      this.ohLogs.add(value)
+    })
   }
 
   public start(uuid: string | undefined = this.selected): boolean {
     if (uuid) {
       let config = AppManager.data.configUUIDMap.get(uuid)
       if (config) {
-        Logger.debug("start:" + JSON.stringify(config), this)
         if (easytier.parseNetworkConfig(JSON.stringify(config))) {
           if (!config.no_tun) {
             this.needTUN = uuid

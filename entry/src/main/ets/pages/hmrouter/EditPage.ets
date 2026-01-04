@@ -295,8 +295,11 @@ export struct EditPage {
       dragBar: false,
       blurStyle: BlurStyle.Thin,
       title: SheetTitleBuilder(this.sheet_type),
-      onWillDismiss: () => {
-        this.sheet = false
+      onWillDismiss: (action) => {
+        if (action.reason != DismissReason.SLIDE_DOWN) {
+          action.dismiss()
+          this.sheet = false
+        }
       }
     })
   }

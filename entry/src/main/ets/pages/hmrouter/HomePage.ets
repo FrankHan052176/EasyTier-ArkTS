@@ -352,7 +352,7 @@ export struct HomePage {
       align: Alignment.Bottom,
       offset: {
         x: 0,
-        y: WindowUtil.navigationBarHeight + WindowUtil.statusBarHeight
+        y: WindowUtil.statusBarHeight
       }
     })
   }
