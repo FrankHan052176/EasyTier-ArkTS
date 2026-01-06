@@ -106,6 +106,19 @@
         "type": "statusBarView",
         "exported": true,
         "srcEntry": "./ets/entryability/StatusBarViewAbility.ets"
+      },
+      {
+        "name": "EntryFormAbility",
+        "srcEntry": "./ets/entryability/EntryFormAbility.ets",
+        "label": "$string:EntryFormAbility_label",
+        "description": "$string:EntryFormAbility_desc",
+        "type": "form",
+        "metadata": [
+          {
+            "name": "ohos.extension.form",
+            "resource": "$profile:form_config"
+          }
+        ]
       }
     ],
     "requestPermissions": [

@@ -7,6 +7,7 @@ import { buffer, collections, JSON, taskpool, util } from '@kit.ArkTS';
 import { SafePortForwardConfig } from './class/SafeProtoClass';
 import { ContentUtil } from './ContentUtil';
 import { AppInfo } from './components/sheet/BlackList';
+import { formBindingData, formProvider } from '@kit.FormKit';
 
 const defaultSequence = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
 
@@ -45,7 +46,8 @@ export class PreferenceUtil {
   @Trace configIDPreferences: preferences.Preferences | undefined
   @Trace globalConfigs: preferences.Preferences | undefined
   @Trace preferences: preferences.Preferences | undefined
-  @Trace private black_list_preference: preferences.Preferences | undefined
+  @Trace black_list_preference: preferences.Preferences | undefined
+  @Trace card_list_preference: preferences.Preferences | undefined
   @Trace black_list_apps: Map<string, AppInfo> = new Map()
   @Trace show_log: boolean = false
   @Trace raw_comp_sequence: string = defaultSequence
@@ -97,6 +99,7 @@ export class PreferenceUtil {
     })
     this.black_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierBlackListApp' })
     this.updateBlackListApps()
+    this.card_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierCardList' })
     try {
       this.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean
       this.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean
@@ -186,10 +189,13 @@ export class PreferenceUtil {
     }
     let textDecoder = util.TextDecoder.create('utf-8', textDecoderOptions);
     let name = textDecoder.decodeToString(new Uint8Array(nameBytes), decodeToStringOptions);
+    AppManager.data.configUUIDNameMap.set(field, name)
     const task: taskpool.Task = new taskpool.Task(readConfigFromPreference, field as String, preference);
     return taskpool.execute(task).then((value: object) => {
       let config = value.toString()
-      AppManager.data.readConfig(field, name as string, JSON.parse(config) as NetworkConfig)
+      let obj = JSON.parse(config) as NetworkConfig
+      AppManager.data.configUUIDMap.set(field, obj)
+      AppManager.preference.addConfig(field, name, obj)
     })
   }
 
@@ -236,5 +242,35 @@ export class PreferenceUtil {
       }
     })
     return list
+  }
+
+  getCardList(): string[] {
+    if (this.card_list_preference) {
+      return this.card_list_preference.getSync("card_list", []) as string []
+    }
+    return []
+  }
+
+  addCardId(formId: string) {
+    if (this.card_list_preference) {
+      const list = this.getCardList()
+      if (!list.includes(formId)) {
+        list.push(formId)
+        this.card_list_preference.putSync("card_list", list)
+        this.card_list_preference.flushSync()
+      }
+    }
+  }
+
+  delCardId(formId: string) {
+    if (this.card_list_preference) {
+      const list = this.getCardList()
+      const index = list.indexOf(formId)
+      if (index > -1) {
+        list.splice(index, 1)
+        this.card_list_preference.putSync("card_list", list)
+        this.card_list_preference.flushSync()
+      }
+    }
   }
 }

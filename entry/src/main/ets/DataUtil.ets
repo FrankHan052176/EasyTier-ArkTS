@@ -15,13 +15,13 @@ import { NetworkName } from './class/config/NetworkName';
 import { IP } from './class/config/IP';
 import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
 import { HMRouterMgr } from '@hadss/hmrouter';
+import { updateFavoriteCard } from './CardUtil';
 
 @LogLocate("DataUtil")
 @ObservedV2
 export class DataUtil {
   @Trace globalDataMap: Map<string, FieldValueDataSource> = new Map
   @Trace configUUIDMap: Map<string, NetworkConfig> = new Map
-  @Trace configNameUUIDMap: Map<string, string> = new Map
   @Trace configUUIDNameMap: Map<string, string> = new Map
   @Trace favorite: string | undefined
   @Trace editingInstance: string | undefined
@@ -43,6 +43,7 @@ export class DataUtil {
         }
       }
     })
+    updateFavoriteCard()
   }
 
   public isFavorite(uuid: string | undefined) {
@@ -177,7 +178,6 @@ export class DataUtil {
     let config = ContentUtil.getDefaultConfig(getHostname())
     config.instance_id = this.safeUUID()
     this.configUUIDMap.set(config.instance_id, config)
-    this.configNameUUIDMap.set(name, config.instance_id)
     this.configUUIDNameMap.set(config.instance_id, name)
     AppManager.preference.addConfig(config.instance_id, name, config)
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
@@ -188,7 +188,6 @@ export class DataUtil {
 
   public readConfig(uuid: string, name: string, config: NetworkConfig) {
     this.configUUIDMap.set(uuid, config)
-    this.configNameUUIDMap.set(name, uuid)
     this.configUUIDNameMap.set(uuid, name)
     AppManager.preference.addConfig(config.instance_id!, name, config)
     return config
@@ -261,7 +260,6 @@ export class DataUtil {
       }
     })
     this.configUUIDMap.set(config.instance_id!, config)
-    this.configNameUUIDMap.set(name ?? config.instance_id!, config.instance_id!)
     this.configUUIDNameMap.set(config.instance_id!, name ?? config.instance_id!)
 
     AppManager.preference.addConfig(config.instance_id!, name ?? config.instance_id!, config)
@@ -289,7 +287,6 @@ export class DataUtil {
       preferences.deletePreferences(AppManager.content.context!, uuid).catch(() => {
       })
       let result = this.configUUIDMap.delete(uuid)
-      this.configNameUUIDMap.delete(name ?? "")
       this.configUUIDNameMap.delete(uuid)
       return result
     } else {

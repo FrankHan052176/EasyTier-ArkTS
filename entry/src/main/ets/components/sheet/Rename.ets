@@ -75,8 +75,6 @@ export struct Rename_Content {
           .onChange((value: string) => {
             if (value.length > 0) {
               if (AppManager.data.editingInstance) {
-                AppManager.data.configNameUUIDMap.delete(this.instanceName)
-                AppManager.data.configNameUUIDMap.set(value, AppManager.data.editingInstance)
                 AppManager.data.configUUIDNameMap.set(AppManager.data.editingInstance, value)
                 AppManager.preference.configIDPreferences?.putSync(AppManager.data.editingInstance,
                   new Uint8Array(buffer.from(value, 'utf-8').buffer))

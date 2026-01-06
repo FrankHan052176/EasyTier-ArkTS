@@ -26,6 +26,9 @@ import { unmappedJson } from '../MappedUtil';
 import { ContentUtil } from '../ContentUtil';
 import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
+import { rpc } from '@kit.IPCKit';
+import { formBindingData, formProvider } from '@kit.FormKit';
+import { unwrapUrl } from '../util/ShareUtil';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
@@ -130,11 +133,26 @@ export default class EntryAbility extends UIAbility {
       Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
     }
     AppManager.data.init()
+    this.listenCardCall()
   }
 
   onNewWant(want: Want) {
     Logger.debug("onNetWant", this)
     this.readSharedData(want)
+  }
+
+  listenCardCall() {
+    this.callee.on("send_card_id", (indata: rpc.MessageSequence) => {
+      const obj = JSON.parse(indata.readString()) as object
+      const formId = obj['formId'] as string
+      AppManager.preference.addCardId(formId)
+      return null
+    })
+    this.callee.on("start_favorite", (indata: rpc.MessageSequence) => {
+      const obj = JSON.parse(indata.readString()) as object
+      const formId = obj['formId'] as string
+      return null
+    })
   }
 
   async readSharedData(want: Want) {
@@ -143,14 +161,7 @@ export default class EntryAbility extends UIAbility {
       Logger.info("get uri:" + uri, this)
       try {
         let urlObject = url.URL.parseURL(uri);
-        let cfg = urlObject.params.get("cfg")
-        if (cfg) {
-          let config = unmappedJson(await uncompressStr(cfg))
-          if (!config.instance_id) {
-            config.instance_id = AppManager.data.safeUUID()
-          }
-          AppManager.data.readConfig(config.instance_id!, config.instance_id!, config)
-        }
+        unwrapUrl(urlObject)
       } catch (err) {
         let error = err as BusinessError;
         Logger.error(`readSharedData error, code: ${error.code}, mesage: ${error.message}`, this);
@@ -181,14 +192,7 @@ export default class EntryAbility extends UIAbility {
                   break;
                 }
                 case "easytier.cn": {
-                  let cfg = urlObject.params.get("cfg")
-                  let name = urlObject.params.get("name")
-                  Logger.debug("get Cfg "+name+": " + cfg, this)
-                  if (cfg) {
-                    let config = unmappedJson(await uncompressStr(cfg))
-                    config.instance_id = AppManager.data.safeUUID()
-                    AppManager.data.readConfig(config.instance_id!, name?name:config.instance_id!, config)
-                  }
+                  unwrapUrl(urlObject)
                   break;
                 }
               }

@@ -15,6 +15,7 @@ import { deferredLink } from '@kit.AppLinkingKit';
 import { url } from '@kit.ArkTS';
 import { uncompressStr } from '../CompressUtil';
 import { unmappedJson } from '../MappedUtil';
+import { unwrapUrl } from '../util/ShareUtil';
 
 class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
   initializeModifier(instance: NavigationAttribute): void {
@@ -124,13 +125,7 @@ export struct HMRouterIndex {
           if (link) {
             try {
               let urlObject = url.URL.parseURL(link);
-              let cfg = urlObject.params.get('cfg');
-              let config = unmappedJson(await uncompressStr(cfg))
-              let uuid = AppManager.data.safeUUID()
-              if (!config.instance_id) {
-                config.instance_id = uuid
-              }
-              AppManager.data.readConfig(config.instance_id!, config.instance_id!, config)
+              unwrapUrl(urlObject)
             } catch (_) {
             }
           }

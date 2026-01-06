@@ -13,7 +13,7 @@ function fieldTextInput(onChange: EditableTextOnChangeCallback, inputType: Input
   .backgroundColor(Color.Transparent)
   .width('100%')
   .type(inputType)
-  .enableAutoFill(inputType !== InputType.Normal)
+  .enableAutoFill(false)
   .enterKeyType(enterKeyType)
   .id(id)
   .onSubmit(submit)
