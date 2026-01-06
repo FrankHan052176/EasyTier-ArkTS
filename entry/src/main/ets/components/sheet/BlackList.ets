@@ -83,7 +83,9 @@ export struct BlackList_Title {
           this.menu = !this.menu
           if (this.menu) {
             setTimeout(() => {
-              this.getUIContext().getFocusController().requestFocus("pkgName_input");
+              try {
+                this.getUIContext().getFocusController().requestFocus("pkgName_input");
+              } catch (_) {}
             }, 50)
           }
         })

@@ -57,7 +57,7 @@ export default class EntryAbility extends UIAbility {
     try {
       wantAgent.getWantAgent(wantAgentInfo).then((wantAgentObj: WantAgent) => {
         try {
-          backgroundTaskManager.startBackgroundRunning(this.context, ["location"], wantAgentObj).then(() => {
+          backgroundTaskManager.startBackgroundRunning(this.context, ["location", "dataTransfer"], wantAgentObj).then(() => {
             if (easytier.runNetworkInstance(cfg)) {
               geoLocationManager.on('locationChange', request, () => {
                 Logger.debug("GeoLoc alive", this)
@@ -181,14 +181,13 @@ export default class EntryAbility extends UIAbility {
                   break;
                 }
                 case "easytier.cn": {
-                  Logger.debug("get Cfg: " + urlObject.params.get("cfg"), this)
                   let cfg = urlObject.params.get("cfg")
+                  let name = urlObject.params.get("name")
+                  Logger.debug("get Cfg "+name+": " + cfg, this)
                   if (cfg) {
                     let config = unmappedJson(await uncompressStr(cfg))
-                    if (!config.instance_id) {
-                      config.instance_id = AppManager.data.safeUUID()
-                    }
-                    AppManager.data.readConfig(config.instance_id!, config.instance_id!, config)
+                    config.instance_id = AppManager.data.safeUUID()
+                    AppManager.data.readConfig(config.instance_id!, name?name:config.instance_id!, config)
                   }
                   break;
                 }

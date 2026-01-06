@@ -22,6 +22,7 @@ import { uniformTypeDescriptor } from '@kit.ArkData';
 import { Logger } from '../../util/Logger';
 import { mappedJson } from '../../MappedUtil';
 import { WindowUtil } from '../../WindowUtil';
+import { buildShareData } from '../../util/ShareUtil';
 
 export function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
   let result = new SymbolGlyphModifier(symbol)
@@ -361,21 +362,9 @@ export struct HomePage {
     if (AppManager.easytier.selected) {
       let config = AppManager.data.configUUIDMap.get(AppManager.easytier.selected)
       if (config) {
-        compressStr(mappedJson(config)).then((data) => {
-          try {
-            let shareData: systemShare.SharedData = new systemShare.SharedData({
-              utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-              content: 'https://easytier.cn/comp_cfg?cfg=' + data,
-              title: '分享配置 ' + AppManager.data.configUUIDNameMap.get(AppManager.easytier.selected!),
-              description: AppManager.easytier.selected ?? ""
-            });
-            sharableTarget.share(shareData);
-          } catch (e) {
-            Logger.error("systemShare" + JSON.stringify(e), "HomePage")
-          }
-        }).catch((e: Error) => {
-          Logger.error("compressedConfig" + JSON.stringify(e), "HomePage")
-        })
+        buildShareData(config, (data) => {
+          sharableTarget.share(data);
+        }, AppManager.data.configUUIDNameMap.get(AppManager.easytier.selected))
       }
     } else {
       sendToast("先选择一个实例，再分享吧")

@@ -61,9 +61,8 @@ export class PreferenceUtil {
     this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
     this.configIDPreferences = preferences.getPreferencesSync(context, { name: 'EasyTierConfigIDs' })
     this.configIDPreferences.getAll(async (err, obj) => {
-      let start = Date.now()
       if (err) {
-        Logger.error(JSON.stringify(err), this)
+        Logger.error("failed to read all configs"+JSON.stringify(err), this)
         return
       }
       let keys = Object.keys(obj)
@@ -86,7 +85,7 @@ export class PreferenceUtil {
     this.globalConfigs = preferences.getPreferencesSync(context, { name: 'EasyTierGlobalConfigs' })
     this.globalConfigs.getAll((err, obj) => {
       if (err) {
-        Logger.error(JSON.stringify(err), this)
+        Logger.error("failed to read global configs"+JSON.stringify(err), this)
         return
       }
       for (const field of Object.keys(obj)) {
@@ -173,7 +172,7 @@ export class PreferenceUtil {
       preference.flushSync()
       this.configPreferences.set(uuid, preference)
     } catch (error) {
-      Logger.error(JSON.stringify(error), this)
+      Logger.error("failed to add config"+JSON.stringify(error), this)
     }
   }
 

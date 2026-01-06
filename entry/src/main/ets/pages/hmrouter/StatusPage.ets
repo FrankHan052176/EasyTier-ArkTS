@@ -17,6 +17,7 @@ import { harmonyShare, systemShare } from '@kit.ShareKit'
 import { uniformTypeDescriptor } from '@kit.ArkData'
 import { Logger } from '../../util/Logger'
 import { mappedJson } from '../../MappedUtil'
+import { buildShareData } from '../../util/ShareUtil'
 
 @HMRouter({ pageUrl: "StatusPage" })
 @ComponentV2
@@ -304,7 +305,7 @@ export struct StatusPage {
 
             Row() {
               Row({ space: 2 }) {
-                Text(this.rx_rate.toFixed(1))
+                Text(this.tx_rate.toFixed(1))
                   .fontSize(20)
                 Text(this.rx_unit)
                   .fontSize(10)
@@ -313,7 +314,7 @@ export struct StatusPage {
               .alignItems(VerticalAlign.Bottom)
 
               Row({ space: 2 }) {
-                Text(this.tx_rate.toFixed(1))
+                Text(this.rx_rate.toFixed(1))
                   .fontSize(20)
                 Text(this.tx_unit)
                   .fontSize(10)
@@ -429,21 +430,9 @@ export struct StatusPage {
 
   private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
     if (this.config) {
-      compressStr(mappedJson(this.config)).then((data) => {
-        try {
-          let shareData: systemShare.SharedData = new systemShare.SharedData({
-            utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-            content: 'https://easytier.cn/comp_cfg?cfg=' + data,
-            title: '分享配置 ' + this.name,
-            description: this.uuid ?? ""
-          });
-          sharableTarget.share(shareData);
-        } catch (e) {
-          Logger.error("systemShare" + JSON.stringify(e), "EdiStatusPagetPage")
-        }
-      }).catch((e: Error) => {
-        Logger.error("compressedConfig" + JSON.stringify(e), "StatusPage")
-      })
+      buildShareData(this.config, (data) => {
+        sharableTarget.share(data);
+      }, this.name, this.uuid)
     }
   }
 }

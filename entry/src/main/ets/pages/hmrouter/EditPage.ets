@@ -15,6 +15,7 @@ import { harmonyShare, systemShare } from '@kit.ShareKit'
 import { uniformTypeDescriptor } from '@kit.ArkData'
 import { Logger } from '../../util/Logger'
 import { common } from '@kit.AbilityKit'
+import { buildShareData } from '../../util/ShareUtil'
 
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
@@ -213,24 +214,19 @@ export struct EditPage {
                   async () => {
                     let config = AppManager.easytier.getEditingConfig()
                     if (config) {
-                      let str = await compressStr(mappedJson(config))
-                      let shareData: systemShare.SharedData = new systemShare.SharedData({
-                        utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-                        content: 'https://easytier.cn/comp_cfg?cfg=' + (str),
-                        title: AppManager.data.configUUIDNameMap.get(config.instance_id ?? ""),
-                        description: config.instance_id,
-                      });
-                      let controller: systemShare.ShareController = new systemShare.ShareController(shareData);
-                      let uiContext: UIContext = this.getUIContext();
-                      let context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
-                      controller.show(context, {
-                        selectionMode: systemShare.SelectionMode.SINGLE,
-                        previewMode: systemShare.SharePreviewMode.DEFAULT,
-                        excludedAbilities: [systemShare.ShareAbilityType.PRINT,
-                          systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
-                      }).catch(() => {
-                        Logger.error(`[Index] systemShareConfig::An unexpected error occurred.`);
-                      })
+                      buildShareData(config, (data) => {
+                        let controller: systemShare.ShareController = new systemShare.ShareController(data);
+                        let uiContext: UIContext = this.getUIContext();
+                        let context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
+                        controller.show(context, {
+                          selectionMode: systemShare.SelectionMode.SINGLE,
+                          previewMode: systemShare.SharePreviewMode.DEFAULT,
+                          excludedAbilities: [systemShare.ShareAbilityType.PRINT,
+                            systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
+                        }).catch(() => {
+                          Logger.error(`[Index] systemShareConfig::An unexpected error occurred.`);
+                        })
+                      }, this.name, this.uuid)
                     }
                   }),
                 HdsMenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), () => {
@@ -307,21 +303,9 @@ export struct EditPage {
   private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
     let config = AppManager.data.configUUIDMap.get(this.uuid ?? "")
     if (config) {
-      compressStr(mappedJson(config)).then((data) => {
-        try {
-          let shareData: systemShare.SharedData = new systemShare.SharedData({
-            utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-            content: 'https://easytier.cn/comp_cfg?cfg=' + data,
-            title: '分享配置 ' + this.name,
-            description: this.uuid ?? ""
-          });
-          sharableTarget.share(shareData);
-        } catch (e) {
-          Logger.error("systemShare" + JSON.stringify(e), "EditPage")
-        }
-      }).catch((e: Error) => {
-        Logger.error("compressedConfig" + JSON.stringify(e), "EditPage")
-      })
+      buildShareData(config, (data) => {
+        sharableTarget.share(data);
+      }, this.name, this.uuid)
     }
   }
 }

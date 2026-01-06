@@ -26,7 +26,7 @@ export function mappedJson(raw: NetworkConfig): string {
 
 export function unmappedJson(raw: string): NetworkConfig {
   let data = ContentUtil.getDefaultConfig("")
-  for (const [key, value] of Object.entries(raw)) {
+  for (const [key, value] of Object.entries(JSON.parse(raw))) {
     const mappedKey = NetworkConfigIdFieldMap[key] || key;
     data[mappedKey] = value;
   }

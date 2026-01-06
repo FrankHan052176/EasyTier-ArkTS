@@ -190,6 +190,7 @@ export class DataUtil {
     this.configUUIDMap.set(uuid, config)
     this.configNameUUIDMap.set(name, uuid)
     this.configUUIDNameMap.set(uuid, name)
+    AppManager.preference.addConfig(config.instance_id!, name, config)
     return config
   }
 
