@@ -52,6 +52,10 @@ export struct DragOverlay {
     }
   }
 
+  aboutToDisappear(): void {
+    EventHelper.emitterOff("drag_overlay_move")
+  }
+
   @Builder
   MyMenu() {
     Menu() {

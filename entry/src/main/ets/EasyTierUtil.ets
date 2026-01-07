@@ -14,6 +14,8 @@ import { ValueType } from '@kit.ArkData'
 import { ContentUtil } from './ContentUtil'
 import { JSON, taskpool } from '@kit.ArkTS'
 import { LogDataSource } from './class/data_source/LogDataSource'
+import { updateFavoriteCard } from './CardUtil'
+import { HMRouterMgr } from '@hadss/hmrouter'
 
 @Concurrent
 async function readInfoWorker(): Promise<void> {
@@ -53,6 +55,8 @@ export class EasyTierUtil {
   @Trace instanceInfos: Map<string, InstanceInfo> = new Map
   @Trace selected: string | undefined
   @Trace needTUN: string | undefined
+  task1: taskpool.LongTask | undefined
+  task2: taskpool.LongTask | undefined
   tunRoutes: SafeSet<NetworkSegment> = new SafeSet()
 
   @Monitor("selected")
@@ -86,10 +90,15 @@ export class EasyTierUtil {
       }
     })
 
-    let task1 = new taskpool.LongTask(readInfoWorker)
-    let task2 = new taskpool.LongTask(readLogsWorker)
-    taskpool.execute(task1)
-    taskpool.execute(task2)
+    this.task1 = new taskpool.LongTask(readInfoWorker)
+    this.task2 = new taskpool.LongTask(readLogsWorker)
+    taskpool.execute(this.task1)
+    taskpool.execute(this.task2)
+  }
+
+  destroy() {
+    taskpool.terminateTask(this.task1)
+    taskpool.terminateTask(this.task2)
   }
 
   version() {
@@ -110,22 +119,11 @@ export class EasyTierUtil {
         this.stop()
         continue
       }
-      let isNew: boolean = false
-      if (!this.runningNetworks.has(info.key)) {
-        isNew = true
-      }
       this.runningNetworks.set(info.key, newInfo)
       if (!this.instanceInfos.has(info.key)) {
         this.instanceInfos.set(info.key, new InstanceInfo())
       } else {
         this.instanceInfos.get(info.key)?.update(newInfo)
-      }
-      if (isNew) {
-        EventHelper.emitterPublish("running_instance_added", {
-          data: {
-            id: info.key
-          }
-        })
       }
       EventHelper.emitterPublish("updateInfo_" + info.key)
       if (this.needTUN === info.key && newInfo.my_node_info?.virtual_ipv4 &&
@@ -179,7 +177,6 @@ export class EasyTierUtil {
         }
       }
     }
-    EventHelper.commonPublishData("status_bar_infos", Array.from(networks.keys()).join(" "))
     for (const uuid of Array.from(this.runningNetworks.keys())) {
       if (!networks.has(uuid)) {
         this.runningNetworks.delete(uuid)
@@ -200,7 +197,7 @@ export class EasyTierUtil {
     })
   }
 
-  public start(uuid: string | undefined = this.selected): boolean {
+  public start(uuid: string | undefined = this.selected, byCard: boolean = false): boolean {
     if (uuid) {
       let config = AppManager.data.configUUIDMap.get(uuid)
       if (config) {
@@ -211,7 +208,8 @@ export class EasyTierUtil {
           AppManager.permission.requestLocPerm().then(() => {
             EventHelper.emitterPublish("start_bg", {
               data: {
-                cfg: JSON.stringify(config)
+                cfg: JSON.stringify(config),
+                uuid: byCard?undefined:uuid
               }
             })
           })
@@ -230,6 +228,13 @@ export class EasyTierUtil {
   public stop() {
     EventHelper.emitterPublish("stop_bg")
     easytier.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
+    setTimeout(() => {
+      updateFavoriteCard()
+    }, 100)
+    let stack = HMRouterMgr.getPathStack("MainNavigation")!.getAllPathName()
+    if (stack[stack.length-1] == "StatusPage") {
+      HMRouterMgr.pop()
+    }
   }
 
   public isRunning(uuid?: string): boolean {

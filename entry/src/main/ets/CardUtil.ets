@@ -1,5 +1,6 @@
 import { AppManager } from "./AppManager"
 import { formBindingData, formProvider } from "@kit.FormKit"
+import { Logger } from "./util/Logger"
 
 export function updateFavoriteCard() {
   AppManager.preference.getCardList().forEach((formId) => {
@@ -8,6 +9,8 @@ export function updateFavoriteCard() {
       favorite_uuid: AppManager.data.favorite ?? "",
       favorite_running: AppManager.easytier.isFavoritesRunning()
     })
-    formProvider.updateForm(formId, data)
+    formProvider.updateForm(formId, data).catch((e:BusinessError) => {
+      Logger.error("failed to updateFavoriteCard: "+JSON.stringify(e), "CardUtil")
+    })
   })
 }

@@ -231,6 +231,12 @@ export struct ResizableComponent {
     })
   }
 
+  aboutToDisappear(): void {
+    EventHelper.emitterOff("resize_off")
+    EventHelper.emitterOff("drag_overlay_cancel")
+    EventHelper.emitterOff(this.comp_size.type + "_hide")
+  }
+
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
       if (this.comp_size.find_next_grid && this.comp_size.isDragging) {

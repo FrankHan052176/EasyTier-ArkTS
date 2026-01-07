@@ -12,11 +12,7 @@ import { NatType, natTypeToJSON } from '../../protobuf/common'
 import { PeerInfo } from '../../class/InstanceInfo'
 import { Protocol, protocolBGColor, protocolColor } from '../../util/ETConfig'
 import { WindowUtil } from '../../WindowUtil'
-import { compressStr } from '../../CompressUtil'
-import { harmonyShare, systemShare } from '@kit.ShareKit'
-import { uniformTypeDescriptor } from '@kit.ArkData'
-import { Logger } from '../../util/Logger'
-import { mappedJson } from '../../MappedUtil'
+import { harmonyShare } from '@kit.ShareKit'
 import { buildShareData } from '../../util/ShareUtil'
 
 @HMRouter({ pageUrl: "StatusPage" })
@@ -36,7 +32,7 @@ export struct StatusPage {
 
   @Computed
   get instanceInfo() {
-    return AppManager.easytier.instanceInfos.get(this.uuid)
+    return AppManager.easytier.instanceInfos.get(this.uuid)?.peers
   }
 
   aboutToAppear(): void {
@@ -84,6 +80,7 @@ export struct StatusPage {
   }
 
   aboutToDisappear(): void {
+    EventHelper.emitterOff("updateInfo_" + this.uuid)
     harmonyShare.off('knockShare', (target) => {
       this.immersiveCallback(target)
     });
@@ -333,9 +330,11 @@ export struct StatusPage {
         .backgroundColor($r("sys.color.comp_background_primary"))
 
         WaterFlow() {
-          LazyForEach(this.instanceInfo?.peers, (peer: PeerInfo) => {
-            this.RemotePeer(peer)
-          })
+          if (this.instanceInfo != undefined) {
+            LazyForEach(this.instanceInfo!, (peer: PeerInfo) => {
+              this.RemotePeer(peer)
+            })
+          }
         }
         .columnsGap(10)
         .rowsGap(10)
@@ -393,7 +392,6 @@ export struct StatusPage {
               value: [
                 HdsMenuButton("停止运行", $r("sys.symbol.pause_fill"), () => {
                   AppManager.easytier.stop()
-                  HMRouterMgr.pop()
                 })
               ]
             }
@@ -419,7 +417,6 @@ export struct StatusPage {
         .menus([
           MenuButton("停止运行", $r("sys.symbol.pause_fill"), () => {
             AppManager.easytier.stop()
-            HMRouterMgr.pop()
           })
         ])
       }

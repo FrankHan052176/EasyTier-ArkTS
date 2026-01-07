@@ -97,14 +97,6 @@
       "value": "form_label"
     },
     {
-      "name": "favoriteWidget_desc",
-      "value": "收藏实例"
-    },
-    {
-      "name": "favoriteWidget_display_name",
-      "value": "收藏实例"
-    },
-    {
       "name": "favorite_widget_desc",
       "value": "FavoriteWidget"
     },

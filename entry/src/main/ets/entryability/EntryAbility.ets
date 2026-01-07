@@ -21,20 +21,18 @@ import { sendToast } from '../ToastUtil';
 import { isIpAddr } from '../class/config/IP';
 import { distributedKVStore } from '@kit.ArkData';
 import { BottomAnimator } from '../class/animator/BottomAnimator';
-import { uncompressStr } from '../CompressUtil';
-import { unmappedJson } from '../MappedUtil';
 import { ContentUtil } from '../ContentUtil';
 import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 import { rpc } from '@kit.IPCKit';
-import { formBindingData, formProvider } from '@kit.FormKit';
 import { unwrapUrl } from '../util/ShareUtil';
+import { updateFavoriteCard } from '../CardUtil';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
   vpnConnection: vpnExtension.VpnConnection | undefined
 
-  startContinuousTask(cfg: string) {
+  startContinuousTask(cfg: string, uuid: string | undefined) {
     if (!AppManager.permission.isGetLocPerm() ||
       !canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
       if (!easytier.runNetworkInstance(cfg)) {
@@ -62,6 +60,15 @@ export default class EntryAbility extends UIAbility {
         try {
           backgroundTaskManager.startBackgroundRunning(this.context, ["location", "dataTransfer"], wantAgentObj).then(() => {
             if (easytier.runNetworkInstance(cfg)) {
+              setTimeout(() => {
+                updateFavoriteCard()
+              }, 300)
+              if (uuid) {
+                HMRouterMgr.to('StatusPage')
+                  .withParam(uuid)
+                  .withAnimator(new BottomAnimator())
+                  .pushAsync()
+              }
               geoLocationManager.on('locationChange', request, () => {
                 Logger.debug("GeoLoc alive", this)
               });
@@ -97,6 +104,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onCreate(want: Want) {
+    this.listenCardCall()
     HMRouterMgr.openLog("INFO")
     HMRouterMgr.init({
       context: this.context
@@ -110,13 +118,6 @@ export default class EntryAbility extends UIAbility {
     this.start_bg_Listener()
     this.stop_bg_Listener()
     this.setup_tun_Listener()
-    EventHelper.emitterListener("running_instance_added", (data) => {
-      let id = data.data!.id as string
-      HMRouterMgr.to('StatusPage')
-        .withParam(id)
-        .withAnimator(new BottomAnimator())
-        .pushAsync()
-    })
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
     this.initApp()
     this.readSharedData(want)
@@ -133,12 +134,12 @@ export default class EntryAbility extends UIAbility {
       Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
     }
     AppManager.data.init()
-    this.listenCardCall()
   }
 
   onNewWant(want: Want) {
     Logger.debug("onNetWant", this)
     this.readSharedData(want)
+    updateFavoriteCard()
   }
 
   listenCardCall() {
@@ -148,9 +149,17 @@ export default class EntryAbility extends UIAbility {
       AppManager.preference.addCardId(formId)
       return null
     })
-    this.callee.on("start_favorite", (indata: rpc.MessageSequence) => {
-      const obj = JSON.parse(indata.readString()) as object
-      const formId = obj['formId'] as string
+    this.callee.on("start_favorite", () => {
+      if (AppManager.data.favorite) {
+        if (AppManager.easytier.isFavoritesRunning()) {
+          AppManager.easytier.stop()
+        } else {
+          if (AppManager.easytier.runningNetworks.size > 0) {
+            AppManager.easytier.stop()
+          }
+          AppManager.easytier.start(AppManager.data.favorite, true)
+        }
+      }
       return null
     })
   }
@@ -205,6 +214,8 @@ export default class EntryAbility extends UIAbility {
   onDestroy() {
     Logger.debug("onDestroy", this)
     this.stopContinuousTask()
+    this.callee.off("send_card_id")
+    this.callee.off("start_favorite")
   }
 
   start_bg_Listener() {
@@ -212,7 +223,7 @@ export default class EntryAbility extends UIAbility {
     EventHelper.emitterListener("start_bg", (data) => {
       this.prepare_vpn(() => {
         Logger.info("start_bg_task", this)
-        this.startContinuousTask(data.data!.cfg);
+        this.startContinuousTask(data.data!.cfg, data.data?.uuid);
       })
     })
   }

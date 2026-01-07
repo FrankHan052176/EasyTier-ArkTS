@@ -9,10 +9,7 @@ import { HdsMenuButton, MenuButton } from '../Components'
 import { SheetContentBuilder, SheetTitleBuilder } from '../../components/sheet/Basic'
 import { EventHelper } from '../../util/EventHelper'
 import { WindowUtil } from '../../WindowUtil'
-import { compressStr } from '../../CompressUtil'
-import { mappedJson } from '../../MappedUtil'
 import { harmonyShare, systemShare } from '@kit.ShareKit'
-import { uniformTypeDescriptor } from '@kit.ArkData'
 import { Logger } from '../../util/Logger'
 import { common } from '@kit.AbilityKit'
 import { buildShareData } from '../../util/ShareUtil'
@@ -52,6 +49,8 @@ export struct EditPage {
   }
 
   aboutToDisappear(): void {
+    EventHelper.emitterOff("edit_open_sheet")
+    EventHelper.emitterOff("edit_close_sheet")
     harmonyShare.off('knockShare', (target) => {
       this.immersiveCallback(target)
     });

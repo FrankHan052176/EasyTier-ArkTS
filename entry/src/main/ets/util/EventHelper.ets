@@ -14,6 +14,7 @@ export class EventHelper {
     commonEventManager.createSubscriber(subscribeInfo,
       (err: BusinessError, data: commonEventManager.CommonEventSubscriber) => {
         if (err) {
+          Logger.error(err.message, "EventHelper")
           return;
         }
         subscriber = data;
@@ -28,8 +29,7 @@ export class EventHelper {
   }
 
   public static commonPublish(event: string) {
-    commonEventManager.publish(event, () => {
-    })
+    commonEventManager.publish(event, () => {})
   }
 
   public static commonPublishCode(event: string, code: number) {
@@ -58,5 +58,9 @@ export class EventHelper {
 
   public static emitterPublish(event: string, data: emitter.EventData | undefined = undefined) {
     emitter.emit(event, data)
+  }
+
+  public static emitterOff(event: string) {
+    emitter.off(event)
   }
 }

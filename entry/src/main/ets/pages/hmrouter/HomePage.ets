@@ -16,11 +16,7 @@ import { ActionBarButton, ActionBarStyle, HdsActionBar } from '@kit.UIDesignKit'
 import { sendToast } from '../../ToastUtil';
 import { BottomAnimator } from '../../class/animator/BottomAnimator';
 import { motion } from '@kit.MultimodalAwarenessKit';
-import { harmonyShare, systemShare } from '@kit.ShareKit';
-import { compressStr } from '../../CompressUtil';
-import { uniformTypeDescriptor } from '@kit.ArkData';
-import { Logger } from '../../util/Logger';
-import { mappedJson } from '../../MappedUtil';
+import { harmonyShare } from '@kit.ShareKit';
 import { WindowUtil } from '../../WindowUtil';
 import { buildShareData } from '../../util/ShareUtil';
 
@@ -89,6 +85,9 @@ export struct HomePage {
   }
 
   aboutToDisappear(): void {
+    EventHelper.emitterOff("home_open_sheet")
+    EventHelper.emitterOff("home_close_sheet")
+    EventHelper.emitterOff("reset_holding_detector")
     harmonyShare.off('knockShare', (target) => {
       this.immersiveCallback(target)
     });

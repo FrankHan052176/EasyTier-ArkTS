@@ -9,8 +9,7 @@ export function startFavorite(component: Object, formId: string) {
     bundleName: 'top.frankhan.easytier',
     abilityName: 'EntryAbility',
     params: {
-      method: CardMethod.StartFavorite,
-      formId: formId
+      method: CardMethod.StartFavorite
     }
   });
 }

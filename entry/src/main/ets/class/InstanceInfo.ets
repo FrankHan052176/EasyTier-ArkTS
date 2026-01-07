@@ -3,6 +3,7 @@ import { convertToProtocol, Protocol } from '../util/ETConfig'
 import { CircleArray } from './container/CircleArray'
 import { PeerInfoDataSource } from './data_source/PeerInfoDataSource'
 import { convertAddrToIp } from '../util/Conversion'
+import { Logger } from '../util/Logger'
 
 function fixedRate(value: number): number {
   if (value > 107374182) {
@@ -115,6 +116,7 @@ export class InstanceInfo {
         peerInfo.protocol = Array.from(protocols)
         peerInfo.last_bytes = bytes
         this.peers.set(peerInfo)
+        Logger.debug("update peer: "+JSON.stringify(peerInfo))
       }
       if (pair.peer) {
         for (const conn of pair.peer.conns) {
