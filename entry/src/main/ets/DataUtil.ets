@@ -6,7 +6,7 @@ import { NetworkConfig, NetworkingMethod } from './protobuf/api_manage';
 import { ContentUtil } from './ContentUtil';
 import { AppManager } from './AppManager';
 import { getHostname } from './util/Conversion';
-import { distributedKVStore, preferences, ValueType } from '@kit.ArkData';
+import { distributedKVStore, preferences } from '@kit.ArkData';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { FieldValue } from './class/config/Basic';
 import { Cidr } from './class/config/Cidr';
@@ -15,40 +15,16 @@ import { NetworkName } from './class/config/NetworkName';
 import { IP } from './class/config/IP';
 import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
 import { HMRouterMgr } from '@hadss/hmrouter';
-import { updateFavoriteCard } from './CardUtil';
 
 @LogLocate("DataUtil")
 @ObservedV2
 export class DataUtil {
   @Trace globalDataMap: Map<string, FieldValueDataSource> = new Map
   @Trace configUUIDMap: Map<string, NetworkConfig> = new Map
-  @Trace configUUIDNameMap: Map<string, string> = new Map
-  @Trace favorite: string | undefined
-  @Trace editingInstance: string | undefined
-
-  @Monitor("favorite")
-  onChange(monitor: IMonitor) {
-    monitor.dirty.forEach((path: string) => {
-      if (AppManager.preference.preferences !== undefined && !AppManager.preference.isInit) {
-        try {
-          Logger.debug("update:" + path + "," + monitor.value(path)?.now, this)
-          if (monitor.value(path)?.now) {
-            AppManager.preference.preferences.putSync(path, monitor.value(path)?.now as ValueType)
-          } else {
-            AppManager.preference.preferences.putSync(path, "" as ValueType)
-          }
-          AppManager.preference.preferences.flushSync()
-        } catch (error) {
-          Logger.error(`PreferenceUtil failed to change ${path}.\n${error}`, this)
-        }
-      }
-    })
-    updateFavoriteCard()
-  }
 
   public isFavorite(uuid: string | undefined) {
     if (uuid) {
-      return uuid === this.favorite
+      return uuid === AppManager.uiState.favorite
     } else {
       return false
     }
@@ -59,9 +35,9 @@ export class DataUtil {
       return
     }
     if (this.isFavorite(uuid)) {
-      this.favorite = undefined
+      AppManager.uiState.favorite = undefined
     } else {
-      this.favorite = uuid
+      AppManager.uiState.favorite = uuid
     }
   }
 
@@ -178,17 +154,17 @@ export class DataUtil {
     let config = ContentUtil.getDefaultConfig(getHostname())
     config.instance_id = this.safeUUID()
     this.configUUIDMap.set(config.instance_id, config)
-    this.configUUIDNameMap.set(config.instance_id, name)
+    AppManager.uiState.configUUIDNameMap.set(config.instance_id, name)
     AppManager.preference.addConfig(config.instance_id, name, config)
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
-    AppManager.data.editingInstance = config.instance_id
+    AppManager.uiState.editingInstance = config.instance_id
     HMRouterMgr.push({ pageUrl: 'EditPage', param: config.instance_id, animator: animator });
     return config
   }
 
   public readConfig(uuid: string, name: string, config: NetworkConfig) {
     this.configUUIDMap.set(uuid, config)
-    this.configUUIDNameMap.set(uuid, name)
+    AppManager.uiState.configUUIDNameMap.set(uuid, name)
     AppManager.preference.addConfig(config.instance_id!, name, config)
     return config
   }
@@ -260,24 +236,24 @@ export class DataUtil {
       }
     })
     this.configUUIDMap.set(config.instance_id!, config)
-    this.configUUIDNameMap.set(config.instance_id!, name ?? config.instance_id!)
+    AppManager.uiState.configUUIDNameMap.set(config.instance_id!, name ?? config.instance_id!)
 
     AppManager.preference.addConfig(config.instance_id!, name ?? config.instance_id!, config)
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
-    AppManager.data.editingInstance = config.instance_id
+    AppManager.uiState.editingInstance = config.instance_id
     HMRouterMgr.push({ pageUrl: 'EditPage', param: config.instance_id, animator: animator });
     return true
   }
 
   public delConfig(uuid: string): boolean {
-    if (AppManager.data.favorite === uuid) {
-      AppManager.data.favorite = undefined
+    if (AppManager.uiState.favorite === uuid) {
+      AppManager.uiState.favorite = undefined
     }
-    if (AppManager.easytier.selected === uuid) {
-      AppManager.easytier.selected = undefined
+    if (AppManager.uiState.selected === uuid) {
+      AppManager.uiState.selected = undefined
     }
     if (this.configUUIDMap.has(uuid)) {
-      let name = this.configUUIDNameMap.get(uuid)
+      let name = AppManager.uiState.configUUIDNameMap.get(uuid)
       try {
         AppManager.preference.configIDPreferences?.deleteSync(uuid)
         AppManager.preference.configPreferences.delete(uuid)
@@ -287,7 +263,7 @@ export class DataUtil {
       preferences.deletePreferences(AppManager.content.context!, uuid).catch(() => {
       })
       let result = this.configUUIDMap.delete(uuid)
-      this.configUUIDNameMap.delete(uuid)
+      AppManager.uiState.configUUIDNameMap.delete(uuid)
       return result
     } else {
       return false

@@ -24,7 +24,7 @@ export struct EditPage {
   @Computed
   get name() {
     if (this.uuid) {
-      return AppManager.data.configUUIDNameMap.get(this.uuid)
+      return AppManager.uiState.configUUIDNameMap.get(this.uuid)
     }
     return ""
   }
@@ -59,7 +59,7 @@ export struct EditPage {
         this.immersiveCallback(target)
       });
     }
-    AppManager.data.editingInstance = undefined
+    AppManager.uiState.editingInstance = undefined
   }
 
   @Builder

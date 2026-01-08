@@ -2,23 +2,19 @@ import { BusinessError, commonEventManager, emitter } from '@kit.BasicServicesKi
 import { Logger } from './Logger';
 
 export class EventHelper {
-  private static bundleName = "top.frankhan.easytier"
+  public static bundleName = "top.frankhan.easytier"
 
-  public static commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void,
-    publisherBundleName: string | undefined = EventHelper.bundleName) {
+  public static commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void) {
     let subscribeInfo: commonEventManager.CommonEventSubscribeInfo = {
-      events: [event],
-      publisherBundleName: publisherBundleName
+      events: [event]
     };
-    let subscriber: commonEventManager.CommonEventSubscriber | null = null;
     commonEventManager.createSubscriber(subscribeInfo,
       (err: BusinessError, data: commonEventManager.CommonEventSubscriber) => {
         if (err) {
           Logger.error(err.message, "EventHelper")
           return;
         }
-        subscriber = data;
-        commonEventManager.subscribe(subscriber, (err, data: commonEventManager.CommonEventData) => {
+        commonEventManager.subscribe(data, (err, data: commonEventManager.CommonEventData) => {
           if (err) {
             Logger.error(err.message, "EventHelper")
             return;
@@ -32,17 +28,8 @@ export class EventHelper {
     commonEventManager.publish(event, () => {})
   }
 
-  public static commonPublishCode(event: string, code: number) {
-    commonEventManager.publish(event, {
-      bundleName: EventHelper.bundleName,
-      code: code
-    }, () => {
-    })
-  }
-
   public static commonPublishData(event: string, data: string) {
     commonEventManager.publish(event, {
-      bundleName: EventHelper.bundleName,
       data: data
     }, () => {
     })

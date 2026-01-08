@@ -75,13 +75,11 @@ export class PreferenceUtil {
         this.readConfig(field, nameBytes, preference)
       }
       let selected = this.preferences!.getSync("selected", "").toString()
-      AppManager.easytier.selected =
+      AppManager.uiState.selected =
         (selected.length > 0 && this.configPreferences.has(selected)) ? selected : undefined
-      Logger.debug("read selected:" + selected + " set:" + AppManager.easytier.selected, this)
       let favorite = this.preferences!.getSync("favorite", "").toString()
-      AppManager.data.favorite =
+      AppManager.uiState.favorite =
         (favorite.length > 0 && this.configPreferences.has(favorite)) ? favorite : undefined
-      Logger.debug("read favorite:" + favorite + " set:" + AppManager.data.favorite, this)
     })
     this.globalConfigs = preferences.getPreferencesSync(context, { name: 'EasyTierGlobalConfigs' })
     this.globalConfigs.getAll((err, obj) => {
@@ -92,25 +90,20 @@ export class PreferenceUtil {
       for (const field of Object.keys(obj)) {
         let esObj: ESObject = obj
         let value: string[] = esObj[field]
-        Logger.debug("read globalConfigs: " + field + ", length: " + value.length, this)
         AppManager.data.initDataSource(field, value)
       }
     })
     this.black_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierBlackListApp' })
     this.updateBlackListApps()
     this.card_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierCardList' })
-    try {
-      this.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean
-      this.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean
-      this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
-      this.dns = this.preferences.getSync("dns", false).valueOf() as string
-      this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
-      this.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean
-      this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
-      AppManager.layout.initSequence(this.raw_comp_sequence)
-    } catch (error) {
-      Logger.error(`PreferenceUtil failed to init.\n${error}`, this)
-    }
+    this.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean
+    this.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean
+    this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
+    this.dns = this.preferences.getSync("dns", false).valueOf() as string
+    this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
+    this.holding_detector = this.preferences.getSync("holding", false).valueOf() as boolean
+    this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
+    AppManager.layout.initSequence(this.raw_comp_sequence)
     if (this.show_log) {
       this.inittedLog = true
       easytier.initTracingSubscriber()
@@ -146,36 +139,32 @@ export class PreferenceUtil {
   }
 
   addConfig(uuid: string, name: string, config: NetworkConfig) {
-    try {
-      this.configIDPreferences?.putSync(uuid, new Uint8Array(buffer.from(name, 'utf-8').buffer))
-      this.configIDPreferences?.flushSync()
-      let preference = sendablePreferences.getPreferencesSync(AppManager.content.context!, { name: uuid })
-      Object.entries(config)
-        .forEach((value: [string, undefined | Array<string | PortForwardConfig> | string | boolean | number]) => {
-          if (value[1]) {
-            if (Array.isArray(value[1])) {
-              if (value[0] === 'port_forwards') {
-                let arr = value[1] as PortForwardConfig[]
-                let safeArr = new collections.Array<SafePortForwardConfig>()
-                arr.forEach((v) => {
-                  safeArr.push(new SafePortForwardConfig(v))
-                })
-                preference.putSync(value[0], safeArr)
-              } else {
-                let arr = value[1] as string[]
-                let safeArr = new collections.Array<string>(...arr)
-                preference.putSync(value[0], safeArr)
-              }
+    this.configIDPreferences?.putSync(uuid, new Uint8Array(buffer.from(name, 'utf-8').buffer))
+    this.configIDPreferences?.flushSync()
+    let preference = sendablePreferences.getPreferencesSync(AppManager.content.context!, { name: uuid })
+    Object.entries(config)
+      .forEach((value: [string, undefined | Array<string | PortForwardConfig> | string | boolean | number]) => {
+        if (value[1]) {
+          if (Array.isArray(value[1])) {
+            if (value[0] === 'port_forwards') {
+              let arr = value[1] as PortForwardConfig[]
+              let safeArr = new collections.Array<SafePortForwardConfig>()
+              arr.forEach((v) => {
+                safeArr.push(new SafePortForwardConfig(v))
+              })
+              preference.putSync(value[0], safeArr)
             } else {
-              preference.putSync(value[0], value[1])
+              let arr = value[1] as string[]
+              let safeArr = new collections.Array<string>(...arr)
+              preference.putSync(value[0], safeArr)
             }
+          } else {
+            preference.putSync(value[0], value[1])
           }
-        })
-      preference.flushSync()
-      this.configPreferences.set(uuid, preference)
-    } catch (error) {
-      Logger.error("failed to add config"+JSON.stringify(error), this)
-    }
+        }
+      })
+    preference.flushSync()
+    this.configPreferences.set(uuid, preference)
   }
 
   private async readConfig(field: string, nameBytes: Uint8Array, preference: sendablePreferences.Preferences) {
@@ -188,7 +177,7 @@ export class PreferenceUtil {
     }
     let textDecoder = util.TextDecoder.create('utf-8', textDecoderOptions);
     let name = textDecoder.decodeToString(new Uint8Array(nameBytes), decodeToStringOptions);
-    AppManager.data.configUUIDNameMap.set(field, name)
+    AppManager.uiState.configUUIDNameMap.set(field, name)
     const task: taskpool.Task = new taskpool.Task(readConfigFromPreference, field as String, preference);
     return taskpool.execute(task).then((value: object) => {
       let config = value.toString()
@@ -248,6 +237,20 @@ export class PreferenceUtil {
       return this.card_list_preference.getSync("card_list", []) as string []
     }
     return []
+  }
+
+  cleanCardList(list: string[]) {
+    if (this.card_list_preference) {
+      let formList = this.card_list_preference.getSync("card_list", []) as string []
+      list.forEach((value) => {
+        let index = formList.indexOf(value)
+        if (index > -1) {
+          formList.splice(index)
+        }
+      })
+      this.card_list_preference.putSync("card_list", formList)
+      this.card_list_preference.flushSync()
+    }
   }
 
   addCardId(formId: string) {

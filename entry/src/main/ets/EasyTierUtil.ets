@@ -10,11 +10,10 @@ import { convertAddrToIp } from './util/Conversion'
 import { NetworkSegment } from './class/NetworkSegment'
 import { SafeSet } from './util/SafeSet'
 import { deviceInfo } from '@kit.BasicServicesKit'
-import { ValueType } from '@kit.ArkData'
 import { ContentUtil } from './ContentUtil'
 import { JSON, taskpool } from '@kit.ArkTS'
 import { LogDataSource } from './class/data_source/LogDataSource'
-import { updateFavoriteCard } from './CardUtil'
+import { updateFavorite } from './CommunicationUtil'
 import { HMRouterMgr } from '@hadss/hmrouter'
 
 @Concurrent
@@ -53,30 +52,10 @@ export class EasyTierUtil {
   @Trace ohLogs: LogDataSource = new LogDataSource
   @Trace runningNetworks: Map<string, NetworkInstanceRunningInfo> = new Map
   @Trace instanceInfos: Map<string, InstanceInfo> = new Map
-  @Trace selected: string | undefined
   @Trace needTUN: string | undefined
   task1: taskpool.LongTask | undefined
   task2: taskpool.LongTask | undefined
   tunRoutes: SafeSet<NetworkSegment> = new SafeSet()
-
-  @Monitor("selected")
-  onChange(monitor: IMonitor) {
-    monitor.dirty.forEach((path: string) => {
-      if (AppManager.preference.preferences !== undefined && !AppManager.preference.isInit) {
-        try {
-          Logger.debug("update:" + path + "," + monitor.value(path)?.now, this)
-          if (monitor.value(path)?.now) {
-            AppManager.preference.preferences.putSync(path, monitor.value(path)?.now as ValueType)
-          } else {
-            AppManager.preference.preferences.putSync(path, "" as ValueType)
-          }
-          AppManager.preference.preferences.flushSync()
-        } catch (error) {
-          Logger.error(`PreferenceUtil failed to change ${path}.\n${error}`, this)
-        }
-      }
-    })
-  }
 
   init() {
     EventHelper.emitterListener("worker_readInfo", (event) => {
@@ -197,7 +176,7 @@ export class EasyTierUtil {
     })
   }
 
-  public start(uuid: string | undefined = this.selected, byCard: boolean = false): boolean {
+  public start(uuid: string | undefined = AppManager.uiState.selected, byCard: boolean = false): boolean {
     if (uuid) {
       let config = AppManager.data.configUUIDMap.get(uuid)
       if (config) {
@@ -229,7 +208,7 @@ export class EasyTierUtil {
     EventHelper.emitterPublish("stop_bg")
     easytier.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
     setTimeout(() => {
-      updateFavoriteCard()
+      updateFavorite()
     }, 100)
     let stack = HMRouterMgr.getPathStack("MainNavigation")!.getAllPathName()
     if (stack[stack.length-1] == "StatusPage") {
@@ -249,11 +228,11 @@ export class EasyTierUtil {
   }
 
   public getEditingConfig() {
-    return AppManager.data.configUUIDMap.get(AppManager.data.editingInstance ?? "") ?? ContentUtil.getDefaultConfig("")
+    return AppManager.data.configUUIDMap.get(AppManager.uiState.editingInstance ?? "") ?? ContentUtil.getDefaultConfig("")
   }
 
   public getEditingInstance() {
-    return AppManager.data.editingInstance
+    return AppManager.uiState.editingInstance
   }
 
   public isEditingRunning(): boolean {
@@ -261,7 +240,7 @@ export class EasyTierUtil {
   }
 
   public isFavoritesRunning(): boolean {
-    return this.isRunning(AppManager.data.favorite)
+    return this.isRunning(AppManager.uiState.favorite)
   }
 
   private addTunRoutes(route: string): boolean {

@@ -9,7 +9,7 @@ export struct InstanceSelector {
 
   @Computed
   get uuids() {
-    return Array.from(AppManager.data.configUUIDNameMap.keys())
+    return Array.from(AppManager.uiState.configUUIDNameMap.keys())
   }
 
   @Event onSelect: (uuid: string) => void = () => {
@@ -79,7 +79,7 @@ export struct InstanceSelector {
           ListItem() {
             Row() {
               Column() {
-                Text(AppManager.data.configUUIDNameMap.get(uuid) || uuid)
+                Text(AppManager.uiState.configUUIDNameMap.get(uuid) || uuid)
                   .fontSize(16)
                   .fontWeight(uuid === this.selectedUuid ? FontWeight.Bold : FontWeight.Medium)
                   .fontColor(uuid === this.selectedUuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))
@@ -130,7 +130,7 @@ export struct InstanceSelector {
   build() {
     Column() {
       Column() {
-        Text(AppManager.data.configUUIDNameMap.get(this.selectedUuid) || "未选择实例")
+        Text(AppManager.uiState.configUUIDNameMap.get(this.selectedUuid) || "未选择实例")
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))

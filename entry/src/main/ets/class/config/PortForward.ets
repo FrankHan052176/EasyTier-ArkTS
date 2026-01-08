@@ -4,7 +4,7 @@ import {
   protocolBGColor,
   protocolColor,
   protocolsOnlyTcpAndUdp
-} from '../../util/ETConfig'
+} from '../../util/Conversion'
 import { FieldValue } from './Basic'
 import { AppManager, Svp2fp } from '../../AppManager'
 import { LengthMetrics } from '@kit.ArkUI'

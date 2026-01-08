@@ -118,7 +118,7 @@ export struct HomePage {
   }
 
   status() {
-    let uuid = AppManager.easytier.selected
+    let uuid = AppManager.uiState.selected
     if (!uuid || !AppManager.easytier.runningNetworks.has(uuid)) {
       if (AppManager.easytier.runningNetworks.size > 0) {
         uuid = AppManager.easytier.runningNetworks.keys()
@@ -358,12 +358,12 @@ export struct HomePage {
   }
 
   private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
-    if (AppManager.easytier.selected) {
-      let config = AppManager.data.configUUIDMap.get(AppManager.easytier.selected)
+    if (AppManager.uiState.selected) {
+      let config = AppManager.data.configUUIDMap.get(AppManager.uiState.selected)
       if (config) {
         buildShareData(config, (data) => {
           sharableTarget.share(data);
-        }, AppManager.data.configUUIDNameMap.get(AppManager.easytier.selected))
+        }, AppManager.uiState.configUUIDNameMap.get(AppManager.uiState.selected))
       }
     } else {
       sendToast("先选择一个实例，再分享吧")

@@ -7,6 +7,7 @@ import { PermissionUtil } from './PermissionUtil';
 import { PreferenceUtil } from './PreferencesUtil';
 import { LayoutUtil } from './LayoutUtil';
 import { WebUtil } from './WebUtil';
+import { UIState } from './class/UIState';
 
 @LogLocate("AppManager")
 export class AppManager {
@@ -18,6 +19,7 @@ export class AppManager {
   public static preference: PreferenceUtil = new PreferenceUtil()
   public static layout: LayoutUtil = new LayoutUtil()
   public static web: WebUtil = new WebUtil()
+  public static uiState: UIState = new UIState()
 
   static init(uiContext: UIContext) {
     AppManager.content.init(uiContext)

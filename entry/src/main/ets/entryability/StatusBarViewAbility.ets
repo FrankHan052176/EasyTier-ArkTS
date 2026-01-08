@@ -1,13 +1,13 @@
 import { StatusBarViewExtensionAbility } from '@kit.DeskTopExtensionKit';
 import { UIExtensionContentSession, Want } from '@kit.AbilityKit';
 import { Logger, LogLocate } from '../util/Logger';
-import { EventHelper } from '../util/EventHelper';
+import { AppManager } from '../AppManager';
 
 @LogLocate("StatusBarViewAbility")
 export default class StatusBarViewAbility extends StatusBarViewExtensionAbility {
   onCreate() {
-    EventHelper.commonPublish("amazing")
     Logger.debug("onCreate", this)
+    AppManager.preference.init(this.context)
   }
 
   onSessionCreate(want: Want, session: UIExtensionContentSession) {

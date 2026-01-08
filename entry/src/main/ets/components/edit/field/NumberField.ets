@@ -36,7 +36,7 @@ export struct NumberField {
 
   @Computed
   get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
+    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
   }
 
   @Computed

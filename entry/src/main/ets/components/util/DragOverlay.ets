@@ -5,6 +5,10 @@ import { lane } from '../../util/Conversion'
 import { EventHelper } from '../../util/EventHelper'
 import { layoutAnimationParm } from '../../pages/nodes/ResizableComponent'
 import { symbolWithSize } from '../../pages/hmrouter/HomePage'
+import { Want } from '@kit.AbilityKit'
+import { formProvider } from '@kit.FormKit'
+import { deviceInfo } from '@kit.BasicServicesKit'
+import { Logger } from '../../util/Logger'
 
 @Builder
 export function DragOverlayBuilder(type: string | undefined, onlyDrag: boolean = false, compPos: Position | undefined) {
@@ -59,6 +63,30 @@ export struct DragOverlay {
   @Builder
   MyMenu() {
     Menu() {
+      if (this.type === "Favorite") {
+        MenuItem({
+          symbolStartIcon: symbolWithSize($r('sys.symbol.plus_square'), 24),
+          content: "添加到桌面"
+        })
+          .onClick(() => {
+            const want: Want = {
+              bundleName: "top.frankhan.easytier",
+              abilityName: 'EntryFormAbility',
+              parameters: {
+                'ohos.extra.param.key.form_dimension': 1,
+                'ohos.extra.param.key.form_name': this.type!.toLowerCase()+'_widget',
+                'ohos.extra.param.key.module_name': 'entry'
+              },
+            };
+            if (deviceInfo.sdkApiVersion >= 18) {
+              try {
+                formProvider.openFormManager(want)
+              } catch (error) {
+                Logger.error(JSON.stringify(error), "DragOverlay")
+              }
+            }
+          })
+      }
       MenuItem({
         symbolStartIcon: symbolWithSize($r('sys.symbol.eye_slash'), 24),
         content: "隐藏组件"

@@ -63,7 +63,7 @@ function underline(textAlign: TextAlign = TextAlign.Center) {
 export struct Rename_Content {
   @Computed
   get instanceName() {
-    return AppManager.data.configUUIDNameMap.get(AppManager.data.editingInstance ?? "") ?? "N/A"
+    return AppManager.uiState.configUUIDNameMap.get(AppManager.uiState.editingInstance ?? "") ?? "N/A"
   }
 
   build() {
@@ -74,9 +74,9 @@ export struct Rename_Content {
           .width('80%')
           .onChange((value: string) => {
             if (value.length > 0) {
-              if (AppManager.data.editingInstance) {
-                AppManager.data.configUUIDNameMap.set(AppManager.data.editingInstance, value)
-                AppManager.preference.configIDPreferences?.putSync(AppManager.data.editingInstance,
+              if (AppManager.uiState.editingInstance) {
+                AppManager.uiState.configUUIDNameMap.set(AppManager.uiState.editingInstance, value)
+                AppManager.preference.configIDPreferences?.putSync(AppManager.uiState.editingInstance,
                   new Uint8Array(buffer.from(value, 'utf-8').buffer))
                 AppManager.preference.configIDPreferences?.flushSync()
               }

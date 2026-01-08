@@ -10,7 +10,7 @@ import { convertAddrToIp } from '../../util/Conversion'
 import { DiscoverBall } from '../../components/status/DiscoverBall'
 import { NatType, natTypeToJSON } from '../../protobuf/common'
 import { PeerInfo } from '../../class/InstanceInfo'
-import { Protocol, protocolBGColor, protocolColor } from '../../util/ETConfig'
+import { Protocol, protocolBGColor, protocolColor } from '../../util/Conversion'
 import { WindowUtil } from '../../WindowUtil'
 import { harmonyShare } from '@kit.ShareKit'
 import { buildShareData } from '../../util/ShareUtil'
@@ -37,7 +37,7 @@ export struct StatusPage {
 
   aboutToAppear(): void {
     this.uuid = HMRouterMgr.getCurrentParam() as string;
-    this.name = AppManager.data.configUUIDNameMap.get(this.uuid) ?? "Unknown"
+    this.name = AppManager.uiState.configUUIDNameMap.get(this.uuid) ?? "Unknown"
     this.config = AppManager.easytier.getConfig(this.uuid) ?? null
     this.ip = this.config?.dhcp ? "waiting" : (this.config?.virtual_ipv4 ?? "N/A")
 

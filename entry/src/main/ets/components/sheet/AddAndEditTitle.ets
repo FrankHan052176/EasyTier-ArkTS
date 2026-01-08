@@ -25,12 +25,6 @@ export struct AddTitle {
   @Local popup: boolean = false
   @Local sugWidth: number = 344
 
-  aboutToAppear(): void {
-    EventHelper.commonListener("edit_will_dismiss", () => {
-      this.popup = false
-    })
-  }
-
   build() {
     EditableTitleBar({
       leftIconStyle: EditableLeftIconType.Cancel,

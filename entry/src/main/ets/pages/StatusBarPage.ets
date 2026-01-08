@@ -1,24 +1,23 @@
 import { AppManager } from '../AppManager';
 
 @Entry
-@ComponentV2
+@Component
 struct StatusBarPage {
-  @Local message: string = 'StatusBarExtension Demo';
-
-  aboutToAppear(): void {
-
-  }
 
   build() {
-    RelativeContainer() {
-      Text(AppManager.easytier.selected ?? "N/A")
+    Column() {
+      Text(AppManager.uiState.selected ?? "未选择实例")
         .id('HelloWorld')
         .fontSize(25)
         .fontWeight(FontWeight.Bold)
-        .alignRules({
-          center: { anchor: '__container__', align: VerticalAlign.Center },
-          middle: { anchor: '__container__', align: HorizontalAlign.Center }
-        })
+      Text(AppManager.uiState.favorite ?? "未收藏实例")
+        .id('HelloWorld')
+        .fontSize(25)
+        .fontWeight(FontWeight.Bold)
+      Text(""+AppManager.uiState.configUUIDNameMap.size)
+        .id('HelloWorld')
+        .fontSize(25)
+        .fontWeight(FontWeight.Bold)
     }
     .height('100%')
     .width('100%')

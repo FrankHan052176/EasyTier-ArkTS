@@ -22,18 +22,18 @@ export struct Instances {
 
   @Computed
   get uuids() {
-    return Array.from(AppManager.data.configUUIDNameMap.keys())
+    return Array.from(AppManager.uiState.configUUIDNameMap.keys())
   }
 
   @Computed
   get selectedUuid() {
-    return AppManager.easytier.selected
+    return AppManager.uiState.selected
   }
 
   @Computed
   get isFavorite() {
-    if (AppManager.easytier.selected) {
-      return AppManager.easytier.selected === AppManager.data.favorite
+    if (AppManager.uiState.selected) {
+      return AppManager.uiState.selected === AppManager.uiState.favorite
     } else {
       return false
     }
@@ -45,7 +45,7 @@ export struct Instances {
   }
 
   select(uuid: string) {
-    AppManager.easytier.selected = uuid
+    AppManager.uiState.selected = uuid
   }
 
   next() {
@@ -62,7 +62,7 @@ export struct Instances {
 
   toEdit(uuid: string) {
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + uuid, "edit_content");
-    AppManager.data.editingInstance = uuid
+    AppManager.uiState.editingInstance = uuid
     HMRouterMgr.push({ pageUrl: 'EditPage', param: uuid, animator: animator });
   }
 
@@ -248,7 +248,7 @@ export struct Instances {
   ListItemView(uuid: string, showFavorite: boolean) {
     Row() {
       Column() {
-        Text(AppManager.data.configUUIDNameMap.get(uuid))
+        Text(AppManager.uiState.configUUIDNameMap.get(uuid))
           .fontSize(14)
           .fontWeight(this.selectedUuid === uuid ? FontWeight.Bold : FontWeight.Medium)
           .fontColor(this.selectedUuid === uuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))

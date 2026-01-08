@@ -1,4 +1,4 @@
-import { Protocol, protocolBGColor, protocolColor } from '../../util/ETConfig'
+import { Protocol, protocolBGColor, protocolColor } from '../../util/Conversion'
 import { WindowUtil } from '../../WindowUtil'
 
 @ComponentV2

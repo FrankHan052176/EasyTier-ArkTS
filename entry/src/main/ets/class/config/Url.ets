@@ -1,4 +1,4 @@
-import { convertToProtocol, Protocol, protocolBGColor, protocolColor, protocols } from '../../util/ETConfig'
+import { convertToProtocol, Protocol, protocolBGColor, protocolColor, protocols } from '../../util/Conversion'
 import { FieldValue } from './Basic'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Svp2fp } from '../../AppManager'

@@ -1,5 +1,5 @@
 import { NetworkInstanceRunningInfo } from '../protobuf/api_manage'
-import { convertToProtocol, Protocol } from '../util/ETConfig'
+import { convertToProtocol, Protocol } from '../util/Conversion'
 import { CircleArray } from './container/CircleArray'
 import { PeerInfoDataSource } from './data_source/PeerInfoDataSource'
 import { convertAddrToIp } from '../util/Conversion'
@@ -116,7 +116,6 @@ export class InstanceInfo {
         peerInfo.protocol = Array.from(protocols)
         peerInfo.last_bytes = bytes
         this.peers.set(peerInfo)
-        Logger.debug("update peer: "+JSON.stringify(peerInfo))
       }
       if (pair.peer) {
         for (const conn of pair.peer.conns) {

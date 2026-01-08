@@ -16,7 +16,7 @@ export struct BoolField {
 
   @Computed
   get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.data.editingInstance ?? "")
+    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
   }
 
   aboutToAppear(): void {

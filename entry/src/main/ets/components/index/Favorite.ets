@@ -28,12 +28,12 @@ export struct Favorite {
 
   @Computed
   get favoriteUuid(): string | undefined {
-    return AppManager.data.favorite
+    return AppManager.uiState.favorite
   }
 
   @Computed
   get favoriteName(): string {
-    return this.favoriteUuid ? AppManager.data.configUUIDNameMap.get(this.favoriteUuid) ?? "Unknown" : "无收藏"
+    return this.favoriteUuid ? AppManager.uiState.configUUIDNameMap.get(this.favoriteUuid) ?? "Unknown" : "无收藏"
   }
 
   toggle() {

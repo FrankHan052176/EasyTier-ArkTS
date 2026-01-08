@@ -26,7 +26,7 @@ import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 import { rpc } from '@kit.IPCKit';
 import { unwrapUrl } from '../util/ShareUtil';
-import { updateFavoriteCard } from '../CardUtil';
+import { updateFavorite } from '../CommunicationUtil';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
@@ -61,7 +61,7 @@ export default class EntryAbility extends UIAbility {
           backgroundTaskManager.startBackgroundRunning(this.context, ["location", "dataTransfer"], wantAgentObj).then(() => {
             if (easytier.runNetworkInstance(cfg)) {
               setTimeout(() => {
-                updateFavoriteCard()
+                updateFavorite()
               }, 300)
               if (uuid) {
                 HMRouterMgr.to('StatusPage')
@@ -121,9 +121,13 @@ export default class EntryAbility extends UIAbility {
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
     this.initApp()
     this.readSharedData(want)
+    this.context.getApplicationContext().eventHub.on("test", () => {
+      Logger.error("test", this)
+    })
   }
 
   async initApp() {
+    AppManager.uiState.init()
     ContentUtil.initConfigFields()
     if (deviceInfo.productModel !== "emulator") {
       AppManager.easytier.init()
@@ -139,7 +143,7 @@ export default class EntryAbility extends UIAbility {
   onNewWant(want: Want) {
     Logger.debug("onNetWant", this)
     this.readSharedData(want)
-    updateFavoriteCard()
+    updateFavorite()
   }
 
   listenCardCall() {
@@ -150,14 +154,14 @@ export default class EntryAbility extends UIAbility {
       return null
     })
     this.callee.on("start_favorite", () => {
-      if (AppManager.data.favorite) {
+      if (AppManager.uiState.favorite) {
         if (AppManager.easytier.isFavoritesRunning()) {
           AppManager.easytier.stop()
         } else {
           if (AppManager.easytier.runningNetworks.size > 0) {
             AppManager.easytier.stop()
           }
-          AppManager.easytier.start(AppManager.data.favorite, true)
+          AppManager.easytier.start(AppManager.uiState.favorite, true)
         }
       }
       return null
@@ -176,7 +180,6 @@ export default class EntryAbility extends UIAbility {
         Logger.error(`readSharedData error, code: ${error.code}, mesage: ${error.message}`, this);
       }
     } else {
-      Logger.info("get systemShare", this)
       systemShare.getSharedData(want)
         .then((data: systemShare.SharedData) => {
           data?.getRecords()?.forEach(async (record: systemShare.SharedRecord) => {

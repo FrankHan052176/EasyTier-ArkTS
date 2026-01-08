@@ -130,7 +130,7 @@ export struct HMRouterIndex {
             }
           }
         })
-      }, undefined)
+      })
     }
   }
 
