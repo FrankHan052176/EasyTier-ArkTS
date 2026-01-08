@@ -10,7 +10,6 @@ export class FieldValueDataSource implements IDataSource {
   private listeners: DataChangeListener[] = [];
 
   constructor(type: string, values: FieldValue[] = []) {
-    Logger.debug("datasource with type:" + type, this)
     this.type = type
     this.values = values
   }
