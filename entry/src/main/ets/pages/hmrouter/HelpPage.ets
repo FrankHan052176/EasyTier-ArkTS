@@ -5,13 +5,14 @@ import { hdsEffect } from "@kit.UIDesignKit";
 import { WindowUtil } from "../../WindowUtil";
 import { lane } from "../../util/Conversion";
 import { Logger } from "../../util/Logger";
+import { DesktopLayout } from "desktop_layout";
 
 @HMRouter({ pageUrl: "HelpPage" })
 @ComponentV2
 export struct HelpPage {
-  @Local currentIndex: number = 9
+  @Local currentIndex: number = 10
   private controller: SwiperController = new SwiperController()
-  private totalSteps: number = 8
+  private totalSteps: number = 9
 
   isStepActive(start: number, index: number): boolean {
     const end = this.currentIndex + WindowUtil.uiType / 2
@@ -59,13 +60,14 @@ export struct HelpPage {
         // Main Content Swiper
         Swiper(this.controller) {
           Step1_Intro({ isActive: this.isStepActive(this.currentIndex, 0) })
-          Step2_Operation_Add({ isActive: this.isStepActive(this.currentIndex, 1) })
-          Step2_Operation_Manage({ isActive: this.isStepActive(this.currentIndex, 2) })
-          Step3_Identity({ isActive: this.isStepActive(this.currentIndex, 3) })
-          Step4_Connection({ isActive: this.isStepActive(this.currentIndex, 4) })
-          Step5_ProtocolFlags({ isActive: this.isStepActive(this.currentIndex, 5) })
-          Step6_FeatureFlags({ isActive: this.isStepActive(this.currentIndex, 6) })
-          Step7_Advanced({ isActive: this.isStepActive(this.currentIndex, 7) })
+          Step1_New({ isActive: this.isStepActive(this.currentIndex, 1) })
+          Step2_Operation_Add({ isActive: this.isStepActive(this.currentIndex, 2) })
+          Step2_Operation_Manage({ isActive: this.isStepActive(this.currentIndex, 3) })
+          Step3_Identity({ isActive: this.isStepActive(this.currentIndex, 4) })
+          Step4_Connection({ isActive: this.isStepActive(this.currentIndex, 5) })
+          Step5_ProtocolFlags({ isActive: this.isStepActive(this.currentIndex, 6) })
+          Step6_FeatureFlags({ isActive: this.isStepActive(this.currentIndex, 7) })
+          Step7_Advanced({ isActive: this.isStepActive(this.currentIndex, 8) })
         }
         .loop(false)
         .indicator(false)
@@ -96,7 +98,7 @@ export struct HelpPage {
           .fontSize(18)
           .fontWeight(FontWeight.Medium)
           .onClick(() => {
-            if (this.currentIndex < (this.totalSteps + 1 - WindowUtil.uiType / 2)) {
+            if (this.currentIndex+1 < (this.totalSteps + 1 - WindowUtil.uiType / 2)) {
               this.controller.showNext()
             } else {
               HMRouterMgr.pop()
@@ -189,6 +191,108 @@ struct Step1_Intro {
     .width('100%')
     .height('100%')
     .padding({ top: 60 })
+  }
+}
+
+@Builder
+function exampleComp(type: string) {
+  Column() {
+    Text(type)
+  }
+  .width('100%')
+  .height('100%')
+  .borderRadius(18)
+  .backgroundColor($r("sys.color.comp_background_primary"))
+  .justifyContent(FlexAlign.Center)
+}
+
+@ComponentV2
+struct Step1_New {
+  @Param isActive: boolean = false
+  @Local showContent: boolean = false
+
+  @Monitor("isActive")
+  onActiveChange() {
+    this.showContent = this.isActive
+  }
+
+  build() {
+    Column() {
+      TitleSection({ title: "新版本特性", subtitle: "又加了什么好玩的呢?", show: this.showContent })
+
+      // Card Visualization
+      Column() {
+        DesktopLayout({
+          comp_sequence: [{
+            type: "全新UI风格",
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1
+          },{
+            type: "自定义桌面",
+            x: 0,
+            y: 1,
+            width: 1,
+            height: 1
+          },{
+            type: "长按我，试试看",
+            x: 1,
+            y: 0,
+            width: 1,
+            height: 1
+          }],
+          types: ["全新UI风格", "自定义桌面", "长按我，试试看"],
+          contentBuilder: wrapBuilder(exampleComp),
+          name: "test",
+          breakpoints: [
+            { breakpoint: 0, columns: 2 },
+          ],
+          maxCompW: 2,
+          maxCompH: 2
+        })
+          .width('100%')
+          .height('100%')
+      }
+      .width('100%')
+      .opacity(this.showContent ? 1 : 0)
+      .scale({ x: this.showContent ? 1 : 0.9, y: this.showContent ? 1 : 0.9 })
+      .animation({ duration: 600, curve: Curve.Friction, delay: 200 })
+      .margin({ top: 20, bottom: 40 })
+
+      // Feature List
+      Scroll() {
+        Column({ space: 16 }) {
+          FeatureItem({
+            icon: $r("sys.symbol.plus"),
+            title: "添加实例",
+            desc: "通过点击首页左上角加号新建实例\n支持导入剪切板中的配置",
+            delay: 400,
+            show: this.showContent
+          })
+          FeatureItem({
+            icon: $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"),
+            title: "接收分享",
+            desc: "接收其他鸿蒙设备分享的实例",
+            delay: 500,
+            show: this.showContent
+          })
+          FeatureItem({
+            icon: $r("sys.symbol.file_preview"),
+            title: "文件导入",
+            desc: "通过文件分享导入 Toml 配置",
+            delay: 600,
+            show: this.showContent
+          })
+          Column().height(100)
+        }
+        .width('100%')
+      }
+      .width('85%')
+      .scrollBar(BarState.Off)
+    }
+    .width('100%')
+    .height('100%')
   }
 }
 
