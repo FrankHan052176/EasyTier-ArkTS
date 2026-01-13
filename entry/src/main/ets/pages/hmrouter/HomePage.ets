@@ -9,7 +9,6 @@ import {
 import { HdsMenuButton, MenuButton } from '../Components';
 import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { AppManager } from '../../AppManager';
-import { DesktopLayout } from '../nodes/DesktopLayout';
 import { EventHelper } from '../../util/EventHelper';
 import { SheetContentBuilder, SheetTitleBuilder } from '../../components/sheet/Basic';
 import { ActionBarButton, ActionBarStyle, HdsActionBar } from '@kit.UIDesignKit';
@@ -19,12 +18,38 @@ import { motion } from '@kit.MultimodalAwarenessKit';
 import { harmonyShare } from '@kit.ShareKit';
 import { WindowUtil } from '../../WindowUtil';
 import { buildShareData } from '../../util/ShareUtil';
+import { Instances } from '../../components/index/Instances';
+import { Favorite } from '../../components/index/Favorite';
+import { Logs as Logs } from '../../components/index/Logs';
+import { QQGroups } from '../../components/index/QQGroups';
+import { SharedPeers } from '../../components/index/SharedPeers'
+import { CompSizeWithPos, DesktopLayout } from 'desktop_layout';
 
 export function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
   let result = new SymbolGlyphModifier(symbol)
   result.fontSize(size)
   result.fontColor([$r("sys.color.font_primary")])
   return result
+}
+
+@Builder
+function buildComp(type: string) {
+  if (type == "Instances") {
+    Instances()
+  } else if (type === "Favorite") {
+    Favorite()
+  } else if (type === "Logs") {
+    Logs()
+  } else if (type === "SharedPeers") {
+    SharedPeers()
+  } else if (type === "QQ") {
+    QQGroups()
+  } else {
+    Text(type)
+      .fontSize(50)
+      .fontWeight(FontWeight.Bold)
+      .margin({ bottom: 36 })
+  }
 }
 
 @HMRouter({ pageUrl: "HomePage" })
@@ -82,6 +107,10 @@ export struct HomePage {
     harmonyShare.on('knockShare', (target) => {
       this.immersiveCallback(target)
     });
+    if (AppManager.preference.help2) {
+      AppManager.preference.help2 = false
+      HMRouterMgr.to("HelpPage").push()
+    }
   }
 
   aboutToDisappear(): void {
@@ -236,7 +265,50 @@ export struct HomePage {
             .width('100%')
             .height(138)
         }
-        DesktopLayout()
+
+        DesktopLayout({
+          comp_sequence: AppManager.preference.raw_comp_sequence.split("|").map((value) => {
+            let raw = value.split("_")
+            return {
+              type: raw[0],
+              x: Number.parseInt(raw[1]),
+              y: Number.parseInt(raw[2]),
+              width: Number.parseInt(raw[3]),
+              height: Number.parseInt(raw[4])
+            } as CompSizeWithPos
+          }),
+          types: ["Instances", "Logs", "Favorite", "SharedPeers", "QQ"],
+          saveSequence: (layout) => {
+            let sequenceData = ""
+            layout.comp_sequence.forEach((type) => {
+              let size = layout.getCompSize(type)
+              sequenceData += `${type}_${size.grid_x}_${size.grid_y}_${size.lane_w}_${size.lane_h}|`
+            })
+            AppManager.preference.updateSequence(sequenceData.length > 0 ? sequenceData.substring(0, sequenceData.length - 1) :
+              sequenceData)
+          },
+          contentBuilder: wrapBuilder(buildComp),
+          name: "home",
+          hasWidgetList: ["Favorite"],
+          formWantFunc: (comp_type) => {
+            return {
+              bundleName: "top.frankhan.easytier",
+              abilityName: 'EntryFormAbility',
+              parameters: {
+                'ohos.extra.param.key.form_dimension': 1,
+                'ohos.extra.param.key.form_name': comp_type.toLowerCase() + "_widget",
+                'ohos.extra.param.key.module_name': 'entry'
+              }
+            }
+          },
+          breakpoints: [
+            { breakpoint: 0, columns: 2 },
+            { breakpoint: 720, columns: 4 },
+            { breakpoint: 960, columns: 6 }
+          ],
+          maxCompW: 2,
+          maxCompH: 2
+        })
       }
     }
     .width("100%")

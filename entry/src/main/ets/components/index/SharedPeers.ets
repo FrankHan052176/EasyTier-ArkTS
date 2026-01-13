@@ -9,16 +9,8 @@ export struct SharedPeers {
   @Local bgMode: StackLightModifier = new StackLightModifier()
   readonly brandColor: string = 'rgba(0,230,118,1)'
   readonly infoText: string = "为了 EasyTier和MC 社区的长远发展，我们会尽快完成完全合规化运营，在此之前 社区共享节点 会临时关闭，在不久的将来，他会与各位重新见面。"
-
-  @Computed
-  get w(): number {
-    return AppManager.layout.getCompSize('SharedPeers').lane_w
-  }
-
-  @Computed
-  get h(): number {
-    return AppManager.layout.getCompSize('SharedPeers').lane_h
-  }
+  @Consumer("w") w: number = 1
+  @Consumer("h") h: number = 1
 
   @Builder
   point() {
@@ -159,5 +151,6 @@ export struct SharedPeers {
     .height('100%')
     .borderRadius(18)
     .attributeModifier(this.bgMode)
+    .backgroundColor($r("sys.color.comp_background_primary"))
   }
 }

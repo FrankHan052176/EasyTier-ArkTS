@@ -10,16 +10,8 @@ export struct Logs {
   @Local tab_index: number = 0
   @Local lightMod: LightModifier = new LightModifier($r('sys.color.font_primary'))
   @Local bgMode: StackLightModifier = new StackLightModifier()
-
-  @Computed
-  get w(): number {
-    return AppManager.layout.getCompSize('Logs').lane_w
-  }
-
-  @Computed
-  get h(): number {
-    return AppManager.layout.getCompSize('Logs').lane_h
-  }
+  @Consumer("w") w: number = 1
+  @Consumer("h") h: number = 1
 
   @Computed
   get appCount(): number {
@@ -162,6 +154,9 @@ export struct Logs {
       }
       .layoutWeight(1)
       .justifyContent(FlexAlign.Center)
+      .onClick(() => {
+        this.showSheet = true
+      })
     }
     .padding(16)
     .width('100%')
@@ -193,6 +188,9 @@ export struct Logs {
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          this.showSheet = true
+        })
 
         Row({ space: 16 }) {
           this.MiniStatItem($r('sys.symbol.house'), 0)
@@ -371,9 +369,7 @@ export struct Logs {
     }
     .width('100%')
     .height('100%')
-    .onClick(() => {
-      this.showSheet = true
-    })
+    .borderRadius(18)
     .bindSheet($$this.showSheet, this.LogSheetContent(), {
       height: SheetSize.LARGE,
       preferType: SheetType.CENTER,
@@ -383,5 +379,6 @@ export struct Logs {
       blurStyle: BlurStyle.Thin
     })
     .attributeModifier(this.bgMode)
+    .backgroundColor($r("sys.color.comp_background_primary"))
   }
 }

@@ -1,4 +1,5 @@
 import { AppManager } from '../../AppManager'
+import { HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { APP_VERSION, APP_VERSION_CODE, BUILD_TIME } from '../../util/info/BuildTime'
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
@@ -437,7 +438,8 @@ export function Setting_Sheet() {
           Button('看看', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
             .borderRadius(13)
             .onClick(() => {
-              // TODO 重置教程
+              EventHelper.emitterPublish("home_close_sheet")
+              HMRouterMgr.push({ pageUrl: 'HelpPage' })
             })
         }
       }

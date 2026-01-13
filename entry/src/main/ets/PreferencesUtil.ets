@@ -11,7 +11,7 @@ import { AppInfo } from './components/sheet/BlackList';
 const defaultSequence = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
 
 @Concurrent
-async function readConfigFromPreference(id: String, data: sendablePreferences.Preferences): Promise<string> {
+async function readConfigFromPreference(data: sendablePreferences.Preferences): Promise<string> {
   let rawConfig = data.getAllSync() as Record<string, Object>
   let config = ContentUtil.getDefaultConfig("")
   for (let key of Object.keys(rawConfig)) {
@@ -55,6 +55,7 @@ export class PreferenceUtil {
   @Trace dns: string = ""
   @Trace noOldData: boolean = false
   @Trace holding_detector: boolean = false
+  @Trace help2: boolean = false
   inittedLog: boolean = false
   isInit: boolean = true
 
@@ -103,7 +104,7 @@ export class PreferenceUtil {
     this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
     this.holding_detector = this.preferences.getSync("holding", false).valueOf() as boolean
     this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
-    AppManager.layout.initSequence(this.raw_comp_sequence)
+    this.help2 = this.preferences.getSync("help2", true).valueOf() as boolean
     if (this.show_log) {
       this.inittedLog = true
       easytier.initTracingSubscriber()
@@ -123,7 +124,7 @@ export class PreferenceUtil {
     }
   }
 
-  @Monitor("show_log", "vpn_routes", "dev", "dns", "noOldData", "holding_detector")
+  @Monitor("show_log", "vpn_routes", "dev", "dns", "noOldData", "holding_detector", "help2")
   onChange(monitor: IMonitor) {
     monitor.dirty.forEach((path: string) => {
       if (this.preferences !== undefined && !this.isInit) {
@@ -178,7 +179,7 @@ export class PreferenceUtil {
     let textDecoder = util.TextDecoder.create('utf-8', textDecoderOptions);
     let name = textDecoder.decodeToString(new Uint8Array(nameBytes), decodeToStringOptions);
     AppManager.uiState.configUUIDNameMap.set(field, name)
-    const task: taskpool.Task = new taskpool.Task(readConfigFromPreference, field as String, preference);
+    const task: taskpool.Task = new taskpool.Task(readConfigFromPreference, preference);
     return taskpool.execute(task).then((value: object) => {
       let config = value.toString()
       let obj = JSON.parse(config) as NetworkConfig

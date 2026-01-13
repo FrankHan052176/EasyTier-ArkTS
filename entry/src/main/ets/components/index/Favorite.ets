@@ -10,16 +10,8 @@ export struct Favorite {
   @Local lightMod2: LightModifier = new LightModifier('rgba(255,200,50,1)', 1, 48)
   @Local bgMode: StackLightModifier = new StackLightModifier()
   readonly brandColor: string = 'rgba(255,200,50,1)'
-
-  @Computed
-  get w(): number {
-    return AppManager.layout.getCompSize('Favorite').lane_w
-  }
-
-  @Computed
-  get h(): number {
-    return AppManager.layout.getCompSize('Favorite').lane_h
-  }
+  @Consumer("w") w: number = 1
+  @Consumer("h") h: number = 1
 
   @Computed
   get isRunning(): boolean {
@@ -326,5 +318,6 @@ export struct Favorite {
     .height('100%')
     .borderRadius(18)
     .attributeModifier(this.bgMode)
+    .backgroundColor($r("sys.color.comp_background_primary"))
   }
 }

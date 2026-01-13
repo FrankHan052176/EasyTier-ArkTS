@@ -1,4 +1,4 @@
-import { sendFormId, startFavorite } from '../../../util/WidgetAction'
+import { sendFormId, startFavorite, startApp } from '../../../util/WidgetAction'
 
 const localStorage = new LocalStorage()
 
@@ -23,8 +23,6 @@ struct Favorite_widgetCard {
       .fontColor([this.brandColor])
   }
 
-  // dim = 2 (2x2) -> Uses Size1x1 visual style from Favorite.ets
-  // "The card size 2 is only the size of the component size 1"
   @Builder
   Size2x2() {
     Column() {
@@ -41,7 +39,7 @@ struct Favorite_widgetCard {
             .fontSize(48)
             .fontColor([this.brandColor])
             .onClick(() => {
-              startFavorite(this, this.formId)
+              startFavorite(this)
             })
         }
 
@@ -62,14 +60,12 @@ struct Favorite_widgetCard {
     .height('100%')
   }
 
-  // dim = 1 (1x2) -> Uses Size2x1 visual style but modified
-  // "1*2 left top badge can be changed to right top as background board"
   @Builder
   Size1x2() {
     Row() {
       Column() {
         Text(this.favorite_name)
-          .fontSize(20) // Slightly smaller than 24 in 2x1 to fit widget better? Keeping close to 24.
+          .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
           .maxLines(1)
@@ -89,10 +85,10 @@ struct Favorite_widgetCard {
       Column() {
         SymbolGlyph(this.favorite_running ? $r("sys.symbol.pause_round_triangle_fill") :
           $r("sys.symbol.play_round_triangle_fill"))
-          .fontSize(48) // Slightly smaller than 56 in 2x1 to ensure fit
+          .fontSize(48)
           .fontColor([this.brandColor])
           .onClick(() => {
-            startFavorite(this, this.formId)
+            startFavorite(this)
           })
       }
       .justifyContent(FlexAlign.Center)
@@ -132,10 +128,13 @@ struct Favorite_widgetCard {
         .width('100%')
         .height('100%')
         .justifyContent(FlexAlign.Center)
+        .onClick(() => {
+          startApp(this)
+        })
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r('sys.color.comp_background_primary')) // Assuming a background color is needed
+    .backgroundColor($r('sys.color.comp_background_primary'))
   }
 }

@@ -3,7 +3,7 @@ export enum CardMethod {
   SendCardId = "send_card_id"
 }
 
-export function startFavorite(component: Object, formId: string) {
+export function startFavorite(component: Object) {
   postCardAction(component, {
     action: 'call',
     bundleName: 'top.frankhan.easytier',
@@ -34,5 +34,13 @@ export function sendFormId(component: Object, formId: string) {
       method: CardMethod.SendCardId,
       formId: formId,
     },
+  });
+}
+
+export function startApp(component: Object) {
+  postCardAction(component, {
+    action: 'router',
+    bundleName: 'top.frankhan.easytier',
+    abilityName: 'EntryAbility'
   });
 }

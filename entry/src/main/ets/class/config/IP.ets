@@ -33,36 +33,6 @@ export function IPBuilder(value: IP) {
   .justifyContent(FlexAlign.Start)
 }
 
-@Extend(TextInput)
-function underline(textAlign: TextAlign = TextAlign.Center) {
-  .padding({
-    left: 1,
-    right: 1,
-    top: 5,
-    bottom: 5
-  })
-  .backgroundColor(Color.Transparent)
-  .border({
-    width: {
-      start: LengthMetrics.vp(0),
-      end: LengthMetrics.vp(0),
-      top: LengthMetrics.vp(0),
-      bottom: LengthMetrics.vp(1)
-    },
-    color: {
-      bottom: $r("sys.color.comp_divider")
-    },
-    radius: {
-      bottomStart: LengthMetrics.vp(0),
-      bottomEnd: LengthMetrics.vp(0)
-    },
-    style: {
-      bottom: BorderStyle.Solid
-    }
-  })
-  .textAlign(textAlign)
-}
-
 export let EditValue_IP: IP | undefined
 
 export function clearEditValue_IP() {

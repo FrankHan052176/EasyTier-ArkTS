@@ -9,16 +9,8 @@ import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 export struct Instances {
   @Local lightMod: LightModifier = new LightModifier($r('sys.color.brand'))
   @Local bgMode: StackLightModifier = new StackLightModifier()
-
-  @Computed
-  get w(): number {
-    return AppManager.layout.getCompSize('Instances').lane_w
-  }
-
-  @Computed
-  get h(): number {
-    return AppManager.layout.getCompSize('Instances').lane_h
-  }
+  @Consumer("w") w: number = 1
+  @Consumer("h") h: number = 1
 
   @Computed
   get uuids() {
@@ -352,5 +344,6 @@ export struct Instances {
     .height('100%')
     .borderRadius(18)
     .attributeModifier(this.bgMode)
+    .backgroundColor($r("sys.color.comp_background_primary"))
   }
 }

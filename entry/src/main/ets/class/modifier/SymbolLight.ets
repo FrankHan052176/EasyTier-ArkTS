@@ -16,16 +16,16 @@ export class LightModifier implements AttributeModifier<CommonAttribute> {
     if (deviceInfo.sdkApiVersion >= 20) {
       instance
         .opacity(0)
-        .visualEffect(new hdsEffect.HdsEffectBuilder()
-          .pointLight({
-            illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
-            options: {
-              color: this.color,
-              intensity: this.intensity,
-              height: this.height
-            }
-          }).buildEffect()
-        )
+        // .visualEffect(new hdsEffect.HdsEffectBuilder()
+        //   .pointLight({
+        //     illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
+        //     options: {
+        //       color: this.color,
+        //       intensity: this.intensity,
+        //       height: this.height
+        //     }
+        //   }).buildEffect()
+        // )
     }
   }
 }

@@ -1,11 +1,7 @@
-import { HMDefaultGlobalAnimator, HMNavigation } from '@hadss/hmrouter';
+import { HMDefaultGlobalAnimator, HMNavigation, HMRouterMgr } from '@hadss/hmrouter';
 import { AttributeUpdater, FrameCallback } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
-import { EnvironmentCallback } from '@kit.AbilityKit';
 import { AppManager } from '../AppManager';
-import { DragOverlayBuilder } from '../components/util/DragOverlay';
-import { NodeNameMap } from './nodes/CompNode';
-import { Position } from '../LayoutUtil';
 import { DialogHub, DialogMode } from '@hadss/dialoghub';
 import { statusBarManager } from '@kit.DeskTopExtensionKit';
 import { image } from '@kit.ImageKit';
@@ -13,8 +9,6 @@ import { Logger } from '../util/Logger';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { deferredLink } from '@kit.AppLinkingKit';
 import { url } from '@kit.ArkTS';
-import { uncompressStr } from '../CompressUtil';
-import { unmappedJson } from '../MappedUtil';
 import { unwrapUrl } from '../util/ShareUtil';
 
 class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
@@ -48,42 +42,6 @@ export struct HMRouterIndex {
   async aboutToAppear(): Promise<void> {
     DialogHub.init(this.getUIContext(), DialogMode.CUSTOM_DIALOG);
     AppManager.init(this.getUIContext())
-    EventHelper.emitterListener("drag_overlay_on", (data) => {
-      this.dragType = data.data!.type
-      this.compPos = data.data!.pos
-      this.dragOverlay = true
-      AppManager.layout.getCompSize(this.dragType!).isOnOverlay = true
-    })
-    EventHelper.emitterListener("drag_overlay_only_drag", (data) => {
-      this.dragType = data.data!.type
-      this.compPos = data.data!.pos
-      this.onlyDrag = true
-      this.dragOverlay = true
-      AppManager.layout.getCompSize(this.dragType!).isOnOverlay = true
-    })
-    EventHelper.emitterListener("drag_overlay_off", () => {
-      AppManager.layout.getCompSize(this.dragType!).isOnOverlay = false
-      this.dragType = undefined
-      this.dragOverlay = false
-    })
-    EventHelper.emitterListener("hide_comp_and_overlay_off", () => {
-      AppManager.layout.getCompSize(this.dragType!).isOnOverlay = false
-      this.dragOverlay = false
-      EventHelper.emitterPublish(this.dragType + "_hide")
-      this.dragType = undefined
-    })
-    let environmentCallback: EnvironmentCallback = {
-      onMemoryLevel: (): void => {
-      },
-      onConfigurationUpdated: (): void => {
-        this.getUIContext()?.postFrameCallback(new MyFrameCallback(() => {
-          NodeNameMap.forEach((value) => {
-            value.updateConfiguration();
-          })
-        }));
-      }
-    };
-    this.getUIContext().getHostContext()?.getApplicationContext().on('environment', environmentCallback);
     if (canIUse("SystemCapability.PCService.StatusBarManager")) {
       try {
         const blackFileData =
@@ -147,24 +105,8 @@ export struct HMRouterIndex {
         .width('100%')
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
-    .bindContentCover($$this.dragOverlay, DragOverlayBuilder(this.dragType, this.onlyDrag, this.compPos), {
-      modalTransition: ModalTransition.NONE,
-      onWillDisappear: () => {
-        this.onlyDrag = false
-        if (this.dragType) {
-          this.dragType = undefined
-          AppManager.layout.getCompSize(this.dragType!).isOnOverlay = false
-        }
-      }
-    })
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .height('100%')
     .width('100%')
-    .onTouch((event) => {
-      if (event.type == TouchType.Down) {
-        EventHelper.emitterPublish("resize_off")
-        EventHelper.emitterPublish("click_edit")
-      }
-    })
   }
 }

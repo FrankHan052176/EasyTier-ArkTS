@@ -10,16 +10,8 @@ export struct QQGroups {
   @Local groups: string[] = []
   @Local lightMod: LightModifier = new LightModifier('#0052d9')
   @Local bgMode: StackLightModifier = new StackLightModifier()
-
-  @Computed
-  get w(): number {
-    return AppManager.layout.getCompSize('QQGroups').lane_w
-  }
-
-  @Computed
-  get h(): number {
-    return AppManager.layout.getCompSize('QQGroups').lane_h
-  }
+  @Consumer("w") w: number = 1
+  @Consumer("h") h: number = 1
 
   aboutToAppear(): void {
     AppManager.web.updateQQGroups()
@@ -194,5 +186,6 @@ export struct QQGroups {
     .height('100%')
     .borderRadius(18)
     .attributeModifier(this.bgMode)
+    .backgroundColor($r("sys.color.comp_background_primary"))
   }
 }

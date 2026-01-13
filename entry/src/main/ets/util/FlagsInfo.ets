@@ -60,7 +60,7 @@ export function flagsSymbol(flag: string): Resource {
     case "no_tun":
       return $r("sys.symbol.arrow_up_to_line_slash")
     case "enable_exit_node":
-      return $r("sys.symbol.leave_home_fill")
+      return $r("sys.symbol.arrow_up_circle")
     case "relay_all_peer_rpc":
       return $r("sys.symbol.discover_fill")
     case "multi_thread":

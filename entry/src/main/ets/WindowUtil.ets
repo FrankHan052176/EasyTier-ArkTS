@@ -25,7 +25,6 @@ export class WindowUtil {
   }
 
   public static update(width: number, height: number) {
-    let oldType = WindowUtil.uiType
     animateToImmediately({
       duration: 300,
       curve: Curve.Friction
@@ -40,9 +39,6 @@ export class WindowUtil {
         WindowUtil.uiType = UIType.Column_2
       }
     })
-    if (WindowUtil.uiType != oldType) {
-      AppManager.layout.updateNewUIType()
-    }
     Logger.debug(`WindowUtil update.`, WindowUtil)
   }
 

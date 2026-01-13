@@ -5,7 +5,6 @@ import { LogLocate } from './util/Logger';
 import { distributedKVStore } from '@kit.ArkData';
 import { PermissionUtil } from './PermissionUtil';
 import { PreferenceUtil } from './PreferencesUtil';
-import { LayoutUtil } from './LayoutUtil';
 import { WebUtil } from './WebUtil';
 import { UIState } from './class/UIState';
 
@@ -17,7 +16,6 @@ export class AppManager {
   public static easytier: EasyTierUtil = new EasyTierUtil()
   public static permission: PermissionUtil = new PermissionUtil()
   public static preference: PreferenceUtil = new PreferenceUtil()
-  public static layout: LayoutUtil = new LayoutUtil()
   public static web: WebUtil = new WebUtil()
   public static uiState: UIState = new UIState()
 

@@ -1,6 +1,7 @@
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { EventHelper } from '../../util/EventHelper'
+import { LayoutManager } from 'desktop_layout'
 
 @ComponentV2
 export struct UI_Title {
@@ -123,6 +124,11 @@ struct PostureDemo {
 export struct UI_Content {
   @Local isPosture: boolean = AppManager.preference.holding_detector
 
+  @Computed
+  get layout() {
+    return LayoutManager.getLayout("home")
+  }
+
   getLabel(type: string): ResourceStr {
     if (type === 'Instances') {
       return $r('app.string.network_instances')
@@ -196,37 +202,39 @@ export struct UI_Content {
         .fontColor($r('sys.color.font_secondary'))
         .width('100%')
         .padding({ left: 16, top: 12, bottom: 4 })
-      List() {
-        ForEach(AppManager.layout.comp_types, (type: string) => {
-          ListItem() {
-            Row() {
-              SymbolGlyph(this.getIcon(type))
-                .fontSize(24)
-                .fontColor([$r('sys.color.font_primary')])
-                .margin({ right: 12 })
-              Text(this.getLabel(type))
-                .fontSize(16)
-                .fontWeight(FontWeight.Regular)
-              Blank()
-              Toggle({ type: ToggleType.Switch, isOn: AppManager.layout.comp_sequence.includes(type) })
-                .onChange((isOn) => {
-                  if (isOn) {
-                    AppManager.layout.addComponent(type)
-                  } else {
-                    AppManager.layout.removeComponent(type)
-                  }
-                })
+      if (this.layout) {
+        List() {
+          ForEach(this.layout.comp_types, (type: string) => {
+            ListItem() {
+              Row() {
+                SymbolGlyph(this.getIcon(type))
+                  .fontSize(24)
+                  .fontColor([$r('sys.color.font_primary')])
+                  .margin({ right: 12 })
+                Text(this.getLabel(type))
+                  .fontSize(16)
+                  .fontWeight(FontWeight.Regular)
+                Blank()
+                Toggle({ type: ToggleType.Switch, isOn: this.layout!.comp_sequence.includes(type) })
+                  .onChange((isOn) => {
+                    if (isOn) {
+                      this.layout!.addComponent(type)
+                    } else {
+                      this.layout!.removeComponent(type)
+                    }
+                  })
+              }
+              .width('100%')
+              .padding({
+                left: 16,
+                right: 16,
+                top: 12,
+                bottom: 12
+              })
             }
-            .width('100%')
-            .padding({
-              left: 16,
-              right: 16,
-              top: 12,
-              bottom: 12
-            })
-          }
-        }, (type: string) => type)
-      }.width('100%').layoutWeight(1)
+          }, (type: string) => type)
+        }.width('100%').layoutWeight(1)
+      }
     }.height('100%')
   }
 }
