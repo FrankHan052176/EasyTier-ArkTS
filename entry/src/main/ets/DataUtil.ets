@@ -86,7 +86,7 @@ export class DataUtil {
   }
 
   public async init() {
-    if (AppManager.KVManager && !AppManager.preference.noOldData) {
+    if (AppManager.KVManager) {
       Logger.warn('Find old Data.', this)
       AppManager.preference.noOldData = true
       const options: distributedKVStore.Options = {

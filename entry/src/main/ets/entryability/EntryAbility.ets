@@ -137,6 +137,19 @@ export default class EntryAbility extends UIAbility {
     } catch (error) {
       Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
     }
+    if (!AppManager.preference.noOldData) {
+      let context = this.context;
+      try {
+        const kvManagerConfig: distributedKVStore.KVManagerConfig = {
+          bundleName: 'top.frankhan.easytier',
+          context: context,
+        }
+        AppManager.KVManager = distributedKVStore.createKVManager(kvManagerConfig)
+      } catch (e) {
+        let error = e as BusinessError;
+        Logger.info(`Failed to create KVManager. Code:${error.code},message:${error.message}`, this);
+      }
+    }
     AppManager.data.init()
   }
 
@@ -344,17 +357,6 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     SpiderMan.init();
     HMRouterTransitions.init(windowStage);
-    let context = this.context;
-    try {
-      const kvManagerConfig: distributedKVStore.KVManagerConfig = {
-        bundleName: 'top.frankhan.easytier',
-        context: context,
-      }
-      AppManager.KVManager = distributedKVStore.createKVManager(kvManagerConfig)
-    } catch (e) {
-      let error = e as BusinessError;
-      Logger.info(`Failed to create KVManager. Code:${error.code},message:${error.message}`, this);
-    }
     try {
       windowStage.getMainWindowSync().on('windowSizeChange', (data) => {
         WindowUtil.update(data.width, data.height)
