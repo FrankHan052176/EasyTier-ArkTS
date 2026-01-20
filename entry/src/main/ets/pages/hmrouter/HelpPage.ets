@@ -16,7 +16,6 @@ export struct HelpPage {
 
   isStepActive(start: number, index: number): boolean {
     const end = this.currentIndex + WindowUtil.uiType / 2
-    Logger.debug(""+index+","+start+","+end)
     return index >= start && index < end;
   }
 

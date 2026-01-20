@@ -1085,6 +1085,14 @@
       "value": "Info"
     },
     {
+      "name": "web_common_enable",
+      "value": "Enable"
+    },
+    {
+      "name": "web_common_disable",
+      "value": "Disable"
+    },
+    {
       "name": "web_settings_title",
       "value": "Settings"
     },
@@ -1131,6 +1139,14 @@
     {
       "name": "mode_rpc_portal",
       "value": "RPC Portal"
+    },
+    {
+      "name": "mode_enable_rpc_tcp_listen",
+      "value": "Enable RPC port listening (TCP)"
+    },
+    {
+      "name": "mode_rpc_listen_port",
+      "value": "RPC Listen Port"
     },
     {
       "name": "mode_log_level",
@@ -1211,6 +1227,10 @@
     {
       "name": "mode_service_config_empty",
       "value": "Service Config cannot be empty"
+    },
+    {
+      "name": "mode_rpc_connection_failed",
+      "value": "RPC connection failed: {error}"
     },
     {
       "name": "config_server_title",

@@ -1085,6 +1085,14 @@
       "value": "提示"
     },
     {
+      "name": "web_common_enable",
+      "value": "开启"
+    },
+    {
+      "name": "web_common_disable",
+      "value": "关闭"
+    },
+    {
       "name": "web_settings_title",
       "value": "设置"
     },
@@ -1131,6 +1139,14 @@
     {
       "name": "mode_rpc_portal",
       "value": "RPC端口"
+    },
+    {
+      "name": "mode_enable_rpc_tcp_listen",
+      "value": "开启 RPC 端口监听（TCP）"
+    },
+    {
+      "name": "mode_rpc_listen_port",
+      "value": "RPC 监听端口"
     },
     {
       "name": "mode_log_level",
@@ -1211,6 +1227,10 @@
     {
       "name": "mode_service_config_empty",
       "value": "服务配置不能为空"
+    },
+    {
+      "name": "mode_rpc_connection_failed",
+      "value": "RPC 连接失败：{error}"
     },
     {
       "name": "config_server_title",
