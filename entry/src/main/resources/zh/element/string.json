@@ -65,6 +65,10 @@
       "value": "数据压缩算法"
     },
     {
+      "name": "secure_mode",
+      "value": "安全模式"
+    },
+    {
       "name": "encryption_algorithm",
       "value": "加密算法"
     },

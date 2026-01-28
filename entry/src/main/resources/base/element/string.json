@@ -89,6 +89,10 @@
       "value": "Encryption Algorithm"
     },
     {
+      "name": "secure_mode",
+      "value": "Secure Mode"
+    },
+    {
       "name": "EntryFormAbility_desc",
       "value": "form_description"
     },

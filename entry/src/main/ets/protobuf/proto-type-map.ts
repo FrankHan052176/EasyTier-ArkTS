@@ -50,7 +50,8 @@ export const NetworkConfigTypeMap = {
   "p2p_only": "boolean",
   "data_compress_algo": "common.CompressionAlgoPb",
   "encryption_algorithm": "string",
-  "disable_tcp_hole_punching": "boolean"
+  "disable_tcp_hole_punching": "boolean",
+  "secure_mode": "common.SecureModeConfig"
 }
 export const NetworkConfigFieldIdMap = {
   "instance_id": "1",
@@ -104,7 +105,8 @@ export const NetworkConfigFieldIdMap = {
   "p2p_only": "51",
   "data_compress_algo": "52",
   "encryption_algorithm": "53",
-  "disable_tcp_hole_punching": "54"
+  "disable_tcp_hole_punching": "54",
+  "secure_mode": "55"
 }
 export const NetworkConfigIdFieldMap = {
   "1": "instance_id",
@@ -158,5 +160,6 @@ export const NetworkConfigIdFieldMap = {
   "51": "p2p_only",
   "52": "data_compress_algo",
   "53": "encryption_algorithm",
-  "54": "disable_tcp_hole_punching"
+  "54": "disable_tcp_hole_punching",
+  "55": "secure_mode"
 }
