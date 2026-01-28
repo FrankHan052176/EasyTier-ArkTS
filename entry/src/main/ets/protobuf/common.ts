@@ -208,7 +208,7 @@ export interface FlagsInConfig {
   enable_relay_foreign_network_kcp: boolean;
   /** encryption algorithm to use, empty string means default (aes-gcm) */
   encryption_algorithm: string;
-  /** disable symmetric nat hole punching, treat symmetric as cone when enabled */
+  /** disable symmetric nat hole punching, treat symmetric as cone when enable */
   disable_sym_hole_punching: boolean;
   /** tld dns zone for magic dns */
   tld_dns_zone: string;

@@ -351,7 +351,7 @@ export struct HomePage {
           content: {
             title: {
               mainTitle: "EasyTier",
-              subTitle: "v2.4.5"
+              subTitle: "v2.5.0"
             },
             menu: {
               value: [
@@ -384,7 +384,7 @@ export struct HomePage {
         .titleMode(NavigationTitleMode.Free)
         .title({
           main: "EasyTier",
-          sub: "v2.4.5"
+          sub: "v2.5.0"
         }, {
           backgroundColor: $r('sys.color.background_secondary')
         })

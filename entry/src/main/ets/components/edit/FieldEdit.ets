@@ -10,7 +10,7 @@ import { PrimaryButton } from '../util/TextButton'
 import { addFieldValue } from '../../class/config/Basic'
 import { AppManager } from '../../AppManager'
 import { NumberField } from './field/NumberField'
-import { SecureModeConfig } from './field/SecureModeConfig'
+import { SecureModeConfigField } from './field/SecureModeConfig'
 
 export function getFieldI18Name(field: string): ResourceStr {
   return $r("app.string." + (ContentUtil.renamedField[field] || field))
@@ -159,9 +159,9 @@ export struct FieldEdit {
               } else if (field.type === "number") {
                 NumberField({ field: field.name })
               }  else if (field.type === "common.SecureModeConfig") {
-                SecureModeConfig({ field: field.name })
+                SecureModeConfigField({ field: field.name })
               } else {
-                Text(field.name + ":" + (field.type as string))
+                Text(field.name + " 功能暂未适配" )
                   .width('100%')
               }
             }

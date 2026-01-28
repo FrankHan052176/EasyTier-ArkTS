@@ -1,9 +1,9 @@
 import { ContentUtil } from '../../../ContentUtil';
-import { AppManager, Sfp2vp, Svp2fp } from '../../../AppManager';
-import { flagsCategory, flagsSymbol } from '../../../util/FlagsInfo';
+import { AppManager } from '../../../AppManager';
+import { SecureModeConfig } from '../../../protobuf/common';
 
 @ComponentV2
-export struct SecureModeConfig {
+export struct SecureModeConfigField {
   @Param @Require field: string
   @Consumer('field_width') field_width: number = 0
   @Local enable: boolean = false
@@ -21,15 +21,27 @@ export struct SecureModeConfig {
   }
 
   aboutToAppear(): void {
-    let value: ESObject = this.config![ContentUtil.safeFieldName(this.field)]
+    let value: SecureModeConfig = this.config![ContentUtil.safeFieldName(this.field)]
     if (value) {
-      this.enable = value["enable"] ?? false
-      this.local_private_key = value["local_private_key"] ?? ""
-      this.local_public_key = value["local_public_key"] ?? ""
+      this.enable = value.enabled ?? false
+      this.local_private_key = value.local_private_key ?? ""
+      this.local_public_key = value.local_public_key ?? ""
     }
   }
 
-  build() {
+  updateConfig() {
+    this.config![ContentUtil.safeFieldName(this.field)] = {
+      enabled: this.enable,
+      local_private_key: this.local_private_key,
+      local_public_key: this.local_public_key
+    } as SecureModeConfig
+    this.preference?.putSync(this.field, this.config![this.field])
+    this.preference?.flushSync()
+  }
 
+  build() {
+    Row() {
+      Text("等待更新")
+    }.width(this.field_width).padding(20)
   }
 }

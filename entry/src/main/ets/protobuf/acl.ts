@@ -219,7 +219,7 @@ export interface Rule {
   description: string;
   /** Higher number = higher priority (0-65535) */
   priority: number;
-  /** Rule enabled/disabled state */
+  /** Rule enable/disabled state */
   enabled: boolean;
   /** Core matching criteria */
   protocol: Protocol;
@@ -250,7 +250,7 @@ export interface Chain {
   chain_type: ChainType;
   /** Chain description */
   description: string;
-  /** Chain enabled/disabled state */
+  /** Chain enable/disabled state */
   enabled: boolean;
   /** Rules in priority order (highest priority first) */
   rules: Rule[];
