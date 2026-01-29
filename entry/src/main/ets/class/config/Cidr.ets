@@ -190,6 +190,7 @@ export class Cidr implements FieldValue {
   }
 
   fromString(value: string): boolean {
+    value = value.replace(/['"]/g, '')
     let arr = value.split("/")
     if (arr.length != 2 || !isMask(arr[1]) || !isIpAddr(arr[0])) {
       return false
@@ -201,6 +202,7 @@ export class Cidr implements FieldValue {
   }
 
   readFrom(value: string): Cidr | undefined {
+    value = value.replace(/['"]/g, '')
     let arr = value.split("/")
     if (arr.length != 2 || !isMask(arr[1]) || !isIpAddr(arr[0])) {
       return undefined

@@ -123,6 +123,7 @@ export class IP implements FieldValue {
   }
 
   fromString(value: string): boolean {
+    value = value.replace(/['"]/g, '')
     if (isIpAddr(value)) {
       this.ip = value
       return true
@@ -132,6 +133,7 @@ export class IP implements FieldValue {
   }
 
   readFrom(value: string): IP | undefined {
+    value = value.replace(/['"]/g, '')
     if (isIpAddr(value)) {
       this.ip = value
       return this

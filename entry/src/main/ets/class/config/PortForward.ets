@@ -340,6 +340,7 @@ export class PortForward implements FieldValue {
   }
 
   fromString(value: string): boolean {
+    value = value.replace(/['"]/g, '')
     let arr = value.split("://")
     if (arr.length != 2) {
       return false
@@ -366,14 +367,16 @@ export class PortForward implements FieldValue {
 
   readFrom(value: PortForwardConfig): PortForward | undefined {
     this.proto = convertToProtocol(value.proto)
-    if (!isIpAddr(value.bind_ip) || !isPort("" + value.bind_port) || !isIpAddr(value.dst_ip) ||
-      !isPort("" + value.dst_port)) {
+    let bind_port = ("" + value.bind_port).replace(/['"]/g, '')
+    let dst_port = ("" + value.dst_port).replace(/['"]/g, '')
+    if (!isIpAddr(value.bind_ip) || !isPort(bind_port) || !isIpAddr(value.dst_ip) ||
+      !isPort(dst_port)) {
       return undefined
     } else {
       this.from = value.bind_ip
-      this.from_port = "" + value.bind_port
+      this.from_port = bind_port
       this.to = value.dst_ip
-      this.to_port = "" + value.dst_port
+      this.to_port = dst_port
       return this
     }
   }

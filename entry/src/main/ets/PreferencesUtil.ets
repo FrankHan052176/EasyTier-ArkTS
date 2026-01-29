@@ -1,4 +1,5 @@
 import { preferences, sendablePreferences, ValueType } from '@kit.ArkData';
+import { Context } from '@kit.AbilityKit';
 import easytier from 'easytier-ohrs';
 import { AppManager } from './AppManager';
 import { NetworkConfig, PortForwardConfig } from './protobuf/api_manage';
@@ -58,8 +59,10 @@ export class PreferenceUtil {
   @Trace help2: boolean = false
   inittedLog: boolean = false
   isInit: boolean = true
+  context: Context | undefined = undefined
 
   init(context: Context) {
+    this.context = context
     this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
     this.configIDPreferences = preferences.getPreferencesSync(context, { name: 'EasyTierConfigIDs' })
     this.configIDPreferences.getAll(async (err, obj) => {
@@ -142,30 +145,39 @@ export class PreferenceUtil {
   addConfig(uuid: string, name: string, config: NetworkConfig) {
     this.configIDPreferences?.putSync(uuid, new Uint8Array(buffer.from(name, 'utf-8').buffer))
     this.configIDPreferences?.flushSync()
-    let preference = sendablePreferences.getPreferencesSync(AppManager.content.context!, { name: uuid })
-    Object.entries(config)
-      .forEach((value: [string, undefined | Array<string | PortForwardConfig> | string | boolean | number]) => {
-        if (value[1]) {
-          if (Array.isArray(value[1])) {
-            if (value[0] === 'port_forwards') {
-              let arr = value[1] as PortForwardConfig[]
-              let safeArr = new collections.Array<SafePortForwardConfig>()
-              arr.forEach((v) => {
-                safeArr.push(new SafePortForwardConfig(v))
-              })
-              preference.putSync(value[0], safeArr)
+    let context = this.context || AppManager.content.context
+    if (!context) {
+      Logger.error("Context is invalid", this)
+      return
+    }
+    try {
+      let preference = sendablePreferences.getPreferencesSync(context, { name: uuid })
+      Object.entries(config)
+        .forEach((value: [string, undefined | Array<string | PortForwardConfig> | string | boolean | number]) => {
+          if (value[1]) {
+            if (Array.isArray(value[1])) {
+              if (value[0] === 'port_forwards') {
+                let arr = value[1] as PortForwardConfig[]
+                let safeArr = new collections.Array<SafePortForwardConfig>()
+                arr.forEach((v) => {
+                  safeArr.push(new SafePortForwardConfig(v))
+                })
+                preference.putSync(value[0], safeArr)
+              } else {
+                let arr = value[1] as string[]
+                let safeArr = new collections.Array<string>(...arr)
+                preference.putSync(value[0], safeArr)
+              }
             } else {
-              let arr = value[1] as string[]
-              let safeArr = new collections.Array<string>(...arr)
-              preference.putSync(value[0], safeArr)
+              preference.putSync(value[0], value[1])
             }
-          } else {
-            preference.putSync(value[0], value[1])
           }
-        }
-      })
-    preference.flushSync()
-    this.configPreferences.set(uuid, preference)
+        })
+      preference.flushSync()
+      this.configPreferences.set(uuid, preference)
+    } catch (error) {
+      Logger.error("Failed to add config", this)
+    }
   }
 
   private async readConfig(field: string, nameBytes: Uint8Array, preference: sendablePreferences.Preferences) {

@@ -320,6 +320,7 @@ export class Url implements FieldValue {
   }
 
   fromString(value: string): boolean {
+    value = value.replace(/['"]/g, '')
     let arr = value.split("://")
     if (arr.length != 2) {
       return false
@@ -337,6 +338,7 @@ export class Url implements FieldValue {
   }
 
   readFrom(value: string): Url | undefined {
+    value = value.replace(/['"]/g, '')
     let arr = value.split("://")
     if (arr.length != 2) {
       return undefined

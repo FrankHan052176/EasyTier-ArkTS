@@ -156,12 +156,12 @@ export class NetworkName implements FieldValue {
   }
 
   fromString(value: string): boolean {
-    this.name = value
+    this.name = value.replace(/['"]/g, '')
     return true
   }
 
   readFrom(value: string): NetworkName | undefined {
-    this.name = value
+    this.name = value.replace(/['"]/g, '')
     return this
   }
 
