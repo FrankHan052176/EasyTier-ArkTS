@@ -126,10 +126,8 @@ export default class EntryAbility extends UIAbility {
     this.stop_bg_Listener()
     this.setup_tun_Listener()
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
-    this.initApp()
-    this.readSharedData(want)
-    this.context.getApplicationContext().eventHub.on("test", () => {
-      Logger.error("test", this)
+    this.initApp().then(() => {
+      this.readSharedData(want)
     })
   }
 
@@ -140,7 +138,7 @@ export default class EntryAbility extends UIAbility {
       AppManager.easytier.init()
     }
     try {
-      AppManager.preference.init(this.context)
+      await AppManager.preference.init(this.context)
     } catch (error) {
       Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
     }
@@ -157,7 +155,7 @@ export default class EntryAbility extends UIAbility {
         Logger.info(`Failed to create KVManager. Code:${error.code},message:${error.message}`, this);
       }
     }
-    AppManager.data.init()
+    await AppManager.data.init()
   }
 
   onNewWant(want: Want) {

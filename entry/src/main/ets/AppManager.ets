@@ -19,9 +19,10 @@ export class AppManager {
   public static web: WebUtil = new WebUtil()
   public static uiState: UIState = new UIState()
 
-  static init(uiContext: UIContext) {
+  static async init(uiContext: UIContext) {
     AppManager.content.init(uiContext)
     AppManager.permission.updatePermStatus()
+    await AppManager.preference.init(AppManager.content.context!)
   }
 }
 

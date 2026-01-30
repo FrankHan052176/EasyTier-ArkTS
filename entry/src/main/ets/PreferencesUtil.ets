@@ -60,52 +60,69 @@ export class PreferenceUtil {
   inittedLog: boolean = false
   isInit: boolean = true
   context: Context | undefined = undefined
+  private initialized: boolean = false
 
-  init(context: Context) {
+  async init(context: Context) {
+    if (this.initialized) {
+      return
+    }
+    this.initialized = true
     this.context = context
     try {
       this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
       this.configIDPreferences = preferences.getPreferencesSync(context, { name: 'EasyTierConfigIDs' })
-      this.configIDPreferences.getAll(async (err, obj) => {
-        if (err) {
-          Logger.error("failed to read all configs"+JSON.stringify(err), this)
-          return
-        }
-        try {
-          let keys = Object.keys(obj)
-          for (const field of keys) {
-            let esObj: ESObject = obj
-            let nameBytes = esObj[field] as Uint8Array
-            let preference = sendablePreferences.getPreferencesSync(context, { name: field })
-            this.configPreferences.set(field, preference)
-            this.readConfig(field, nameBytes, preference)
+      await new Promise<void>((resolve) => {
+        this.configIDPreferences!.getAll(async (err, obj) => {
+          if (err) {
+            Logger.error("failed to read all configs"+JSON.stringify(err), this)
+            resolve()
+            return
           }
-          let selected = this.preferences!.getSync("selected", "").toString()
-          AppManager.uiState.selected =
-            (selected.length > 0 && this.configPreferences.has(selected)) ? selected : undefined
-          let favorite = this.preferences!.getSync("favorite", "").toString()
-          AppManager.uiState.favorite =
-            (favorite.length > 0 && this.configPreferences.has(favorite)) ? favorite : undefined
-        } catch (e) {
-          Logger.error("init configIDPreferences callback error: " + JSON.stringify(e), this)
-        }
+          try {
+            let keys = Object.keys(obj)
+            let loadTasks: Promise<void>[] = []
+            for (const field of keys) {
+              let esObj: ESObject = obj
+              let nameBytes = esObj[field] as Uint8Array
+              let preference = sendablePreferences.getPreferencesSync(context, { name: field })
+              this.configPreferences.set(field, preference)
+              loadTasks.push(this.readConfig(field, nameBytes, preference))
+            }
+            await Promise.all(loadTasks)
+            let selected = this.preferences!.getSync("selected", "").toString()
+            AppManager.uiState.selected =
+              (selected.length > 0 && this.configPreferences.has(selected)) ? selected : undefined
+            let favorite = this.preferences!.getSync("favorite", "").toString()
+            AppManager.uiState.favorite =
+              (favorite.length > 0 && this.configPreferences.has(favorite)) ? favorite : undefined
+          } catch (e) {
+            Logger.error("init configIDPreferences callback error: " + JSON.stringify(e), this)
+          }
+          resolve()
+        })
       })
+
       this.globalConfigs = preferences.getPreferencesSync(context, { name: 'EasyTierGlobalConfigs' })
-      this.globalConfigs.getAll((err, obj) => {
-        if (err) {
-          Logger.error("failed to read global configs"+JSON.stringify(err), this)
-          return
-        }
-        try {
-          for (const field of Object.keys(obj)) {
-            let esObj: ESObject = obj
-            let value: string[] = esObj[field]
-            AppManager.data.initDataSource(field, value)
+      await new Promise<void>((resolve) => {
+        this.globalConfigs!.getAll((err, obj) => {
+          if (err) {
+            Logger.error("failed to read global configs"+JSON.stringify(err), this)
+            resolve()
+            return
           }
-        } catch (e) {
-          Logger.error("init globalConfigs callback error: " + JSON.stringify(e), this)
-        }
+          try {
+            for (const field of Object.keys(obj)) {
+              let esObj: ESObject = obj
+              let value: string[] = esObj[field]
+              AppManager.data.initDataSource(field, value)
+            }
+          } catch (e) {
+            Logger.error("init globalConfigs callback error: " + JSON.stringify(e), this)
+          }
+          resolve()
+        })
       })
+
       this.black_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierBlackListApp' })
       this.updateBlackListApps()
       this.card_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierCardList' })
