@@ -101,12 +101,21 @@ export default class EntryAbility extends UIAbility {
     } catch (error) {
       Logger.error(`off locationChange error: ${JSON.stringify(error)}`, this)
     }
+    const destroyVpn = () => {
+      if (this.vpnConnection) {
+        this.vpnConnection.destroy().then(() => {
+          Logger.info("vpnConnection destroyed", this)
+          this.vpnConnection = undefined
+        }).catch((err: BusinessError) => {
+          Logger.error(`vpnConnection destroy failed: ${err.code}, ${err.message}`, this)
+        })
+      }
+    }
     backgroundTaskManager.stopBackgroundRunning(this.context).then(() => {
-      this.vpnConnection?.destroy().catch((err: BusinessError) => {
-        Logger.error(`vpnConnection destroy failed: ${err.code}, ${err.message}`, this)
-      })
+      destroyVpn()
     }).catch((err: BusinessError) => {
       Logger.error(`stopBackgroundRunning failed: ${err.code}, ${err.message}`, this)
+      destroyVpn()
     });
   }
 
