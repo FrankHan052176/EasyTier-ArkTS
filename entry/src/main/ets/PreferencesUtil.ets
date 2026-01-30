@@ -105,7 +105,7 @@ export class PreferenceUtil {
     this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
     this.dns = this.preferences.getSync("dns", false).valueOf() as string
     this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
-    this.holding_detector = this.preferences.getSync("holding", false).valueOf() as boolean
+    this.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean
     this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
     this.help2 = this.preferences.getSync("help2", true).valueOf() as boolean
     if (this.show_log) {
