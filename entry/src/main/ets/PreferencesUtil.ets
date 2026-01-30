@@ -8,6 +8,7 @@ import { buffer, collections, JSON, taskpool, util } from '@kit.ArkTS';
 import { SafePortForwardConfig } from './class/SafeProtoClass';
 import { ContentUtil } from './ContentUtil';
 import { AppInfo } from './components/sheet/BlackList';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 const defaultSequence = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
 
