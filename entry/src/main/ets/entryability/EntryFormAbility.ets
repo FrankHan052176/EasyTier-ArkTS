@@ -27,11 +27,16 @@ export default class EntryFormAbility extends FormExtensionAbility {
   }
 
   onRemoveForm(formId: string) {
-    const store = preferences.getPreferencesSync(this.context, { name: 'EasyTierCardList' })
-    let list = store.getSync('card_list', []) as string[]
-    list = list.filter(id => id !== formId)
-    store.putSync('card_list', list)
-    store.flushSync()
+    try {
+      const store = preferences.getPreferencesSync(this.context, { name: 'EasyTierCardList' })
+      let list = store.getSync('card_list', []) as string[]
+      list = list.filter(id => id !== formId)
+      store.putSync('card_list', list)
+      store.flushSync()
+    } catch (e) {
+      // Form ability might not have Logger initialized or accessible easily, or just ignore.
+      console.error(`onRemoveForm error: ${JSON.stringify(e)}`)
+    }
   }
 
   onAcquireFormState(want: Want) {

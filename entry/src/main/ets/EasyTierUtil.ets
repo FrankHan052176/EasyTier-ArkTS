@@ -92,7 +92,13 @@ export class EasyTierUtil {
     let networks = new Set<string>()
     for (const info of infos) {
       networks.add(info.key)
-      let newInfo = JSON.parse(info.value) as NetworkInstanceRunningInfo
+      let newInfo: NetworkInstanceRunningInfo
+      try {
+        newInfo = JSON.parse(info.value) as NetworkInstanceRunningInfo
+      } catch (e) {
+        Logger.error(`processNetworkInfos parse error: ${JSON.stringify(e)}`, this)
+        continue
+      }
       if (!newInfo.running) {
         Logger.error("ReadErrorInfo: " + newInfo.error_msg, this)
         this.stop()

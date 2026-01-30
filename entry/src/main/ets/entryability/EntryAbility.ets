@@ -77,13 +77,17 @@ export default class EntryAbility extends UIAbility {
               Logger.error("启动失败", this)
               this.stopContinuousTask()
             }
-          }).catch(() => {
+          }).catch((err: BusinessError) => {
+            Logger.error(`startBackgroundRunning failed: ${err.code}, ${err.message}`, this)
           });
         } catch (error) {
+          Logger.error(`startBackgroundRunning error: ${JSON.stringify(error)}`, this)
         }
-      }).catch(() => {
+      }).catch((err: BusinessError) => {
+        Logger.error(`getWantAgent failed: ${err.code}, ${err.message}`, this)
       });
     } catch (error) {
+      Logger.error(`getWantAgent error: ${JSON.stringify(error)}`, this)
     }
   }
 
@@ -95,11 +99,14 @@ export default class EntryAbility extends UIAbility {
     try {
       geoLocationManager.off("locationChange")
     } catch (error) {
+      Logger.error(`off locationChange error: ${JSON.stringify(error)}`, this)
     }
     backgroundTaskManager.stopBackgroundRunning(this.context).then(() => {
-      this.vpnConnection?.destroy().catch(() => {
+      this.vpnConnection?.destroy().catch((err: BusinessError) => {
+        Logger.error(`vpnConnection destroy failed: ${err.code}, ${err.message}`, this)
       })
-    }).catch(() => {
+    }).catch((err: BusinessError) => {
+      Logger.error(`stopBackgroundRunning failed: ${err.code}, ${err.message}`, this)
     });
   }
 
@@ -161,9 +168,13 @@ export default class EntryAbility extends UIAbility {
 
   listenCardCall() {
     this.callee.on("send_card_id", (indata: rpc.MessageSequence) => {
-      const obj = JSON.parse(indata.readString()) as object
-      const formId = obj['formId'] as string
-      AppManager.preference.addCardId(formId)
+      try {
+        const obj = JSON.parse(indata.readString()) as object
+        const formId = obj['formId'] as string
+        AppManager.preference.addCardId(formId)
+      } catch (error) {
+        Logger.error(`send_card_id parse error: ${JSON.stringify(error)}`, this)
+      }
       return null
     })
     this.callee.on("start_favorite", () => {
@@ -199,8 +210,15 @@ export default class EntryAbility extends UIAbility {
             if (record.uri && record.uri.length > 0) {
               Logger.debug("read shared file: " + JSON.stringify(record), this)
               try {
-                let cfg = fs.readTextSync(new fileUri.FileUri(record.uri).path)
-                AppManager.data.importToml(cfg)
+                let cfg = ""
+                try {
+                  cfg = fs.readTextSync(new fileUri.FileUri(record.uri).path)
+                } catch (e) {
+                   Logger.error("fs read error: " + JSON.stringify(e), this)
+                }
+                if (cfg) {
+                  AppManager.data.importToml(cfg)
+                }
               } catch (error) {
                 Logger.debug("read file error: " + JSON.stringify(error), this)
               }
@@ -333,11 +351,13 @@ export default class EntryAbility extends UIAbility {
     }
     if (this.vpnConnection === undefined) {
       Logger.error("vpnConnection not found", this)
+      return
     }
     Logger.debug("VPN配置:" + JSON.stringify(vpnConfig), this)
-    this.vpnConnection!.create(vpnConfig).then((fd) => {
+    this.vpnConnection.create(vpnConfig).then((fd) => {
       easytier.setTunFd(inst_id, fd)
-    }).catch(() => {
+    }).catch((error: BusinessError) => {
+      Logger.error(`vpnConnection create failed: ${error.code}, ${error.message}`, this)
     })
   }
 

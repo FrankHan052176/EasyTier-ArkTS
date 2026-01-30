@@ -30,7 +30,11 @@ export struct Logs {
 
   @Computed
   get totalCount(): number {
-    return this.appCount + this.netCount + this.ohCount
+    if (AppManager.preference.dev) {
+      return this.appCount + this.netCount + this.ohCount
+    }else {
+      return this.appCount + this.netCount
+    }
   }
 
   @Computed
@@ -60,9 +64,11 @@ export struct Logs {
           this.LogList(AppManager.easytier.nmLogs)
         }.tabBar("网络日志")
 
-        TabContent() {
-          this.LogList(AppManager.easytier.ohLogs)
-        }.tabBar("ArkUI日志")
+        if (AppManager.preference.dev) {
+          TabContent() {
+            this.LogList(AppManager.easytier.ohLogs)
+          }.tabBar("ArkUI日志")
+        }
       }
       .barMode(BarMode.Fixed)
       .width('100%')

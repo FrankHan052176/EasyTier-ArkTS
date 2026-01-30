@@ -296,6 +296,39 @@ export function Setting_Sheet() {
           .padding(10)
         }
       }
+
+      ListItem() {
+        Row() {
+          Row() {
+            SymbolGlyph($r("sys.symbol.person"))
+              .fontColor([$r("sys.color.font_primary")])
+              .fontSize(16)
+              .margin({ right: 5 })
+            Text("高级模式")
+              .fontColor($r("sys.color.font_primary"))
+              .fontSize(16)
+              .margin({ right: 5 })
+          }
+
+          Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.dev })
+            .selectedColor($r('sys.color.brand'))
+            .switchPointColor($r('sys.color.comp_background_list_card'))
+            .onChange((isOn: boolean) => {
+              AppManager.preference.dev = isOn
+            })
+            .height(29)
+            .width(52)
+        }
+        .height(49)
+        .borderRadius(18)
+        .alignItems(VerticalAlign.Center)
+        .justifyContent(FlexAlign.SpaceBetween)
+        .width('100%')
+        .backgroundColor($r("sys.color.background_secondary"))
+        .padding(10)
+      }
+      .margin({ bottom: 10 })
+
       if (AppManager.preference.dev) {
         ListItem() {
           Row() {
@@ -309,19 +342,20 @@ export function Setting_Sheet() {
                 .fontSize(16)
                 .margin({ right: 5 })
             }
-            .padding(10)
 
-            Row() {
-              TextInput({ text: AppManager.preference.dns })
-                .padding(4)
-                .width(150)
-                .height('100%')
-                .borderRadius(4)
-                .onChange((value) => {
+            TextInput({ text: AppManager.preference.dns, placeholder: "223.5.5.5" })
+              .padding(0)
+              .textAlign(TextAlign.End)
+              .backgroundColor(Color.Transparent)
+              .height('100%')
+              .layoutWeight(1)
+              .onChange((value) => {
+                if (value.length > 0) {
                   AppManager.preference.dns = value
-                })
-            }
-            .padding(10)
+                }else {
+                  AppManager.preference.dns = "223.5.5.5"
+                }
+              })
           }
           .height(49)
           .borderRadius(18)
@@ -329,7 +363,9 @@ export function Setting_Sheet() {
           .justifyContent(FlexAlign.SpaceBetween)
           .width('100%')
           .backgroundColor($r("sys.color.background_secondary"))
+          .padding({ left: 10, right: 10 })
         }
+        .margin({ bottom: 10 })
       }
     }
 
@@ -428,20 +464,12 @@ export function Setting_Sheet() {
             .fontColor($r("sys.color.font_primary"))
             .fontSize(16)
         }
-
-        if (false) {
-          Text("已设置")
-            .fontColor($r("sys.color.font_primary"))
-            .fontSize(16)
-            .margin({ right: 5 })
-        } else {
-          Button('看看', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
-            .borderRadius(13)
-            .onClick(() => {
-              EventHelper.emitterPublish("home_close_sheet")
-              HMRouterMgr.push({ pageUrl: 'HelpPage' })
-            })
-        }
+        Button('看看', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
+          .borderRadius(13)
+          .onClick(() => {
+            EventHelper.emitterPublish("home_close_sheet")
+            HMRouterMgr.push({ pageUrl: 'HelpPage' })
+          })
       }
       .height(49)
       .borderRadius(18)

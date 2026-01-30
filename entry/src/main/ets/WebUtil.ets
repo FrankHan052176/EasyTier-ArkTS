@@ -96,14 +96,19 @@ export class WebUtil {
         }
       }
     )
-    let obj: ESObject = JSON.parse(response.result!.toString())
-    if (obj["success"]) {
-      let data: ESObject = obj["data"]
-      let info: ESObject = data["full_info"]
-      let name = info["name"] as string
-      let icon = info["icon_url"] as string
-      callback(name, icon)
-    }else {
+    try {
+      let obj: ESObject = JSON.parse(response.result!.toString())
+      if (obj["success"]) {
+        let data: ESObject = obj["data"]
+        let info: ESObject = data["full_info"]
+        let name = info["name"] as string
+        let icon = info["icon_url"] as string
+        callback(name, icon)
+      }else {
+        callback("未收录", "")
+      }
+    } catch (e) {
+      Logger.error(`getAppInfo parse error: ${JSON.stringify(e)}`, this)
       callback("未收录", "")
     }
   }

@@ -63,51 +63,63 @@ export class PreferenceUtil {
 
   init(context: Context) {
     this.context = context
-    this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
-    this.configIDPreferences = preferences.getPreferencesSync(context, { name: 'EasyTierConfigIDs' })
-    this.configIDPreferences.getAll(async (err, obj) => {
-      if (err) {
-        Logger.error("failed to read all configs"+JSON.stringify(err), this)
-        return
-      }
-      let keys = Object.keys(obj)
-      for (const field of keys) {
-        let esObj: ESObject = obj
-        let nameBytes = esObj[field] as Uint8Array
-        let preference = sendablePreferences.getPreferencesSync(context, { name: field })
-        this.configPreferences.set(field, preference)
-        this.readConfig(field, nameBytes, preference)
-      }
-      let selected = this.preferences!.getSync("selected", "").toString()
-      AppManager.uiState.selected =
-        (selected.length > 0 && this.configPreferences.has(selected)) ? selected : undefined
-      let favorite = this.preferences!.getSync("favorite", "").toString()
-      AppManager.uiState.favorite =
-        (favorite.length > 0 && this.configPreferences.has(favorite)) ? favorite : undefined
-    })
-    this.globalConfigs = preferences.getPreferencesSync(context, { name: 'EasyTierGlobalConfigs' })
-    this.globalConfigs.getAll((err, obj) => {
-      if (err) {
-        Logger.error("failed to read global configs"+JSON.stringify(err), this)
-        return
-      }
-      for (const field of Object.keys(obj)) {
-        let esObj: ESObject = obj
-        let value: string[] = esObj[field]
-        AppManager.data.initDataSource(field, value)
-      }
-    })
-    this.black_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierBlackListApp' })
-    this.updateBlackListApps()
-    this.card_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierCardList' })
-    this.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean
-    this.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean
-    this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
-    this.dns = this.preferences.getSync("dns", false).valueOf() as string
-    this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
-    this.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean
-    this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
-    this.help2 = this.preferences.getSync("help2", true).valueOf() as boolean
+    try {
+      this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
+      this.configIDPreferences = preferences.getPreferencesSync(context, { name: 'EasyTierConfigIDs' })
+      this.configIDPreferences.getAll(async (err, obj) => {
+        if (err) {
+          Logger.error("failed to read all configs"+JSON.stringify(err), this)
+          return
+        }
+        try {
+          let keys = Object.keys(obj)
+          for (const field of keys) {
+            let esObj: ESObject = obj
+            let nameBytes = esObj[field] as Uint8Array
+            let preference = sendablePreferences.getPreferencesSync(context, { name: field })
+            this.configPreferences.set(field, preference)
+            this.readConfig(field, nameBytes, preference)
+          }
+          let selected = this.preferences!.getSync("selected", "").toString()
+          AppManager.uiState.selected =
+            (selected.length > 0 && this.configPreferences.has(selected)) ? selected : undefined
+          let favorite = this.preferences!.getSync("favorite", "").toString()
+          AppManager.uiState.favorite =
+            (favorite.length > 0 && this.configPreferences.has(favorite)) ? favorite : undefined
+        } catch (e) {
+          Logger.error("init configIDPreferences callback error: " + JSON.stringify(e), this)
+        }
+      })
+      this.globalConfigs = preferences.getPreferencesSync(context, { name: 'EasyTierGlobalConfigs' })
+      this.globalConfigs.getAll((err, obj) => {
+        if (err) {
+          Logger.error("failed to read global configs"+JSON.stringify(err), this)
+          return
+        }
+        try {
+          for (const field of Object.keys(obj)) {
+            let esObj: ESObject = obj
+            let value: string[] = esObj[field]
+            AppManager.data.initDataSource(field, value)
+          }
+        } catch (e) {
+          Logger.error("init globalConfigs callback error: " + JSON.stringify(e), this)
+        }
+      })
+      this.black_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierBlackListApp' })
+      this.updateBlackListApps()
+      this.card_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierCardList' })
+      this.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean
+      this.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean
+      this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
+      this.dns = this.preferences.getSync("dns", false).valueOf() as string
+      this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
+      this.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean
+      this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
+      this.help2 = this.preferences.getSync("help2", true).valueOf() as boolean
+    } catch (e) {
+      Logger.error("init error: " + JSON.stringify(e), this)
+    }
     if (this.show_log) {
       this.inittedLog = true
       easytier.initTracingSubscriber()
@@ -143,15 +155,10 @@ export class PreferenceUtil {
   }
 
   addConfig(uuid: string, name: string, config: NetworkConfig) {
-    this.configIDPreferences?.putSync(uuid, new Uint8Array(buffer.from(name, 'utf-8').buffer))
-    this.configIDPreferences?.flushSync()
-    let context = this.context || AppManager.content.context
-    if (!context) {
-      Logger.error("Context is invalid", this)
-      return
-    }
     try {
-      let preference = sendablePreferences.getPreferencesSync(context, { name: uuid })
+      this.configIDPreferences?.putSync(uuid, new Uint8Array(buffer.from(name, 'utf-8').buffer))
+      this.configIDPreferences?.flushSync()
+      let preference = sendablePreferences.getPreferencesSync(this.context!, { name: uuid })
       Object.entries(config)
         .forEach((value: [string, undefined | Array<string | PortForwardConfig> | string | boolean | number]) => {
           if (value[1]) {
@@ -193,10 +200,16 @@ export class PreferenceUtil {
     AppManager.uiState.configUUIDNameMap.set(field, name)
     const task: taskpool.Task = new taskpool.Task(readConfigFromPreference, preference);
     return taskpool.execute(task).then((value: object) => {
-      let config = value.toString()
-      let obj = JSON.parse(config) as NetworkConfig
-      AppManager.data.configUUIDMap.set(field, obj)
-      AppManager.preference.addConfig(field, name, obj)
+      try {
+        let config = value.toString()
+        let obj = JSON.parse(config) as NetworkConfig
+        AppManager.data.configUUIDMap.set(field, obj)
+        AppManager.preference.addConfig(field, name, obj)
+      } catch (e) {
+        Logger.error(`readConfig parse error: ${JSON.stringify(e)}`, this)
+      }
+    }).catch((e: BusinessError) => {
+      Logger.error(`readConfig task error: ${e.code}, ${e.message}`, this)
     })
   }
 
@@ -206,33 +219,49 @@ export class PreferenceUtil {
 
   setAppInfo(pkgName: string, name: string, icon: string) {
     let info = new AppInfo(pkgName, name, icon)
-    this.black_list_preference!.putSync(pkgName, info)
-    this.black_list_preference!.flushSync()
-    if (!this.black_list_apps.has(pkgName)) {
-      this.black_list_apps.set(pkgName, info)
-    }else {
-      this.black_list_apps.get(pkgName)!.name = name
-      this.black_list_apps.get(pkgName)!.icon = icon
+    try {
+      this.black_list_preference!.putSync(pkgName, info)
+      this.black_list_preference!.flushSync()
+      if (!this.black_list_apps.has(pkgName)) {
+        this.black_list_apps.set(pkgName, info)
+      }else {
+        this.black_list_apps.get(pkgName)!.name = name
+        this.black_list_apps.get(pkgName)!.icon = icon
+      }
+    } catch (e) {
+      Logger.error("setAppInfo error: " + JSON.stringify(e), this)
     }
   }
 
   private updateBlackListApps() {
-    let obj: ESObject = this.black_list_preference!.getAllSync()
-    for (const pkgName of Object.keys(obj)) {
-      let info = obj[pkgName] as AppInfo
-      this.black_list_apps.set(pkgName, info)
+    try {
+      let obj: ESObject = this.black_list_preference!.getAllSync()
+      for (const pkgName of Object.keys(obj)) {
+        let info = obj[pkgName] as AppInfo
+        this.black_list_apps.set(pkgName, info)
+      }
+    } catch (e) {
+      Logger.error("updateBlackListApps error: " + JSON.stringify(e), this)
     }
   }
 
   delAppInfo(pkgName: string) {
-    this.black_list_preference!.deleteSync(pkgName)
-    this.black_list_preference!.flushSync()
-    this.black_list_apps.delete(pkgName)
+    try {
+      this.black_list_preference!.deleteSync(pkgName)
+      this.black_list_preference!.flushSync()
+      this.black_list_apps.delete(pkgName)
+    } catch (e) {
+      Logger.error("delAppInfo error: " + JSON.stringify(e), this)
+    }
   }
 
   updateAppInfo(info: AppInfo) {
-    this.black_list_preference!.putSync(info.pkgName, info)
-    this.black_list_preference!.flushSync()
+    try {
+      this.black_list_preference!.putSync(info.pkgName, info)
+      this.black_list_preference!.flushSync()
+    } catch (e) {
+      Logger.error("updateAppInfo error: " + JSON.stringify(e), this)
+    }
   }
 
   getBlackList(): string[] {
@@ -247,44 +276,61 @@ export class PreferenceUtil {
 
   getCardList(): string[] {
     if (this.card_list_preference) {
-      return this.card_list_preference.getSync("card_list", []) as string []
+      try {
+        return this.card_list_preference.getSync("card_list", []) as string []
+      } catch (e) {
+        Logger.error("getCardList error: " + JSON.stringify(e), this)
+        return []
+      }
     }
     return []
   }
 
   cleanCardList(list: string[]) {
     if (this.card_list_preference) {
-      let formList = this.card_list_preference.getSync("card_list", []) as string []
-      list.forEach((value) => {
-        let index = formList.indexOf(value)
-        if (index > -1) {
-          formList.splice(index)
-        }
-      })
-      this.card_list_preference.putSync("card_list", formList)
-      this.card_list_preference.flushSync()
+      try {
+        let formList = this.card_list_preference.getSync("card_list", []) as string []
+        list.forEach((value) => {
+          let index = formList.indexOf(value)
+          if (index > -1) {
+            formList.splice(index)
+          }
+        })
+        this.card_list_preference.putSync("card_list", formList)
+        this.card_list_preference.flushSync()
+      } catch (e) {
+        Logger.error("cleanCardList error: " + JSON.stringify(e), this)
+      }
     }
   }
 
   addCardId(formId: string) {
     if (this.card_list_preference) {
-      const list = this.getCardList()
-      if (!list.includes(formId)) {
-        list.push(formId)
-        this.card_list_preference.putSync("card_list", list)
-        this.card_list_preference.flushSync()
+      try {
+        const list = this.getCardList()
+        if (!list.includes(formId)) {
+          list.push(formId)
+          this.card_list_preference.putSync("card_list", list)
+          this.card_list_preference.flushSync()
+        }
+      } catch (e) {
+        Logger.error("addCardId error: " + JSON.stringify(e), this)
       }
     }
   }
 
   delCardId(formId: string) {
     if (this.card_list_preference) {
-      const list = this.getCardList()
-      const index = list.indexOf(formId)
-      if (index > -1) {
-        list.splice(index, 1)
-        this.card_list_preference.putSync("card_list", list)
-        this.card_list_preference.flushSync()
+      try {
+        const list = this.getCardList()
+        const index = list.indexOf(formId)
+        if (index > -1) {
+          list.splice(index, 1)
+          this.card_list_preference.putSync("card_list", list)
+          this.card_list_preference.flushSync()
+        }
+      } catch (e) {
+        Logger.error("delCardId error: " + JSON.stringify(e), this)
       }
     }
   }

@@ -15,18 +15,18 @@ export class PermissionUtil {
 
   updateDistributePerm(status: number) {
     if (status === 2) {
-      Logger.error("invalid request of DistributePerm", PermissionUtil)
+      Logger.error("invalid request of DistributePerm", this)
     } else {
-      Logger.info("update DistributePerm: " + status, PermissionUtil)
+      Logger.info("update DistributePerm: " + status, this)
       this.distributePerm = status
     }
   }
 
   updateLocPerm(status: number) {
     if (status === 2) {
-      Logger.error("invalid request of LocPerm", PermissionUtil)
+      Logger.error("invalid request of LocPerm", this)
     } else {
-      Logger.info("update LocPerm: " + status, PermissionUtil)
+      Logger.info("update LocPerm: " + status, this)
       this.locPerm = status
     }
   }
@@ -43,13 +43,13 @@ export class PermissionUtil {
     } catch (error) {
       const err: BusinessError = error as BusinessError;
       Logger.error(`Failed to get bundle info for self. Code is ${err.code}, message is ${err.message}`,
-        PermissionUtil);
+        this);
     }
     try {
       grantStatus = await atManager.checkAccessToken(tokenId, permission);
     } catch (error) {
       const err: BusinessError = error as BusinessError;
-      Logger.error(`Failed to check access token. Code is ${err.code}, message is ${err.message}`, PermissionUtil);
+      Logger.error(`Failed to check access token. Code is ${err.code}, message is ${err.message}`, this);
     }
     return grantStatus;
   }
@@ -65,13 +65,18 @@ export class PermissionUtil {
     let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
     let status = await this.checkPermissionGrant(permissions[0])
     if (status == abilityAccessCtrl.GrantStatus.PERMISSION_DENIED) {
-      let result = await atManager.requestPermissionsFromUser(AppManager.content.context!,
-        ['ohos.permission.APPROXIMATELY_LOCATION'])
-      if (!result.dialogShownResults![0]) {
-        return this.requestLocPermFromSetting()
-      } else {
-        this.updateLocPerm(result.authResults[0])
-        return Promise.resolve(result.authResults[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+      try {
+        let result = await atManager.requestPermissionsFromUser(AppManager.content.context!,
+          ['ohos.permission.APPROXIMATELY_LOCATION'])
+        if (!result.dialogShownResults![0]) {
+          return this.requestLocPermFromSetting()
+        } else {
+          this.updateLocPerm(result.authResults[0])
+          return Promise.resolve(result.authResults[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+        }
+      } catch (error) {
+        Logger.error(`requestLocPerm error: ${JSON.stringify(error)}`, this)
+        return Promise.resolve(false)
       }
     } else {
       return Promise.resolve(true)
@@ -82,13 +87,18 @@ export class PermissionUtil {
     let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
     let status = await this.checkPermissionGrant(permissions[1])
     if (status !== abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED) {
-      let result = await atManager.requestPermissionsFromUser(AppManager.content.context!,
-        ['ohos.permission.DISTRIBUTED_DATASYNC'])
-      if (!result.dialogShownResults![0] && again) {
-        return this.requestDistributePermFromSetting()
-      } else {
-        this.updateDistributePerm(result.authResults[0])
-        return Promise.resolve(result.authResults[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+      try {
+        let result = await atManager.requestPermissionsFromUser(AppManager.content.context!,
+          ['ohos.permission.DISTRIBUTED_DATASYNC'])
+        if (!result.dialogShownResults![0] && again) {
+          return this.requestDistributePermFromSetting()
+        } else {
+          this.updateDistributePerm(result.authResults[0])
+          return Promise.resolve(result.authResults[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+        }
+      } catch (error) {
+        Logger.error(`requestDistributePerm error: ${JSON.stringify(error)}`, this)
+        return Promise.resolve(false)
       }
     } else {
       return Promise.resolve(true)
@@ -99,10 +109,15 @@ export class PermissionUtil {
     if (AppManager.permission.isGetLocPerm()) {
       Logger.debug("LocPerm request again", this)
       let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
-      let rst = await atManager.requestPermissionOnSetting(AppManager.content.context,
-        ["ohos.permission.APPROXIMATELY_LOCATION"])
-      this.updateLocPerm(rst[0])
-      return Promise.resolve(rst[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+      try {
+        let rst = await atManager.requestPermissionOnSetting(AppManager.content.context!,
+          ["ohos.permission.APPROXIMATELY_LOCATION"])
+        this.updateLocPerm(rst[0])
+        return Promise.resolve(rst[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+      } catch (error) {
+        Logger.error(`requestLocPermFromSetting error: ${JSON.stringify(error)}`, this)
+        return Promise.resolve(false)
+      }
     } else {
       return Promise.resolve(true)
     }
@@ -112,10 +127,15 @@ export class PermissionUtil {
     if (AppManager.permission.isGetDistributePerm()) {
       Logger.debug("DistributePerm request again", this)
       let atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
-      let rst =
-        await atManager.requestPermissionOnSetting(AppManager.content.context, ["ohos.permission.DISTRIBUTED_DATASYNC"])
-      this.updateDistributePerm(rst[0])
-      return Promise.resolve(rst[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+      try {
+        let rst =
+          await atManager.requestPermissionOnSetting(AppManager.content.context!, ["ohos.permission.DISTRIBUTED_DATASYNC"])
+        this.updateDistributePerm(rst[0])
+        return Promise.resolve(rst[0] === abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED)
+      } catch (error) {
+        Logger.error(`requestDistributePermFromSetting error: ${JSON.stringify(error)}`, this)
+        return Promise.resolve(false)
+      }
     } else {
       return Promise.resolve(true)
     }

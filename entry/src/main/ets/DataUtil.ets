@@ -181,7 +181,13 @@ export class DataUtil {
     let instance_name = cfg_toml.match(/^\s*instance_name\s*=\s*["'](.+?)["']\s*(?:#.*)?$/m)
     Logger.debug("import toml find name: " + JSON.stringify(instance_name))
     let name = instance_name ? instance_name[1] : undefined
-    let config: NetworkConfig = JSON.parse(cfg)
+    let config: NetworkConfig
+    try {
+      config = JSON.parse(cfg)
+    } catch (e) {
+      Logger.error(`importToml parse error: ${JSON.stringify(e)}`, this)
+      return false
+    }
     if (config.networking_method === NetworkingMethod.PublicServer && config.public_server_url) {
       config.hostname = getHostname()
       config.networking_method = NetworkingMethod.Manual

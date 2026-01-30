@@ -85,7 +85,9 @@ export struct BlackList_Title {
             setTimeout(() => {
               try {
                 this.getUIContext().getFocusController().requestFocus("pkgName_input");
-              } catch (_) {}
+              } catch (e) {
+                Logger.error("requestFocus error: " + JSON.stringify(e), "BlackList_Title")
+              }
             }, 50)
           }
         })
