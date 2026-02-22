@@ -153,6 +153,7 @@ export interface RoutePeerInfo {
   feature_flag: PeerFeatureFlag | undefined;
   peer_route_id: number;
   network_length: number;
+  /** @deprecated */
   quic_port?: number | undefined;
   ipv6_addr?: Ipv6Inet | undefined;
   groups: PeerGroupInfo[];

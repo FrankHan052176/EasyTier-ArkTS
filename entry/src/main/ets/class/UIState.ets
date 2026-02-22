@@ -10,6 +10,7 @@ export class UIState {
   @Trace selected: string | undefined
   @Trace editingInstance: string | undefined
   @Trace configUUIDNameMap: Map<string, string> = new Map
+  notificationId: number | undefined = undefined
 
   init() {
 

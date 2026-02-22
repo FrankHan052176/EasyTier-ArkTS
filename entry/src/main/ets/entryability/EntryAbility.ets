@@ -27,12 +27,13 @@ import { systemShare } from '@kit.ShareKit';
 import { rpc } from '@kit.IPCKit';
 import { unwrapUrl } from '../util/ShareUtil';
 import { updateFavorite } from '../CommunicationUtil';
+import { cancelNotification, publishTextNotification } from '../util/NoticeHelper';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
   vpnConnection: vpnExtension.VpnConnection | undefined
 
-  startContinuousTask(cfg: string, uuid: string | undefined) {
+  startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined) {
     if (!AppManager.permission.isGetLocPerm() ||
       !canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
       if (!easytier.runNetworkInstance(cfg)) {
@@ -53,15 +54,20 @@ export default class EntryAbility extends UIAbility {
       requestCode: 0,
       actionFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
     };
-    let request: geoLocationManager.ContinuousLocationRequest =
-      { 'interval': 5, 'locationScenario': geoLocationManager.UserActivityScenario.NAVIGATION };
+    let request: geoLocationManager.LocationRequest = {
+      priority: geoLocationManager.LocationRequestPriority.LOW_POWER,
+      timeInterval: 7200,
+      distanceInterval: 10000,
+      maxAccuracy: 1000
+    };
     try {
       wantAgent.getWantAgent(wantAgentInfo).then((wantAgentObj: WantAgent) => {
         try {
-          backgroundTaskManager.startBackgroundRunning(this.context, ["location", "dataTransfer"], wantAgentObj).then(() => {
+          backgroundTaskManager.startBackgroundRunning(this.context, ["location"], wantAgentObj).then(() => {
             if (easytier.runNetworkInstance(cfg)) {
               setTimeout(() => {
                 updateFavorite()
+                publishTextNotification(name ?? "N/A")
               }, 300)
               if (uuid) {
                 HMRouterMgr.to('StatusPage')
@@ -69,9 +75,7 @@ export default class EntryAbility extends UIAbility {
                   .withAnimator(new BottomAnimator())
                   .pushAsync()
               }
-              geoLocationManager.on('locationChange', request, () => {
-                Logger.debug("GeoLoc alive", this)
-              });
+              geoLocationManager.on('locationChange', request, () => {});
             } else {
               sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
               Logger.error("启动失败", this)
@@ -111,11 +115,11 @@ export default class EntryAbility extends UIAbility {
         })
       }
     }
-    backgroundTaskManager.stopBackgroundRunning(this.context).then(() => {
-      destroyVpn()
-    }).catch((err: BusinessError) => {
+    backgroundTaskManager.stopBackgroundRunning(this.context).catch((err: BusinessError) => {
       Logger.error(`stopBackgroundRunning failed: ${err.code}, ${err.message}`, this)
+    }).finally(() => {
       destroyVpn()
+      cancelNotification()
     });
   }
 
@@ -264,7 +268,7 @@ export default class EntryAbility extends UIAbility {
     EventHelper.emitterListener("start_bg", (data) => {
       this.prepare_vpn(() => {
         Logger.info("start_bg_task", this)
-        this.startContinuousTask(data.data!.cfg, data.data?.uuid);
+        this.startContinuousTask(data.data!.cfg, data.data?.uuid, data.data?.name);
       })
     })
   }

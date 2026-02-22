@@ -40,22 +40,6 @@ export struct StatusPage {
     this.name = AppManager.uiState.configUUIDNameMap.get(this.uuid) ?? "Unknown"
     this.config = AppManager.easytier.getConfig(this.uuid) ?? null
     this.ip = this.config?.dhcp ? "waiting" : (this.config?.virtual_ipv4 ?? "N/A")
-
-    EventHelper.emitterListener("updateInfo_" + this.uuid, () => {
-      let info = AppManager.easytier.runningNetworks.get(this.uuid)
-      if (info) {
-        if (info.my_node_info?.virtual_ipv4?.address) {
-          let convertedIp = convertAddrToIp(info.my_node_info?.virtual_ipv4?.address.addr)
-          if (this.ip !== convertedIp) {
-            this.ip = convertedIp
-          }
-        } else {
-          this.ip = "waiting"
-        }
-        this.udp_nat = info.my_node_info?.stun_info?.udp_nat_type ?? NatType.Unknown
-        this.tcp_nat = info.my_node_info?.stun_info?.tcp_nat_type ?? NatType.Unknown
-      }
-    })
     setInterval(() => {
       let instanceInfo = AppManager.easytier.instanceInfos.get(this.uuid)
       if (instanceInfo) {
@@ -67,6 +51,9 @@ export struct StatusPage {
           this.tx_rate = instanceInfo.getUploadRate()
           this.tx_unit = instanceInfo.getUploadRateUnit()
         }
+        this.udp_nat = instanceInfo.udp_nat
+        this.tcp_nat = instanceInfo.tcp_nat
+        this.ip = instanceInfo.ip
       }
     }, 1000)
     harmonyShare.on('knockShare', (target) => {
@@ -80,7 +67,6 @@ export struct StatusPage {
   }
 
   aboutToDisappear(): void {
-    EventHelper.emitterOff("updateInfo_" + this.uuid)
     harmonyShare.off('knockShare', (target) => {
       this.immersiveCallback(target)
     });

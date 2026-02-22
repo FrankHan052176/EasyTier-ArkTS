@@ -199,16 +199,24 @@ export interface FlagsInConfig {
   enable_quic_proxy: boolean;
   /** does this peer allow quic input */
   disable_quic_input: boolean;
-  /** quic listen port */
+  /** disable relay local network quic packets */
+  disable_relay_quic: boolean;
+  /**
+   * quic listen port
+   *
+   * @deprecated
+   */
   quic_listen_port: number;
   /** a global relay limit, only work for foreign network */
   foreign_relay_bps_limit: number;
   multi_thread_count: number;
   /** enable relay foreign network kcp packets */
   enable_relay_foreign_network_kcp: boolean;
+  /** enable relay foreign network quic packets */
+  enable_relay_foreign_network_quic: boolean;
   /** encryption algorithm to use, empty string means default (aes-gcm) */
   encryption_algorithm: string;
-  /** disable symmetric nat hole punching, treat symmetric as cone when enable */
+  /** disable symmetric nat hole punching, treat symmetric as cone when enabled */
   disable_sym_hole_punching: boolean;
   /** tld dns zone for magic dns */
   tld_dns_zone: string;
@@ -332,6 +340,8 @@ export interface PeerFeatureFlag {
   kcp_input: boolean;
   no_relay_kcp: boolean;
   support_conn_list_sync: boolean;
+  quic_input: boolean;
+  no_relay_quic: boolean;
 }
 
 export interface PortForwardConfigPb {
@@ -393,10 +403,12 @@ function createBaseFlagsInConfig(): FlagsInConfig {
     private_mode: false,
     enable_quic_proxy: false,
     disable_quic_input: false,
+    disable_relay_quic: false,
     quic_listen_port: 0,
     foreign_relay_bps_limit: 0,
     multi_thread_count: 0,
     enable_relay_foreign_network_kcp: false,
+    enable_relay_foreign_network_quic: false,
     encryption_algorithm: "",
     disable_sym_hole_punching: false,
     tld_dns_zone: "",
@@ -524,6 +536,11 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
         : isSet(object.disable_quic_input)
         ? globalThis.Boolean(object.disable_quic_input)
         : false,
+      disable_relay_quic: isSet(object.disableRelayQuic)
+        ? globalThis.Boolean(object.disableRelayQuic)
+        : isSet(object.disable_relay_quic)
+        ? globalThis.Boolean(object.disable_relay_quic)
+        : false,
       quic_listen_port: isSet(object.quicListenPort)
         ? globalThis.Number(object.quicListenPort)
         : isSet(object.quic_listen_port)
@@ -543,6 +560,11 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
         ? globalThis.Boolean(object.enableRelayForeignNetworkKcp)
         : isSet(object.enable_relay_foreign_network_kcp)
         ? globalThis.Boolean(object.enable_relay_foreign_network_kcp)
+        : false,
+      enable_relay_foreign_network_quic: isSet(object.enableRelayForeignNetworkQuic)
+        ? globalThis.Boolean(object.enableRelayForeignNetworkQuic)
+        : isSet(object.enable_relay_foreign_network_quic)
+        ? globalThis.Boolean(object.enable_relay_foreign_network_quic)
         : false,
       encryption_algorithm: isSet(object.encryptionAlgorithm)
         ? globalThis.String(object.encryptionAlgorithm)
@@ -646,6 +668,9 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     if (message.disable_quic_input !== false) {
       obj.disableQuicInput = message.disable_quic_input;
     }
+    if (message.disable_relay_quic !== false) {
+      obj.disableRelayQuic = message.disable_relay_quic;
+    }
     if (message.quic_listen_port !== 0) {
       obj.quicListenPort = Math.round(message.quic_listen_port);
     }
@@ -657,6 +682,9 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     }
     if (message.enable_relay_foreign_network_kcp !== false) {
       obj.enableRelayForeignNetworkKcp = message.enable_relay_foreign_network_kcp;
+    }
+    if (message.enable_relay_foreign_network_quic !== false) {
+      obj.enableRelayForeignNetworkQuic = message.enable_relay_foreign_network_quic;
     }
     if (message.encryption_algorithm !== "") {
       obj.encryptionAlgorithm = message.encryption_algorithm;
@@ -705,10 +733,12 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     message.private_mode = object.private_mode ?? false;
     message.enable_quic_proxy = object.enable_quic_proxy ?? false;
     message.disable_quic_input = object.disable_quic_input ?? false;
+    message.disable_relay_quic = object.disable_relay_quic ?? false;
     message.quic_listen_port = object.quic_listen_port ?? 0;
     message.foreign_relay_bps_limit = object.foreign_relay_bps_limit ?? 0;
     message.multi_thread_count = object.multi_thread_count ?? 0;
     message.enable_relay_foreign_network_kcp = object.enable_relay_foreign_network_kcp ?? false;
+    message.enable_relay_foreign_network_quic = object.enable_relay_foreign_network_quic ?? false;
     message.encryption_algorithm = object.encryption_algorithm ?? "";
     message.disable_sym_hole_punching = object.disable_sym_hole_punching ?? false;
     message.tld_dns_zone = object.tld_dns_zone ?? "";
@@ -1517,6 +1547,8 @@ function createBasePeerFeatureFlag(): PeerFeatureFlag {
     kcp_input: false,
     no_relay_kcp: false,
     support_conn_list_sync: false,
+    quic_input: false,
+    no_relay_quic: false,
   };
 }
 
@@ -1548,6 +1580,16 @@ export const PeerFeatureFlag: MessageFns<PeerFeatureFlag> = {
         : isSet(object.support_conn_list_sync)
         ? globalThis.Boolean(object.support_conn_list_sync)
         : false,
+      quic_input: isSet(object.quicInput)
+        ? globalThis.Boolean(object.quicInput)
+        : isSet(object.quic_input)
+        ? globalThis.Boolean(object.quic_input)
+        : false,
+      no_relay_quic: isSet(object.noRelayQuic)
+        ? globalThis.Boolean(object.noRelayQuic)
+        : isSet(object.no_relay_quic)
+        ? globalThis.Boolean(object.no_relay_quic)
+        : false,
     };
   },
 
@@ -1568,6 +1610,12 @@ export const PeerFeatureFlag: MessageFns<PeerFeatureFlag> = {
     if (message.support_conn_list_sync !== false) {
       obj.supportConnListSync = message.support_conn_list_sync;
     }
+    if (message.quic_input !== false) {
+      obj.quicInput = message.quic_input;
+    }
+    if (message.no_relay_quic !== false) {
+      obj.noRelayQuic = message.no_relay_quic;
+    }
     return obj;
   },
 
@@ -1581,6 +1629,8 @@ export const PeerFeatureFlag: MessageFns<PeerFeatureFlag> = {
     message.kcp_input = object.kcp_input ?? false;
     message.no_relay_kcp = object.no_relay_kcp ?? false;
     message.support_conn_list_sync = object.support_conn_list_sync ?? false;
+    message.quic_input = object.quic_input ?? false;
+    message.no_relay_quic = object.no_relay_quic ?? false;
     return message;
   },
 };

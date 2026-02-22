@@ -450,7 +450,7 @@
     },
     {
       "name": "disable_encryption_help",
-      "value": "禁用对等节点通信的加密，默认为false，必须与对等节点相同"
+      "value": "禁用对等节点通信的加密。注意：默认启用加密，若勾选此项则关闭，必须与对等节点设置一致。"
     },
     {
       "name": "disable_tcp_hole_punching",

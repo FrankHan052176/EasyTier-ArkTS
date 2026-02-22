@@ -3,6 +3,8 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { vpnExtension } from '@kit.NetworkKit';
 import { AppManager } from './AppManager';
 import { Logger, LogLocate } from './util/Logger';
+import { notificationManager } from '@kit.NotificationKit';
+import { common } from '@kit.AbilityKit';
 
 const permissions: Array<Permissions> =
   ['ohos.permission.APPROXIMATELY_LOCATION', 'ohos.permission.DISTRIBUTED_DATASYNC'];
@@ -12,6 +14,7 @@ const permissions: Array<Permissions> =
 export class PermissionUtil {
   @Trace distributePerm: abilityAccessCtrl.GrantStatus = abilityAccessCtrl.GrantStatus.PERMISSION_DENIED
   @Trace locPerm: abilityAccessCtrl.GrantStatus = abilityAccessCtrl.GrantStatus.PERMISSION_DENIED
+  @Trace notificationPerm: abilityAccessCtrl.GrantStatus = abilityAccessCtrl.GrantStatus.PERMISSION_DENIED
 
   updateDistributePerm(status: number) {
     if (status === 2) {
@@ -28,6 +31,15 @@ export class PermissionUtil {
     } else {
       Logger.info("update LocPerm: " + status, this)
       this.locPerm = status
+    }
+  }
+
+  updateNotificationPerm(status: number) {
+    if (status === 2) {
+      Logger.error("invalid request of LocPerm", this)
+    } else {
+      Logger.info("update NotificationPerm: " + status, this)
+      this.notificationPerm = status
     }
   }
 
@@ -59,6 +71,11 @@ export class PermissionUtil {
     let status1 = await this.checkPermissionGrant(permissions[1])
     this.updateLocPerm(status)
     this.updateDistributePerm(status1)
+    try {
+      this.updateNotificationPerm(notificationManager.isNotificationEnabledSync() ? 0 : -1)
+    } catch (error) {
+      this.updateNotificationPerm(-1)
+    }
   }
 
   async requestLocPerm(): Promise<boolean> {
@@ -105,6 +122,35 @@ export class PermissionUtil {
     }
   }
 
+  async requestNotificationPerm(again: boolean = true): Promise<boolean> {
+    let context = AppManager.content.uiContext!.getHostContext() as common.UIAbilityContext
+    return new Promise<boolean>((resolve) => {
+      try {
+        let enabled: boolean = notificationManager.isNotificationEnabledSync();
+        if (!enabled) {
+          notificationManager.requestEnableNotification(context).then(() => {
+            this.updateNotificationPerm(0)
+            resolve(true)
+          }).catch((err: BusinessError) => {
+            if (err.code == 1600004 && again) {
+              notificationManager.openNotificationSettings(context).then(() => {
+                let enabled = notificationManager.isNotificationEnabledSync()
+                this.updateNotificationPerm(enabled?0:-1)
+                resolve(enabled)
+              }).catch(() => {});
+            }else {
+              this.updateNotificationPerm(-1)
+              resolve(false)
+            }
+          });
+        }else {
+          this.updateNotificationPerm(0)
+          resolve(true)
+        }
+      } catch (_) {}
+    })
+  }
+
   async requestLocPermFromSetting(): Promise<boolean> {
     if (AppManager.permission.isGetLocPerm()) {
       Logger.debug("LocPerm request again", this)
@@ -147,6 +193,10 @@ export class PermissionUtil {
 
   isGetLocPerm(): boolean {
     return this.locPerm == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
+  }
+
+  isGetNotificationPerm(): boolean {
+    return this.notificationPerm == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
   }
 
   requestVpnPerm(callback: () => void, finallyCallback: () => void = () => {

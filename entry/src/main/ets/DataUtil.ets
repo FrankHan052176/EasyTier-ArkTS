@@ -259,15 +259,12 @@ export class DataUtil {
       AppManager.uiState.selected = undefined
     }
     if (this.configUUIDMap.has(uuid)) {
-      let name = AppManager.uiState.configUUIDNameMap.get(uuid)
       try {
         AppManager.preference.configIDPreferences?.deleteSync(uuid)
         AppManager.preference.configPreferences.delete(uuid)
         AppManager.preference.configIDPreferences?.flushSync()
-      } catch (error) {
-      }
-      preferences.deletePreferences(AppManager.content.context!, uuid).catch(() => {
-      })
+      } catch (error) {}
+      preferences.deletePreferences(AppManager.content.context!, uuid)
       let result = this.configUUIDMap.delete(uuid)
       AppManager.uiState.configUUIDNameMap.delete(uuid)
       return result

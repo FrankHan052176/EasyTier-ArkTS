@@ -105,7 +105,10 @@ export interface NetworkConfig {
   enable_magic_dns?: boolean | undefined;
   enable_private_mode?: boolean | undefined;
   enable_quic_proxy?: boolean | undefined;
-  disable_quic_input?: boolean | undefined;
+  disable_quic_input?:
+    | boolean
+    | undefined;
+  /** @deprecated */
   quic_listen_port?: number | undefined;
   port_forwards: PortForwardConfig[];
   disable_sym_hole_punching?: boolean | undefined;

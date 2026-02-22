@@ -452,6 +452,46 @@ export function Setting_Sheet() {
       }
       .margin({ bottom: 10 })
     }
+    ListItem() {
+      Row() {
+        Row() {
+          SymbolGlyph($r("sys.symbol.local_and_rectangle"))
+            .fontColor([$r("sys.color.font_primary")])
+            .fontSize(16)
+            .margin({ right: 5 })
+          Text("通知权限")
+            .fontColor($r("sys.color.font_primary"))
+            .fontSize(16)
+        }
+
+        if (AppManager.permission.isGetNotificationPerm()) {
+          Text("已授权")
+            .fontColor($r("sys.color.font_primary"))
+            .fontSize(16)
+            .margin({ right: 5 })
+        } else {
+          Button('授权',
+            { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
+            .borderRadius(13)
+            .onClick(() => {
+              AppManager.permission.requestNotificationPerm(true)
+            })
+        }
+      }
+      .height(49)
+      .borderRadius(18)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .backgroundColor($r("sys.color.background_secondary"))
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
+    }
+    .margin({ bottom: 10 })
 
     ListItem() {
       Row() {

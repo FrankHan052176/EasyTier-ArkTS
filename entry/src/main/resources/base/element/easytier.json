@@ -450,7 +450,7 @@
     },
     {
       "name": "disable_encryption_help",
-      "value": "Disable encryption for peers communication, default is false, must be same with peers"
+      "value": "Disable encryption for peers communication. Encryption is enabled by default, this option must be same with peers."
     },
     {
       "name": "disable_tcp_hole_punching",

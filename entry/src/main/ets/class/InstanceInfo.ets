@@ -4,6 +4,7 @@ import { CircleArray } from './container/CircleArray'
 import { PeerInfoDataSource } from './data_source/PeerInfoDataSource'
 import { convertAddrToIp } from '../util/Conversion'
 import { Logger } from '../util/Logger'
+import { NatType } from '../protobuf/common'
 
 function fixedRate(value: number): number {
   if (value > 107374182) {
@@ -86,6 +87,9 @@ export class InstanceInfo {
   @Trace private upload_rate: number = 0
   @Trace private upload_arr: CircleArray<number> = new CircleArray(10)
   @Trace private last_upload: number = 0
+  @Trace udp_nat: NatType = NatType.Unknown
+  @Trace tcp_nat: NatType = NatType.Unknown
+  @Trace ip: string = "waiting"
 
   update(info: NetworkInstanceRunningInfo) {
     //      下载  上传
@@ -132,6 +136,16 @@ export class InstanceInfo {
     this.upload_arr.push(sum[1] - this.last_upload)
     this.last_upload = sum[1]
     this.upload_rate = this.upload_arr.sum
+    if (info.my_node_info?.virtual_ipv4?.address) {
+      let convertedIp = convertAddrToIp(info.my_node_info?.virtual_ipv4?.address.addr)
+      if (this.ip !== convertedIp) {
+        this.ip = convertedIp
+      }
+    } else {
+      this.ip = "waiting"
+    }
+    this.udp_nat = info.my_node_info?.stun_info?.udp_nat_type ?? NatType.Unknown
+    this.tcp_nat = info.my_node_info?.stun_info?.tcp_nat_type ?? NatType.Unknown
   }
 
   getDownloadRate(): number {

@@ -69,15 +69,17 @@ export function UrlBuilder(value: Url) {
       .width('100%')
       .justifyContent(FlexAlign.Start)
 
-      Text(value.port)
-        .fontSize(14)
-        .width('100%')
-        .fontColor($r("sys.color.font_tertiary"))
-        .maxLines(1)
-        .textOverflow({
-          overflow: TextOverflow.Ellipsis
-        })
-        .textAlign(TextAlign.Start)
+      if (value.proto != Protocol.TXT) {
+        Text(value.port)
+          .fontSize(14)
+          .width('100%')
+          .fontColor($r("sys.color.font_tertiary"))
+          .maxLines(1)
+          .textOverflow({
+            overflow: TextOverflow.Ellipsis
+          })
+          .textAlign(TextAlign.Start)
+      }
     }
     .alignItems(HorizontalAlign.Start)
     .layoutWeight(100)
@@ -129,44 +131,6 @@ export function ListenerBuilder(value: Url) {
   }
   .width('100%')
   .justifyContent(FlexAlign.Start)
-}
-
-@Extend(Text)
-function tips() {
-  .width('100%')
-  .fontSize(14)
-  .fontColor($r("sys.color.font_secondary"))
-  .textAlign(TextAlign.Center)
-}
-
-@Extend(TextInput)
-function underline(textAlign: TextAlign = TextAlign.Center) {
-  .padding({
-    left: 1,
-    right: 1,
-    top: 5,
-    bottom: 5
-  })
-  .backgroundColor(Color.Transparent)
-  .border({
-    width: {
-      start: LengthMetrics.vp(0),
-      end: LengthMetrics.vp(0),
-      top: LengthMetrics.vp(0),
-      bottom: LengthMetrics.vp(1)
-    },
-    color: {
-      bottom: $r("sys.color.comp_divider")
-    },
-    radius: {
-      bottomStart: LengthMetrics.vp(0),
-      bottomEnd: LengthMetrics.vp(0)
-    },
-    style: {
-      bottom: BorderStyle.Solid
-    }
-  })
-  .textAlign(textAlign)
 }
 
 export let EditValue_Url: Url | undefined
@@ -326,13 +290,22 @@ export class Url implements FieldValue {
       return false
     } else {
       this.proto = convertToProtocol(arr[0])
-      let arr1 = arr[1].split(":")
-      if (arr.length != 2 || !isPort(arr1[1]) || !isDomainOrIP(arr1[0])) {
-        return false
-      } else {
-        this.domain = arr1[0]
-        this.port = arr1[1]
-        return true
+      if (this.proto != Protocol.TXT) {
+        let arr1 = arr[1].split(":")
+        if (arr.length != 2 || !isPort(arr1[1]) || !isDomainOrIP(arr1[0])) {
+          return false
+        } else {
+          this.domain = arr1[0]
+          this.port = arr1[1]
+          return true
+        }
+      }else {
+        if (isDomainOrIP(arr[1])) {
+          this.domain = arr[1]
+          return true
+        }else {
+          return false
+        }
       }
     }
   }
@@ -344,13 +317,22 @@ export class Url implements FieldValue {
       return undefined
     } else {
       this.proto = convertToProtocol(arr[0])
-      let arr1 = arr[1].split(":")
-      if (arr.length != 2 || !isPort(arr1[1]) || !isDomainOrIP(arr1[0])) {
-        return undefined
-      } else {
-        this.domain = arr1[0]
-        this.port = arr1[1]
-        return this
+      if (this.proto != Protocol.TXT) {
+        let arr1 = arr[1].split(":")
+        if (arr.length != 2 || !isPort(arr1[1]) || !isDomainOrIP(arr1[0])) {
+          return undefined
+        } else {
+          this.domain = arr1[0]
+          this.port = arr1[1]
+          return this
+        }
+      }else {
+        if (isDomainOrIP(arr[1])) {
+          this.domain = arr[1]
+          return this
+        }else {
+          return undefined
+        }
       }
     }
   }

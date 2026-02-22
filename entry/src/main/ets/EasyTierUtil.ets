@@ -1,5 +1,5 @@
 import entry from 'libentry.so'
-import { NetworkInstanceRunningInfo } from './protobuf/api_manage'
+import { MyNodeInfo, NetworkInstanceRunningInfo } from './protobuf/api_manage'
 import easytier, { KeyValuePair } from 'easytier-ohrs'
 import { EventHelper } from './util/EventHelper'
 import { AppManager } from './AppManager'
@@ -15,6 +15,8 @@ import { JSON, taskpool } from '@kit.ArkTS'
 import { LogDataSource } from './class/data_source/LogDataSource'
 import { updateFavorite } from './CommunicationUtil'
 import { HMRouterMgr } from '@hadss/hmrouter'
+import { updateTextNotification } from './util/NoticeHelper'
+import { NatType } from './protobuf/common'
 
 @Concurrent
 async function readInfoWorker(): Promise<void> {
@@ -68,7 +70,6 @@ export class EasyTierUtil {
         this.processLogs(event.data.appLogs, event.data.nmLogs, event.data.ohLogs)
       }
     })
-
     this.task1 = new taskpool.LongTask(readInfoWorker)
     this.task2 = new taskpool.LongTask(readLogsWorker)
     taskpool.execute(this.task1)
@@ -86,6 +87,13 @@ export class EasyTierUtil {
 
   convertToml2NetworkConfig(toml: string): string {
     return easytier.convertTomlToNetworkConfig(toml)
+  }
+
+  private updateNotification(uuid: string) {
+    let info = AppManager.easytier.instanceInfos.get(uuid)
+    if (info) {
+      updateTextNotification(AppManager.uiState.configUUIDNameMap.get(uuid) ?? "N/A", info)
+    }
   }
 
   processNetworkInfos(infos: KeyValuePair[]) {
@@ -107,10 +115,9 @@ export class EasyTierUtil {
       this.runningNetworks.set(info.key, newInfo)
       if (!this.instanceInfos.has(info.key)) {
         this.instanceInfos.set(info.key, new InstanceInfo())
-      } else {
-        this.instanceInfos.get(info.key)?.update(newInfo)
       }
-      EventHelper.emitterPublish("updateInfo_" + info.key)
+      this.instanceInfos.get(info.key)?.update(newInfo)
+      this.updateNotification(info.key)
       if (this.needTUN === info.key && newInfo.my_node_info?.virtual_ipv4 &&
         newInfo.my_node_info?.virtual_ipv4?.address) {
         this.needTUN = undefined
@@ -194,7 +201,8 @@ export class EasyTierUtil {
             EventHelper.emitterPublish("start_bg", {
               data: {
                 cfg: JSON.stringify(config),
-                uuid: byCard?undefined:uuid
+                uuid: byCard?undefined:uuid,
+                name: AppManager.uiState.configUUIDNameMap.get(uuid)
               }
             })
           })
