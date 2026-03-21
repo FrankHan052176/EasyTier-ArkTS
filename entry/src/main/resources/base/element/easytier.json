@@ -81,6 +81,10 @@
       "value": "RPC Port"
     },
     {
+      "name": "port",
+      "value": "Port"
+    },
+    {
       "name": "rpc_portal_whitelists",
       "value": "RPC Whitelist"
     },
@@ -103,6 +107,18 @@
     {
       "name": "add_new_network",
       "value": "New Network"
+    },
+    {
+      "name": "add_peer_url",
+      "value": "Add Peer"
+    },
+    {
+      "name": "add_listener_url",
+      "value": "Add Listener"
+    },
+    {
+      "name": "add_mapped_listener",
+      "value": "Add Mapped Listener"
     },
     {
       "name": "del_cur_network",
@@ -765,6 +781,10 @@
       "value": "Login"
     },
     {
+      "name": "web_login_sso_login",
+      "value": "SSO Login"
+    },
+    {
       "name": "web_register_title",
       "value": "Register"
     },
@@ -1091,6 +1111,10 @@
     {
       "name": "web_common_disable",
       "value": "Disable"
+    },
+    {
+      "name": "web_common_address",
+      "value": "Address"
     },
     {
       "name": "web_settings_title",

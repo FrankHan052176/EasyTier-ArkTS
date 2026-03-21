@@ -1,4 +1,4 @@
-import { notificationManager } from '@kit.NotificationKit';
+ import { notificationManager } from '@kit.NotificationKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { Logger } from './Logger';
 import { InstanceInfo } from '../class/InstanceInfo';
@@ -43,7 +43,7 @@ export async function updateTextNotification(instance_name: string, instanceInfo
       notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
       normal: {
         title: "已启动实例 "+instance_name,
-        text: `${instanceInfo.getUploadRate().toFixed(1)}${instanceInfo.getUploadRateUnit()} ↑ ${instanceInfo.getUploadRate().toFixed(1)}${instanceInfo.getUploadRateUnit()} ↓`,
+        text: `${instanceInfo.getUploadRate().toFixed(1)}${instanceInfo.getUploadRateUnit()} ↑ ${instanceInfo.getDownloadRate().toFixed(1)}${instanceInfo.getDownloadRateUnit()} ↓`,
         additionalText: ''
       }
     },

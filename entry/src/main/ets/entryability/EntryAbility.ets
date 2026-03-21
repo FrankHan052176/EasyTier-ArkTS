@@ -324,7 +324,7 @@ export default class EntryAbility extends UIAbility {
   setup_tun(ip: string, mask: number, magicDNS: boolean, inst_id: string, needExitNode: boolean) {
     Logger.debug("当前IP:" + ip, this)
     Logger.debug("当前路由表:" + Array.from(AppManager.easytier.tunRoutes).join(","), this)
-    let vpnConfig: vpnExtension.VpnConfig = AppManager.preference.vpn_routes || deviceInfo.sdkApiVersion >= 20 ? {
+    let vpnConfig: vpnExtension.VpnConfig = {
       addresses: [
         {
           address: {
@@ -335,30 +335,13 @@ export default class EntryAbility extends UIAbility {
         }
       ],
       blockedApplications: [
-        "top.frankhan.easytier",
+        deviceInfo.sdkApiVersion >= 22? "":"top.frankhan.easytier",
         ...AppManager.preference.getBlackList()
       ],
       trustedApplications: [],
       dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.preference.dev ? [this.safeDns()] : ["223.5.5.5"]),
       mtu: 1380,
-      routes: stringArr2RouteArr(ip, magicDNS, needExitNode)
-    } : {
-      addresses: [
-        {
-          address: {
-            address: ip,
-            family: 1,
-          },
-          prefixLength: mask
-        }
-      ],
-      blockedApplications: [
-        "top.frankhan.easytier",
-        ...AppManager.preference.getBlackList()
-      ],
-      trustedApplications: [],
-      dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.preference.dev ? [this.safeDns()] : ["223.5.5.5"]),
-      mtu: 1380
+      routes: AppManager.preference.getVpnCfgRoutes(ip, magicDNS, needExitNode)
     }
     if (this.vpnConnection === undefined) {
       Logger.error("vpnConnection not found", this)
@@ -372,15 +355,17 @@ export default class EntryAbility extends UIAbility {
     })
   }
 
-  prepare_vpn(callback: () => void = () => {
-  }) {
+  prepare_vpn(callback: () => void = () => {}) {
     if (this.vpnConnection !== undefined) {
       callback()
       return;
     }
     Logger.info("prepare vpn", this)
-    AppManager.permission.requestVpnPerm(() => {
+    AppManager.permission.requestVpnPerm(async () => {
       this.vpnConnection = vpnExtension.createVpnConnection(getContext(this) as vpnExtension.VpnExtensionContext)
+      if (deviceInfo.sdkApiVersion >= 22) {
+        await this.vpnConnection.protectProcessNet()
+      }
       callback()
     })
   }

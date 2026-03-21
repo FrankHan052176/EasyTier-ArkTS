@@ -8,7 +8,9 @@ import { buffer, collections, JSON, taskpool, util } from '@kit.ArkTS';
 import { SafePortForwardConfig } from './class/SafeProtoClass';
 import { ContentUtil } from './ContentUtil';
 import { AppInfo } from './components/sheet/BlackList';
-import { BusinessError } from '@kit.BasicServicesKit';
+import { BusinessError, deviceInfo } from '@kit.BasicServicesKit';
+import { connection } from '@kit.NetworkKit';
+import { stringArr2RouteArr } from './util/Conversion';
 
 const defaultSequence = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
 
@@ -54,12 +56,13 @@ export class PreferenceUtil {
   @Trace raw_comp_sequence: string = defaultSequence
   @Trace vpn_routes: boolean = false
   @Trace dev: boolean = false
+  @Trace forceGlobal: boolean = true
   @Trace dns: string = ""
   @Trace noOldData: boolean = false
   @Trace holding_detector: boolean = false
   @Trace help2: boolean = false
   inittedLog: boolean = false
-  isInit: boolean = true
+  public isInit: boolean = false
   context: Context | undefined = undefined
   private initialized: boolean = false
 
@@ -68,6 +71,7 @@ export class PreferenceUtil {
       return
     }
     this.initialized = true
+    this.isInit = true
     this.context = context
     try {
       this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
@@ -130,6 +134,7 @@ export class PreferenceUtil {
       this.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean
       this.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean
       this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
+      this.forceGlobal = this.preferences.getSync("forceGlobal", true).valueOf() as boolean
       this.dns = this.preferences.getSync("dns", false).valueOf() as string
       this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
       this.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean
@@ -142,7 +147,9 @@ export class PreferenceUtil {
       this.inittedLog = true
       easytier.initTracingSubscriber()
     }
-    this.isInit = false
+    setTimeout(() => {
+      this.isInit = false
+    }, 100)
   }
 
   updateSequence(sequence: string) {
@@ -157,10 +164,13 @@ export class PreferenceUtil {
     }
   }
 
-  @Monitor("show_log", "vpn_routes", "dev", "dns", "noOldData", "holding_detector", "help2")
+  @Monitor("show_log", "vpn_routes", "dev", "forceGlobal", "dns", "noOldData", "holding_detector", "help2")
   onChange(monitor: IMonitor) {
+    if (this.isInit) {
+      return
+    }
     monitor.dirty.forEach((path: string) => {
-      if (this.preferences !== undefined && !this.isInit) {
+      if (this.preferences !== undefined) {
         try {
           Logger.debug("update:" + path + "," + monitor.value(path)?.now, this)
           this.preferences.putSync(path, monitor.value(path)?.now as ValueType)
@@ -352,4 +362,8 @@ export class PreferenceUtil {
       }
     }
   }
+
+  getVpnCfgRoutes(ip: string, magicDNS: boolean, needExitNode: boolean): connection.RouteInfo[] | undefined {
+		return AppManager.preference.vpn_routes || deviceInfo.sdkApiVersion >= 20 ? stringArr2RouteArr(ip, magicDNS, needExitNode) : undefined;
+	}
 }

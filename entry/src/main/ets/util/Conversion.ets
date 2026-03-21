@@ -135,7 +135,7 @@ export function stringArr2RouteArr(gateway: string, magicDNS: boolean, needExitN
       isDefaultRoute: false,
     })
   }
-  if (needExitNode) {
+  if (needExitNode && AppManager.preference.forceGlobal) {
     result.push({
       interface: "vpn-tun",
       destination: {

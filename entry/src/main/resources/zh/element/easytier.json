@@ -81,6 +81,10 @@
       "value": "RPC端口"
     },
     {
+      "name": "port",
+      "value": "端口"
+    },
+    {
       "name": "rpc_portal_whitelists",
       "value": "RPC白名单"
     },
@@ -103,6 +107,18 @@
     {
       "name": "add_new_network",
       "value": "添加新网络"
+    },
+    {
+      "name": "add_peer_url",
+      "value": "添加节点"
+    },
+    {
+      "name": "add_listener_url",
+      "value": "添加监听地址"
+    },
+    {
+      "name": "add_mapped_listener",
+      "value": "添加监听映射"
     },
     {
       "name": "del_cur_network",
@@ -765,6 +781,10 @@
       "value": "登录"
     },
     {
+      "name": "web_login_sso_login",
+      "value": "SSO 登录"
+    },
+    {
       "name": "web_register_title",
       "value": "注册"
     },
@@ -1091,6 +1111,10 @@
     {
       "name": "web_common_disable",
       "value": "关闭"
+    },
+    {
+      "name": "web_common_address",
+      "value": "地址"
     },
     {
       "name": "web_settings_title",
