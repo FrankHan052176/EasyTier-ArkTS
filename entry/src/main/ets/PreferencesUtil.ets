@@ -52,15 +52,17 @@ export class PreferenceUtil {
   @Trace black_list_preference: preferences.Preferences | undefined
   @Trace card_list_preference: preferences.Preferences | undefined
   @Trace black_list_apps: Map<string, AppInfo> = new Map()
+  @Trace white_list_apps: Map<string, AppInfo> = new Map()
   @Trace show_log: boolean = false
   @Trace raw_comp_sequence: string = defaultSequence
   @Trace vpn_routes: boolean = false
   @Trace dev: boolean = false
-  @Trace forceGlobal: boolean = true
+  @Trace force_global: boolean = true
   @Trace dns: string = ""
   @Trace noOldData: boolean = false
   @Trace holding_detector: boolean = false
   @Trace help2: boolean = false
+  @Trace white_list: boolean = false
   inittedLog: boolean = false
   public isInit: boolean = false
   context: Context | undefined = undefined
@@ -134,7 +136,8 @@ export class PreferenceUtil {
       this.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean
       this.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean
       this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
-      this.forceGlobal = this.preferences.getSync("forceGlobal", true).valueOf() as boolean
+      this.force_global = this.preferences.getSync("force_global", true).valueOf() as boolean
+      this.white_list = this.preferences.getSync("white_list", false).valueOf() as boolean
       this.dns = this.preferences.getSync("dns", false).valueOf() as string
       this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
       this.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean
@@ -164,7 +167,7 @@ export class PreferenceUtil {
     }
   }
 
-  @Monitor("show_log", "vpn_routes", "dev", "forceGlobal", "dns", "noOldData", "holding_detector", "help2")
+  @Monitor("show_log", "vpn_routes", "dev", "force_global", "white_list", "dns", "noOldData", "holding_detector", "help2")
   onChange(monitor: IMonitor) {
     if (this.isInit) {
       return

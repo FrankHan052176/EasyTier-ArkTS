@@ -324,6 +324,10 @@ export default class EntryAbility extends UIAbility {
   setup_tun(ip: string, mask: number, magicDNS: boolean, inst_id: string, needExitNode: boolean) {
     Logger.debug("当前IP:" + ip, this)
     Logger.debug("当前路由表:" + Array.from(AppManager.easytier.tunRoutes).join(","), this)
+    let appList = [
+      deviceInfo.sdkApiVersion >= 22? "":"top.frankhan.easytier",
+      ...AppManager.preference.getBlackList()
+    ]
     let vpnConfig: vpnExtension.VpnConfig = {
       addresses: [
         {
@@ -334,11 +338,8 @@ export default class EntryAbility extends UIAbility {
           prefixLength: mask
         }
       ],
-      blockedApplications: [
-        deviceInfo.sdkApiVersion >= 22? "":"top.frankhan.easytier",
-        ...AppManager.preference.getBlackList()
-      ],
-      trustedApplications: [],
+      blockedApplications: AppManager.preference.white_list?[]:appList,
+      trustedApplications: AppManager.preference.white_list?appList:[],
       dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.preference.dev ? [this.safeDns()] : ["223.5.5.5"]),
       mtu: 1380,
       routes: AppManager.preference.getVpnCfgRoutes(ip, magicDNS, needExitNode)

@@ -188,7 +188,7 @@ export function Setting_Sheet() {
             .fontColor([$r("sys.color.font_primary")])
             .fontSize(16)
             .margin({ right: 5 })
-          Text("App 黑名单")
+          Text(AppManager.preference.white_list?"App 白名单":"App 黑名单")
             .fontColor($r("sys.color.font_primary"))
             .fontSize(16)
         }
@@ -380,11 +380,11 @@ export function Setting_Sheet() {
                 .margin({ right: 5 })
             }
 
-            Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.forceGlobal })
+            Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.force_global })
               .selectedColor($r('sys.color.brand'))
               .switchPointColor($r('sys.color.comp_background_list_card'))
               .onChange((isOn: boolean) => {
-                AppManager.preference.forceGlobal = isOn
+                AppManager.preference.force_global = isOn
               })
               .height(29)
               .width(52)

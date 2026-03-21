@@ -3,6 +3,7 @@ import { EventHelper } from "../../util/EventHelper"
 import { AppManager } from "../../AppManager"
 import { Logger } from "../../util/Logger"
 import { ToolButton } from "../util/ToolButtons"
+import { deviceInfo } from "@kit.BasicServicesKit"
 
 export class AppInfo {
   pkgName: string
@@ -21,6 +22,7 @@ export class AppInfo {
 export struct BlackList_Title {
   @Local menu: boolean = false
   @Local text: string = ""
+  @Local title: string = AppManager.preference.white_list?'App 白名单':'App 黑名单'
 
   @Monitor("menu")
   addApp() {
@@ -57,7 +59,7 @@ export struct BlackList_Title {
     Stack({alignContent: Alignment.End}) {
       EditableTitleBar({
         leftIconStyle: EditableLeftIconType.Back,
-        title: 'App 黑名单',
+        title: this.title,
         contentMargin: {
           start: LengthMetrics.vp(0), end: LengthMetrics.vp(0),
         },
@@ -66,6 +68,28 @@ export struct BlackList_Title {
           EventHelper.emitterPublish("home_close_sheet")
         }
       })
+      if (deviceInfo.sdkApiVersion >= 22) {
+        ToolButton({
+          symbol: $r("sys.symbol.arrow_2_circlepath"),
+          buttonSize: 40,
+          bgColor: $r("sys.color.background_secondary"),
+          symbolColor: [$r("sys.color.font_primary")]
+        })
+          .onClick(() => {
+            AppManager.preference.white_list = !AppManager.preference.white_list
+            EventHelper.emitterPublish("home_close_sheet")
+            setTimeout(() => {
+              EventHelper.emitterPublish("home_open_sheet", {
+                data: {
+                  type: "black_list"
+                }
+              })
+            }, 100)
+          })
+          .offset({
+            x: -50
+          })
+      }
       ToolButton({
         symbol: $r("sys.symbol.plus"),
         buttonSize: 40,
