@@ -52,7 +52,10 @@ export const NetworkConfigTypeMap = {
   "encryption_algorithm": "string",
   "disable_tcp_hole_punching": "boolean",
   "secure_mode": "common.SecureModeConfig",
-  "credential_file": "string"
+  "credential_file": "string",
+  "lazy_p2p": "boolean",
+  "need_p2p": "boolean",
+  "instance_recv_bps_limit": "number"
 }
 export const NetworkConfigFieldIdMap = {
   "instance_id": "1",
@@ -108,7 +111,10 @@ export const NetworkConfigFieldIdMap = {
   "encryption_algorithm": "53",
   "disable_tcp_hole_punching": "54",
   "secure_mode": "55",
-  "credential_file": "57"
+  "credential_file": "57",
+  "lazy_p2p": "58",
+  "need_p2p": "59",
+  "instance_recv_bps_limit": "60"
 }
 export const NetworkConfigIdFieldMap = {
   "1": "instance_id",
@@ -164,5 +170,8 @@ export const NetworkConfigIdFieldMap = {
   "53": "encryption_algorithm",
   "54": "disable_tcp_hole_punching",
   "55": "secure_mode",
-  "57": "credential_file"
+  "57": "credential_file",
+  "58": "lazy_p2p",
+  "59": "need_p2p",
+  "60": "instance_recv_bps_limit"
 }

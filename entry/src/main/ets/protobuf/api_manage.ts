@@ -118,6 +118,9 @@ export interface NetworkConfig {
   disable_tcp_hole_punching?: boolean | undefined;
   secure_mode: SecureModeConfig | undefined;
   credential_file?: string | undefined;
+  lazy_p2p?: boolean | undefined;
+  need_p2p?: boolean | undefined;
+  instance_recv_bps_limit?: number | undefined;
 }
 
 export interface PortForwardConfig {
@@ -288,6 +291,9 @@ function createBaseNetworkConfig(): NetworkConfig {
     disable_tcp_hole_punching: undefined,
     secure_mode: undefined,
     credential_file: undefined,
+    lazy_p2p: undefined,
+    need_p2p: undefined,
+    instance_recv_bps_limit: undefined,
   };
 }
 
@@ -550,6 +556,21 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
         : isSet(object.credential_file)
         ? globalThis.String(object.credential_file)
         : undefined,
+      lazy_p2p: isSet(object.lazyP2p)
+        ? globalThis.Boolean(object.lazyP2p)
+        : isSet(object.lazy_p2p)
+        ? globalThis.Boolean(object.lazy_p2p)
+        : undefined,
+      need_p2p: isSet(object.needP2p)
+        ? globalThis.Boolean(object.needP2p)
+        : isSet(object.need_p2p)
+        ? globalThis.Boolean(object.need_p2p)
+        : undefined,
+      instance_recv_bps_limit: isSet(object.instanceRecvBpsLimit)
+        ? globalThis.Number(object.instanceRecvBpsLimit)
+        : isSet(object.instance_recv_bps_limit)
+        ? globalThis.Number(object.instance_recv_bps_limit)
+        : undefined,
     };
   },
 
@@ -717,6 +738,15 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     if (message.credential_file !== undefined) {
       obj.credentialFile = message.credential_file;
     }
+    if (message.lazy_p2p !== undefined) {
+      obj.lazyP2p = message.lazy_p2p;
+    }
+    if (message.need_p2p !== undefined) {
+      obj.needP2p = message.need_p2p;
+    }
+    if (message.instance_recv_bps_limit !== undefined) {
+      obj.instanceRecvBpsLimit = Math.round(message.instance_recv_bps_limit);
+    }
     return obj;
   },
 
@@ -781,6 +811,9 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
       ? SecureModeConfig.fromPartial(object.secure_mode)
       : undefined;
     message.credential_file = object.credential_file ?? undefined;
+    message.lazy_p2p = object.lazy_p2p ?? undefined;
+    message.need_p2p = object.need_p2p ?? undefined;
+    message.instance_recv_bps_limit = object.instance_recv_bps_limit ?? undefined;
     return message;
   },
 };

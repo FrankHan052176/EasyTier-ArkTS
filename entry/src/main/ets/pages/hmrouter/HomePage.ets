@@ -11,7 +11,7 @@ import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.A
 import { AppManager } from '../../AppManager';
 import { EventHelper } from '../../util/EventHelper';
 import { SheetContentBuilder, SheetTitleBuilder } from '../../components/sheet/Basic';
-import { ActionBarButton, ActionBarStyle, HdsActionBar } from '@kit.UIDesignKit';
+import { ActionBarButton, ActionBarStyle, HdsActionBar, hdsMaterial } from '@kit.UIDesignKit';
 import { sendToast } from '../../ToastUtil';
 import { BottomAnimator } from '../../class/animator/BottomAnimator';
 import { motion } from '@kit.MultimodalAwarenessKit';
@@ -108,7 +108,9 @@ export struct HomePage {
       this.immersiveCallback(target)
     });
     if (AppManager.preference.help2) {
-      AppManager.preference.help2 = false
+      setTimeout(() => {
+        AppManager.preference.help2 = false
+      }, 100)
       HMRouterMgr.to("HelpPage").push()
     }
   }
@@ -332,7 +334,7 @@ export struct HomePage {
           style: {
             scrollEffectOpts: {
               enableScrollEffect: true,
-              scrollEffectType: ScrollEffectType.GRADUAL_BLUR,
+              scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
               blurEffectiveStartOffset: LengthMetrics.vp(0),
               blurEffectiveEndOffset: LengthMetrics.vp(20),
             },
@@ -346,7 +348,11 @@ export struct HomePage {
                   backgroundColor: $r("sys.color.interactive_hover")
                 }
               }
-            }
+            },
+            systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
+              materialType: hdsMaterial.MaterialType.ADAPTIVE,
+              materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+            }: undefined
           },
           content: {
             title: {

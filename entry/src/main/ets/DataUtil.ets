@@ -6,7 +6,7 @@ import { NetworkConfig, NetworkingMethod } from './protobuf/api_manage';
 import { ContentUtil } from './ContentUtil';
 import { AppManager } from './AppManager';
 import { getHostname } from './util/Conversion';
-import { distributedKVStore, preferences } from '@kit.ArkData';
+import { distributedKVStore, preferences, ValueType } from '@kit.ArkData';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { FieldValue } from './class/config/Basic';
 import { Cidr } from './class/config/Cidr';
@@ -88,7 +88,6 @@ export class DataUtil {
   public async init() {
     if (AppManager.KVManager) {
       Logger.warn('Find old Data.', this)
-      AppManager.preference.noOldData = true
       const options: distributedKVStore.Options = {
         createIfMissing: true,
         encrypt: false,

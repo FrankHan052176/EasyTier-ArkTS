@@ -26,7 +26,7 @@ export function publishTextNotification(instance_name: string): void {
     };
     notificationManager.publish(request, (err: BusinessError) => {
       if (err) {
-        Logger.error(`通知发出失败, code: ${err.code}, message:${err.message}`, "NoticeHelper")
+        Logger.error(`通知发出失败, nid: ${AppManager.uiState.notificationId}, code: ${err.code}, message:${err.message}`, "NoticeHelper")
         return;
       }
     });
@@ -51,7 +51,8 @@ export async function updateTextNotification(instance_name: string, instanceInfo
   };
   notificationManager.publish(updateRequest, (err: BusinessError) => {
     if (err) {
-      Logger.error(`通知更新失败, code: ${err.code}, message:${err.message}`, "NoticeHelper")
+      Logger.debug(`通知更新失败, nid: ${AppManager.uiState.notificationId}, code: ${err.code}, message:${err.message}`, "NoticeHelper")
+      publishTextNotification(instance_name)
       return;
     }
   });

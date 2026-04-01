@@ -222,6 +222,9 @@ export interface FlagsInConfig {
   tld_dns_zone: string;
   p2p_only: boolean;
   disable_tcp_hole_punching: boolean;
+  lazy_p2p: boolean;
+  need_p2p: boolean;
+  instance_recv_bps_limit: number;
 }
 
 export interface RpcDescriptor {
@@ -343,6 +346,7 @@ export interface PeerFeatureFlag {
   quic_input: boolean;
   no_relay_quic: boolean;
   is_credential_peer: boolean;
+  need_p2p: boolean;
 }
 
 export interface PortForwardConfigPb {
@@ -415,6 +419,9 @@ function createBaseFlagsInConfig(): FlagsInConfig {
     tld_dns_zone: "",
     p2p_only: false,
     disable_tcp_hole_punching: false,
+    lazy_p2p: false,
+    need_p2p: false,
+    instance_recv_bps_limit: 0,
   };
 }
 
@@ -592,6 +599,21 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
         : isSet(object.disable_tcp_hole_punching)
         ? globalThis.Boolean(object.disable_tcp_hole_punching)
         : false,
+      lazy_p2p: isSet(object.lazyP2p)
+        ? globalThis.Boolean(object.lazyP2p)
+        : isSet(object.lazy_p2p)
+        ? globalThis.Boolean(object.lazy_p2p)
+        : false,
+      need_p2p: isSet(object.needP2p)
+        ? globalThis.Boolean(object.needP2p)
+        : isSet(object.need_p2p)
+        ? globalThis.Boolean(object.need_p2p)
+        : false,
+      instance_recv_bps_limit: isSet(object.instanceRecvBpsLimit)
+        ? globalThis.Number(object.instanceRecvBpsLimit)
+        : isSet(object.instance_recv_bps_limit)
+        ? globalThis.Number(object.instance_recv_bps_limit)
+        : 0,
     };
   },
 
@@ -702,6 +724,15 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     if (message.disable_tcp_hole_punching !== false) {
       obj.disableTcpHolePunching = message.disable_tcp_hole_punching;
     }
+    if (message.lazy_p2p !== false) {
+      obj.lazyP2p = message.lazy_p2p;
+    }
+    if (message.need_p2p !== false) {
+      obj.needP2p = message.need_p2p;
+    }
+    if (message.instance_recv_bps_limit !== 0) {
+      obj.instanceRecvBpsLimit = Math.round(message.instance_recv_bps_limit);
+    }
     return obj;
   },
 
@@ -745,6 +776,9 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     message.tld_dns_zone = object.tld_dns_zone ?? "";
     message.p2p_only = object.p2p_only ?? false;
     message.disable_tcp_hole_punching = object.disable_tcp_hole_punching ?? false;
+    message.lazy_p2p = object.lazy_p2p ?? false;
+    message.need_p2p = object.need_p2p ?? false;
+    message.instance_recv_bps_limit = object.instance_recv_bps_limit ?? 0;
     return message;
   },
 };
@@ -1551,6 +1585,7 @@ function createBasePeerFeatureFlag(): PeerFeatureFlag {
     quic_input: false,
     no_relay_quic: false,
     is_credential_peer: false,
+    need_p2p: false,
   };
 }
 
@@ -1597,6 +1632,11 @@ export const PeerFeatureFlag: MessageFns<PeerFeatureFlag> = {
         : isSet(object.is_credential_peer)
         ? globalThis.Boolean(object.is_credential_peer)
         : false,
+      need_p2p: isSet(object.needP2p)
+        ? globalThis.Boolean(object.needP2p)
+        : isSet(object.need_p2p)
+        ? globalThis.Boolean(object.need_p2p)
+        : false,
     };
   },
 
@@ -1626,6 +1666,9 @@ export const PeerFeatureFlag: MessageFns<PeerFeatureFlag> = {
     if (message.is_credential_peer !== false) {
       obj.isCredentialPeer = message.is_credential_peer;
     }
+    if (message.need_p2p !== false) {
+      obj.needP2p = message.need_p2p;
+    }
     return obj;
   },
 
@@ -1642,6 +1685,7 @@ export const PeerFeatureFlag: MessageFns<PeerFeatureFlag> = {
     message.quic_input = object.quic_input ?? false;
     message.no_relay_quic = object.no_relay_quic ?? false;
     message.is_credential_peer = object.is_credential_peer ?? false;
+    message.need_p2p = object.need_p2p ?? false;
     return message;
   },
 };

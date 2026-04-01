@@ -152,6 +152,9 @@ export class PreferenceUtil {
     }
     setTimeout(() => {
       this.isInit = false
+      if (!this.noOldData) {
+        this.noOldData = true
+      }
     }, 100)
   }
 
@@ -167,7 +170,7 @@ export class PreferenceUtil {
     }
   }
 
-  @Monitor("show_log", "vpn_routes", "dev", "force_global", "white_list", "dns", "noOldData", "holding_detector", "help2")
+  @Monitor("show_log", "vpn_routes", "dev", "noOldData", "force_global", "white_list", "dns", "holding_detector", "help2")
   onChange(monitor: IMonitor) {
     if (this.isInit) {
       return

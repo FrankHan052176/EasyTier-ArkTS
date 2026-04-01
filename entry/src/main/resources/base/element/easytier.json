@@ -21,6 +21,18 @@
       "value": "Standalone"
     },
     {
+      "name": "initial_nodes",
+      "value": "Initial Nodes"
+    },
+    {
+      "name": "initial_nodes_help",
+      "value": "EasyTier does not distinguish between server and client roles.\n• Filling in Initial Nodes = plugging in the cable and joining an existing network.\n• Leaving it empty = the node starts alone until others connect to it, or you connect it later yourself.\n• Direct or indirect connectivity, including through relay nodes, can form one network.\nInitial nodes can be your own nodes or ones shared by others.\n"
+    },
+    {
+      "name": "initial_node_placeholder",
+      "value": "Example: node.example.com"
+    },
+    {
       "name": "virtual_ipv4",
       "value": "Virtual IPv4"
     },
@@ -111,6 +123,10 @@
     {
       "name": "add_peer_url",
       "value": "Add Peer"
+    },
+    {
+      "name": "add_initial_node",
+      "value": "Add Initial Node"
     },
     {
       "name": "add_listener_url",
@@ -413,6 +429,14 @@
       "value": "Only communicate with peers that have already established P2P connections, do not relay through other nodes."
     },
     {
+      "name": "lazy_p2p",
+      "value": "Lazy P2P"
+    },
+    {
+      "name": "lazy_p2p_help",
+      "value": "Only try to establish P2P when traffic actually targets a peer. Peers with need-p2p enabled are still connected proactively."
+    },
+    {
       "name": "bind_device",
       "value": "Bind to Physical Device Only"
     },
@@ -443,6 +467,14 @@
     {
       "name": "relay_all_peer_rpc_help",
       "value": "Relay all peer rpc packets, even if the peer is not in the relay network whitelist.\nThis can help peers not in relay network whitelist to establish p2p connection.\n"
+    },
+    {
+      "name": "need_p2p",
+      "value": "Need P2P"
+    },
+    {
+      "name": "need_p2p_help",
+      "value": "Ask other peers to proactively establish P2P connections to this node even when they enable lazy P2P."
     },
     {
       "name": "multi_thread",
@@ -575,6 +607,18 @@
     {
       "name": "mtu_placeholder",
       "value": "Leave blank as default value 1380"
+    },
+    {
+      "name": "instance_recv_bps_limit",
+      "value": "Instance Receive Limit"
+    },
+    {
+      "name": "instance_recv_bps_limit_help",
+      "value": "Limit the total receive bandwidth for the whole instance. Unit: bytes per second.\nLeave blank for no limit.\n"
+    },
+    {
+      "name": "instance_recv_bps_limit_placeholder",
+      "value": "Leave blank for no limit"
     },
     {
       "name": "mapped_listeners",
