@@ -6,7 +6,7 @@ import { deviceInfo } from '@kit.BasicServicesKit';
 
 const ignoreField: Set<string> = new Set([
   "networking_method", "public_server_url", "advanced_settings", "dev_name",
-  "mtu", "quic_listen_port", "bind_device", "enable_relay_network_whitelist", "enable_manual_routes", "instance_id"])
+  "mtu", "quic_listen_port", "bind_device", "enable_relay_network_whitelist", "enable_manual_routes", "instance_id", "credential_file"])
 type fieldType = string | ConfigField[]
 
 export class ConfigField {
