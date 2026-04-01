@@ -104,9 +104,7 @@ export struct HomePage {
         }
       }
     }
-    harmonyShare.on('knockShare', (target) => {
-      this.immersiveCallback(target)
-    });
+    harmonyShare.on('knockShare', this.immersiveCallback);
     if (AppManager.preference.help2) {
       setTimeout(() => {
         AppManager.preference.help2 = false
@@ -119,9 +117,7 @@ export struct HomePage {
     EventHelper.emitterOff("home_open_sheet")
     EventHelper.emitterOff("home_close_sheet")
     EventHelper.emitterOff("reset_holding_detector")
-    harmonyShare.off('knockShare', (target) => {
-      this.immersiveCallback(target)
-    });
+    harmonyShare.off('knockShare', this.immersiveCallback);
   }
 
   restart() {

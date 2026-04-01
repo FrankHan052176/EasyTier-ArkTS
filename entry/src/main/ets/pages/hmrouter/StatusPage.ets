@@ -27,6 +27,7 @@ export struct StatusPage {
   @Local tx_rate: number = 0
   @Local rx_unit: string = "B/s"
   @Local tx_unit: string = "B/s"
+  @Local updateTimer: number = -1
 
   @Computed
   get instanceInfo() {
@@ -38,7 +39,7 @@ export struct StatusPage {
     this.name = AppManager.uiState.configUUIDNameMap.get(this.uuid) ?? "Unknown"
     this.config = AppManager.easytier.getConfig(this.uuid) ?? null
     this.ip = this.config?.dhcp ? "waiting" : (this.config?.virtual_ipv4 ?? "N/A")
-    setInterval(() => {
+    this.updateTimer = setInterval(() => {
       let instanceInfo = AppManager.easytier.instanceInfos.get(this.uuid)
       if (instanceInfo) {
         if (instanceInfo.getDownloadRate() >= 0) {
@@ -54,25 +55,18 @@ export struct StatusPage {
         this.ip = instanceInfo.ip
       }
     }, 1000)
-    harmonyShare.on('knockShare', (target) => {
-      this.immersiveCallback(target)
-    });
+    harmonyShare.on('knockShare', this.immersiveCallback);
     if (deviceInfo.sdkApiVersion >= 20) {
-      harmonyShare.on('gesturesShare', (target) => {
-        this.immersiveCallback(target)
-      });
+      harmonyShare.on('gesturesShare', this.immersiveCallback);
     }
   }
 
   aboutToDisappear(): void {
-    harmonyShare.off('knockShare', (target) => {
-      this.immersiveCallback(target)
-    });
+    harmonyShare.off('knockShare', this.immersiveCallback);
     if (deviceInfo.sdkApiVersion >= 20) {
-      harmonyShare.off('gesturesShare', (target) => {
-        this.immersiveCallback(target)
-      });
+      harmonyShare.off('gesturesShare', this.immersiveCallback);
     }
+    clearInterval(this.updateTimer)
   }
 
   getRouteCost(cost: number): string {
@@ -288,7 +282,7 @@ export struct StatusPage {
               Row({ space: 2 }) {
                 Text(this.tx_rate.toFixed(1))
                   .fontSize(20)
-                Text(this.rx_unit)
+                Text(this.tx_unit)
                   .fontSize(10)
                   .fontColor($r("sys.color.font_secondary"))
               }
@@ -297,7 +291,7 @@ export struct StatusPage {
               Row({ space: 2 }) {
                 Text(this.rx_rate.toFixed(1))
                   .fontSize(20)
-                Text(this.tx_unit)
+                Text(this.rx_unit)
                   .fontSize(10)
                   .fontColor($r("sys.color.font_secondary"))
               }

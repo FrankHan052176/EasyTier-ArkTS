@@ -38,26 +38,18 @@ export struct EditPage {
     EventHelper.emitterListener("edit_close_sheet", () => {
       this.sheet = false
     })
-    harmonyShare.on('knockShare', (target) => {
-      this.immersiveCallback(target)
-    });
+    harmonyShare.on('knockShare', this.immersiveCallback);
     if (deviceInfo.sdkApiVersion >= 20) {
-      harmonyShare.on('gesturesShare', (target) => {
-        this.immersiveCallback(target)
-      });
+      harmonyShare.on('gesturesShare', this.immersiveCallback);
     }
   }
 
   aboutToDisappear(): void {
     EventHelper.emitterOff("edit_open_sheet")
     EventHelper.emitterOff("edit_close_sheet")
-    harmonyShare.off('knockShare', (target) => {
-      this.immersiveCallback(target)
-    });
+    harmonyShare.off('knockShare', this.immersiveCallback);
     if (deviceInfo.sdkApiVersion >= 20) {
-      harmonyShare.off('gesturesShare', (target) => {
-        this.immersiveCallback(target)
-      });
+      harmonyShare.off('gesturesShare', this.immersiveCallback);
     }
     AppManager.uiState.editingInstance = undefined
   }

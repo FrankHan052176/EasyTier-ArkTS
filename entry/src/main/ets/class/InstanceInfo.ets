@@ -83,10 +83,10 @@ export class InstanceInfo {
   @Trace peers: PeerInfoDataSource = new PeerInfoDataSource()
   @Trace private download_rate: number = 0
   @Trace private download_arr: CircleArray<number> = new CircleArray(10)
-  @Trace private last_download: number = 0
+  @Trace private last_download: number = -1
   @Trace private upload_rate: number = 0
   @Trace private upload_arr: CircleArray<number> = new CircleArray(10)
-  @Trace private last_upload: number = 0
+  @Trace private last_upload: number = -1
   @Trace udp_nat: NatType = NatType.Unknown
   @Trace tcp_nat: NatType = NatType.Unknown
   @Trace ip: string = "waiting"
@@ -130,12 +130,24 @@ export class InstanceInfo {
         }
       }
     }
-    this.download_arr.push(sum[0] - this.last_download)
-    this.last_download = sum[0]
-    this.download_rate = this.download_arr.sum
-    this.upload_arr.push(sum[1] - this.last_upload)
-    this.last_upload = sum[1]
-    this.upload_rate = this.upload_arr.sum
+    if (this.last_download < 0) {
+      this.last_download = sum[0]
+    } else {
+      const deltaDownload = Math.max(0, sum[0] - this.last_download)
+      this.download_arr.push(deltaDownload)
+      this.download_rate = this.download_arr.sum
+      this.last_download = sum[0]
+    }
+
+    if (this.last_upload < 0) {
+      this.last_upload = sum[1]
+    } else {
+      const deltaUpload = Math.max(0, sum[1] - this.last_upload)
+      this.upload_arr.push(deltaUpload)
+      this.upload_rate = this.upload_arr.sum
+      this.last_upload = sum[1]
+    }
+
     if (info.my_node_info?.virtual_ipv4?.address) {
       let convertedIp = convertAddrToIp(info.my_node_info?.virtual_ipv4?.address.addr)
       if (this.ip !== convertedIp) {
