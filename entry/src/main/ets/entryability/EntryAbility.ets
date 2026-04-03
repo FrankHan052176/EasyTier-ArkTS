@@ -6,8 +6,8 @@ import { EventHelper } from '../util/EventHelper';
 import { Logger, LogLocate } from '../util/Logger';
 import { BusinessError, deviceInfo, emitter } from '@kit.BasicServicesKit';
 import easytier from 'easytier-ohrs';
+import easytier_release from 'easytier-release';
 import { vpnExtension } from '@kit.NetworkKit';
-import { stringArr2RouteArr } from '../util/Conversion';
 import { JSON, url } from '@kit.ArkTS';
 import entry from 'libentry.so';
 import { BUILD_TIME } from '../util/info/BuildTime';
@@ -64,7 +64,7 @@ export default class EntryAbility extends UIAbility {
       wantAgent.getWantAgent(wantAgentInfo).then((wantAgentObj: WantAgent) => {
         try {
           backgroundTaskManager.startBackgroundRunning(this.context, ["location"], wantAgentObj).then(() => {
-            if (easytier.runNetworkInstance(cfg)) {
+            if (AppManager.preference.inittedGitCore?easytier.runNetworkInstance(cfg):easytier_release.runNetworkInstance(cfg)) {
               setTimeout(() => {
                 updateFavorite()
                 publishTextNotification(name ?? "N/A")
@@ -129,11 +129,6 @@ export default class EntryAbility extends UIAbility {
     HMRouterMgr.init({
       context: this.context
     })
-    if (deviceInfo.productModel !== "emulator") {
-      entry.hilogInit()
-      easytier.hilogGlobalOptions(0, "fhl")
-      easytier.initPanicHook()
-    }
     Logger.info("BuildTime:" + BUILD_TIME, this)
     this.start_bg_Listener()
     this.stop_bg_Listener()
@@ -141,15 +136,22 @@ export default class EntryAbility extends UIAbility {
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
     this.initApp().then(() => {
       this.readSharedData(want)
+      if (deviceInfo.productModel !== "emulator") {
+        entry.hilogInit()
+        easytier.hilogGlobalOptions(0, "fhl")
+        easytier_release.hilogGlobalOptions(0, "fhl")
+      }
+      if (AppManager.preference.inittedGitCore) {
+        easytier.initPanicHook()
+      }else {
+        easytier_release.initPanicHook()
+      }
     })
   }
 
   async initApp() {
     AppManager.uiState.init()
     ContentUtil.initConfigFields()
-    if (deviceInfo.productModel !== "emulator") {
-      AppManager.easytier.init()
-    }
     try {
       await AppManager.preference.init(this.context)
     } catch (error) {
@@ -169,6 +171,9 @@ export default class EntryAbility extends UIAbility {
       }
     }
     await AppManager.data.init()
+    if (deviceInfo.productModel !== "emulator") {
+      AppManager.easytier.init()
+    }
   }
 
   onNewWant(want: Want) {
@@ -350,7 +355,11 @@ export default class EntryAbility extends UIAbility {
     }
     Logger.debug("VPN配置:" + JSON.stringify(vpnConfig), this)
     this.vpnConnection.create(vpnConfig).then((fd) => {
-      easytier.setTunFd(inst_id, fd)
+      if (AppManager.preference.inittedGitCore) {
+        easytier.setTunFd(inst_id, fd)
+      }else {
+        easytier_release.setTunFd(inst_id, fd)
+      }
     }).catch((error: BusinessError) => {
       Logger.error(`vpnConnection create failed: ${error.code}, ${error.message}`, this)
     })

@@ -1,5 +1,5 @@
 import entry from 'libentry.so'
-import { MyNodeInfo, NetworkInstanceRunningInfo } from './protobuf/api_manage'
+import { NetworkInstanceRunningInfo } from './protobuf/api_manage'
 import easytier, { KeyValuePair } from 'easytier-ohrs'
 import { EventHelper } from './util/EventHelper'
 import { AppManager } from './AppManager'
@@ -16,12 +16,12 @@ import { LogDataSource } from './class/data_source/LogDataSource'
 import { updateFavorite } from './CommunicationUtil'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { updateTextNotification } from './util/NoticeHelper'
-import { NatType } from './protobuf/common'
+import easytier_release from 'easytier-release'
 
 @Concurrent
-async function readInfoWorker(): Promise<void> {
+async function readInfoWorker(git_core: boolean): Promise<void> {
   setInterval(() => {
-    let infos = easytier.collectNetworkInfos()
+    let infos = git_core?easytier.collectNetworkInfos():easytier_release.collectNetworkInfos()
     EventHelper.emitterPublish("worker_readInfo", {
       data: {
         infos: infos
@@ -70,7 +70,7 @@ export class EasyTierUtil {
         this.processLogs(event.data.appLogs, event.data.nmLogs, event.data.ohLogs)
       }
     })
-    this.task1 = new taskpool.LongTask(readInfoWorker)
+    this.task1 = new taskpool.LongTask(readInfoWorker, AppManager.preference.inittedGitCore)
     this.task2 = new taskpool.LongTask(readLogsWorker)
     taskpool.execute(this.task1)
     taskpool.execute(this.task2)
@@ -82,7 +82,11 @@ export class EasyTierUtil {
   }
 
   version() {
-    return easytier.easytierVersion()
+    if (AppManager.preference.inittedGitCore) {
+      return easytier.easytierVersion()
+    }else {
+      return easytier_release.easytierVersion()
+    }
   }
 
   convertToml2NetworkConfig(toml: string): string {
@@ -193,7 +197,8 @@ export class EasyTierUtil {
     if (uuid) {
       let config = AppManager.data.configUUIDMap.get(uuid)
       if (config) {
-        if (easytier.parseNetworkConfig(JSON.stringify(config))) {
+        Logger.debug("start config: "+ JSON.stringify(config, undefined, 2), this)
+        if (AppManager.preference.inittedGitCore?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
           if (!config.no_tun) {
             this.needTUN = uuid
           }
@@ -220,7 +225,11 @@ export class EasyTierUtil {
 
   public stop() {
     EventHelper.emitterPublish("stop_bg")
-    easytier.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
+    if (AppManager.preference.inittedGitCore) {
+      easytier.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
+    }else {
+      easytier_release.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
+    }
     setTimeout(() => {
       updateFavorite()
     }, 100)

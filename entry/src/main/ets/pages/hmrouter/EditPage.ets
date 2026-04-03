@@ -2,7 +2,8 @@ import { ConfigField, ContentUtil } from '../../ContentUtil'
 import { FieldEdit } from '../../components/edit/FieldEdit'
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute } from '@kit.UIDesignKit'
+import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute,
+  hdsMaterial } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { HdsMenuButton, MenuButton } from '../Components'
@@ -169,7 +170,7 @@ export struct EditPage {
           style: {
             scrollEffectOpts: {
               enableScrollEffect: true,
-              scrollEffectType: ScrollEffectType.GRADUAL_BLUR,
+              scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
               blurEffectiveStartOffset: LengthMetrics.vp(0),
               blurEffectiveEndOffset: LengthMetrics.vp(20),
             },
@@ -188,7 +189,11 @@ export struct EditPage {
                   iconColor: $r("sys.color.font_primary")
                 }
               }
-            }
+            },
+            systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
+              materialType: hdsMaterial.MaterialType.ADAPTIVE,
+              materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+            }: undefined
           },
           content: {
             title: {

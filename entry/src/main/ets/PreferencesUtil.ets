@@ -1,6 +1,7 @@
 import { preferences, sendablePreferences, ValueType } from '@kit.ArkData';
 import { Context } from '@kit.AbilityKit';
 import easytier from 'easytier-ohrs';
+import easytier_release from 'easytier-release';
 import { AppManager } from './AppManager';
 import { NetworkConfig, PortForwardConfig } from './protobuf/api_manage';
 import { Logger, LogLocate } from './util/Logger';
@@ -11,6 +12,7 @@ import { AppInfo } from './components/sheet/BlackList';
 import { BusinessError, deviceInfo } from '@kit.BasicServicesKit';
 import { connection } from '@kit.NetworkKit';
 import { stringArr2RouteArr } from './util/Conversion';
+import { release } from './util/info/ArtifactsType';
 
 const defaultSequence = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
 
@@ -63,7 +65,9 @@ export class PreferenceUtil {
   @Trace holding_detector: boolean = false
   @Trace help2: boolean = false
   @Trace white_list: boolean = false
+  @Trace git_core: boolean = true
   inittedLog: boolean = false
+  inittedGitCore: boolean = false
   public isInit: boolean = false
   context: Context | undefined = undefined
   private initialized: boolean = false
@@ -141,6 +145,9 @@ export class PreferenceUtil {
       this.dns = this.preferences.getSync("dns", false).valueOf() as string
       this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
       this.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean
+      this.git_core = this.preferences.getSync("git_core", !release).valueOf() as boolean
+      this.inittedGitCore = release?this.git_core:true
+      Logger.debug("AppManager.preference.inittedGitCore:"+AppManager.preference.inittedGitCore, this)
       this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
       this.help2 = this.preferences.getSync("help2", true).valueOf() as boolean
     } catch (e) {
@@ -148,7 +155,11 @@ export class PreferenceUtil {
     }
     if (this.show_log) {
       this.inittedLog = true
-      easytier.initTracingSubscriber()
+      if (this.inittedGitCore) {
+        easytier.initTracingSubscriber()
+      }else {
+        easytier_release.initTracingSubscriber()
+      }
     }
     setTimeout(() => {
       this.isInit = false
@@ -170,7 +181,7 @@ export class PreferenceUtil {
     }
   }
 
-  @Monitor("show_log", "vpn_routes", "dev", "noOldData", "force_global", "white_list", "dns", "holding_detector", "help2")
+  @Monitor("show_log", "vpn_routes", "dev", "noOldData", "force_global", "white_list", "dns", "holding_detector", "help2", "git_core")
   onChange(monitor: IMonitor) {
     if (this.isInit) {
       return

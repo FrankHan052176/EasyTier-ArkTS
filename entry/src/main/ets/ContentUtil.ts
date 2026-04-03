@@ -107,6 +107,7 @@ export class ContentUtil {
   public static getDefaultConfig(hostname: string): NetworkConfig {
     let cfg = NetworkConfig.fromJSON(deviceInfo.productModel !== "emulator" ? easytier.defaultNetworkConfig() : "{}")
     cfg.networking_method = 1
+    cfg.public_server_url = ""
     cfg.enable_relay_network_whitelist = true
     cfg.enable_manual_routes = true
     cfg.dhcp = true

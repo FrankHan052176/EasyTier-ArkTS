@@ -353,7 +353,7 @@ export struct HomePage {
           content: {
             title: {
               mainTitle: "EasyTier",
-              subTitle: "v2.5.0"
+              subTitle: "v"+AppManager.easytier.version().split("-")[0]
             },
             menu: {
               value: [
@@ -386,7 +386,7 @@ export struct HomePage {
         .titleMode(NavigationTitleMode.Free)
         .title({
           main: "EasyTier",
-          sub: "v2.5.0"
+          sub: "v"+AppManager.easytier.version().split("-")[0]
         }, {
           backgroundColor: $r('sys.color.background_secondary')
         })
