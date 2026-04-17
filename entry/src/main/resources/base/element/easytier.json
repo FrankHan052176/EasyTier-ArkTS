@@ -418,7 +418,7 @@
     },
     {
       "name": "disable_p2p_help",
-      "value": "Disable P2P mode; route all traffic through a manually specified relay server."
+      "value": "Disable ordinary automatic P2P. Nodes with need-p2p enabled can still establish P2P with this node."
     },
     {
       "name": "p2p_only",

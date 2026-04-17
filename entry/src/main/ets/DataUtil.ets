@@ -157,7 +157,7 @@ export class DataUtil {
     AppManager.preference.addConfig(config.instance_id, name, config)
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
     AppManager.uiState.editingInstance = config.instance_id
-    HMRouterMgr.push({ pageUrl: 'EditPage', param: config.instance_id, animator: animator });
+    HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid:config.instance_id, unsafe: false}, animator: animator });
     return config
   }
 
@@ -246,7 +246,7 @@ export class DataUtil {
     AppManager.preference.addConfig(config.instance_id!, name ?? config.instance_id!, config)
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
     AppManager.uiState.editingInstance = config.instance_id
-    HMRouterMgr.push({ pageUrl: 'EditPage', param: config.instance_id, animator: animator });
+    HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid:config.instance_id, unsafe: false}, animator: animator });
     return true
   }
 

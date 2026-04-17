@@ -7,6 +7,7 @@ import { deviceInfo } from '@kit.BasicServicesKit';
 const ignoreField: Set<string> = new Set([
   "networking_method", "public_server_url", "advanced_settings", "dev_name",
   "mtu", "quic_listen_port", "bind_device", "enable_relay_network_whitelist", "enable_manual_routes", "instance_id", "credential_file"])
+const vaultFields: Set<string> = new Set(["identity"])
 type fieldType = string | ConfigField[]
 
 export class ConfigField {
@@ -102,6 +103,10 @@ export class ContentUtil {
 
   public static safeFieldName(value: string): string {
     return value
+  }
+
+  public static isVaultField(value: string): boolean {
+    return vaultFields.has(value)
   }
 
   public static getDefaultConfig(hostname: string): NetworkConfig {

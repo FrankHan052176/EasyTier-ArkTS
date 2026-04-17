@@ -14,11 +14,13 @@ import { harmonyShare, systemShare } from '@kit.ShareKit'
 import { Logger } from '../../util/Logger'
 import { common } from '@kit.AbilityKit'
 import { buildShareData } from '../../util/ShareUtil'
+import { EditPageParam } from '../../class/PageParam'
 
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
 export struct EditPage {
   @Local uuid: string | null = null;
+  @Provider("unsafe_status") unsafe: boolean = false
   @Local sheet: boolean = false
   @Local sheet_type: string = ""
 
@@ -31,7 +33,9 @@ export struct EditPage {
   }
 
   aboutToAppear(): void {
-    this.uuid = HMRouterMgr.getCurrentParam() as string;
+    let param = HMRouterMgr.getCurrentParam() as EditPageParam;
+    this.uuid = param.uuid
+    this.unsafe = param.unsafe
     EventHelper.emitterListener("edit_open_sheet", (data) => {
       this.sheet_type = data.data!.type as string
       this.sheet = true

@@ -25,6 +25,15 @@ export struct FieldEdit {
     Array.isArray(this.field.type) && this.field.type[0].type === "boolean" && this.field.name !== "flags_switch"
   @Local enableField: string = this.hasEnableButton ? (this.field.type[0] as ConfigField).name : ""
   @Provider("field_edit_enable") enable: boolean = true
+  @Local maskOpacity: number = 1;
+  @Local blurRadius: number = 40;
+  @Consumer("unsafe_status") unsafe: boolean = false
+  @Local unlock: boolean = false
+
+  @Computed
+  get safe_show() {
+    return !this.unsafe || this.unlock || !ContentUtil.isVaultField(this.getFieldName())
+  }
 
   @Computed
   get config() {
@@ -166,15 +175,14 @@ export struct FieldEdit {
               }
             }
             .width('100%')
-            .padding({ left: this.Padding, right: this.Padding })
+            .padding({ left: this.Padding, right: this.Padding, top: (this.isUseDivider && index > 0)?6:0, bottom: (this.isUseDivider && index < this.getFields().length - 1)?6:0 })
           }
           if (this.isUseDivider) {
             if (index < this.getFields().length - 1) {
               Divider()
                 .color($r("sys.color.background_secondary"))
                 .width('100%')
-                .strokeWidth(1)
-                .padding({ top: 6, bottom: 6 })
+                .strokeWidth(3)
             }
           }
         }, (item: ConfigField) => {

@@ -418,7 +418,7 @@
     },
     {
       "name": "disable_p2p_help",
-      "value": "禁用 P2P 模式，所有流量通过手动指定的服务器中转。"
+      "value": "禁用普通自动 P2P。开启 need-p2p 的节点仍可与当前节点建立 P2P。"
     },
     {
       "name": "p2p_only",
