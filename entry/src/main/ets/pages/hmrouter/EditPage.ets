@@ -265,8 +265,23 @@ export struct EditPage {
             AppManager.data.isFavorite(this.uuid!) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"), () => {
               AppManager.data.changeFavorite(this.uuid!)
             }),
-          MenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), () => {
-            // TODO 分享
+          MenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"), async () => {
+            let config = AppManager.easytier.getEditingConfig()
+            if (config) {
+              buildShareData(config, (data) => {
+                let controller: systemShare.ShareController = new systemShare.ShareController(data);
+                let uiContext: UIContext = this.getUIContext();
+                let context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
+                controller.show(context, {
+                  selectionMode: systemShare.SelectionMode.SINGLE,
+                  previewMode: systemShare.SharePreviewMode.DEFAULT,
+                  excludedAbilities: [systemShare.ShareAbilityType.PRINT,
+                    systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
+                }).catch(() => {
+                  Logger.error(`[Index] systemShareConfig::An unexpected error occurred.`);
+                })
+              }, this.name, this.uuid)
+            }
           }),
           MenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), () => {
             HMRouterMgr.pop()

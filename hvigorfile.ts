@@ -1,4 +1,4 @@
-import { appTasks } from '@ohos/hvigor-ohos-plugin';
+import { AppJson, appTasks } from '@ohos/hvigor-ohos-plugin';
 import { appPlugin } from "@hadss/hmrouter-plugin";
 import { hvigor, getNode, HvigorNode, HvigorPlugin } from '@ohos/hvigor';
 import { appTasks, OhosHapContext, OhosAppContext, OhosPluginId, Target } from '@ohos/hvigor-ohos-plugin';
@@ -236,7 +236,8 @@ rootNode.afterNodeEvaluate(node => {
     }
     appContext.setBuildProfileOpt(buildProfileOpt);
     const ohpmInfo = appContext.getOhpmDependencyInfo();
-    const coreVersion = ohpmInfo["easytier-ohrs"].version
+    const core = ohpmInfo["easytier-ohrs"]
+    const coreVersion = core != undefined?core.version:"2.4.5-0";
     const buildNumber = loadBUILDNUMBER()
     const appJson5: AppJson.AppOptObj = appContext.getAppJsonOpt();
     const version = (""+coreVersion).split("-")[0].replace(".","").replace(".","")

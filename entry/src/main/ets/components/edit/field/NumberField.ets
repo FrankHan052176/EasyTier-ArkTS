@@ -18,7 +18,7 @@ function fieldTextInput() {
 export struct NumberField {
   @Param @Require field: string;
   @Consumer("field_edit_enable") enable: boolean = true
-  @Local value: string = "" + (this.config![this.field] || 0);
+  @Local value: string = "" + (this.config![this.field] ?? "");
   @Local intensity: number = 0;
   controller: TextInputController = new TextInputController()
   @Local offsetX: number = 0;
@@ -52,10 +52,16 @@ export struct NumberField {
         TextInput({ text: this.value!!, controller: this.controller })
           .fieldTextInput()
           .onChange((value) => {
-            let num = Number.parseInt(value)
-            this.config![this.field] = Number.isNaN(num) ? 0 : num
-            this.preference?.putSync(this.field, this.config![this.field])
-            this.preference?.flushSync()
+            if (value.length == 0) {
+              this.config![this.field] = undefined
+              this.preference?.deleteSync(this.field)
+              this.preference?.flushSync()
+            }else {
+              let num = Number.parseInt(value)
+              this.config![this.field] = Number.isNaN(num) ? 0 : num
+              this.preference?.putSync(this.field, this.config![this.field])
+              this.preference?.flushSync()
+            }
           })
           .fontColor(this.fontColor)
           .onEditChange((isEdit) => {

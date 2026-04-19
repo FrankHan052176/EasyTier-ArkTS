@@ -176,6 +176,10 @@ export struct UI_Content {
 
         Blank()
         Toggle({ type: ToggleType.Switch, isOn: this.isPosture })
+          .selectedColor($r('sys.color.brand'))
+          .switchPointColor($r('sys.color.comp_background_list_card'))
+          .height(29)
+          .width(52)
           .onChange((isOn) => {
             this.isPosture = isOn
             AppManager.preference.holding_detector = isOn
@@ -191,11 +195,44 @@ export struct UI_Content {
         top: 12,
         bottom: 12
       })
-
       Divider()
         .strokeWidth(1)
         .opacity(0.1)
-        .color(Color.Black)
+        .color($r('sys.color.font_secondary'))
+        .padding({ left: 16, right: 16 })
+      Row() {
+        Column() {
+          Text('隐私模式')
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+          Text('编辑配置时将遮罩部分隐私信息')
+            .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+            .margin({ top: 4 })
+        }
+        .alignItems(HorizontalAlign.Start)
+
+        Blank()
+        Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.vault_mode })
+          .selectedColor($r('sys.color.brand'))
+          .switchPointColor($r('sys.color.comp_background_list_card'))
+          .height(29)
+          .width(52)
+          .onChange((isOn) => {
+            AppManager.preference.vault_mode = isOn
+          })
+      }
+      .width('100%')
+      .padding({
+        left: 16,
+        right: 16,
+        top: 12,
+        bottom: 12
+      })
+      Divider()
+        .strokeWidth(1)
+        .opacity(0.1)
+        .color($r('sys.color.font_secondary'))
         .padding({ left: 16, right: 16 })
       Text('组件管理')
         .fontSize(14)
@@ -216,6 +253,10 @@ export struct UI_Content {
                   .fontWeight(FontWeight.Regular)
                 Blank()
                 Toggle({ type: ToggleType.Switch, isOn: this.layout!.comp_sequence.includes(type) })
+                  .selectedColor($r('sys.color.brand'))
+                  .switchPointColor($r('sys.color.comp_background_list_card'))
+                  .height(29)
+                  .width(52)
                   .onChange((isOn) => {
                     if (isOn) {
                       this.layout!.addComponent(type)

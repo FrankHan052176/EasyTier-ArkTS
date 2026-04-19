@@ -20,7 +20,7 @@
         "name": "publish",
         "signingConfig": "publish",
         "targetSdkVersion": "6.0.2(22)",
-        "compatibleSdkVersion": "5.0.5(17)",
+        "compatibleSdkVersion": "6.0.0(20)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
           "nativeCompiler": "BiSheng",

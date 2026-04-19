@@ -1129,6 +1129,10 @@
       "value": "Refresh"
     },
     {
+      "name": "web_common_add",
+      "value": "Add"
+    },
+    {
       "name": "web_common_loading",
       "value": "Loading..."
     },
@@ -1347,6 +1351,158 @@
     {
       "name": "client_retry",
       "value": "Retry"
+    },
+    {
+      "name": "acl_title",
+      "value": "Access Control (ACL)"
+    },
+    {
+      "name": "acl_help",
+      "value": "Access control list to restrict communication between nodes."
+    },
+    {
+      "name": "acl_enabled",
+      "value": "Enable ACL"
+    },
+    {
+      "name": "acl_default_action",
+      "value": "Default Action"
+    },
+    {
+      "name": "acl_chains",
+      "value": "Rule Chains"
+    },
+    {
+      "name": "acl_inbound",
+      "value": "Inbound"
+    },
+    {
+      "name": "acl_outbound",
+      "value": "Outbound"
+    },
+    {
+      "name": "acl_forward",
+      "value": "Forward"
+    },
+    {
+      "name": "acl_rules",
+      "value": "Rules"
+    },
+    {
+      "name": "acl_add_rule",
+      "value": "Add Rule"
+    },
+    {
+      "name": "acl_edit_rule",
+      "value": "Edit Rule"
+    },
+    {
+      "name": "acl_rule_name",
+      "value": "Rule Name"
+    },
+    {
+      "name": "acl_rule_description",
+      "value": "Description"
+    },
+    {
+      "name": "acl_rule_enabled",
+      "value": "Enabled"
+    },
+    {
+      "name": "acl_rule_protocol",
+      "value": "Protocol"
+    },
+    {
+      "name": "acl_rule_action",
+      "value": "Action"
+    },
+    {
+      "name": "acl_rule_src_ips",
+      "value": "Source IPs"
+    },
+    {
+      "name": "acl_rule_dst_ips",
+      "value": "Destination IPs"
+    },
+    {
+      "name": "acl_rule_src_ports",
+      "value": "Source Ports"
+    },
+    {
+      "name": "acl_rule_dst_ports",
+      "value": "Destination Ports"
+    },
+    {
+      "name": "acl_rule_rate_limit",
+      "value": "Rate Limit (pps)"
+    },
+    {
+      "name": "acl_rule_burst_limit",
+      "value": "Burst Limit"
+    },
+    {
+      "name": "acl_rule_stateful",
+      "value": "Stateful"
+    },
+    {
+      "name": "acl_rule_src_groups",
+      "value": "Source Groups"
+    },
+    {
+      "name": "acl_rule_dst_groups",
+      "value": "Destination Groups"
+    },
+    {
+      "name": "acl_groups",
+      "value": "Groups"
+    },
+    {
+      "name": "acl_group_declares",
+      "value": "Declared Groups"
+    },
+    {
+      "name": "acl_group_members",
+      "value": "Node Memberships"
+    },
+    {
+      "name": "acl_group_name",
+      "value": "Group Name"
+    },
+    {
+      "name": "acl_group_secret",
+      "value": "Group Secret"
+    },
+    {
+      "name": "acl_group_help",
+      "value": "Define group identities in the network to use them in rules."
+    },
+    {
+      "name": "acl_any",
+      "value": "Any"
+    },
+    {
+      "name": "acl_allow",
+      "value": "Allow"
+    },
+    {
+      "name": "acl_drop",
+      "value": "Drop"
+    },
+    {
+      "name": "acl_delete_chain_confirm",
+      "value": "Are you sure you want to delete this rule chain and all its rules?"
+    },
+    {
+      "name": "acl_chain_name",
+      "value": "Name"
+    },
+    {
+      "name": "acl_chain_type",
+      "value": "Type"
+    },
+    {
+      "name": "acl_match",
+      "value": "Match"
     }
   ]
 }

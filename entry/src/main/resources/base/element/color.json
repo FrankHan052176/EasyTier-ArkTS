@@ -103,6 +103,10 @@
     {
       "name": "bg_light_yellow",
       "value": "#faf1dc"
+    },
+    {
+      "name": "vault_cover",
+      "value": "#08ffffff"
     }
   ]
 }

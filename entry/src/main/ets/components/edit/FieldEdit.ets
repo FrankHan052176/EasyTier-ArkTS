@@ -11,6 +11,9 @@ import { addFieldValue } from '../../class/config/Basic'
 import { AppManager } from '../../AppManager'
 import { NumberField } from './field/NumberField'
 import { SecureModeConfigField } from './field/SecureModeConfig'
+import { userAuth } from '@kit.UserAuthenticationKit'
+import { BusinessError } from '@kit.BasicServicesKit'
+import { hdsEffect } from '@kit.UIDesignKit'
 
 export function getFieldI18Name(field: string): ResourceStr {
   return $r("app.string." + (ContentUtil.renamedField[field] || field))
@@ -21,6 +24,7 @@ export struct FieldEdit {
   @Param layer: number = 0
   @Param @Require field: ConfigField
   @Provider() field_width: number = 0
+  @Local content_height: number = 0
   @Local hasEnableButton: boolean =
     Array.isArray(this.field.type) && this.field.type[0].type === "boolean" && this.field.name !== "flags_switch"
   @Local enableField: string = this.hasEnableButton ? (this.field.type[0] as ConfigField).name : ""
@@ -28,11 +32,11 @@ export struct FieldEdit {
   @Local maskOpacity: number = 1;
   @Local blurRadius: number = 40;
   @Consumer("unsafe_status") unsafe: boolean = false
-  @Local unlock: boolean = false
+  @Provider("lock_status") unlock: boolean = !ContentUtil.isVaultField(this.getFieldName())
 
   @Computed
   get safe_show() {
-    return !this.unsafe || this.unlock || !ContentUtil.isVaultField(this.getFieldName())
+    return !this.unsafe || this.unlock || !AppManager.preference.vault_mode
   }
 
   @Computed
@@ -167,15 +171,20 @@ export struct FieldEdit {
                 FieldEdit({ field: field, layer: this.layer + 1 })
               } else if (field.type === "number") {
                 NumberField({ field: field.name })
-              }  else if (field.type === "common.SecureModeConfig") {
+              } else if (field.type === "common.SecureModeConfig") {
                 SecureModeConfigField({ field: field.name })
               } else {
-                Text(field.name + " 功能暂未适配" )
+                Text(field.name + " 功能暂未适配")
                   .width('100%')
               }
             }
             .width('100%')
-            .padding({ left: this.Padding, right: this.Padding, top: (this.isUseDivider && index > 0)?6:0, bottom: (this.isUseDivider && index < this.getFields().length - 1)?6:0 })
+            .padding({
+              left: this.Padding,
+              right: this.Padding,
+              top: (this.isUseDivider && index > 0) ? 6 : 0,
+              bottom: (this.isUseDivider && index < this.getFields().length - 1) ? 6 : 0
+            })
           }
           if (this.isUseDivider) {
             if (index < this.getFields().length - 1) {
@@ -196,6 +205,37 @@ export struct FieldEdit {
     }
   }
 
+  private requestUnlock() {
+    const authParam: userAuth.AuthParam = {
+      challenge: new Uint8Array([49, 50, 51, 52, 53, 54]),
+      authType: [userAuth.UserAuthType.FACE, userAuth.UserAuthType.FINGERPRINT, userAuth.UserAuthType.PIN],
+      authTrustLevel: userAuth.AuthTrustLevel.ATL1,
+    };
+    const widgetParam: userAuth.WidgetParam = {
+      title: '请输入密码或生物识别以解锁',
+    };
+    try {
+      const userAuthInstance = userAuth.getUserAuthInstance(authParam, widgetParam);
+      userAuthInstance.on('result', {
+        onResult: (result) => {
+          if (result.result === userAuth.UserAuthResultCode.SUCCESS) {
+            animateTo({
+              duration: 500, curve: Curve.EaseOut, onFinish: () => {
+                this.unlock = true;
+              }
+            }, () => {
+              this.maskOpacity = 0;
+              this.blurRadius = 0;
+            })
+          }
+        }
+      });
+      userAuthInstance.start();
+    } catch (error) {
+      console.error(`auth catch error: ${(error as BusinessError).code} ${(error as BusinessError).message}`);
+    }
+  }
+
   build() {
     Column() {
       if (this.layer === 0) {
@@ -204,13 +244,54 @@ export struct FieldEdit {
         }
         .padding({ left: 5, bottom: 10, right: 5 })
       }
-      Column({ space: 8 }) {
-        if (this.layer > 0) {
-          this.title()
+
+      // 使用 Stack 仅包裹背景卡片区域
+      Stack() {
+        Column({ space: 8 }) {
+          if (this.layer > 0) {
+            this.title()
+          }
+          this.content()
         }
-        this.content()
+        .backgroundColumn()
+        .blur(this.safe_show ? 0 : this.blurRadius)
+        .onAreaChange((a, b) => {
+          this.content_height = b.height.valueOf() as number
+        })
+
+        // 只有在未解锁或动画进行中时显示遮罩
+        if (!this.safe_show) {
+          Stack({ alignContent: Alignment.Center }) {
+            this.maskBuilder()
+          }
+          .width('100%')
+          .height(1)
+          .clip(false)
+        }
       }
-      .backgroundColumn()
+      .width('100%')
+      .clip(false)
     }
+  }
+
+  @Builder
+  maskBuilder() {
+    Column() {
+      SymbolGlyph($r('sys.symbol.lock_fill'))
+        .fontSize(28)
+        .fontColor([$r('sys.color.font_tertiary')])
+    }
+    .width(this.field_width + 32)
+    .height(this.content_height + 32)
+    .borderRadius({topLeft: 0, topRight: 0, bottomLeft: 18, bottomRight: 18})
+    .backgroundColor($r("app.color.vault_cover"))
+    .backgroundBlurStyle(BlurStyle.Thick,
+      { colorMode: ThemeColorMode.SYSTEM, adaptiveColor: AdaptiveColor.DEFAULT, scale: 1.0 })
+    .justifyContent(FlexAlign.Center)
+    .opacity(this.maskOpacity)
+    .onClick(() => {
+      this.requestUnlock()
+    })
+    .hitTestBehavior(HitTestMode.Block)
   }
 }

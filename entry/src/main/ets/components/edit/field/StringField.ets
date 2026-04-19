@@ -6,14 +6,14 @@ import { getHostname } from '../../../util/Conversion';
 
 @Extend(TextInput)
 function fieldTextInput(onChange: EditableTextOnChangeCallback, inputType: InputType, enterKeyType: EnterKeyType,
-  id: string, submit: OnSubmitCallback) {
+  id: string, submit: OnSubmitCallback, unsafe: boolean, unlock: boolean) {
   .padding(0)
   .borderRadius(0)
   .onChange(onChange)
   .backgroundColor(Color.Transparent)
   .width('100%')
   .type(inputType)
-  .enableAutoFill(false)
+  .enableAutoFill(!unsafe || unlock)
   .enterKeyType(enterKeyType)
   .id(id)
   .onSubmit(submit)
@@ -28,6 +28,8 @@ export struct StringField {
   controller: TextInputController = new TextInputController()
   @Local offsetX: number = 0;
   @Local isEdit: boolean = false;
+  @Consumer("unsafe_status") unsafe: boolean = false
+  @Consumer("lock_status") unlock: boolean = false
 
   @Computed
   get hasTopTitle() {
@@ -125,7 +127,7 @@ export struct StringField {
               if (this.field === "network_name") {
                 this.getUIContext().getFocusController().requestFocus("network_secret");
               }
-            })
+            }, this.unsafe, this.unlock)
             .fontColor(this.fontColor)
             .onEditChange((isEdit) => {
               this.isEdit = isEdit

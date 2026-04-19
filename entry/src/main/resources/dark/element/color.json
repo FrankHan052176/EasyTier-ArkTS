@@ -99,6 +99,10 @@
     {
       "name": "bg_light_yellow",
       "value": "#000000"
+    },
+    {
+      "name": "vault_cover",
+      "value": "#08000000"
     }
   ]
 }

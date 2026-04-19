@@ -17,6 +17,10 @@ import { updateFavorite } from './CommunicationUtil'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { updateTextNotification } from './util/NoticeHelper'
 import easytier_release from 'easytier-release'
+import { fileIo, fileUri } from '@kit.CoreFileKit'
+import { systemShare } from '@kit.ShareKit'
+import { common } from '@kit.AbilityKit'
+import { uniformTypeDescriptor } from '@kit.ArkData'
 
 @Concurrent
 async function readInfoWorker(git_core: boolean): Promise<void> {
@@ -275,10 +279,40 @@ export class EasyTierUtil {
       try {
         this.tunRoutes.add(new NetworkSegment(route))
       } catch (e) {
-        Logger.error("NetworkSegment constructor throw a error:[" + route + "] is invalid.", this)
+        Logger.error("[" + route + "] 是非法路由.", this)
         return false
       }
     }
     return result
+  }
+
+  public writeAndShareLogs() {
+    let filePath = AppManager.content.context!.filesDir + '/log.txt';
+    let file: fileIo.File | null = null;
+    try {
+      fileIo.unlinkSync(filePath)
+    }catch (_) {}
+    try {
+      file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
+      fileIo.writeSync(file.fd, this.appLogs.join2String());
+      fileIo.closeSync(file);
+
+      let shareData: systemShare.SharedData = new systemShare.SharedData({
+        utd: uniformTypeDescriptor.UniformDataType.FILE,
+        uri: fileUri.getUriFromPath(filePath),
+        title: '分享日志'
+      });
+      let controller: systemShare.ShareController = new systemShare.ShareController(shareData);
+      controller.show(AppManager.content.context! as common.UIAbilityContext, {
+        selectionMode: systemShare.SelectionMode.SINGLE,
+        previewMode: systemShare.SharePreviewMode.DEFAULT,
+        excludedAbilities: [systemShare.ShareAbilityType.PRINT,
+          systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
+      }).catch(() => {
+        Logger.error(`systemShareConfig::An unexpected error occurred.`, this);
+      })
+    } catch (err) {
+      Logger.error(`日志文件写入失败. Code: ${err.code}, message: ${err.message}`, this)
+    }
   }
 }

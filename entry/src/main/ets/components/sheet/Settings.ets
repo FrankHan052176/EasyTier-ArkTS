@@ -304,6 +304,38 @@ export function Setting_Sheet() {
       }
       .margin({ bottom: 10 })
 
+      if (AppManager.preference.inittedLog) ListItem() {
+        Row() {
+          Row() {
+            SymbolGlyph($r("sys.symbol.doc"))
+              .fontColor([$r("sys.color.font_primary")])
+              .fontSize(16)
+              .margin({ right: 5 })
+            Text("分享日志")
+              .fontColor($r("sys.color.font_primary"))
+              .fontSize(16)
+          }
+          Button('分享', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
+            .borderRadius(13)
+            .onClick(() => {
+              AppManager.easytier.writeAndShareLogs()
+            })
+        }
+        .height(49)
+        .borderRadius(18)
+        .alignItems(VerticalAlign.Center)
+        .justifyContent(FlexAlign.SpaceBetween)
+        .width('100%')
+        .backgroundColor($r("sys.color.background_secondary"))
+        .padding({
+          left: 10,
+          right: 5,
+          top: 5,
+          bottom: 5
+        })
+      }
+      .margin({ bottom: 10 })
+
       if (deviceInfo.sdkApiVersion < 20) {
         ListItem() {
           Row() {

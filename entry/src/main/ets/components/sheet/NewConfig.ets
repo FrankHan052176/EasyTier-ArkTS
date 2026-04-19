@@ -26,6 +26,7 @@ export struct NewConfig_Title {
         if (config_name !== undefined && config_name.length > 0) {
           AppManager.data.newConfig(config_name)
           EventHelper.emitterPublish("home_close_sheet")
+          config_name = undefined
         } else {
           EventHelper.emitterPublish("new_config_popup")
         }

@@ -5,6 +5,7 @@
 // source: api_manage.proto
 
 /* eslint-disable */
+import { Acl } from "./acl";
 import { PeerInfo, PeerRoutePair, Route } from "./api_instance";
 import {
   CompressionAlgoPb,
@@ -117,6 +118,7 @@ export interface NetworkConfig {
   encryption_algorithm?: string | undefined;
   disable_tcp_hole_punching?: boolean | undefined;
   secure_mode: SecureModeConfig | undefined;
+  acl?: Acl | undefined;
   credential_file?: string | undefined;
   lazy_p2p?: boolean | undefined;
   need_p2p?: boolean | undefined;
@@ -290,6 +292,7 @@ function createBaseNetworkConfig(): NetworkConfig {
     encryption_algorithm: undefined,
     disable_tcp_hole_punching: undefined,
     secure_mode: undefined,
+    acl: undefined,
     credential_file: undefined,
     lazy_p2p: undefined,
     need_p2p: undefined,
@@ -551,6 +554,7 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
         : isSet(object.secure_mode)
         ? SecureModeConfig.fromJSON(object.secure_mode)
         : undefined,
+      acl: isSet(object.acl) ? Acl.fromJSON(object.acl) : undefined,
       credential_file: isSet(object.credentialFile)
         ? globalThis.String(object.credentialFile)
         : isSet(object.credential_file)
@@ -735,6 +739,9 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     if (message.secure_mode !== undefined) {
       obj.secureMode = SecureModeConfig.toJSON(message.secure_mode);
     }
+    if (message.acl !== undefined) {
+      obj.acl = Acl.toJSON(message.acl);
+    }
     if (message.credential_file !== undefined) {
       obj.credentialFile = message.credential_file;
     }
@@ -810,6 +817,7 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     message.secure_mode = (object.secure_mode !== undefined && object.secure_mode !== null)
       ? SecureModeConfig.fromPartial(object.secure_mode)
       : undefined;
+    message.acl = (object.acl !== undefined && object.acl !== null) ? Acl.fromPartial(object.acl) : undefined;
     message.credential_file = object.credential_file ?? undefined;
     message.lazy_p2p = object.lazy_p2p ?? undefined;
     message.need_p2p = object.need_p2p ?? undefined;

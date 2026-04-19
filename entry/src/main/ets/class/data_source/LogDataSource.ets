@@ -81,4 +81,8 @@ export class LogDataSource implements IDataSource {
     this.logs.splice(index,1)
     this.notifyDataDelete(index)
   }
+
+  join2String() {
+    return this.logs.join("\n")
+  }
 }

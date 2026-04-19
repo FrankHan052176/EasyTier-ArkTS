@@ -28,6 +28,7 @@ import { rpc } from '@kit.IPCKit';
 import { unwrapUrl } from '../util/ShareUtil';
 import { updateFavorite } from '../CommunicationUtil';
 import { cancelNotification, publishTextNotification } from '../util/NoticeHelper';
+import { netHandover } from '@kit.NetworkBoostKit';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
@@ -174,6 +175,13 @@ export default class EntryAbility extends UIAbility {
     if (deviceInfo.productModel !== "emulator") {
       AppManager.easytier.init()
     }
+    netHandover.on('handoverChange', (info: netHandover.HandoverInfo) => {
+      if (info.handoverStart) {
+
+      }else if (info.handoverComplete) {
+
+      }
+    })
   }
 
   onNewWant(want: Want) {
