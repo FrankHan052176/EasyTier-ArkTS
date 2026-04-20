@@ -1,4 +1,4 @@
-import { AbilityConstant, Configuration, UIAbility, Want, WantAgent, wantAgent } from '@kit.AbilityKit';
+import { AbilityConstant, Configuration, UIAbility, Want, WantAgent, wantAgent, wantConstant } from '@kit.AbilityKit';
 import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
 import { geoLocationManager } from '@kit.LocationKit';
 import { window } from '@kit.ArkUI';
@@ -25,12 +25,11 @@ import { ContentUtil } from '../ContentUtil';
 import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 import { rpc } from '@kit.IPCKit';
-import { unwrapUrl } from '../util/ShareUtil';
+import { buildShareUrl, buildShareUrlSync, unwrapUrl } from '../util/ShareUtil';
 import { updateFavorite } from '../CommunicationUtil';
 import { cancelNotification, publishTextNotification } from '../util/NoticeHelper';
 import { netHandover } from '@kit.NetworkBoostKit';
 import { cleanEmpty } from '../MappedUtil';
-import { NetworkConfig } from '../protobuf/api_manage';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
@@ -68,6 +67,7 @@ export default class EntryAbility extends UIAbility {
         try {
           backgroundTaskManager.startBackgroundRunning(this.context, ["location"], wantAgentObj).then(() => {
             if (AppManager.preference.inittedGitCore?easytier.runNetworkInstance(cfg):easytier_release.runNetworkInstance(cfg)) {
+              this.context.setMissionContinueState(AbilityConstant.ContinueState.ACTIVE);
               setTimeout(() => {
                 updateFavorite()
                 publishTextNotification(name ?? "N/A")
@@ -99,6 +99,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   stopContinuousTask() {
+    this.context.setMissionContinueState(AbilityConstant.ContinueState.INACTIVE);
     if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
       return;
     }
@@ -127,6 +128,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
+    this.context.setMissionContinueState(AbilityConstant.ContinueState.INACTIVE);
     this.listenCardCall()
     HMRouterMgr.openLog("INFO")
     HMRouterMgr.init({
@@ -141,8 +143,8 @@ export default class EntryAbility extends UIAbility {
       this.readSharedData(want)
       if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
         if (want.parameters !== undefined) {
-          let url = want.parameters.data
-          // TODO: 不保存启动
+          let url = want.parameters.data as string
+          this.readUri(url)
         }
       }
       if (deviceInfo.productModel !== "emulator") {
@@ -198,8 +200,8 @@ export default class EntryAbility extends UIAbility {
     updateFavorite()
     if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
       if (want.parameters !== undefined) {
-        let url = want.parameters.data
-        // TODO: 不保存启动
+        let url = want.parameters.data as string
+        this.readUri(url)
       }
     }
   }
@@ -230,17 +232,21 @@ export default class EntryAbility extends UIAbility {
     })
   }
 
+  readUri(uri: string | undefined) {
+    Logger.info("get uri:" + uri, this)
+    try {
+      let urlObject = url.URL.parseURL(uri);
+      unwrapUrl(urlObject)
+    } catch (err) {
+      let error = err as BusinessError;
+      Logger.error(`readUri error, code: ${error.code}, mesage: ${error.message}`, this);
+    }
+  }
+
   async readSharedData(want: Want) {
     let uri = want.uri;
     if (uri && uri.length > 0) {
-      Logger.info("get uri:" + uri, this)
-      try {
-        let urlObject = url.URL.parseURL(uri);
-        unwrapUrl(urlObject)
-      } catch (err) {
-        let error = err as BusinessError;
-        Logger.error(`readSharedData error, code: ${error.code}, mesage: ${error.message}`, this);
-      }
+      this.readUri(uri)
     } else {
       systemShare.getSharedData(want)
         .then((data: systemShare.SharedData) => {
@@ -290,16 +296,19 @@ export default class EntryAbility extends UIAbility {
     this.callee.off("start_favorite")
   }
 
-  onContinue(wantParam: Record<string, Object>): AbilityConstant.OnContinueResult {
+  async onContinue(wantParam: Record<string, Object>): Promise<AbilityConstant.OnContinueResult> {
     if (AppManager.easytier.runningNetworks.size > 0) {
       let uuid = AppManager.easytier.runningNetworks.keys().next().value as string
       let cfg = AppManager.data.configUUIDMap.get(uuid)
+      Logger.debug("find "+JSON.stringify(cfg))
       if (cfg) {
-        wantParam['data'] = JSON.stringify(cleanEmpty(cfg))
+        wantParam['data'] = await buildShareUrlSync(cfg, true)
+        wantParam[wantConstant.Params.SUPPORT_CONTINUE_SOURCE_EXIT_KEY] = false;
+        AppManager.easytier.stop()
+        return AbilityConstant.OnContinueResult.AGREE;
       }else {
         return AbilityConstant.OnContinueResult.MISMATCH;
       }
-      return AbilityConstant.OnContinueResult.AGREE;
     }else {
       return AbilityConstant.OnContinueResult.MISMATCH;
     }

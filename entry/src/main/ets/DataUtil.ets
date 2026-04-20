@@ -21,6 +21,7 @@ import { HMRouterMgr } from '@hadss/hmrouter';
 export class DataUtil {
   @Trace globalDataMap: Map<string, FieldValueDataSource> = new Map
   @Trace configUUIDMap: Map<string, NetworkConfig> = new Map
+  @Trace tempConfigMap: Map<string, NetworkConfig> = new Map
 
   public isFavorite(uuid: string | undefined) {
     if (uuid) {

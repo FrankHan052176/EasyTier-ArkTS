@@ -6,6 +6,7 @@ import { uniformTypeDescriptor } from "@kit.ArkData";
 import { Logger } from "./Logger";
 import { url } from "@kit.ArkTS";
 import { AppManager } from "../AppManager";
+import { getHostname } from "./Conversion";
 
 export function buildShareUrl(config: NetworkConfig, callback: (uri: string) => void, only_start: boolean = false,
   name: string | undefined = AppManager.uiState.configUUIDNameMap.get(config.instance_id!) ?? "404") {
@@ -15,6 +16,13 @@ export function buildShareUrl(config: NetworkConfig, callback: (uri: string) => 
   }).catch((e: Error) => {
     Logger.error("compressedConfig" + JSON.stringify(e), "ShareUtil")
   })
+}
+
+export async function buildShareUrlSync(config: NetworkConfig, only_start: boolean = false,
+  name: string | undefined = AppManager.uiState.configUUIDNameMap.get(config.instance_id!) ?? "404"): Promise<string> {
+  let data = await compressStr(mappedJson(config))
+  let urlName = name?("&name="+name):""
+  return 'https://easytier.cn/comp_cfg?cfg=' + data + urlName + (only_start?"&only_start=true":"")
 }
 
 export function buildShareData(config: NetworkConfig, callback: (data: systemShare.SharedData) => void, only_start: boolean = false,
@@ -37,10 +45,17 @@ export function buildShareData(config: NetworkConfig, callback: (data: systemSha
 export async function unwrapUrl(url: url.URL) {
   let cfg = url.params.get("cfg")
   let name = url.params.get("name")
+  let only_start = url.params.get("only_start")
   Logger.debug("get Cfg "+name+": " + cfg, "ShareUtil")
   if (cfg) {
     let config = unmappedJson(await uncompressStr(cfg))
     config.instance_id = AppManager.data.safeUUID()
-    AppManager.data.readConfig(config.instance_id!, name?name:config.instance_id!, config)
+    config.hostname = getHostname()
+    AppManager.data.tempConfigMap.set(config.instance_id!, config)
+    if (only_start && AppManager.easytier.runningNetworks.size == 0) {
+      AppManager.easytier.temp_start(name?name:config.instance_id!, config)
+    }else {
+      AppManager.data.readConfig(config.instance_id!, name?name:config.instance_id!, config)
+    }
   }
 }

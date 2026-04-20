@@ -1,5 +1,5 @@
 import entry from 'libentry.so'
-import { NetworkInstanceRunningInfo } from './protobuf/api_manage'
+import { NetworkConfig, NetworkInstanceRunningInfo } from './protobuf/api_manage'
 import easytier, { KeyValuePair } from 'easytier-ohrs'
 import { EventHelper } from './util/EventHelper'
 import { AppManager } from './AppManager'
@@ -56,9 +56,9 @@ export class EasyTierUtil {
   @Trace appLogs: LogDataSource = new LogDataSource
   @Trace nmLogs: LogDataSource = new LogDataSource
   @Trace ohLogs: LogDataSource = new LogDataSource
-  @Trace runningNetworks: Map<string, NetworkInstanceRunningInfo> = new Map
-  @Trace instanceInfos: Map<string, InstanceInfo> = new Map
-  @Trace needTUN: string | undefined
+  @Trace runningNetworks: Map<string, NetworkInstanceRunningInfo> = new Map()
+  @Trace instanceInfos: Map<string, InstanceInfo> = new Map()
+  @Trace needTUN: Set<string> = new Set()
   task1: taskpool.LongTask | undefined
   task2: taskpool.LongTask | undefined
   tunRoutes: SafeSet<NetworkSegment> = new SafeSet()
@@ -126,10 +126,10 @@ export class EasyTierUtil {
       }
       this.instanceInfos.get(info.key)?.update(newInfo)
       this.updateNotification(info.key)
-      if (this.needTUN === info.key && newInfo.my_node_info?.virtual_ipv4 &&
+      if (this.needTUN.has(info.key) && newInfo.my_node_info?.virtual_ipv4 &&
         newInfo.my_node_info?.virtual_ipv4?.address) {
-        this.needTUN = undefined
-        let config = AppManager.data.configUUIDMap.get(info.key)!
+        this.needTUN.delete(info.key)
+        let config = AppManager.data.configUUIDMap.get(info.key) ?? AppManager.data.tempConfigMap.get(info.key)!
         config.routes.forEach((route) => {
           this.tunRoutes.add(new NetworkSegment(route.toString()))
         })
@@ -152,8 +152,9 @@ export class EasyTierUtil {
             needExitNode: config!.exit_nodes.length > 0
           }
         })
+        AppManager.data.tempConfigMap.delete(info.key)
       }
-      if (this.needTUN !== info.key && (AppManager.preference.vpn_routes || deviceInfo.sdkApiVersion >= 20)) {
+      if (!this.needTUN.has(info.key) && (AppManager.preference.vpn_routes || deviceInfo.sdkApiVersion >= 20)) {
         let needUpdate = false
         newInfo.routes.forEach((route) => {
           route.proxy_cidrs.forEach((cidr) => {
@@ -204,7 +205,7 @@ export class EasyTierUtil {
         Logger.debug("start config: "+ JSON.stringify(config, undefined, 2), this)
         if (AppManager.preference.inittedGitCore?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
           if (!config.no_tun) {
-            this.needTUN = uuid
+            this.needTUN.add(uuid)
           }
           AppManager.permission.requestLocPerm().then(() => {
             EventHelper.emitterPublish("start_bg", {
@@ -222,6 +223,31 @@ export class EasyTierUtil {
       } else {
         return false
       }
+    } else {
+      return false
+    }
+  }
+
+  public temp_start(name: string, config: NetworkConfig): boolean {
+    if (config) {
+      Logger.debug("temp start config: "+ JSON.stringify(config, undefined, 2), this)
+      if (AppManager.preference.inittedGitCore?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
+        if (!config.no_tun) {
+          this.needTUN.add(config.instance_id!)
+        }
+        AppManager.permission.requestLocPerm().then(() => {
+          EventHelper.emitterPublish("start_bg", {
+            data: {
+              cfg: JSON.stringify(config),
+              uuid: config.instance_id,
+              name: name
+            }
+          })
+        })
+      } else {
+        sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
+      }
+      return true
     } else {
       return false
     }

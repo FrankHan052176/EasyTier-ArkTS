@@ -67,6 +67,7 @@ export class PreferenceUtil {
   @Trace white_list: boolean = false
   @Trace git_core: boolean = true
   @Trace vault_mode: boolean = false
+  @Trace bg_mode: boolean = false
   inittedLog: boolean = false
   inittedGitCore: boolean = false
   public isInit: boolean = false
@@ -149,6 +150,7 @@ export class PreferenceUtil {
       this.git_core = this.preferences.getSync("git_core", !release).valueOf() as boolean
       this.vault_mode = this.preferences.getSync("vault_mode", false).valueOf() as boolean
       this.inittedGitCore = release?this.git_core:true
+      this.bg_mode = this.preferences.getSync("bg_mode", false).valueOf() as boolean
       Logger.debug("AppManager.preference.inittedGitCore:"+AppManager.preference.inittedGitCore, this)
       this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
       this.help2 = this.preferences.getSync("help2", true).valueOf() as boolean
@@ -183,7 +185,7 @@ export class PreferenceUtil {
     }
   }
 
-  @Monitor("show_log", "vpn_routes", "dev", "noOldData", "force_global", "white_list", "dns", "holding_detector", "help2", "git_core", "vault_mode")
+  @Monitor("show_log", "vpn_routes", "dev", "noOldData", "force_global", "white_list", "dns", "holding_detector", "help2", "git_core", "vault_mode", "bg_mode")
   onChange(monitor: IMonitor) {
     if (this.isInit) {
       return

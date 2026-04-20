@@ -437,7 +437,7 @@ export struct HomePage {
       if (config) {
         buildShareData(config, (data) => {
           sharableTarget.share(data);
-        }, AppManager.uiState.configUUIDNameMap.get(AppManager.uiState.selected))
+        }, false, AppManager.uiState.configUUIDNameMap.get(AppManager.uiState.selected))
       }
     } else {
       sendToast("先选择一个实例，再分享吧")

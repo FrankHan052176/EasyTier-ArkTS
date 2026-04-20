@@ -37,8 +37,8 @@ export struct StatusPage {
 
   aboutToAppear(): void {
     this.uuid = HMRouterMgr.getCurrentParam() as string;
-    this.name = AppManager.uiState.configUUIDNameMap.get(this.uuid) ?? "Unknown"
-    this.config = AppManager.easytier.getConfig(this.uuid) ?? null
+    this.name = AppManager.uiState.configUUIDNameMap.get(this.uuid) ?? "临时配置"
+    this.config = AppManager.easytier.getConfig(this.uuid) ?? AppManager.data.tempConfigMap.get(this.uuid) ?? null
     this.ip = this.config?.dhcp ? "waiting" : (this.config?.virtual_ipv4 ?? "N/A")
     this.updateTimer = setInterval(() => {
       let instanceInfo = AppManager.easytier.instanceInfos.get(this.uuid)
@@ -409,10 +409,10 @@ export struct StatusPage {
   }
 
   private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
-    if (this.config) {
+    if (this.config && AppManager.data.configUUIDMap.has(this.uuid)) {
       buildShareData(this.config, (data) => {
         sharableTarget.share(data);
-      }, this.name, this.uuid)
+      }, false, this.name, this.uuid)
     }
   }
 }

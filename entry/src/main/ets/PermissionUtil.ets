@@ -216,4 +216,15 @@ export class PermissionUtil {
       finallyCallback()
     })
   }
+
+  startBGVpn() {
+    vpnExtension.startVpnExtensionAbility({
+      deviceId: '',
+      bundleName: 'top.frankhan.easytier',
+      abilityName: 'EasyTierAbility',
+      parameters: {
+        cfg: ""
+      }
+    })
+  }
 }
