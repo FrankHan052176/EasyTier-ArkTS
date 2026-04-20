@@ -11,11 +11,12 @@ export function MenuButton(value: string | Resource, symbol: Resource, callback:
 }
 
 export function HdsMenuButton(value: ResourceStr, symbol: Resource,
-  callback: () => void): HdsNavigationMenuItemOptions {
+  callback: () => void, id: string | undefined = undefined): HdsNavigationMenuItemOptions {
   return {
     content: {
       icon: symbolWithSize(symbol, 24),
       label: value,
+      componentId: id,
       action: () => {
         callback()
       },

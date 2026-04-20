@@ -2,7 +2,7 @@ import { ContentUtil } from './ContentUtil';
 import { NetworkConfig } from './protobuf/api_manage';
 import { NetworkConfigFieldIdMap, NetworkConfigIdFieldMap } from './protobuf/proto-type-map';
 
-function cleanEmpty(value: any) {
+export function cleanEmpty(value: any) {
   if (value === undefined) {
     return undefined;
   }

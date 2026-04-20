@@ -7,14 +7,23 @@ import { Logger } from "./Logger";
 import { url } from "@kit.ArkTS";
 import { AppManager } from "../AppManager";
 
-export function buildShareData(config: NetworkConfig, callback: (data: systemShare.SharedData) => void,
-  name: string | undefined, uuid: string | undefined | null = config.instance_id) {
+export function buildShareUrl(config: NetworkConfig, callback: (uri: string) => void, only_start: boolean = false,
+  name: string | undefined = AppManager.uiState.configUUIDNameMap.get(config.instance_id!) ?? "404") {
   compressStr(mappedJson(config)).then((data) => {
     let urlName = name?("&name="+name):""
+    callback('https://easytier.cn/comp_cfg?cfg=' + data + urlName + (only_start?"&only_start=true":""))
+  }).catch((e: Error) => {
+    Logger.error("compressedConfig" + JSON.stringify(e), "ShareUtil")
+  })
+}
+
+export function buildShareData(config: NetworkConfig, callback: (data: systemShare.SharedData) => void, only_start: boolean = false,
+  name: string | undefined = AppManager.uiState.configUUIDNameMap.get(config.instance_id!) ?? "404", uuid: string | undefined | null = config.instance_id) {
+  buildShareUrl(config, (url) => {
     try {
       let shareData: systemShare.SharedData = new systemShare.SharedData({
         utd: uniformTypeDescriptor.UniformDataType.HYPERLINK,
-        content: 'https://easytier.cn/comp_cfg?cfg=' + data+urlName,
+        content: url,
         title: '分享配置 ' + (name ?? ""),
         description: uuid ?? ""
       });
@@ -22,9 +31,7 @@ export function buildShareData(config: NetworkConfig, callback: (data: systemSha
     } catch (e) {
       Logger.error("systemShare" + JSON.stringify(e), "ShareUtil")
     }
-  }).catch((e: Error) => {
-    Logger.error("compressedConfig" + JSON.stringify(e), "ShareUtil")
-  })
+  }, only_start, name)
 }
 
 export async function unwrapUrl(url: url.URL) {

@@ -1,4 +1,4 @@
-import { Configuration, UIAbility, Want, WantAgent, wantAgent } from '@kit.AbilityKit';
+import { AbilityConstant, Configuration, UIAbility, Want, WantAgent, wantAgent } from '@kit.AbilityKit';
 import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
 import { geoLocationManager } from '@kit.LocationKit';
 import { window } from '@kit.ArkUI';
@@ -29,6 +29,8 @@ import { unwrapUrl } from '../util/ShareUtil';
 import { updateFavorite } from '../CommunicationUtil';
 import { cancelNotification, publishTextNotification } from '../util/NoticeHelper';
 import { netHandover } from '@kit.NetworkBoostKit';
+import { cleanEmpty } from '../MappedUtil';
+import { NetworkConfig } from '../protobuf/api_manage';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
@@ -124,7 +126,7 @@ export default class EntryAbility extends UIAbility {
     });
   }
 
-  onCreate(want: Want) {
+  onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     this.listenCardCall()
     HMRouterMgr.openLog("INFO")
     HMRouterMgr.init({
@@ -137,6 +139,12 @@ export default class EntryAbility extends UIAbility {
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
     this.initApp().then(() => {
       this.readSharedData(want)
+      if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
+        if (want.parameters !== undefined) {
+          let url = want.parameters.data
+          // TODO: 不保存启动
+        }
+      }
       if (deviceInfo.productModel !== "emulator") {
         entry.hilogInit()
         easytier.hilogGlobalOptions(0, "fhl")
@@ -184,10 +192,16 @@ export default class EntryAbility extends UIAbility {
     })
   }
 
-  onNewWant(want: Want) {
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam) {
     Logger.debug("onNetWant", this)
     this.readSharedData(want)
     updateFavorite()
+    if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
+      if (want.parameters !== undefined) {
+        let url = want.parameters.data
+        // TODO: 不保存启动
+      }
+    }
   }
 
   listenCardCall() {
@@ -274,6 +288,21 @@ export default class EntryAbility extends UIAbility {
     this.stopContinuousTask()
     this.callee.off("send_card_id")
     this.callee.off("start_favorite")
+  }
+
+  onContinue(wantParam: Record<string, Object>): AbilityConstant.OnContinueResult {
+    if (AppManager.easytier.runningNetworks.size > 0) {
+      let uuid = AppManager.easytier.runningNetworks.keys().next().value as string
+      let cfg = AppManager.data.configUUIDMap.get(uuid)
+      if (cfg) {
+        wantParam['data'] = JSON.stringify(cleanEmpty(cfg))
+      }else {
+        return AbilityConstant.OnContinueResult.MISMATCH;
+      }
+      return AbilityConstant.OnContinueResult.AGREE;
+    }else {
+      return AbilityConstant.OnContinueResult.MISMATCH;
+    }
   }
 
   start_bg_Listener() {
