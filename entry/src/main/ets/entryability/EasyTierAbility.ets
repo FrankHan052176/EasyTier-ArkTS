@@ -36,11 +36,6 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       connection.on('message', (value: socket.LocalSocketMessageInfo) => {
         let message = value.message
       });
-      // connection.close().then(() => {
-      //   Logger.debug(`close connection`)
-      // }).catch((err: Object) => {
-      //   Logger.error('fail to close connection: ' + JSON.stringify(err));
-      // });
     });
   }
 }

@@ -13,7 +13,6 @@ import { NumberField } from './field/NumberField'
 import { SecureModeConfigField } from './field/SecureModeConfig'
 import { userAuth } from '@kit.UserAuthenticationKit'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { hdsEffect } from '@kit.UIDesignKit'
 
 export function getFieldI18Name(field: string): ResourceStr {
   return $r("app.string." + (ContentUtil.renamedField[field] || field))
@@ -32,11 +31,19 @@ export struct FieldEdit {
   @Local maskOpacity: number = 1;
   @Local blurRadius: number = 40;
   @Consumer("unsafe_status") unsafe: boolean = false
+  @Consumer("peep_masked") peepMasked: boolean = false
+  @Consumer("peep_dismissed") peepDismissed: boolean = false
   @Provider("lock_status") unlock: boolean = !ContentUtil.isVaultField(this.getFieldName())
 
   @Computed
   get safe_show() {
-    return !this.unsafe || this.unlock || !AppManager.preference.vault_mode
+    if (this.peepMasked) {
+      return false
+    }
+    if (AppManager.preference.vault_mode) {
+      return this.unlock
+    }
+    return true
   }
 
   @Computed
@@ -219,9 +226,13 @@ export struct FieldEdit {
       userAuthInstance.on('result', {
         onResult: (result) => {
           if (result.result === userAuth.UserAuthResultCode.SUCCESS) {
-            animateTo({
+            animateToImmediately({
               duration: 500, curve: Curve.EaseOut, onFinish: () => {
                 this.unlock = true;
+                if (this.peepMasked) {
+                  this.peepMasked = false;
+                  this.peepDismissed = true;
+                }
               }
             }, () => {
               this.maskOpacity = 0;

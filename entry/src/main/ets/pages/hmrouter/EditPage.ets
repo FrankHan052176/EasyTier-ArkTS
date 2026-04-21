@@ -113,10 +113,11 @@ function ShareMenu() {
 export struct EditPage {
   @Local uuid: string | null = null;
   @Provider("unsafe_status") unsafe: boolean = false
+  @Provider("peep_masked") peepMasked: boolean = false
+  @Provider("peep_dismissed") peepDismissed: boolean = false
   @Local sheet: boolean = false
   @Local sheet_type: string = ""
   @Local share_menu_id: string = "share_menu_id"
-  private hasShownMask: boolean = false;
 
   @Computed
   get name() {
@@ -127,14 +128,17 @@ export struct EditPage {
   }
 
   private onStatusChange = async (status: dlpAntiPeep.DlpAntiPeepStatus): Promise<void> => {
-    if (status === dlpAntiPeep.DlpAntiPeepStatus.PASS) { // 表示当前状态为无人窥视
-
-    } else if (status === dlpAntiPeep.DlpAntiPeepStatus.HIDE) { // 表示有人在窥屏，应用可以进行隐私保护操作。
-
+    if (status === dlpAntiPeep.DlpAntiPeepStatus.PASS) {
+      this.unsafe = false;
+    } else if (status === dlpAntiPeep.DlpAntiPeepStatus.HIDE) {
+      this.unsafe = true;
+      if (!this.peepDismissed) {
+        this.peepMasked = true;
+      }
     }
   }
 
-  aboutToAppear(): void {
+  async aboutToAppear(): Promise<void> {
     let param = HMRouterMgr.getCurrentParam() as EditPageParam;
     this.uuid = param.uuid
     this.unsafe = param.unsafe
@@ -146,8 +150,23 @@ export struct EditPage {
       this.sheet = false
     })
     harmonyShare.on('knockShare', this.immersiveCallback);
-    if (deviceInfo.sdkApiVersion >= 20) {
-      harmonyShare.on('gesturesShare', this.immersiveCallback);
+    harmonyShare.on('gesturesShare', this.immersiveCallback);
+    if (canIUse("SystemCapability.Security.DlpAntiPeep") && false) {
+      try {
+        const isOpen = await dlpAntiPeep.isDlpAntiPeepSwitchOn();
+        if (isOpen) {
+          dlpAntiPeep.on('dlpAntiPeep', this.onStatusChange);
+        } else {
+          const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+          const result = await dlpAntiPeep.requestAntiPeepOptions(context);
+          if (result === dlpAntiPeep.AntiPeepOptionsResult.SUCCESS ||
+            result === dlpAntiPeep.AntiPeepOptionsResult.ALREADY_ON) {
+            dlpAntiPeep.on('dlpAntiPeep', this.onStatusChange);
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to init DlpAntiPeep. Code: ${error.code}, message: ${error.message}`);
+      }
     }
   }
 
@@ -159,6 +178,13 @@ export struct EditPage {
       harmonyShare.off('gesturesShare', this.immersiveCallback);
     }
     AppManager.uiState.editingInstance = undefined
+    if (canIUse("SystemCapability.Security.DlpAntiPeep")) {
+      try {
+        dlpAntiPeep.off('dlpAntiPeep', this.onStatusChange);
+      } catch (error) {
+        console.error(`Failed to off DlpAntiPeep. Code: ${error.code}, message: ${error.message}`);
+      }
+    }
   }
 
   @Builder
