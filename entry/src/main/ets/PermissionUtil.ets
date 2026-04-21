@@ -199,8 +199,7 @@ export class PermissionUtil {
     return this.notificationPerm == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
   }
 
-  requestVpnPerm(callback: () => void, finallyCallback: () => void = () => {
-  }) {
+  requestVpnPerm(callback: () => void, finallyCallback: () => void = () => {}) {
     vpnExtension.startVpnExtensionAbility({
       deviceId: '',
       bundleName: 'top.frankhan.easytier',
@@ -214,17 +213,6 @@ export class PermissionUtil {
       }).then(callback)
     }).finally(() => {
       finallyCallback()
-    })
-  }
-
-  startBGVpn() {
-    vpnExtension.startVpnExtensionAbility({
-      deviceId: '',
-      bundleName: 'top.frankhan.easytier',
-      abilityName: 'EasyTierAbility',
-      parameters: {
-        cfg: ""
-      }
     })
   }
 }

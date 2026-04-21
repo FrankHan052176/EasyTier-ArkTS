@@ -25,11 +25,10 @@ import { ContentUtil } from '../ContentUtil';
 import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 import { rpc } from '@kit.IPCKit';
-import { buildShareUrl, buildShareUrlSync, unwrapUrl } from '../util/ShareUtil';
+import { buildShareUrlSync, unwrapUrl } from '../util/ShareUtil';
 import { updateFavorite } from '../CommunicationUtil';
 import { cancelNotification, publishTextNotification } from '../util/NoticeHelper';
 import { netHandover } from '@kit.NetworkBoostKit';
-import { cleanEmpty } from '../MappedUtil';
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
@@ -192,6 +191,7 @@ export default class EntryAbility extends UIAbility {
 
       }
     })
+    AppManager.socket.init()
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam) {

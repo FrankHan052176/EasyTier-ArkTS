@@ -18,6 +18,7 @@ import { EditPageParam } from '../../class/PageParam'
 import { generateBarcode, scanCore } from '@kit.ScanKit'
 import { image } from '@kit.ImageKit'
 import { DialogHub, DialogMode } from '@hadss/dialoghub'
+import { dlpAntiPeep } from '@kit.DeviceSecurityKit';
 
 @Builder
 function QRImage(img: image.PixelMap) {
@@ -115,6 +116,7 @@ export struct EditPage {
   @Local sheet: boolean = false
   @Local sheet_type: string = ""
   @Local share_menu_id: string = "share_menu_id"
+  private hasShownMask: boolean = false;
 
   @Computed
   get name() {
@@ -122,6 +124,14 @@ export struct EditPage {
       return AppManager.uiState.configUUIDNameMap.get(this.uuid)
     }
     return ""
+  }
+
+  private onStatusChange = async (status: dlpAntiPeep.DlpAntiPeepStatus): Promise<void> => {
+    if (status === dlpAntiPeep.DlpAntiPeepStatus.PASS) { // 表示当前状态为无人窥视
+
+    } else if (status === dlpAntiPeep.DlpAntiPeepStatus.HIDE) { // 表示有人在窥屏，应用可以进行隐私保护操作。
+
+    }
   }
 
   aboutToAppear(): void {
