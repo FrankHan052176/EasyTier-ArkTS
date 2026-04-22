@@ -80,7 +80,7 @@ export struct HomePage {
             switch (data) {
               case motion.HoldingHandStatus.LEFT_HAND_HELD:
               case motion.HoldingHandStatus.RIGHT_HAND_HELD: {
-                if (AppManager.preference.holding_detector) {
+                if (AppManager.uiState.holding_detector) {
                   animateToImmediately({
                     duration: 300,
                     curve: curves.springMotion(0.5, 0.6, 0)
@@ -105,9 +105,9 @@ export struct HomePage {
       }
     }
     harmonyShare.on('knockShare', this.immersiveCallback);
-    if (AppManager.preference.help2) {
+    if (AppManager.uiState.help2) {
       setTimeout(() => {
-        AppManager.preference.help2 = false
+        AppManager.uiState.help2 = false
       }, 100)
       HMRouterMgr.to("HelpPage").push()
     }
@@ -265,7 +265,7 @@ export struct HomePage {
         }
 
         DesktopLayout({
-          comp_sequence: AppManager.preference.raw_comp_sequence.split("|").map((value) => {
+          comp_sequence: AppManager.uiState.raw_comp_sequence.split("|").map((value) => {
             let raw = value.split("_")
             return {
               type: raw[0],

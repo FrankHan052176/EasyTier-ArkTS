@@ -11,7 +11,7 @@ import { NetworkSegment } from './class/NetworkSegment'
 import { SafeSet } from './util/SafeSet'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { ContentUtil } from './ContentUtil'
-import { JSON, taskpool } from '@kit.ArkTS'
+import { buffer, JSON, taskpool, util } from '@kit.ArkTS'
 import { LogDataSource } from './class/data_source/LogDataSource'
 import { updateFavorite } from './CommunicationUtil'
 import { HMRouterMgr } from '@hadss/hmrouter'
@@ -19,8 +19,9 @@ import { updateTextNotification } from './util/NoticeHelper'
 import easytier_release from 'easytier-release'
 import { fileIo, fileUri } from '@kit.CoreFileKit'
 import { systemShare } from '@kit.ShareKit'
-import { common } from '@kit.AbilityKit'
+import { common, Want } from '@kit.AbilityKit'
 import { uniformTypeDescriptor } from '@kit.ArkData'
+import { socket, vpnExtension } from '@kit.NetworkKit'
 
 @Concurrent
 async function readInfoWorker(git_core: boolean): Promise<void> {
@@ -62,31 +63,40 @@ export class EasyTierUtil {
   task1: taskpool.LongTask | undefined
   task2: taskpool.LongTask | undefined
   tunRoutes: SafeSet<NetworkSegment> = new SafeSet()
+  client: socket.LocalSocket | undefined
+  private isVpnConnected: boolean = false
 
   init() {
     EventHelper.emitterListener("worker_readInfo", (event) => {
       if (event?.data?.infos) {
-        this.processNetworkInfos(event.data.infos)
+        this.processNetworkInfos(event.data.infos as KeyValuePair[], false)
       }
     })
     EventHelper.emitterListener("worker_readLogs", (event) => {
       if (event?.data) {
-        this.processLogs(event.data.appLogs, event.data.nmLogs, event.data.ohLogs)
+        this.processLogs(event.data.appLogs as string[], event.data.nmLogs as string[], event.data.ohLogs as string[], false)
       }
     })
-    this.task1 = new taskpool.LongTask(readInfoWorker, AppManager.preference.inittedGitCore)
+
+    // 始终启动本地线程
+    this.task1 = new taskpool.LongTask(readInfoWorker, AppManager.uiState.git_core)
     this.task2 = new taskpool.LongTask(readLogsWorker)
     taskpool.execute(this.task1)
     taskpool.execute(this.task2)
+
+    if (AppManager.uiState.ext_mode) {
+      this.connectToVpnExtension("easytier_vpn_socket")
+    }
   }
 
   destroy() {
     taskpool.terminateTask(this.task1)
     taskpool.terminateTask(this.task2)
+    this.client?.close()
   }
 
   version() {
-    if (AppManager.preference.inittedGitCore) {
+    if (AppManager.uiState.git_core) {
       return easytier.easytierVersion()
     }else {
       return easytier_release.easytierVersion()
@@ -104,7 +114,15 @@ export class EasyTierUtil {
     }
   }
 
-  processNetworkInfos(infos: KeyValuePair[]) {
+  processNetworkInfos(infos: KeyValuePair[], fromVpn: boolean = true) {
+    // 逻辑：
+    // 1. VPN 数据始终信任。
+    // 2. 本地数据：如果 VPN 已连接，忽略本地数据（信任 VPN 的全量同步）；
+    //    如果 VPN 未连接，允许更新（包括空更新，以便在停止后正确清理 UI）。
+    if (!fromVpn && AppManager.uiState.ext_mode && this.isVpnConnected) {
+      return
+    }
+
     let networks = new Set<string>()
     for (const info of infos) {
       networks.add(info.key)
@@ -117,7 +135,6 @@ export class EasyTierUtil {
       }
       if (!newInfo.running) {
         Logger.error("ReadErrorInfo: " + newInfo.error_msg, this)
-        this.stop()
         continue
       }
       this.runningNetworks.set(info.key, newInfo)
@@ -143,18 +160,20 @@ export class EasyTierUtil {
             this.addTunRoutes(convertAddrToIp(route.ipv4_addr.address.addr) + "/" + route.ipv4_addr.network_length)
           }
         })
-        EventHelper.emitterPublish("setup_tun", {
-          data: {
-            ip: convertAddrToIp(newInfo.my_node_info.virtual_ipv4.address.addr),
-            mask: newInfo.my_node_info.virtual_ipv4.network_length,
-            id: info.key,
-            magicDNS: config!.enable_magic_dns ?? false,
-            needExitNode: config!.exit_nodes.length > 0
-          }
-        })
+        if (!AppManager.uiState.ext_mode) {
+          EventHelper.emitterPublish("setup_tun", {
+            data: {
+              ip: convertAddrToIp(newInfo.my_node_info.virtual_ipv4.address.addr),
+              mask: newInfo.my_node_info.virtual_ipv4.network_length,
+              id: info.key,
+              magicDNS: config!.enable_magic_dns ?? false,
+              needExitNode: config!.exit_nodes.length > 0
+            }
+          })
+        }
         AppManager.data.tempConfigMap.delete(info.key)
       }
-      if (!this.needTUN.has(info.key) && (AppManager.preference.vpn_routes || deviceInfo.sdkApiVersion >= 20)) {
+      if (!this.needTUN.has(info.key) && (AppManager.uiState.vpn_routes || deviceInfo.sdkApiVersion >= 20)) {
         let needUpdate = false
         newInfo.routes.forEach((route) => {
           route.proxy_cidrs.forEach((cidr) => {
@@ -165,7 +184,7 @@ export class EasyTierUtil {
             this.addTunRoutes(convertAddrToIp(route.ipv4_addr.address.addr) + "/" + route.ipv4_addr.network_length)
           }
         })
-        if (needUpdate && newInfo.my_node_info?.virtual_ipv4?.address) {
+        if (needUpdate && newInfo.my_node_info?.virtual_ipv4?.address && !AppManager.uiState.ext_mode) {
           EventHelper.emitterPublish("update_route", {
             data: {
               ip: convertAddrToIp(newInfo.my_node_info.virtual_ipv4.address.addr),
@@ -186,7 +205,7 @@ export class EasyTierUtil {
     }
   }
 
-  processLogs(appLogs: string[], nmLogs: string[], ohLogs: string[]) {
+  processLogs(appLogs: string[], nmLogs: string[], ohLogs: string[], fromVpn: boolean = true) {
     appLogs.forEach((value) => {
       this.appLogs.add(value)
     })
@@ -198,24 +217,91 @@ export class EasyTierUtil {
     })
   }
 
+  private connectToVpnExtension(socketName: string) {
+    this.client?.close()
+    this.client = socket.constructLocalSocketInstance()
+    let address: socket.LocalConnectOptions = {
+      address: {
+        address: AppManager.content.context!.filesDir + '/' + socketName
+      }
+    }
+
+    let retryCount = 0
+    let connect = () => {
+      if (!AppManager.uiState.ext_mode) return;
+      this.client?.connect(address).then(() => {
+        Logger.info("Connected to VpnExtension socket", this)
+        this.isVpnConnected = true
+      }).catch((err: object) => {
+        this.isVpnConnected = false
+        if (retryCount < 10 && AppManager.uiState.ext_mode) {
+          retryCount++
+          setTimeout(connect, 500)
+        }
+      })
+    }
+    setTimeout(connect, 200)
+
+    this.client!.on('message', (value: socket.LocalSocketMessageInfo) => {
+      try {
+        let str = buffer.from(value.message).toString();
+        let msg: ESObject = JSON.parse(str);
+        if (msg.type === "info") {
+          this.processNetworkInfos(msg.data as KeyValuePair[], true)
+        } else if (msg.type === "logs") {
+          let logData: ESObject = msg.data;
+          this.processLogs(logData.appLogs as string[], logData.nmLogs as string[], logData.ohLogs as string[], true)
+        }
+      } catch (e) {
+        Logger.error("Failed to process VpnExtension message: " + JSON.stringify(e), this)
+      }
+    })
+
+    this.client!.on('close', () => {
+      this.isVpnConnected = false
+    })
+  }
+
   public start(uuid: string | undefined = AppManager.uiState.selected, byCard: boolean = false): boolean {
     if (uuid) {
       let config = AppManager.data.configUUIDMap.get(uuid)
       if (config) {
         Logger.debug("start config: "+ JSON.stringify(config, undefined, 2), this)
-        if (AppManager.preference.inittedGitCore?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
+        if (AppManager.uiState.git_core?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
           if (!config.no_tun) {
             this.needTUN.add(uuid)
           }
-          AppManager.permission.requestLocPerm().then(() => {
-            EventHelper.emitterPublish("start_bg", {
-              data: {
+          if (AppManager.uiState.ext_mode) {
+            let want: Want = {
+              bundleName: "top.frankhan.easytier",
+              abilityName: "EasyTierAbility",
+              parameters: {
                 cfg: JSON.stringify(config),
-                uuid: byCard?undefined:uuid,
-                name: AppManager.uiState.configUUIDNameMap.get(uuid)
+                name: AppManager.uiState.configUUIDNameMap.get(uuid) ?? "",
+                socket: "easytier_vpn_socket",
+                git_core: AppManager.uiState.git_core,
+                vpn_routes: AppManager.uiState.vpn_routes,
+                white_list: AppManager.uiState.white_list,
+                black_list: AppManager.preference.getBlackList(),
+                dns: AppManager.uiState.dns,
+                dev: AppManager.uiState.dev,
+                force_global: AppManager.uiState.force_global,
+                show_log: AppManager.uiState.show_log
               }
+            }
+            vpnExtension.startVpnExtensionAbility(want)
+            this.connectToVpnExtension("easytier_vpn_socket")
+          } else {
+            AppManager.permission.requestLocPerm().then(() => {
+              EventHelper.emitterPublish("start_bg", {
+                data: {
+                  cfg: JSON.stringify(config),
+                  uuid: byCard?undefined:uuid,
+                  name: AppManager.uiState.configUUIDNameMap.get(uuid)
+                }
+              })
             })
-          })
+          }
         } else {
           sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
         }
@@ -231,19 +317,40 @@ export class EasyTierUtil {
   public temp_start(name: string, config: NetworkConfig): boolean {
     if (config) {
       Logger.debug("temp start config: "+ JSON.stringify(config, undefined, 2), this)
-      if (AppManager.preference.inittedGitCore?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
+      if (AppManager.uiState.git_core?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
         if (!config.no_tun) {
           this.needTUN.add(config.instance_id!)
         }
-        AppManager.permission.requestLocPerm().then(() => {
-          EventHelper.emitterPublish("start_bg", {
-            data: {
+        if (AppManager.uiState.ext_mode) {
+          let want: Want = {
+            bundleName: "top.frankhan.easytier",
+            abilityName: "EasyTierAbility",
+            parameters: {
               cfg: JSON.stringify(config),
-              uuid: config.instance_id,
-              name: name
-            }
+              name: name,
+              socket: "easytier_vpn_socket",
+              git_core: AppManager.uiState.git_core,
+              vpn_routes: AppManager.uiState.vpn_routes,
+              white_list: AppManager.uiState.white_list,
+              black_list: AppManager.preference.getBlackList(),
+              dns: AppManager.uiState.dns,
+              dev: AppManager.uiState.dev,
+              force_global: AppManager.uiState.force_global,
+              show_log: AppManager.uiState.show_log
+            }            }
+          vpnExtension.startVpnExtensionAbility(want)
+          this.connectToVpnExtension("easytier_vpn_socket")
+        } else {
+          AppManager.permission.requestLocPerm().then(() => {
+            EventHelper.emitterPublish("start_bg", {
+              data: {
+                cfg: JSON.stringify(config),
+                uuid: config.instance_id,
+                name: name
+              }
+            })
           })
-        })
+        }
       } else {
         sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
       }
@@ -254,12 +361,28 @@ export class EasyTierUtil {
   }
 
   public stop() {
-    EventHelper.emitterPublish("stop_bg")
-    if (AppManager.preference.inittedGitCore) {
-      easytier.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
-    }else {
-      easytier_release.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
+    if (AppManager.uiState.ext_mode) {
+      let want: Want = {
+        bundleName: "top.frankhan.easytier",
+        abilityName: "EasyTierAbility",
+      }
+      vpnExtension.stopVpnExtensionAbility(want)
+      this.client?.close()
+      this.client = undefined
+      this.isVpnConnected = false
+    } else {
+      EventHelper.emitterPublish("stop_bg")
+      if (AppManager.uiState.git_core) {
+        easytier.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
+      }else {
+        easytier_release.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
+      }
     }
+
+    // 显式清理 UI 状态
+    this.runningNetworks.clear()
+    this.instanceInfos.clear()
+
     setTimeout(() => {
       updateFavorite()
     }, 100)

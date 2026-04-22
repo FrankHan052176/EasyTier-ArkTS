@@ -7,7 +7,6 @@ import { PermissionUtil } from './PermissionUtil';
 import { PreferenceUtil } from './PreferencesUtil';
 import { WebUtil } from './WebUtil';
 import { UIState } from './class/UIState';
-import { SocketUtil } from './SocketUtil';
 
 @LogLocate("AppManager")
 export class AppManager {
@@ -19,7 +18,6 @@ export class AppManager {
   public static preference: PreferenceUtil = new PreferenceUtil()
   public static web: WebUtil = new WebUtil()
   public static uiState: UIState = new UIState()
-  public static socket: SocketUtil = new SocketUtil()
 
   static async init(uiContext: UIContext) {
     AppManager.content.init(uiContext)

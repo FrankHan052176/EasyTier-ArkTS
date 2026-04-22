@@ -156,8 +156,8 @@ export struct EditPage {
         const isOpen = await dlpAntiPeep.isDlpAntiPeepSwitchOn();
         if (isOpen) {
           dlpAntiPeep.on('dlpAntiPeep', this.onStatusChange);
-        } else if (!AppManager.preference.ask_dlp) {
-          AppManager.preference.ask_dlp = true
+        } else if (!AppManager.uiState.ask_dlp) {
+          AppManager.uiState.ask_dlp = true
           const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
           const result = await dlpAntiPeep.requestAntiPeepOptions(context);
           if (result === dlpAntiPeep.AntiPeepOptionsResult.SUCCESS ||

@@ -55,22 +55,7 @@ export class PreferenceUtil {
   @Trace card_list_preference: preferences.Preferences | undefined
   @Trace black_list_apps: Map<string, AppInfo> = new Map()
   @Trace white_list_apps: Map<string, AppInfo> = new Map()
-  @Trace show_log: boolean = false
-  @Trace raw_comp_sequence: string = defaultSequence
-  @Trace vpn_routes: boolean = false
-  @Trace dev: boolean = false
-  @Trace force_global: boolean = true
-  @Trace dns: string = ""
-  @Trace noOldData: boolean = false
-  @Trace holding_detector: boolean = false
-  @Trace help2: boolean = false
-  @Trace white_list: boolean = false
-  @Trace git_core: boolean = true
-  @Trace vault_mode: boolean = false
-  @Trace ask_dlp: boolean = false
-  @Trace ext_mode: boolean = false
-  inittedLog: boolean = false
-  inittedGitCore: boolean = false
+  
   public isInit: boolean = false
   context: Context | undefined = undefined
   private initialized: boolean = false
@@ -85,6 +70,28 @@ export class PreferenceUtil {
     try {
       this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
       this.configIDPreferences = preferences.getPreferencesSync(context, { name: 'EasyTierConfigIDs' })
+      
+      const s = AppManager.uiState;
+      // 从磁盘加载值到 UIState
+      s.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean;
+      s.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean;
+      s.dev = this.preferences.getSync("dev", false).valueOf() as boolean;
+      s.force_global = this.preferences.getSync("force_global", true).valueOf() as boolean;
+      s.white_list = this.preferences.getSync("white_list", false).valueOf() as boolean;
+      s.dns = this.preferences.getSync("dns", "").valueOf() as string;
+      s.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean;
+      s.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean;
+      s.git_core = this.preferences.getSync("git_core", !release).valueOf() as boolean;
+      s.vault_mode = this.preferences.getSync("vault_mode", false).valueOf() as boolean;
+      s.ext_mode = this.preferences.getSync("ext_mode", false).valueOf() as boolean;
+      s.ask_dlp = this.preferences.getSync("ask_dlp", false).valueOf() as boolean;
+      s.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string;
+      s.help2 = this.preferences.getSync("help2", true).valueOf() as boolean;
+
+      // 记录启动时内核相关的状态
+      s.inittedGitCore = release ? s.git_core : true;
+      s.inittedLog = s.show_log;
+
       await new Promise<void>((resolve) => {
         this.configIDPreferences!.getAll(async (err, obj) => {
           if (err) {
@@ -103,12 +110,9 @@ export class PreferenceUtil {
               loadTasks.push(this.readConfig(field, nameBytes, preference))
             }
             await Promise.all(loadTasks)
-            let selected = this.preferences!.getSync("selected", "").toString()
-            AppManager.uiState.selected =
-              (selected.length > 0 && this.configPreferences.has(selected)) ? selected : undefined
-            let favorite = this.preferences!.getSync("favorite", "").toString()
-            AppManager.uiState.favorite =
-              (favorite.length > 0 && this.configPreferences.has(favorite)) ? favorite : undefined
+            
+            s.selected = this.preferences!.getSync("selected", "").toString() || undefined;
+            s.favorite = this.preferences!.getSync("favorite", "").toString() || undefined;
           } catch (e) {
             Logger.error("init configIDPreferences callback error: " + JSON.stringify(e), this)
           }
@@ -140,69 +144,29 @@ export class PreferenceUtil {
       this.black_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierBlackListApp' })
       this.updateBlackListApps()
       this.card_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierCardList' })
-      this.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean
-      this.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean
-      this.dev = this.preferences.getSync("dev", false).valueOf() as boolean
-      this.force_global = this.preferences.getSync("force_global", true).valueOf() as boolean
-      this.white_list = this.preferences.getSync("white_list", false).valueOf() as boolean
-      this.dns = this.preferences.getSync("dns", false).valueOf() as string
-      this.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean
-      this.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean
-      this.git_core = this.preferences.getSync("git_core", !release).valueOf() as boolean
-      this.vault_mode = this.preferences.getSync("vault_mode", false).valueOf() as boolean
-      this.inittedGitCore = release?this.git_core:true
-      this.ext_mode = this.preferences.getSync("ext_mode", false).valueOf() as boolean
-      this.ask_dlp = this.preferences.getSync("ask_dlp", false).valueOf() as boolean
-      Logger.debug("AppManager.preference.inittedGitCore:"+AppManager.preference.inittedGitCore, this)
-      this.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string
-      this.help2 = this.preferences.getSync("help2", true).valueOf() as boolean
+      
     } catch (e) {
       Logger.error("init error: " + JSON.stringify(e), this)
     }
-    if (this.show_log) {
-      this.inittedLog = true
-      if (this.inittedGitCore) {
+
+    if (AppManager.uiState.show_log) {
+      if (AppManager.uiState.inittedGitCore) {
         easytier.initTracingSubscriber()
       }else {
         easytier_release.initTracingSubscriber()
       }
     }
+
     setTimeout(() => {
       this.isInit = false
-      if (!this.noOldData) {
-        this.noOldData = true
+      if (!AppManager.uiState.noOldData) {
+        AppManager.uiState.noOldData = true
       }
     }, 100)
   }
 
   updateSequence(sequence: string) {
-    if (this.preferences !== undefined) {
-      try {
-        Logger.debug("update raw_comp_sequence:" + sequence, this)
-        this.preferences.putSync("raw_comp_sequence", sequence)
-        this.preferences.flushSync()
-      } catch (error) {
-        Logger.error(`PreferenceUtil failed to change raw_comp_sequence.\n${error}`, this)
-      }
-    }
-  }
-
-  @Monitor("show_log", "vpn_routes", "dev", "noOldData", "force_global", "white_list", "dns", "holding_detector", "help2", "git_core", "vault_mode", "ext_mode", "ask_dlp")
-  onChange(monitor: IMonitor) {
-    if (this.isInit) {
-      return
-    }
-    monitor.dirty.forEach((path: string) => {
-      if (this.preferences !== undefined) {
-        try {
-          Logger.debug("update:" + path + "," + monitor.value(path)?.now, this)
-          this.preferences.putSync(path, monitor.value(path)?.now as ValueType)
-          this.preferences.flushSync()
-        } catch (error) {
-          Logger.error(`PreferenceUtil failed to change ${path}.\n${error}`, this)
-        }
-      }
-    })
+    AppManager.uiState.raw_comp_sequence = sequence;
   }
 
   addConfig(uuid: string, name: string, config: NetworkConfig) {
@@ -387,6 +351,6 @@ export class PreferenceUtil {
   }
 
   getVpnCfgRoutes(ip: string, magicDNS: boolean, needExitNode: boolean): connection.RouteInfo[] | undefined {
-		return AppManager.preference.vpn_routes || deviceInfo.sdkApiVersion >= 20 ? stringArr2RouteArr(ip, magicDNS, needExitNode) : undefined;
+		return AppManager.uiState.vpn_routes || deviceInfo.sdkApiVersion >= 20 ? stringArr2RouteArr(ip, magicDNS, needExitNode) : undefined;
 	}
 }

@@ -41,7 +41,7 @@ export struct FieldEdit {
     if (this.peepMasked) {
       return false
     }
-    if (AppManager.preference.vault_mode) {
+    if (AppManager.uiState.vault_mode) {
       return this.unlock
     }
     return true

@@ -122,7 +122,7 @@ struct PostureDemo {
 
 @ComponentV2
 export struct UI_Content {
-  @Local isPosture: boolean = AppManager.preference.holding_detector
+  @Local isPosture: boolean = AppManager.uiState.holding_detector
 
   @Computed
   get layout() {
@@ -182,7 +182,7 @@ export struct UI_Content {
           .width(52)
           .onChange((isOn) => {
             this.isPosture = isOn
-            AppManager.preference.holding_detector = isOn
+            AppManager.uiState.holding_detector = isOn
             if (!isOn) {
               EventHelper.emitterPublish("reset_holding_detector")
             }
@@ -213,13 +213,13 @@ export struct UI_Content {
         .alignItems(HorizontalAlign.Start)
 
         Blank()
-        Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.vault_mode })
+        Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.vault_mode })
           .selectedColor($r('sys.color.brand'))
           .switchPointColor($r('sys.color.comp_background_list_card'))
           .height(29)
           .width(52)
           .onChange((isOn) => {
-            AppManager.preference.vault_mode = isOn
+            AppManager.uiState.vault_mode = isOn
           })
       }
       .width('100%')

@@ -225,6 +225,7 @@ export interface FlagsInConfig {
   lazy_p2p: boolean;
   need_p2p: boolean;
   instance_recv_bps_limit: number;
+  disable_upnp: boolean;
 }
 
 export interface RpcDescriptor {
@@ -424,6 +425,7 @@ function createBaseFlagsInConfig(): FlagsInConfig {
     lazy_p2p: false,
     need_p2p: false,
     instance_recv_bps_limit: 0,
+    disable_upnp: false,
   };
 }
 
@@ -616,6 +618,11 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
         : isSet(object.instance_recv_bps_limit)
         ? globalThis.Number(object.instance_recv_bps_limit)
         : 0,
+      disable_upnp: isSet(object.disableUpnp)
+        ? globalThis.Boolean(object.disableUpnp)
+        : isSet(object.disable_upnp)
+        ? globalThis.Boolean(object.disable_upnp)
+        : false,
     };
   },
 
@@ -735,6 +742,9 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     if (message.instance_recv_bps_limit !== 0) {
       obj.instanceRecvBpsLimit = Math.round(message.instance_recv_bps_limit);
     }
+    if (message.disable_upnp !== false) {
+      obj.disableUpnp = message.disable_upnp;
+    }
     return obj;
   },
 
@@ -781,6 +791,7 @@ export const FlagsInConfig: MessageFns<FlagsInConfig> = {
     message.lazy_p2p = object.lazy_p2p ?? false;
     message.need_p2p = object.need_p2p ?? false;
     message.instance_recv_bps_limit = object.instance_recv_bps_limit ?? 0;
+    message.disable_upnp = object.disable_upnp ?? false;
     return message;
   },
 };

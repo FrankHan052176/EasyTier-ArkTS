@@ -56,7 +56,8 @@ export const NetworkConfigTypeMap = {
   "credential_file": "string",
   "lazy_p2p": "boolean",
   "need_p2p": "boolean",
-  "instance_recv_bps_limit": "number"
+  "instance_recv_bps_limit": "number",
+  "disable_upnp": "boolean"
 }
 export const NetworkConfigFieldIdMap = {
   "instance_id": "1",
@@ -116,7 +117,8 @@ export const NetworkConfigFieldIdMap = {
   "credential_file": "57",
   "lazy_p2p": "58",
   "need_p2p": "59",
-  "instance_recv_bps_limit": "60"
+  "instance_recv_bps_limit": "60",
+  "disable_upnp": "61"
 }
 export const NetworkConfigIdFieldMap = {
   "1": "instance_id",
@@ -176,5 +178,6 @@ export const NetworkConfigIdFieldMap = {
   "57": "credential_file",
   "58": "lazy_p2p",
   "59": "need_p2p",
-  "60": "instance_recv_bps_limit"
+  "60": "instance_recv_bps_limit",
+  "61": "disable_upnp"
 }

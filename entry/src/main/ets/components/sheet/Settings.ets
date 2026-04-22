@@ -67,7 +67,7 @@ export function Setting_Sheet() {
       })
       .gesture(TapGesture({ count: 10 })
         .onAction(() => {
-          AppManager.preference.dev = !AppManager.preference.dev
+          AppManager.uiState.dev = !AppManager.uiState.dev
         })
       )
     }
@@ -85,18 +85,18 @@ export function Setting_Sheet() {
               .fontColor($r("sys.color.font_primary"))
               .fontSize(16)
               .margin({ right: 5 })
-            if (AppManager.preference.inittedGitCore != AppManager.preference.git_core) {
+            if (AppManager.uiState.inittedGitCore != AppManager.uiState.git_core) {
               Text("重启后生效")
                 .fontColor($r("sys.color.font_secondary"))
                 .fontSize(14)
             }
           }
 
-          Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.git_core })
+          Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.git_core })
             .selectedColor($r('sys.color.brand'))
             .switchPointColor($r('sys.color.comp_background_list_card'))
             .onChange((isOn: boolean) => {
-              AppManager.preference.git_core = isOn
+              AppManager.uiState.git_core = isOn
             })
             .height(29)
             .width(52)
@@ -125,11 +125,11 @@ export function Setting_Sheet() {
             .margin({ right: 5 })
         }
 
-        Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.ext_mode })
+        Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.ext_mode })
           .selectedColor($r('sys.color.brand'))
           .switchPointColor($r('sys.color.comp_background_list_card'))
           .onChange((isOn: boolean) => {
-            AppManager.preference.ext_mode = isOn
+            AppManager.uiState.ext_mode = isOn
           })
           .height(29)
           .width(52)
@@ -260,7 +260,7 @@ export function Setting_Sheet() {
             .fontColor([$r("sys.color.font_primary")])
             .fontSize(16)
             .margin({ right: 5 })
-          Text(AppManager.preference.white_list?"App 白名单":"App 黑名单")
+          Text(AppManager.uiState.white_list?"App 白名单":"App 黑名单")
             .fontColor($r("sys.color.font_primary"))
             .fontSize(16)
         }
@@ -310,18 +310,18 @@ export function Setting_Sheet() {
               .fontColor($r("sys.color.font_primary"))
               .fontSize(16)
               .margin({ right: 5 })
-            if (AppManager.preference.inittedLog != AppManager.preference.show_log) {
+            if (AppManager.uiState.inittedLog != AppManager.uiState.show_log) {
               Text("重启后生效")
                 .fontColor($r("sys.color.font_secondary"))
                 .fontSize(14)
             }
           }
 
-          Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.show_log })
+          Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.show_log })
             .selectedColor($r('sys.color.brand'))
             .switchPointColor($r('sys.color.comp_background_list_card'))
             .onChange((isOn: boolean) => {
-              AppManager.preference.show_log = isOn
+              AppManager.uiState.show_log = isOn
             })
             .height(29)
             .width(52)
@@ -336,7 +336,7 @@ export function Setting_Sheet() {
       }
       .margin({ bottom: 10 })
 
-      if (AppManager.preference.inittedLog) ListItem() {
+      if (AppManager.uiState.inittedLog) ListItem() {
         Row() {
           Row() {
             SymbolGlyph($r("sys.symbol.doc"))
@@ -382,11 +382,11 @@ export function Setting_Sheet() {
                 .margin({ right: 5 })
             }
 
-            Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.vpn_routes })
+            Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.vpn_routes })
               .selectedColor($r('sys.color.brand'))
               .switchPointColor($r('sys.color.comp_background_list_card'))
               .onChange((isOn: boolean) => {
-                AppManager.preference.vpn_routes = isOn
+                AppManager.uiState.vpn_routes = isOn
               })
               .height(29)
               .width(52)
@@ -414,11 +414,11 @@ export function Setting_Sheet() {
               .margin({ right: 5 })
           }
 
-          Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.dev })
+          Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.dev })
             .selectedColor($r('sys.color.brand'))
             .switchPointColor($r('sys.color.comp_background_list_card'))
             .onChange((isOn: boolean) => {
-              AppManager.preference.dev = isOn
+              AppManager.uiState.dev = isOn
             })
             .height(29)
             .width(52)
@@ -433,7 +433,7 @@ export function Setting_Sheet() {
       }
       .margin({ bottom: 10 })
 
-      if (AppManager.preference.dev) {
+      if (AppManager.uiState.dev) {
         ListItem() {
           Row() {
             Row() {
@@ -447,7 +447,7 @@ export function Setting_Sheet() {
                 .margin({ right: 5 })
             }
 
-            TextInput({ text: AppManager.preference.dns, placeholder: "223.5.5.5" })
+            TextInput({ text: AppManager.uiState.dns, placeholder: "223.5.5.5" })
               .padding(0)
               .textAlign(TextAlign.End)
               .backgroundColor(Color.Transparent)
@@ -455,9 +455,9 @@ export function Setting_Sheet() {
               .layoutWeight(1)
               .onChange((value) => {
                 if (value.length > 0) {
-                  AppManager.preference.dns = value
+                  AppManager.uiState.dns = value
                 }else {
-                  AppManager.preference.dns = "223.5.5.5"
+                  AppManager.uiState.dns = "223.5.5.5"
                 }
               })
           }
@@ -484,11 +484,11 @@ export function Setting_Sheet() {
                 .margin({ right: 5 })
             }
 
-            Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.force_global })
+            Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.force_global })
               .selectedColor($r('sys.color.brand'))
               .switchPointColor($r('sys.color.comp_background_list_card'))
               .onChange((isOn: boolean) => {
-                AppManager.preference.force_global = isOn
+                AppManager.uiState.force_global = isOn
               })
               .height(29)
               .width(52)

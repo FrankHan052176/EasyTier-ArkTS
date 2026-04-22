@@ -123,6 +123,7 @@ export interface NetworkConfig {
   lazy_p2p?: boolean | undefined;
   need_p2p?: boolean | undefined;
   instance_recv_bps_limit?: number | undefined;
+  disable_upnp?: boolean | undefined;
 }
 
 export interface PortForwardConfig {
@@ -297,6 +298,7 @@ function createBaseNetworkConfig(): NetworkConfig {
     lazy_p2p: undefined,
     need_p2p: undefined,
     instance_recv_bps_limit: undefined,
+    disable_upnp: undefined,
   };
 }
 
@@ -575,6 +577,11 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
         : isSet(object.instance_recv_bps_limit)
         ? globalThis.Number(object.instance_recv_bps_limit)
         : undefined,
+      disable_upnp: isSet(object.disableUpnp)
+        ? globalThis.Boolean(object.disableUpnp)
+        : isSet(object.disable_upnp)
+        ? globalThis.Boolean(object.disable_upnp)
+        : undefined,
     };
   },
 
@@ -754,6 +761,9 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     if (message.instance_recv_bps_limit !== undefined) {
       obj.instanceRecvBpsLimit = Math.round(message.instance_recv_bps_limit);
     }
+    if (message.disable_upnp !== undefined) {
+      obj.disableUpnp = message.disable_upnp;
+    }
     return obj;
   },
 
@@ -822,6 +832,7 @@ export const NetworkConfig: MessageFns<NetworkConfig> = {
     message.lazy_p2p = object.lazy_p2p ?? undefined;
     message.need_p2p = object.need_p2p ?? undefined;
     message.instance_recv_bps_limit = object.instance_recv_bps_limit ?? undefined;
+    message.disable_upnp = object.disable_upnp ?? undefined;
     return message;
   },
 };

@@ -22,7 +22,7 @@ export class AppInfo {
 export struct BlackList_Title {
   @Local menu: boolean = false
   @Local text: string = ""
-  @Local title: string = AppManager.preference.white_list?'App 白名单':'App 黑名单'
+  @Local title: string = AppManager.uiState.white_list?'App 白名单':'App 黑名单'
 
   @Monitor("menu")
   addApp() {
@@ -76,7 +76,7 @@ export struct BlackList_Title {
           symbolColor: [$r("sys.color.font_primary")]
         })
           .onClick(() => {
-            AppManager.preference.white_list = !AppManager.preference.white_list
+            AppManager.uiState.white_list = !AppManager.uiState.white_list
             EventHelper.emitterPublish("home_close_sheet")
             setTimeout(() => {
               EventHelper.emitterPublish("home_open_sheet", {

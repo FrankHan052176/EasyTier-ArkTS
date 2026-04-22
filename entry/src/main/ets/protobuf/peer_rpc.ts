@@ -312,13 +312,14 @@ export interface GetIpListResponse {
   listeners: Url[];
 }
 
-export interface SendV6HolePunchPacketRequest {
+export interface SendUdpHolePunchPacketRequest {
   connector_addr: SocketAddr | undefined;
   listener_port: number;
 }
 
 export interface SelectPunchListenerRequest {
   force_new: boolean;
+  prefer_port_mapping: boolean;
 }
 
 export interface SelectPunchListenerResponse {
@@ -1609,12 +1610,12 @@ export const GetIpListResponse: MessageFns<GetIpListResponse> = {
   },
 };
 
-function createBaseSendV6HolePunchPacketRequest(): SendV6HolePunchPacketRequest {
+function createBaseSendUdpHolePunchPacketRequest(): SendUdpHolePunchPacketRequest {
   return { connector_addr: undefined, listener_port: 0 };
 }
 
-export const SendV6HolePunchPacketRequest: MessageFns<SendV6HolePunchPacketRequest> = {
-  fromJSON(object: any): SendV6HolePunchPacketRequest {
+export const SendUdpHolePunchPacketRequest: MessageFns<SendUdpHolePunchPacketRequest> = {
+  fromJSON(object: any): SendUdpHolePunchPacketRequest {
     return {
       connector_addr: isSet(object.connectorAddr)
         ? SocketAddr.fromJSON(object.connectorAddr)
@@ -1629,7 +1630,7 @@ export const SendV6HolePunchPacketRequest: MessageFns<SendV6HolePunchPacketReque
     };
   },
 
-  toJSON(message: SendV6HolePunchPacketRequest): unknown {
+  toJSON(message: SendUdpHolePunchPacketRequest): unknown {
     const obj: any = {};
     if (message.connector_addr !== undefined) {
       obj.connectorAddr = SocketAddr.toJSON(message.connector_addr);
@@ -1640,11 +1641,13 @@ export const SendV6HolePunchPacketRequest: MessageFns<SendV6HolePunchPacketReque
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<SendV6HolePunchPacketRequest>, I>>(base?: I): SendV6HolePunchPacketRequest {
-    return SendV6HolePunchPacketRequest.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<SendUdpHolePunchPacketRequest>, I>>(base?: I): SendUdpHolePunchPacketRequest {
+    return SendUdpHolePunchPacketRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<SendV6HolePunchPacketRequest>, I>>(object: I): SendV6HolePunchPacketRequest {
-    const message = createBaseSendV6HolePunchPacketRequest();
+  fromPartial<I extends Exact<DeepPartial<SendUdpHolePunchPacketRequest>, I>>(
+    object: I,
+  ): SendUdpHolePunchPacketRequest {
+    const message = createBaseSendUdpHolePunchPacketRequest();
     message.connector_addr = (object.connector_addr !== undefined && object.connector_addr !== null)
       ? SocketAddr.fromPartial(object.connector_addr)
       : undefined;
@@ -1654,7 +1657,7 @@ export const SendV6HolePunchPacketRequest: MessageFns<SendV6HolePunchPacketReque
 };
 
 function createBaseSelectPunchListenerRequest(): SelectPunchListenerRequest {
-  return { force_new: false };
+  return { force_new: false, prefer_port_mapping: false };
 }
 
 export const SelectPunchListenerRequest: MessageFns<SelectPunchListenerRequest> = {
@@ -1665,6 +1668,11 @@ export const SelectPunchListenerRequest: MessageFns<SelectPunchListenerRequest> 
         : isSet(object.force_new)
         ? globalThis.Boolean(object.force_new)
         : false,
+      prefer_port_mapping: isSet(object.preferPortMapping)
+        ? globalThis.Boolean(object.preferPortMapping)
+        : isSet(object.prefer_port_mapping)
+        ? globalThis.Boolean(object.prefer_port_mapping)
+        : false,
     };
   },
 
@@ -1672,6 +1680,9 @@ export const SelectPunchListenerRequest: MessageFns<SelectPunchListenerRequest> 
     const obj: any = {};
     if (message.force_new !== false) {
       obj.forceNew = message.force_new;
+    }
+    if (message.prefer_port_mapping !== false) {
+      obj.preferPortMapping = message.prefer_port_mapping;
     }
     return obj;
   },
@@ -1682,6 +1693,7 @@ export const SelectPunchListenerRequest: MessageFns<SelectPunchListenerRequest> 
   fromPartial<I extends Exact<DeepPartial<SelectPunchListenerRequest>, I>>(object: I): SelectPunchListenerRequest {
     const message = createBaseSelectPunchListenerRequest();
     message.force_new = object.force_new ?? false;
+    message.prefer_port_mapping = object.prefer_port_mapping ?? false;
     return message;
   },
 };

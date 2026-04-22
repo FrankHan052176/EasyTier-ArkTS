@@ -65,7 +65,7 @@ export default class EntryAbility extends UIAbility {
       wantAgent.getWantAgent(wantAgentInfo).then((wantAgentObj: WantAgent) => {
         try {
           backgroundTaskManager.startBackgroundRunning(this.context, ["location"], wantAgentObj).then(() => {
-            if (AppManager.preference.inittedGitCore?easytier.runNetworkInstance(cfg):easytier_release.runNetworkInstance(cfg)) {
+            if (AppManager.uiState.inittedGitCore?easytier.runNetworkInstance(cfg):easytier_release.runNetworkInstance(cfg)) {
               this.context.setMissionContinueState(AbilityConstant.ContinueState.ACTIVE);
               setTimeout(() => {
                 updateFavorite()
@@ -151,7 +151,7 @@ export default class EntryAbility extends UIAbility {
         easytier.hilogGlobalOptions(0, "fhl")
         easytier_release.hilogGlobalOptions(0, "fhl")
       }
-      if (AppManager.preference.inittedGitCore) {
+      if (AppManager.uiState.inittedGitCore) {
         easytier.initPanicHook()
       }else {
         easytier_release.initPanicHook()
@@ -167,7 +167,7 @@ export default class EntryAbility extends UIAbility {
     } catch (error) {
       Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
     }
-    if (!AppManager.preference.noOldData) {
+    if (!AppManager.uiState.noOldData) {
       let context = this.context;
       try {
         const kvManagerConfig: distributedKVStore.KVManagerConfig = {
@@ -191,7 +191,6 @@ export default class EntryAbility extends UIAbility {
 
       }
     })
-    AppManager.socket.init()
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam) {
@@ -365,8 +364,8 @@ export default class EntryAbility extends UIAbility {
   }
 
   safeDns(): string {
-    if (isIpAddr(AppManager.preference.dns)) {
-      return AppManager.preference.dns
+    if (isIpAddr(AppManager.uiState.dns)) {
+      return AppManager.uiState.dns
     } else {
       return "223.5.5.5"
     }
@@ -389,9 +388,9 @@ export default class EntryAbility extends UIAbility {
           prefixLength: mask
         }
       ],
-      blockedApplications: AppManager.preference.white_list?[]:appList,
-      trustedApplications: AppManager.preference.white_list?appList:[],
-      dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.preference.dev ? [this.safeDns()] : ["223.5.5.5"]),
+      blockedApplications: AppManager.uiState.white_list?[]:appList,
+      trustedApplications: AppManager.uiState.white_list?appList:[],
+      dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.uiState.dev ? [this.safeDns()] : ["223.5.5.5"]),
       mtu: 1380,
       routes: AppManager.preference.getVpnCfgRoutes(ip, magicDNS, needExitNode)
     }
@@ -401,7 +400,7 @@ export default class EntryAbility extends UIAbility {
     }
     Logger.debug("VPN配置:" + JSON.stringify(vpnConfig), this)
     this.vpnConnection.create(vpnConfig).then((fd) => {
-      if (AppManager.preference.inittedGitCore) {
+      if (AppManager.uiState.inittedGitCore) {
         easytier.setTunFd(inst_id, fd)
       }else {
         easytier_release.setTunFd(inst_id, fd)

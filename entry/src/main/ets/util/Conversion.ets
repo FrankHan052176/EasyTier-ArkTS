@@ -1,6 +1,7 @@
 import { UIType, WindowUtil } from '../WindowUtil'
 import { AppManager } from '../AppManager'
 import { connection } from '@kit.NetworkKit'
+import { NetworkSegment } from '../class/NetworkSegment'
 
 export function trafficBytes(bytes: number): string {
   if (bytes > 107374182) {
@@ -101,9 +102,12 @@ export function logColor(log: string): ResourceColor {
   }
 }
 
-export function stringArr2RouteArr(gateway: string, magicDNS: boolean, needExitNode: boolean): connection.RouteInfo[] {
+export function stringArr2RouteArr(gateway: string, magicDNS: boolean, needExitNode: boolean, customRoutes?: NetworkSegment[], forceGlobal?: boolean): connection.RouteInfo[] {
   let result: connection.RouteInfo[] = []
-  AppManager.easytier.tunRoutes.forEach((route) => {
+  let routes = customRoutes || Array.from(AppManager.easytier.tunRoutes)
+  let isForceGlobal = forceGlobal !== undefined ? forceGlobal : AppManager.uiState.force_global
+
+  routes.forEach((route) => {
     result.push({
       interface: "vpn-tun",
       destination: {
@@ -135,7 +139,7 @@ export function stringArr2RouteArr(gateway: string, magicDNS: boolean, needExitN
       isDefaultRoute: false,
     })
   }
-  if (needExitNode && AppManager.preference.force_global) {
+  if (needExitNode && isForceGlobal) {
     result.push({
       interface: "vpn-tun",
       destination: {
