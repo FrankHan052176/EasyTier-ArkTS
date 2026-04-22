@@ -111,7 +111,7 @@ function ShareMenu() {
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
 export struct EditPage {
-  @Local uuid: string | null = null;
+  @Local uuid: string | undefined;
   @Provider("unsafe_status") unsafe: boolean = false
   @Provider("peep_masked") peepMasked: boolean = false
   @Provider("peep_dismissed") peepDismissed: boolean = false
@@ -151,12 +151,13 @@ export struct EditPage {
     })
     harmonyShare.on('knockShare', this.immersiveCallback);
     harmonyShare.on('gesturesShare', this.immersiveCallback);
-    if (canIUse("SystemCapability.Security.DlpAntiPeep") && false) {
+    if (canIUse("SystemCapability.Security.DlpAntiPeep")) {
       try {
         const isOpen = await dlpAntiPeep.isDlpAntiPeepSwitchOn();
         if (isOpen) {
           dlpAntiPeep.on('dlpAntiPeep', this.onStatusChange);
-        } else {
+        } else if (!AppManager.preference.ask_dlp) {
+          AppManager.preference.ask_dlp = true
           const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
           const result = await dlpAntiPeep.requestAntiPeepOptions(context);
           if (result === dlpAntiPeep.AntiPeepOptionsResult.SUCCESS ||

@@ -55,7 +55,7 @@ export struct Instances {
   toEdit(uuid: string) {
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + uuid, "edit_content");
     AppManager.uiState.editingInstance = uuid
-    HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid, unsafe: true}, animator: animator});
+    HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid: uuid, unsafe: true}, animator: animator});
   }
 
   @Builder

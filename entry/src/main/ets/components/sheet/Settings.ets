@@ -115,6 +115,38 @@ export function Setting_Sheet() {
     ListItem() {
       Row() {
         Row() {
+          SymbolGlyph($r("sys.symbol.house_fill"))
+            .fontColor([$r("sys.color.font_primary")])
+            .fontSize(16)
+            .margin({ right: 5 })
+          Text("子进程模式")
+            .fontColor($r("sys.color.font_primary"))
+            .fontSize(16)
+            .margin({ right: 5 })
+        }
+
+        Toggle({ type: ToggleType.Switch, isOn: AppManager.preference.ext_mode })
+          .selectedColor($r('sys.color.brand'))
+          .switchPointColor($r('sys.color.comp_background_list_card'))
+          .onChange((isOn: boolean) => {
+            AppManager.preference.ext_mode = isOn
+          })
+          .height(29)
+          .width(52)
+      }
+      .height(49)
+      .borderRadius(18)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .backgroundColor($r("sys.color.background_secondary"))
+      .padding(10)
+    }
+    .margin({ bottom: 10 })
+
+    ListItem() {
+      Row() {
+        Row() {
           SymbolGlyph($r("sys.symbol.square_fill_grid_2x2"))
             .fontColor([$r("sys.color.font_primary")])
             .fontSize(16)

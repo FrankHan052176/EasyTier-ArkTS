@@ -37,6 +37,7 @@ export struct FieldEdit {
 
   @Computed
   get safe_show() {
+    if (!ContentUtil.isVaultField(this.getFieldName())) return true
     if (this.peepMasked) {
       return false
     }
