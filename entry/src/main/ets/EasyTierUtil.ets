@@ -55,7 +55,6 @@ export class EasyTierUtil {
   @Trace runningNetworks: Map<string, RuntimeInstanceState> = new Map()
   @Trace instanceInfos: Map<string, InstanceInfo> = new Map()
   @Trace needTUN: Set<string> = new Set()
-  task1: taskpool.LongTask | undefined
   task2: taskpool.LongTask | undefined
   tunRoutes: SafeSet<NetworkSegment> = new SafeSet()
   client: socket.LocalSocket | undefined
@@ -65,7 +64,7 @@ export class EasyTierUtil {
   init() {
     EventHelper.emitterListener("worker_readLogs", (event) => {
       if (event?.data) {
-        this.processLogs(event.data.appLogs as string[], event.data.nmLogs as string[], event.data.ohLogs as string[], false)
+        this.processLogs(event.data.appLogs as string[], event.data.nmLogs as string[], event.data.ohLogs as string[])
       }
     })
     EventHelper.emitterListener("kernel_runtime_snapshot", (event) => {
@@ -83,7 +82,6 @@ export class EasyTierUtil {
   }
 
   destroy() {
-    taskpool.terminateTask(this.task1)
     taskpool.terminateTask(this.task2)
     this.client?.close()
   }
@@ -191,7 +189,7 @@ export class EasyTierUtil {
     }
   }
 
-  processLogs(appLogs: string[], nmLogs: string[], ohLogs: string[], fromVpn: boolean = true) {
+  processLogs(appLogs: string[], nmLogs: string[], ohLogs: string[]) {
     appLogs.forEach((value) => {
       this.appLogs.add(value)
     })
@@ -236,7 +234,7 @@ export class EasyTierUtil {
           this.processRuntimeSnapshot(msg.data as RuntimeAggregateState, true)
         } else if (msg.type === "logs") {
           let logData: ESObject = msg.data;
-          this.processLogs(logData.appLogs as string[], logData.nmLogs as string[], logData.ohLogs as string[], true)
+          this.processLogs(logData.appLogs as string[], logData.nmLogs as string[], logData.ohLogs as string[])
         }
       } catch (e) {
         Logger.error("Failed to process VpnExtension message: " + JSON.stringify(e), this)
