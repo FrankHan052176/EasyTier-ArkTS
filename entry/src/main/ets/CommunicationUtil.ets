@@ -7,7 +7,7 @@ export function updateFavorite() {
   let voidForm: string[] = []
   AppManager.preference.getCardList().forEach((formId) => {
     let formInfo = formBindingData.createFormBindingData({
-      favorite_name: AppManager.uiState.configUUIDNameMap.get(AppManager.uiState.favorite ?? "") ?? "",
+      favorite_name: AppManager.uiState.favorite ? (AppManager.easytier.getConfigName(AppManager.uiState.favorite) ?? "") : "",
       favorite_uuid: AppManager.uiState.favorite ?? "",
       favorite_running: AppManager.easytier.isFavoritesRunning()
     });

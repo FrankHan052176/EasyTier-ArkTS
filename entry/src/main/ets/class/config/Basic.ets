@@ -1,5 +1,4 @@
 import { AppManager } from '../../AppManager';
-import { NetworkConfig, PortForwardConfig } from '../../protobuf/api_manage';
 import { EventHelper } from '../../util/EventHelper';
 import { Cidr, clearEditValue_Cidr, EditValue_Cidr, setEditValue_Cidr } from './Cidr';
 import { clearEditValue_IP, EditValue_IP, IP, setEditValue_IP } from './IP';
@@ -9,7 +8,6 @@ import {
   NetworkName,
   setEditValue_NetworkName
 } from './NetworkName';
-import { collections } from '@kit.ArkTS';
 import {
   clearEditValue_PortForward,
   EditValue_PortForward,
@@ -17,7 +15,8 @@ import {
   setEditValue_PortForward
 } from './PortForward';
 import { clearEditValue_Url, EditValue_Url, setEditValue_Url, Url } from './Url';
-import { SafePortForwardConfig } from '../SafeProtoClass';
+import { ConfigJson } from '../../SchemaConfig';
+import { syncTopLevelField } from '../../ConfigSyncUtil';
 
 export interface FieldValue {
   fromString(value: string): boolean
@@ -117,13 +116,13 @@ export function updateFieldValue(type: string, value: FieldValue) {
   }
 }
 
-export function deleteFieldValue(config: NetworkConfig, type: string, name: string, value: FieldValue) {
+export function deleteFieldValue(config: ConfigJson, type: string, name: string, value: FieldValue) {
   if (type === "port_forward") {
     let i = -1
-    let old = (value as PortForward).toInterface()
-    let arr = config[name] as PortForwardConfig[]
+    let old: ESObject = (value as PortForward).toInterface()
+    let arr: ESObject[] = config[name] as ESObject[]
     for (let index = 0; index < arr.length; index++) {
-      const element = arr[index];
+      const element: ESObject = arr[index];
       if (element.bind_ip === old.bind_ip &&
         element.bind_port === old.bind_port &&
         element.dst_ip === old.dst_ip &&
@@ -137,22 +136,13 @@ export function deleteFieldValue(config: NetworkConfig, type: string, name: stri
     if (i >= 0) {
       arr.splice(i, 1)
     }
-    let arr_pw = config[name] as PortForwardConfig[]
-    let SafeArr = new collections.Array<SafePortForwardConfig>()
-    arr_pw.forEach((value) => {
-      SafeArr.push(new SafePortForwardConfig(value))
-    })
-    AppManager.preference.configPreferences.get(config.instance_id!)?.putSync(name, SafeArr)
   } else {
     const pos = (config[name] as string[]).indexOf(value.toString())
     if (pos >= 0) {
       (config[name] as string[]).splice(pos, 1)
     }
-    let arr = config[name] as string[]
-    let SafeArr = new collections.Array<string>(...arr)
-    AppManager.preference.configPreferences.get(config.instance_id!)?.putSync(name, SafeArr)
   }
-  AppManager.preference.configPreferences.get(config.instance_id!)?.flushSync()
+  syncTopLevelField(config.instance_id!, name, config)
 }
 
 export function clearEditValue(type: string) {
@@ -208,7 +198,7 @@ export function confirmCheck(type: string): boolean {
 }
 
 export function addValue(name: string, type: string) {
-  let config = AppManager.easytier.getEditingConfig()!
+  let config: ConfigJson = AppManager.easytier.getEditingConfig()!
   switch (type) {
     case "route":
     case "cidr": {
@@ -217,10 +207,12 @@ export function addValue(name: string, type: string) {
         duration: 300
       }, () => {
         let raw = EditValue_Cidr!.toString()
-        if ((config[name] as string[]).indexOf(raw) < 0) {
-          config[name].push(raw)
+        let list = config[name] as string[]
+        if (list.indexOf(raw) < 0) {
+          list.push(raw)
         }
         AppManager.data.getDataSource(type).add(EditValue_Cidr!)
+        syncTopLevelField(config.instance_id!, name, config)
       })
       break;
     }
@@ -232,10 +224,12 @@ export function addValue(name: string, type: string) {
         duration: 300
       }, () => {
         let raw = EditValue_Url!.toString()
-        if ((config[name] as string[]).indexOf(raw) < 0) {
-          config[name].push(raw)
+        let list = config[name] as string[]
+        if (list.indexOf(raw) < 0) {
+          list.push(raw)
         }
         AppManager.data.getDataSource(type).add(EditValue_Url!)
+        syncTopLevelField(config.instance_id!, name, config)
       })
       break;
     }
@@ -245,10 +239,12 @@ export function addValue(name: string, type: string) {
         duration: 300
       }, () => {
         let raw = EditValue_IP!.toString()
-        if ((config[name] as string[]).indexOf(raw) < 0) {
-          config[name].push(raw)
+        let list = config[name] as string[]
+        if (list.indexOf(raw) < 0) {
+          list.push(raw)
         }
         AppManager.data.getDataSource(type).add(EditValue_IP!)
+        syncTopLevelField(config.instance_id!, name, config)
       })
       break;
     }
@@ -258,19 +254,23 @@ export function addValue(name: string, type: string) {
         duration: 300
       }, () => {
         let raw = EditValue_NetworkName!.toString()
-        if ((config[name] as string[]).indexOf(raw) < 0) {
-          config[name].push(raw)
+        let list = config[name] as string[]
+        if (list.indexOf(raw) < 0) {
+          list.push(raw)
         }
         AppManager.data.getDataSource(type).add(EditValue_NetworkName!)
+        syncTopLevelField(config.instance_id!, name, config)
       })
       break;
     }
     case "port_forward": {
-      let raw = EditValue_PortForward!.toInterface()
-      if ((config[name] as PortForwardConfig[]).indexOf(raw) < 0) {
-        config[name].push(raw)
+      let raw: ESObject = EditValue_PortForward!.toInterface()
+      let list: ESObject[] = config[name] as ESObject[]
+      if (list.indexOf(raw) < 0) {
+        list.push(raw)
       }
       AppManager.data.getDataSource(type).add(EditValue_PortForward!)
+      syncTopLevelField(config.instance_id!, name, config)
       break;
     }
   }

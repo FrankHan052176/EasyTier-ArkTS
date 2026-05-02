@@ -1,10 +1,7 @@
-import { NetworkInstanceRunningInfo } from '../protobuf/api_manage'
 import { convertToProtocol, Protocol } from '../util/Conversion'
 import { CircleArray } from './container/CircleArray'
 import { PeerInfoDataSource } from './data_source/PeerInfoDataSource'
-import { convertAddrToIp } from '../util/Conversion'
-import { Logger } from '../util/Logger'
-import { NatType } from '../protobuf/common'
+import { NatTypeValue, RuntimeInstanceState, RuntimePeerInfo } from '../RuntimeTypes'
 
 function fixedRate(value: number): number {
   if (value > 107374182) {
@@ -87,32 +84,33 @@ export class InstanceInfo {
   @Trace private upload_rate: number = 0
   @Trace private upload_arr: CircleArray<number> = new CircleArray(10)
   @Trace private last_upload: number = -1
-  @Trace udp_nat: NatType = NatType.Unknown
-  @Trace tcp_nat: NatType = NatType.Unknown
+  @Trace udp_nat: NatTypeValue = NatTypeValue.Unknown
+  @Trace tcp_nat: NatTypeValue = NatTypeValue.Unknown
   @Trace ip: string = "waiting"
 
-  update(info: NetworkInstanceRunningInfo) {
+  update(info: RuntimeInstanceState) {
     //      下载  上传
     let sum = [0, 0]
-    for (const pair of info.peer_route_pairs) {
-      if (pair.route) {
+    for (const route of info.routes ?? []) {
+      if (route) {
         let ip = "waiting"
-        if (pair.route.ipv4_addr?.address?.addr) {
-          ip = convertAddrToIp(pair.route.ipv4_addr?.address?.addr)
+        if (route.ipv4) {
+          ip = route.ipv4 as string
         }
-        let peerInfo = new PeerInfo(pair.route.peer_id, pair.route.hostname, pair.route.cost, ip)
+        let peerInfo = new PeerInfo(route.peerId, route.hostname ?? "N/A", route.cost ?? 0, ip)
+        const peer = (info.peers ?? []).find((value: RuntimePeerInfo) => value.peerId === route.peerId)
         let bytes = 0
         let loss = 0
         let latency_us = 99999999999
         let protocols: Set<Protocol> = new Set
-        for (const conn of pair.peer?.conns ?? []) {
+        for (const conn of (peer?.conns ?? [])) {
           if (conn.stats) {
-            bytes += conn.stats.rx_bytes + conn.stats.tx_bytes
-            latency_us = Math.min(conn.stats.latency_us, latency_us)
+            bytes += conn.stats.rxBytes + conn.stats.txBytes
+            latency_us = Math.min(conn.stats.latencyUs, latency_us)
           }
-          if (conn.tunnel) {
-            protocols.add(convertToProtocol(conn.tunnel.tunnel_type.toLowerCase()))
-            loss = Math.max(conn.loss_rate, loss)
+          if (conn.tunnelType) {
+            protocols.add(convertToProtocol(conn.tunnelType.toLowerCase()))
+            loss = Math.max(conn.lossRate ?? 0, loss)
           }
         }
         peerInfo.latency_us = latency_us
@@ -121,12 +119,12 @@ export class InstanceInfo {
         peerInfo.last_bytes = bytes
         this.peers.set(peerInfo)
       }
-      if (pair.peer) {
-        for (const conn of pair.peer.conns) {
-          if (conn.stats) {
-            sum[0] += conn.stats.rx_bytes
-            sum[1] += conn.stats.tx_bytes
-          }
+    }
+    for (const peer of (info.peers ?? [])) {
+      for (const conn of (peer.conns ?? [])) {
+        if (conn.stats) {
+          sum[0] += conn.stats.rxBytes
+          sum[1] += conn.stats.txBytes
         }
       }
     }
@@ -148,16 +146,16 @@ export class InstanceInfo {
       this.last_upload = sum[1]
     }
 
-    if (info.my_node_info?.virtual_ipv4?.address) {
-      let convertedIp = convertAddrToIp(info.my_node_info?.virtual_ipv4?.address.addr)
+    if (info.myNodeInfo?.virtualIpv4) {
+      let convertedIp = info.myNodeInfo.virtualIpv4 as string
       if (this.ip !== convertedIp) {
         this.ip = convertedIp
       }
     } else {
       this.ip = "waiting"
     }
-    this.udp_nat = info.my_node_info?.stun_info?.udp_nat_type ?? NatType.Unknown
-    this.tcp_nat = info.my_node_info?.stun_info?.tcp_nat_type ?? NatType.Unknown
+    this.udp_nat = info.myNodeInfo?.udpNatType ?? NatTypeValue.Unknown
+    this.tcp_nat = info.myNodeInfo?.tcpNatType ?? NatTypeValue.Unknown
   }
 
   getDownloadRate(): number {

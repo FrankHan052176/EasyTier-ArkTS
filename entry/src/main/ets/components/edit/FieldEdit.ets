@@ -1,4 +1,5 @@
-import { ConfigField, ContentUtil } from '../../ContentUtil'
+import { ConfigField } from '../../ConfigFieldRegistry'
+import { getFieldI18nKey, hasFieldTag, isVaultField } from '../../ConfigFieldUi'
 import { BoolField } from './field/BoolField'
 import { LengthMetrics } from '@kit.ArkUI'
 import { StringField } from './field/StringField'
@@ -10,12 +11,11 @@ import { PrimaryButton } from '../util/TextButton'
 import { addFieldValue } from '../../class/config/Basic'
 import { AppManager } from '../../AppManager'
 import { NumberField } from './field/NumberField'
-import { SecureModeConfigField } from './field/SecureModeConfig'
 import { userAuth } from '@kit.UserAuthenticationKit'
 import { BusinessError } from '@kit.BasicServicesKit'
 
 export function getFieldI18Name(field: string): ResourceStr {
-  return $r("app.string." + (ContentUtil.renamedField[field] || field))
+  return $r("app.string." + getFieldI18nKey(field))
 }
 
 @ComponentV2
@@ -25,7 +25,8 @@ export struct FieldEdit {
   @Provider() field_width: number = 0
   @Local content_height: number = 0
   @Local hasEnableButton: boolean =
-    Array.isArray(this.field.type) && this.field.type[0].type === "boolean" && this.field.name !== "flags_switch"
+    Array.isArray(this.field.type) && this.field.type.length > 0 && this.field.type[0].type === "boolean" &&
+    this.field.name !== "flags_switch"
   @Local enableField: string = this.hasEnableButton ? (this.field.type[0] as ConfigField).name : ""
   @Provider("field_edit_enable") enable: boolean = true
   @Local maskOpacity: number = 1;
@@ -33,11 +34,11 @@ export struct FieldEdit {
   @Consumer("unsafe_status") unsafe: boolean = false
   @Consumer("peep_masked") peepMasked: boolean = false
   @Consumer("peep_dismissed") peepDismissed: boolean = false
-  @Provider("lock_status") unlock: boolean = !ContentUtil.isVaultField(this.getFieldName())
+  @Provider("lock_status") unlock: boolean = !isVaultField(this.getFieldName())
 
   @Computed
   get safe_show() {
-    if (!ContentUtil.isVaultField(this.getFieldName())) return true
+    if (!isVaultField(this.getFieldName())) return true
     if (this.peepMasked) {
       return false
     }
@@ -53,13 +54,8 @@ export struct FieldEdit {
   }
 
   @Computed
-  get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
-  }
-
-  @Computed
   get isHidden() {
-    if (ContentUtil.hasTag(this.field.name, "hidable") && !this.enable) {
+    if (hasFieldTag(this.field.name, "hidable") && !this.enable) {
       return true
     } else {
       return false
@@ -68,7 +64,7 @@ export struct FieldEdit {
 
   @Computed
   get isHideTitle() {
-    return ContentUtil.hasTag(this.field.name, "hideTitle")
+    return hasFieldTag(this.field.name, "hideTitle")
   }
 
   @Computed
@@ -79,7 +75,7 @@ export struct FieldEdit {
 
   @Computed
   get isUseDivider() {
-    return ContentUtil.hasTag(this.field.name, "useDivider")
+    return hasFieldTag(this.field.name, "useDivider")
   }
 
   @Computed
@@ -134,7 +130,7 @@ export struct FieldEdit {
           .fontSize(this.titleFontSize)
           .focusable(false)
         if (this.hasEnableButton) {
-          EnableField({ field: this.enableField })
+          EnableField({ field: this.enableField, fieldPath: (this.field.type[0] as ConfigField).path })
         } else if (this.isLisType(this.field)) {
           PrimaryButton({ text: "新增", fontSize: this.titleFontSize, fontColor: $r("sys.color.brand_font") })
             .clickEffect({
@@ -163,24 +159,22 @@ export struct FieldEdit {
       }) {
         ForEach(this.getFields(), (field: ConfigField, index) => {
           if (field.type === "boolean") {
-            BoolField({ field: field.name, text: getFieldI18Name(field.name) })
+            BoolField({ field: field.name, fieldPath: field.path, text: getFieldI18Name(field.name) })
           } else {
             Column() {
               if (field.type === "string") {
-                StringField({ field: field.name })
+                StringField({ field: field.name, fieldPath: field.path })
               } else if (field.type === "port") {
-                PortField({ field: field.name, text: getFieldI18Name(field.name) })
+                PortField({ field: field.name, fieldPath: field.path, text: getFieldI18Name(field.name) })
               } else if (this.isLisType(field)) {
                 ListField({ field: field.name, type: (field.type as string).slice(0, field.type.length - 2) })
               } else if (Array.isArray(field.type) && field.type.length === 2 && field.type[0].type === "cidr_ip" &&
                 field.type[1].type === "cidr_mask") {
-                CidrField({ field: field.name, text: getFieldI18Name(field.name) })
+                CidrField({ field: field.name, fieldPath: field.path, text: getFieldI18Name(field.name) })
               } else if (Array.isArray(field.type)) {
                 FieldEdit({ field: field, layer: this.layer + 1 })
               } else if (field.type === "number") {
-                NumberField({ field: field.name })
-              } else if (field.type === "common.SecureModeConfig") {
-                SecureModeConfigField({ field: field.name })
+                NumberField({ field: field.name, fieldPath: field.path })
               } else {
                 Text(field.name + " 功能暂未适配")
                   .width('100%')

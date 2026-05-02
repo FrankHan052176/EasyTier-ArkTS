@@ -1,6 +1,7 @@
-import { ContentUtil } from '../../../ContentUtil';
+import { hasFieldTag } from '../../../ConfigFieldUi';
 import { getFieldI18Name } from '../FieldEdit';
 import { AppManager } from '../../../AppManager';
+import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { TertiaryButton } from '../../util/TextButton';
 import { getHostname } from '../../../util/Conversion';
 
@@ -22,7 +23,8 @@ function fieldTextInput(onChange: EditableTextOnChangeCallback, inputType: Input
 @ComponentV2
 export struct StringField {
   @Param @Require field: string;
-  @Local value: string = this.config![ContentUtil.safeFieldName(this.field)] || "";
+  @Param fieldPath: string[] = [this.field]
+  @Local value: string = (getFieldPathValue(this.config!, this.fieldPath) as string) || "";
   @Consumer("field_edit_enable") enable: boolean = true
   @Local intensity: number = 0;
   controller: TextInputController = new TextInputController()
@@ -33,12 +35,12 @@ export struct StringField {
 
   @Computed
   get hasTopTitle() {
-    return ContentUtil.hasTag(this.field, "topFieldName")
+    return hasFieldTag(this.field, "topFieldName")
   }
 
   @Computed
   get hasLeftTitle() {
-    return ContentUtil.hasTag(this.field, "leftFieldName")
+    return hasFieldTag(this.field, "leftFieldName")
   }
 
   @Computed
@@ -47,15 +49,10 @@ export struct StringField {
   }
 
   @Computed
-  get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
-  }
-
-  @Computed
   get inputType() {
-    if (ContentUtil.hasTag(this.field, "username")) {
+    if (hasFieldTag(this.field, "username")) {
       return InputType.USER_NAME
-    } else if (ContentUtil.hasTag(this.field, "password")) {
+    } else if (hasFieldTag(this.field, "password")) {
       return InputType.Password
     } else {
       return InputType.Normal
@@ -64,7 +61,7 @@ export struct StringField {
 
   @Computed
   get enterKey() {
-    if (ContentUtil.hasTag(this.field, "enter_next")) {
+    if (hasFieldTag(this.field, "enter_next")) {
       return EnterKeyType.Next
     } else {
       return EnterKeyType.Done
@@ -78,7 +75,7 @@ export struct StringField {
 
   @Computed
   get isUseHostname() {
-    return ContentUtil.hasTag(this.field, "useHostname")
+    return hasFieldTag(this.field, "useHostname")
   }
 
   build() {
@@ -104,9 +101,8 @@ export struct StringField {
                   AppManager.permission.requestDistributePerm(false).then(() => {
                     let value: string = getHostname()
                     this.value = value
-                    this.config![ContentUtil.safeFieldName(this.field)] = value
-                    this.preference?.putSync(this.field, this.config![this.field])
-                    this.preference?.flushSync()
+                    setFieldPathValue(this.config!, this.fieldPath, value)
+                    syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)
                   })
                 })
             }
@@ -118,12 +114,12 @@ export struct StringField {
           .focusable(false)
         }
         Row() {
-          TextInput({ text: this.value!!, controller: this.controller })
-            .fieldTextInput((value) => {
-              this.config![ContentUtil.safeFieldName(this.field)] = value
-              this.preference?.putSync(this.field, this.config![this.field])
-              this.preference?.flushSync()
-            }, this.inputType, this.enterKey, this.field, () => {
+            TextInput({ text: this.value!!, controller: this.controller })
+              .fieldTextInput((value) => {
+                this.value = value
+                setFieldPathValue(this.config!, this.fieldPath, value)
+                syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)
+              }, this.inputType, this.enterKey, this.field, () => {
               if (this.field === "network_name") {
                 this.getUIContext().getFocusController().requestFocus("network_secret");
               }

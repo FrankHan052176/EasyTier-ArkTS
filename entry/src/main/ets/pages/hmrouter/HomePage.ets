@@ -18,6 +18,7 @@ import { motion } from '@kit.MultimodalAwarenessKit';
 import { harmonyShare } from '@kit.ShareKit';
 import { WindowUtil } from '../../WindowUtil';
 import { buildShareData } from '../../util/ShareUtil';
+import { ConfigJson } from '../../SchemaConfig';
 import { Instances } from '../../components/index/Instances';
 import { Favorite } from '../../components/index/Favorite';
 import { Logs as Logs } from '../../components/index/Logs';
@@ -433,11 +434,11 @@ export struct HomePage {
 
   private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
     if (AppManager.uiState.selected) {
-      let config = AppManager.data.configUUIDMap.get(AppManager.uiState.selected)
+      let config: ConfigJson | undefined = AppManager.easytier.getConfig(AppManager.uiState.selected)
       if (config) {
         buildShareData(config, (data) => {
           sharableTarget.share(data);
-        }, false, AppManager.uiState.configUUIDNameMap.get(AppManager.uiState.selected))
+        }, false, AppManager.easytier.getConfigName(AppManager.uiState.selected))
       }
     } else {
       sendToast("先选择一个实例，再分享吧")

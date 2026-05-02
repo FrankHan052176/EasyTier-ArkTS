@@ -1,13 +1,10 @@
-import { AppJson, appTasks } from '@ohos/hvigor-ohos-plugin';
 import { appPlugin } from "@hadss/hmrouter-plugin";
-import { hvigor, getNode, HvigorNode, HvigorPlugin } from '@ohos/hvigor';
-import { appTasks, OhosHapContext, OhosAppContext, OhosPluginId, Target } from '@ohos/hvigor-ohos-plugin';
+import { hvigor, getNode, HvigorNode, HvigorPlugin, Task } from '@ohos/hvigor';
+import { AppJson, appTasks, OhosHapContext, OhosAppContext, OhosPluginId, Target } from '@ohos/hvigor-ohos-plugin';
 import { parse } from 'yaml';
 import crypto from "crypto";
 import fs from 'fs';
 import path from 'path';
-import protobuf from "protobufjs";
-import { execSync } from "child_process";
 const scalarTypeMap = {
     string: "string",
     bool: "boolean",
@@ -46,12 +43,12 @@ function loadSigningConfigs() {
         fs.accessSync(path);
     } catch (e) {
         if (e.code !== 'ENOENT') {
-            log.error(e);
+            console.error(e);
         }
         return [];
     }
     const data = fs.readFileSync(path);
-    return JSON.parse(data);
+    return JSON.parse(data.toString());
 }
 function loadBUILDNUMBER() {
     const path = './BUILDNUMBER.txt';
@@ -59,7 +56,7 @@ function loadBUILDNUMBER() {
         fs.accessSync(path);
     } catch (e) {
         if (e.code !== 'ENOENT') {
-            log.error(e);
+            console.error(e);
         }
         return [];
     }
@@ -71,12 +68,12 @@ function loadAppInfo() {
         fs.accessSync(appInfo);
     } catch (e) {
         if (e.code !== 'ENOENT') {
-            log.error(e);
+            console.error(e);
         }
         return [];
     }
     const data = fs.readFileSync(appInfo);
-    return JSON.parse(data);
+    return JSON.parse(data.toString());
 }
 function updateBuildTime() {
     const now = new Date();
@@ -169,47 +166,6 @@ hvigor.nodesEvaluated(() => {
                     updateBuildTime()
                     convertYamlFromUrlToI18nJson(en,en_file)
                     convertYamlFromUrlToI18nJson(cn,cn_file)
-                    const files = [
-                        "api_manage",
-                        "common",
-                        "peer_rpc",
-                        "api_instance",
-                        "acl",
-                        "error",
-                    ];
-                    let results = await Promise.all(files.map(downloadProtoFile));
-                    const changed = results.some(Boolean);
-                    if (changed) {
-                        console.log("🔄 检测到 proto 文件更新，重新生成...");
-                        execSync("buf generate", {
-                            cwd: path.resolve(__dirname, "."),
-                            stdio: "inherit"
-                        });
-                        const mapping = {};
-                        const idMapping = {};
-                        const nameMapping = {};
-                        const dir = path.resolve(__dirname, "./proto");
-                        const root = await protobuf.load(path.join(dir, "api_manage.proto"))
-                        const message = root.lookupType("NetworkConfig")!;
-                        for (const [fieldName, field] of Object.entries(message.fields)) {
-                            const tsType = scalarTypeMap[field.type] || field.type;
-                            const finalType = field.rule === "repeated" ? `${tsType}[]` : tsType;
-                            const finalName = fixFieldName(fieldName);
-                            const id = ""+field.id;
-                            mapping[finalName] = finalType;
-                            idMapping[finalName] = id;
-                            nameMapping[id] = finalName;
-                        }
-                        fs.writeFileSync(
-                            "./entry/src/main/ets/protobuf/proto-type-map.ts",
-                            "export const NetworkConfigTypeMap = " + JSON.stringify(mapping, null, 2)+"\n"+
-                              "export const NetworkConfigFieldIdMap = " + JSON.stringify(idMapping, null, 2)+"\n"+
-                                "export const NetworkConfigIdFieldMap = " + JSON.stringify(nameMapping, null, 2)
-                        );
-                        console.log("✅ 生成完成");
-                    } else {
-                        console.log("⏭️ 所有 proto 文件均无变化，跳过生成");
-                    }
                 });
             }
         });

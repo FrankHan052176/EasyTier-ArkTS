@@ -14,7 +14,7 @@ export struct Instances {
 
   @Computed
   get uuids() {
-    return Array.from(AppManager.uiState.configUUIDNameMap.keys())
+    return AppManager.easytier.getAllConfigIds()
   }
 
   @Computed
@@ -240,7 +240,7 @@ export struct Instances {
   ListItemView(uuid: string, showFavorite: boolean) {
     Row() {
       Column() {
-        Text(AppManager.uiState.configUUIDNameMap.get(uuid))
+        Text(AppManager.easytier.getConfigName(uuid) ?? uuid)
           .fontSize(14)
           .fontWeight(this.selectedUuid === uuid ? FontWeight.Bold : FontWeight.Medium)
           .fontColor(this.selectedUuid === uuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))

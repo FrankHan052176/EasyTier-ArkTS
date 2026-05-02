@@ -8,8 +8,8 @@ import {
 import { FieldValue } from './Basic'
 import { AppManager, Svp2fp } from '../../AppManager'
 import { LengthMetrics } from '@kit.ArkUI'
-import { PortForwardConfig } from '../../protobuf/api_manage'
 import { ProtocolSelector } from '../../components/util/ProtocolSelector'
+import { ConfigJson } from '../../SchemaConfig'
 
 function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
@@ -298,15 +298,15 @@ export class PortForward implements FieldValue {
   @Monitor("proto", "from", "from_port", "to", "to_port")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
-      let config = AppManager.easytier.getEditingConfig()
+      let config: ConfigJson = AppManager.easytier.getEditingConfig()
       if (!config) {
         return
       }
       if (!this.fieldName) {
         return
       }
-      let arr = config[this.fieldName] as PortForwardConfig[]
-      let old: PortForwardConfig = {
+      let arr: ESObject[] = config[this.fieldName] as ESObject[]
+      let old: ESObject = {
         bind_ip: (monitor.value("from")?.before ?? this.from) as string,
         bind_port: Number.parseInt((monitor.value("from_port")?.before ?? this.from_port) as string),
         dst_ip: (monitor.value("to")?.before ?? this.to) as string,
@@ -315,7 +315,7 @@ export class PortForward implements FieldValue {
       }
       let i = -1
       for (let index = 0; index < arr.length; index++) {
-        const element = arr[index];
+          const element: ESObject = arr[index];
         if (element.bind_ip === old.bind_ip &&
           element.bind_port === old.bind_port &&
           element.dst_ip === old.dst_ip &&
@@ -365,7 +365,7 @@ export class PortForward implements FieldValue {
     }
   }
 
-  readFrom(value: PortForwardConfig): PortForward | undefined {
+  readFrom(value: ESObject): PortForward | undefined {
     this.proto = convertToProtocol(value.proto)
     let bind_port = ("" + value.bind_port).replace(/['"]/g, '')
     let dst_port = ("" + value.dst_port).replace(/['"]/g, '')
@@ -385,7 +385,7 @@ export class PortForward implements FieldValue {
     return this.proto.toString() + "://" + this.from + ":" + this.from_port + "/" + this.to + ":" + this.to_port
   }
 
-  toInterface(): PortForwardConfig {
+  toInterface(): ESObject {
     return {
       bind_ip: this.from,
       bind_port: Number.parseInt(this.from_port),

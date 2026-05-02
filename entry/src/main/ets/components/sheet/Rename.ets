@@ -1,7 +1,7 @@
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { EventHelper } from '../../util/EventHelper'
-import { buffer } from '@kit.ArkTS'
+import easytier from 'easytier-ohrs'
 
 @ComponentV2
 export struct Rename_Title {
@@ -63,7 +63,7 @@ function underline(textAlign: TextAlign = TextAlign.Center) {
 export struct Rename_Content {
   @Computed
   get instanceName() {
-    return AppManager.uiState.configUUIDNameMap.get(AppManager.uiState.editingInstance ?? "") ?? "N/A"
+    return AppManager.uiState.editingInstance ? (AppManager.easytier.getConfigName(AppManager.uiState.editingInstance) ?? "N/A") : "N/A"
   }
 
   build() {
@@ -75,10 +75,7 @@ export struct Rename_Content {
           .onChange((value: string) => {
             if (value.length > 0) {
               if (AppManager.uiState.editingInstance) {
-                AppManager.uiState.configUUIDNameMap.set(AppManager.uiState.editingInstance, value)
-                AppManager.preference.configIDPreferences?.putSync(AppManager.uiState.editingInstance,
-                  new Uint8Array(buffer.from(value, 'utf-8').buffer))
-                AppManager.preference.configIDPreferences?.flushSync()
+                easytier.renameStoredConfig(AppManager.uiState.editingInstance, value)
               }
             }
           })

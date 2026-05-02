@@ -14,7 +14,7 @@ struct StatusBarPage {
         .id('HelloWorld')
         .fontSize(25)
         .fontWeight(FontWeight.Bold)
-      Text(""+AppManager.uiState.configUUIDNameMap.size)
+      Text(""+AppManager.easytier.getAllConfigIds().length)
         .id('HelloWorld')
         .fontSize(25)
         .fontWeight(FontWeight.Bold)

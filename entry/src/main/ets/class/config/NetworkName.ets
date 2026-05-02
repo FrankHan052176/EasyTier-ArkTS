@@ -1,6 +1,7 @@
 import { FieldValue } from './Basic'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Svp2fp } from '../../AppManager'
+import { ConfigJson } from '../../SchemaConfig'
 
 @Extend(Text)
 function tips() {
@@ -138,7 +139,7 @@ export class NetworkName implements FieldValue {
   @Monitor("name")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
-      let config = AppManager.easytier.getEditingConfig()
+      let config: ConfigJson = AppManager.easytier.getEditingConfig()
       if (!config) {
         return
       }
@@ -146,7 +147,7 @@ export class NetworkName implements FieldValue {
         return
       }
       let arr = config[this.fieldName] as string[]
-      let old = "" + monitor.value("name")?.before ?? this.name
+      let old = "" + (monitor.value("name")?.before ?? this.name)
       let index = arr.indexOf(old)
       if (index < 0) {
         return

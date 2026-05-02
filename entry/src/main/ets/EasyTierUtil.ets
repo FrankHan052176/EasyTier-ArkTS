@@ -1,38 +1,33 @@
 import entry from 'libentry.so'
-import { NetworkConfig, NetworkInstanceRunningInfo } from './protobuf/api_manage'
-import easytier, { KeyValuePair } from 'easytier-ohrs'
+import easytier from 'easytier-ohrs'
 import { EventHelper } from './util/EventHelper'
 import { AppManager } from './AppManager'
 import { Logger, LogLocate } from './util/Logger'
 import { sendToast } from './ToastUtil'
 import { InstanceInfo } from './class/InstanceInfo'
-import { convertAddrToIp } from './util/Conversion'
 import { NetworkSegment } from './class/NetworkSegment'
 import { SafeSet } from './util/SafeSet'
 import { deviceInfo } from '@kit.BasicServicesKit'
-import { ContentUtil } from './ContentUtil'
+import { getDefaultConfig } from './ConfigDefaults'
 import { buffer, JSON, taskpool, util } from '@kit.ArkTS'
 import { LogDataSource } from './class/data_source/LogDataSource'
 import { updateFavorite } from './CommunicationUtil'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { updateTextNotification } from './util/NoticeHelper'
-import easytier_release from 'easytier-release'
 import { fileIo, fileUri } from '@kit.CoreFileKit'
 import { systemShare } from '@kit.ShareKit'
 import { common, Want } from '@kit.AbilityKit'
 import { uniformTypeDescriptor } from '@kit.ArkData'
 import { socket, vpnExtension } from '@kit.NetworkKit'
+import { syncWholeConfig } from './ConfigSyncUtil'
+import { ConfigJson } from './SchemaConfig'
+import { RuntimeAggregateState, RuntimeInstanceState } from './RuntimeTypes'
 
-@Concurrent
-async function readInfoWorker(git_core: boolean): Promise<void> {
-  setInterval(() => {
-    let infos = git_core?easytier.collectNetworkInfos():easytier_release.collectNetworkInfos()
-    EventHelper.emitterPublish("worker_readInfo", {
-      data: {
-        infos: infos
-      }
-    })
-  }, 100)
+const easytier_release = easytier
+
+interface StoredConfigMetaLite {
+  configId: string
+  displayName: string
 }
 
 @Concurrent
@@ -57,7 +52,7 @@ export class EasyTierUtil {
   @Trace appLogs: LogDataSource = new LogDataSource
   @Trace nmLogs: LogDataSource = new LogDataSource
   @Trace ohLogs: LogDataSource = new LogDataSource
-  @Trace runningNetworks: Map<string, NetworkInstanceRunningInfo> = new Map()
+  @Trace runningNetworks: Map<string, RuntimeInstanceState> = new Map()
   @Trace instanceInfos: Map<string, InstanceInfo> = new Map()
   @Trace needTUN: Set<string> = new Set()
   task1: taskpool.LongTask | undefined
@@ -65,23 +60,21 @@ export class EasyTierUtil {
   tunRoutes: SafeSet<NetworkSegment> = new SafeSet()
   client: socket.LocalSocket | undefined
   private isVpnConnected: boolean = false
+  private lastKernelRoutesSignature: string = ''
 
   init() {
-    EventHelper.emitterListener("worker_readInfo", (event) => {
-      if (event?.data?.infos) {
-        this.processNetworkInfos(event.data.infos as KeyValuePair[], false)
-      }
-    })
     EventHelper.emitterListener("worker_readLogs", (event) => {
       if (event?.data) {
         this.processLogs(event.data.appLogs as string[], event.data.nmLogs as string[], event.data.ohLogs as string[], false)
       }
     })
+    EventHelper.emitterListener("kernel_runtime_snapshot", (event) => {
+      if (event?.data?.snapshot) {
+        this.processRuntimeSnapshot(event.data.snapshot as RuntimeAggregateState, false)
+      }
+    })
 
-    // 始终启动本地线程
-    this.task1 = new taskpool.LongTask(readInfoWorker, AppManager.uiState.git_core)
     this.task2 = new taskpool.LongTask(readLogsWorker)
-    taskpool.execute(this.task1)
     taskpool.execute(this.task2)
 
     if (AppManager.uiState.ext_mode) {
@@ -110,97 +103,90 @@ export class EasyTierUtil {
   private updateNotification(uuid: string) {
     let info = AppManager.easytier.instanceInfos.get(uuid)
     if (info) {
-      updateTextNotification(AppManager.uiState.configUUIDNameMap.get(uuid) ?? "N/A", info)
+      updateTextNotification(this.getConfigName(uuid) ?? "N/A", info)
     }
   }
 
-  processNetworkInfos(infos: KeyValuePair[], fromVpn: boolean = true) {
-    // 逻辑：
-    // 1. VPN 数据始终信任。
-    // 2. 本地数据：如果 VPN 已连接，忽略本地数据（信任 VPN 的全量同步）；
-    //    如果 VPN 未连接，允许更新（包括空更新，以便在停止后正确清理 UI）。
+  private getValidInstanceId(instance: RuntimeInstanceState): string | undefined {
+    const instanceId = instance.instanceId
+    if (typeof instanceId !== 'string' || instanceId.length === 0) {
+      return undefined
+    }
+    return instanceId
+  }
+
+  private processRuntimeSnapshot(snapshot: RuntimeAggregateState, fromVpn: boolean = true): void {
     if (!fromVpn && AppManager.uiState.ext_mode && this.isVpnConnected) {
       return
     }
 
-    let networks = new Set<string>()
-    for (const info of infos) {
-      networks.add(info.key)
-      let newInfo: NetworkInstanceRunningInfo
-      try {
-        newInfo = JSON.parse(info.value) as NetworkInstanceRunningInfo
-      } catch (e) {
-        Logger.error(`processNetworkInfos parse error: ${JSON.stringify(e)}`, this)
-        continue
+    const instances = snapshot.instances ?? []
+    const activeIds = new Set<string>()
+    instances.forEach((instance) => {
+      const instanceId = this.getValidInstanceId(instance)
+      if (!instanceId) {
+        return
       }
-      if (!newInfo.running) {
-        Logger.error("ReadErrorInfo: " + newInfo.error_msg, this)
-        continue
+      activeIds.add(instanceId)
+      if (!(instance.running as boolean)) {
+        return
       }
-      this.runningNetworks.set(info.key, newInfo)
-      if (!this.instanceInfos.has(info.key)) {
-        this.instanceInfos.set(info.key, new InstanceInfo())
+      this.runningNetworks.set(instanceId, instance)
+      if (!this.instanceInfos.has(instanceId)) {
+        this.instanceInfos.set(instanceId, new InstanceInfo())
       }
-      this.instanceInfos.get(info.key)?.update(newInfo)
-      this.updateNotification(info.key)
-      if (this.needTUN.has(info.key) && newInfo.my_node_info?.virtual_ipv4 &&
-        newInfo.my_node_info?.virtual_ipv4?.address) {
-        this.needTUN.delete(info.key)
-        let config = AppManager.data.configUUIDMap.get(info.key) ?? AppManager.data.tempConfigMap.get(info.key)!
-        config.routes.forEach((route) => {
-          this.tunRoutes.add(new NetworkSegment(route.toString()))
-        })
-        this.tunRoutes.add(new NetworkSegment(convertAddrToIp(newInfo.my_node_info.virtual_ipv4.address.addr) + "/" +
-        newInfo.my_node_info.virtual_ipv4.network_length))
-        newInfo.routes.forEach((route) => {
-          route.proxy_cidrs.forEach((cidr) => {
-            this.addTunRoutes(cidr)
-          })
-          if (route.ipv4_addr?.address) {
-            this.addTunRoutes(convertAddrToIp(route.ipv4_addr.address.addr) + "/" + route.ipv4_addr.network_length)
-          }
-        })
-        if (!AppManager.uiState.ext_mode) {
-          EventHelper.emitterPublish("setup_tun", {
-            data: {
-              ip: convertAddrToIp(newInfo.my_node_info.virtual_ipv4.address.addr),
-              mask: newInfo.my_node_info.virtual_ipv4.network_length,
-              id: info.key,
-              magicDNS: config!.enable_magic_dns ?? false,
-              needExitNode: config!.exit_nodes.length > 0
-            }
-          })
-        }
-        AppManager.data.tempConfigMap.delete(info.key)
-      }
-      if (!this.needTUN.has(info.key) && (AppManager.uiState.vpn_routes || deviceInfo.sdkApiVersion >= 20)) {
-        let needUpdate = false
-        newInfo.routes.forEach((route) => {
-          route.proxy_cidrs.forEach((cidr) => {
-            needUpdate = this.addTunRoutes(cidr) || needUpdate
-          })
-          if (route.ipv4_addr?.address) {
-            needUpdate = needUpdate ||
-            this.addTunRoutes(convertAddrToIp(route.ipv4_addr.address.addr) + "/" + route.ipv4_addr.network_length)
-          }
-        })
-        if (needUpdate && newInfo.my_node_info?.virtual_ipv4?.address && !AppManager.uiState.ext_mode) {
-          EventHelper.emitterPublish("update_route", {
-            data: {
-              ip: convertAddrToIp(newInfo.my_node_info.virtual_ipv4.address.addr),
-              mask: newInfo.my_node_info.virtual_ipv4.network_length,
-              id: info.key,
-              magicDNS: AppManager.data.configUUIDMap.get(info.key)?.enable_magic_dns ?? false,
-              needExitNode: (AppManager.data.configUUIDMap.get(info.key)?.exit_nodes ?? []).length > 0
-            }
-          })
-        }
-      }
-    }
+      this.instanceInfos.get(instanceId)?.update(instance)
+      this.updateNotification(instanceId)
+    })
+
     for (const uuid of Array.from(this.runningNetworks.keys())) {
-      if (!networks.has(uuid)) {
+      if (!activeIds.has(uuid)) {
         this.runningNetworks.delete(uuid)
         this.instanceInfos.delete(uuid)
+        this.needTUN.delete(uuid)
+      }
+    }
+
+    if (!AppManager.uiState.ext_mode) {
+      const tun = snapshot.tun
+      const aggregatedRoutes = tun?.aggregatedRoutes ?? []
+      const routeSignature = JSON.stringify(aggregatedRoutes)
+      if (!tun?.active) {
+        this.lastKernelRoutesSignature = ''
+        return
+      }
+      if (routeSignature !== this.lastKernelRoutesSignature) {
+        this.lastKernelRoutesSignature = routeSignature
+        this.tunRoutes.clear()
+        aggregatedRoutes.forEach((route: string): void => {
+          try {
+            this.tunRoutes.add(new NetworkSegment(route))
+          } catch (_) {
+          }
+        })
+        let firstAttached: RuntimeInstanceState | undefined = undefined
+        for (const instance of (snapshot.instances ?? [])) {
+          const instanceId = this.getValidInstanceId(instance)
+          if (instanceId && (tun.attachedInstanceIds ?? []).includes(instanceId) && !!instance.myNodeInfo?.virtualIpv4Cidr) {
+            firstAttached = instance
+            break
+          }
+        }
+        const cidr = firstAttached?.myNodeInfo?.virtualIpv4Cidr
+        const ip = firstAttached?.myNodeInfo?.virtualIpv4
+        if (cidr && ip) {
+          const mask = Number(cidr.split('/')[1] ?? '24')
+          EventHelper.emitterPublish("update_route", {
+            data: {
+              ip,
+              mask,
+              id: firstAttached?.instanceId,
+              magicDNS: firstAttached?.magicDnsEnabled ?? false,
+              needExitNode: firstAttached?.needExitNode ?? false,
+              routes: aggregatedRoutes
+            }
+          })
+        }
       }
     }
   }
@@ -246,8 +232,8 @@ export class EasyTierUtil {
       try {
         let str = buffer.from(value.message).toString();
         let msg: ESObject = JSON.parse(str);
-        if (msg.type === "info") {
-          this.processNetworkInfos(msg.data as KeyValuePair[], true)
+        if (msg.type === "runtime_snapshot") {
+          this.processRuntimeSnapshot(msg.data as RuntimeAggregateState, true)
         } else if (msg.type === "logs") {
           let logData: ESObject = msg.data;
           this.processLogs(logData.appLogs as string[], logData.nmLogs as string[], logData.ohLogs as string[], true)
@@ -264,9 +250,10 @@ export class EasyTierUtil {
 
   public start(uuid: string | undefined = AppManager.uiState.selected, byCard: boolean = false): boolean {
     if (uuid) {
-      let config = AppManager.data.configUUIDMap.get(uuid)
+      let config: ConfigJson | undefined = this.getConfig(uuid)
       if (config) {
         Logger.debug("start config: "+ JSON.stringify(config, undefined, 2), this)
+        syncWholeConfig(uuid, this.getConfigName(uuid) ?? uuid, config)
         if (AppManager.uiState.git_core?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
           if (!config.no_tun) {
             this.needTUN.add(uuid)
@@ -277,7 +264,7 @@ export class EasyTierUtil {
               abilityName: "EasyTierAbility",
               parameters: {
                 cfg: JSON.stringify(config),
-                name: AppManager.uiState.configUUIDNameMap.get(uuid) ?? "",
+                name: this.getConfigName(uuid) ?? "",
                 socket: "easytier_vpn_socket",
                 git_core: AppManager.uiState.git_core,
                 vpn_routes: AppManager.uiState.vpn_routes,
@@ -297,7 +284,7 @@ export class EasyTierUtil {
                 data: {
                   cfg: JSON.stringify(config),
                   uuid: byCard?undefined:uuid,
-                  name: AppManager.uiState.configUUIDNameMap.get(uuid)
+                  name: this.getConfigName(uuid)
                 }
               })
             })
@@ -314,9 +301,10 @@ export class EasyTierUtil {
     }
   }
 
-  public temp_start(name: string, config: NetworkConfig): boolean {
+  public temp_start(name: string, config: ConfigJson): boolean {
     if (config) {
       Logger.debug("temp start config: "+ JSON.stringify(config, undefined, 2), this)
+      syncWholeConfig(config.instance_id!, name, config)
       if (AppManager.uiState.git_core?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
         if (!config.no_tun) {
           this.needTUN.add(config.instance_id!)
@@ -371,11 +359,16 @@ export class EasyTierUtil {
       this.client = undefined
       this.isVpnConnected = false
     } else {
+      const runningIds = Array.from(this.runningNetworks.keys()).filter((value) => {
+        return value.length > 0
+      }) as string[]
       EventHelper.emitterPublish("stop_bg")
       if (AppManager.uiState.git_core) {
-        easytier.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
-      }else {
-        easytier_release.stopNetworkInstance(Array.from(this.runningNetworks.keys()))
+        runningIds.forEach((value) => {
+          easytier.stopKernel(value)
+        })
+      } else if (runningIds.length > 0) {
+        easytier_release.stopNetworkInstance(runningIds)
       }
     }
 
@@ -399,12 +392,55 @@ export class EasyTierUtil {
     return false
   }
 
-  public getConfig(uuid: string) {
-    return AppManager.data.configUUIDMap.get(uuid)
+  public getConfig(uuid: string): ConfigJson | undefined {
+    const rawConfig = easytier.getConfig(uuid)
+    if (!rawConfig) {
+      return undefined
+    }
+    try {
+      const rawConfigJson: string = rawConfig
+      return JSON.parse(rawConfigJson) as ConfigJson
+    } catch (_) {
+      return undefined
+    }
   }
 
-  public getEditingConfig() {
-    return AppManager.data.configUUIDMap.get(AppManager.uiState.editingInstance ?? "") ?? ContentUtil.getDefaultConfig("")
+  public getEditingConfig(): ConfigJson | undefined {
+    const editingId = AppManager.uiState.editingInstance
+    return editingId ? (this.getConfig(editingId) ?? getDefaultConfig("")) : getDefaultConfig("")
+  }
+
+  public getConfigName(uuid: string | undefined): string | undefined {
+    if (!uuid || uuid.length === 0) {
+      return undefined
+    }
+    return easytier.getConfigDisplayNameById(uuid) ?? undefined
+  }
+
+  public getConfigLabel(uuid: string | undefined, emptyLabel: string = ''): string {
+    if (!uuid || uuid.length === 0) {
+      return emptyLabel
+    }
+    const name = this.getConfigName(uuid)
+    return name && name.length > 0 ? name : uuid
+  }
+
+  public listStoredConfigs(): StoredConfigMetaLite[] {
+    try {
+      const rawEntries = JSON.parse(easytier.listConfigs()) as StoredConfigMetaLite[]
+      return (rawEntries ?? []).map((item) => {
+        const configId = item.configId
+        const displayName = item.displayName ?? configId
+        const entry: StoredConfigMetaLite = { configId, displayName }
+        return entry
+      }).filter((item) => item.configId.length > 0)
+    } catch (_) {
+      return []
+    }
+  }
+
+  public getAllConfigIds(): string[] {
+    return AppManager.data.configIds
   }
 
   public getEditingInstance() {

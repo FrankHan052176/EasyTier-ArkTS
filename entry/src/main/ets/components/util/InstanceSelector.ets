@@ -1,6 +1,12 @@
 import { AppManager } from '../../AppManager'
 import { EventHelper } from '../../util/EventHelper'
+import { Logger } from '../../util/Logger'
 import { WindowUtil } from '../../WindowUtil'
+
+interface InstanceEntry {
+  uuid: string
+  label: string
+}
 
 @ComponentV2
 export struct InstanceSelector {
@@ -9,11 +15,21 @@ export struct InstanceSelector {
 
   @Computed
   get uuids() {
-    return Array.from(AppManager.uiState.configUUIDNameMap.keys())
+    return AppManager.easytier.getAllConfigIds()
   }
 
-  @Event onSelect: (uuid: string) => void = () => {
+  @Computed
+  get entries(): InstanceEntry[] {
+    const entries = AppManager.easytier.listStoredConfigs()
+    return entries.map((item) => {
+      return {
+        uuid: item.configId,
+        label: item.displayName && item.displayName.length > 0 ? item.displayName : item.configId
+      } as InstanceEntry
+    })
   }
+
+  @Event onSelect: (uuid: string) => void = () => {}
 
   aboutToAppear(): void {
     EventHelper.emitterListener("resize_off", () => {
@@ -75,18 +91,18 @@ export struct InstanceSelector {
 
       // List
       List({ space: 12 }) {
-        ForEach(this.uuids, (uuid: string) => {
+        ForEach(this.entries, (entry: InstanceEntry) => {
           ListItem() {
             Row() {
               Column() {
-                Text(AppManager.uiState.configUUIDNameMap.get(uuid) || uuid)
+                Text(entry.label)
                   .fontSize(16)
-                  .fontWeight(uuid === this.selectedUuid ? FontWeight.Bold : FontWeight.Medium)
-                  .fontColor(uuid === this.selectedUuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))
+                  .fontWeight(entry.uuid === this.selectedUuid ? FontWeight.Bold : FontWeight.Medium)
+                  .fontColor(entry.uuid === this.selectedUuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-                Text(uuid)
+                Text(entry.uuid)
                   .fontSize(12)
                   .fontColor($r('sys.color.font_tertiary'))
                   .margin({ top: 4 })
@@ -96,7 +112,7 @@ export struct InstanceSelector {
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start)
 
-              if (uuid === this.selectedUuid) {
+              if (entry.uuid === this.selectedUuid) {
                 SymbolGlyph($r('sys.symbol.checkmark'))
                   .fontSize(24)
                   .fontColor([$r('sys.color.brand')])
@@ -108,12 +124,12 @@ export struct InstanceSelector {
             .backgroundColor($r('sys.color.comp_background_tertiary'))
             .borderRadius(16)
             .onClick(() => {
-              this.onSelect(uuid)
+              this.onSelect(entry.uuid)
               this.isSelecting = false
             })
           }
-          .swipeAction({ end: this.DeleteAction(uuid) })
-        })
+          .swipeAction({ end: this.DeleteAction(entry.uuid) })
+        }, (entry: InstanceEntry) => entry.uuid)
       }
       .width('100%')
       .layoutWeight(1)
@@ -130,7 +146,7 @@ export struct InstanceSelector {
   build() {
     Column() {
       Column() {
-        Text(AppManager.uiState.configUUIDNameMap.get(this.selectedUuid) || "未选择实例")
+        Text(this.entries.find((item) => item.uuid === this.selectedUuid)?.label ?? "未选择实例")
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))

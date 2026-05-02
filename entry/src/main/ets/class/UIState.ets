@@ -10,7 +10,6 @@ export class UIState {
   // --- 运行时状态 ---
   @Trace isStatusBar: boolean = false
   @Trace editingInstance: string | undefined
-  @Trace configUUIDNameMap: Map<string, string> = new Map
   @Trace notificationId: number | undefined = undefined
 
   // --- 持久化配置变量 (从 PreferencesUtil 迁移而来) ---

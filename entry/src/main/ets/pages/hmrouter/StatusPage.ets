@@ -4,26 +4,33 @@ import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationA
   hdsMaterial } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Sfp2vp, Svp2fp } from '../../AppManager'
-import { HdsMenuButton, MenuButton } from '../Components'
-import { NetworkConfig } from '../../protobuf/api_manage'
 import { DiscoverBall } from '../../components/status/DiscoverBall'
-import { NatType, natTypeToJSON } from '../../protobuf/common'
+import { HdsMenuButton, MenuButton } from '../Components'
 import { PeerInfo } from '../../class/InstanceInfo'
+import { ConfigJson } from '../../SchemaConfig'
+import { NatTypeValue } from '../../RuntimeTypes'
 import { Protocol, protocolBGColor, protocolColor } from '../../util/Conversion'
 import { WindowUtil } from '../../WindowUtil'
 import { harmonyShare } from '@kit.ShareKit'
 import { buildShareData } from '../../util/ShareUtil'
+
+function natTypeToJSON(value: NatTypeValue): string {
+  if (value === NatTypeValue.Unknown) {
+    return 'Unknown'
+  }
+  return '' + value
+}
 
 @HMRouter({ pageUrl: "StatusPage" })
 @ComponentV2
 export struct StatusPage {
   @Local uuid: string = ""
   @Local name: string = ""
-  @Local config: NetworkConfig | null = null;
+  @Local config: ConfigJson | null = null;
   scroller: Scroller = new Scroller();
   @Local ip: string = ""
-  @Local tcp_nat: NatType = NatType.Unknown
-  @Local udp_nat: NatType = NatType.Unknown
+  @Local tcp_nat: NatTypeValue = NatTypeValue.Unknown
+  @Local udp_nat: NatTypeValue = NatTypeValue.Unknown
   @Local rx_rate: number = 0
   @Local tx_rate: number = 0
   @Local rx_unit: string = "B/s"
@@ -37,8 +44,8 @@ export struct StatusPage {
 
   aboutToAppear(): void {
     this.uuid = HMRouterMgr.getCurrentParam() as string;
-    this.name = AppManager.uiState.configUUIDNameMap.get(this.uuid) ?? "临时配置"
-    this.config = AppManager.easytier.getConfig(this.uuid) ?? AppManager.data.tempConfigMap.get(this.uuid) ?? null
+    this.name = AppManager.easytier.getConfigName(this.uuid) ?? "临时配置"
+    this.config = AppManager.easytier.getConfig(this.uuid) ?? null
     this.ip = this.config?.dhcp ? "waiting" : (this.config?.virtual_ipv4 ?? "N/A")
     this.updateTimer = setInterval(() => {
       let instanceInfo = AppManager.easytier.instanceInfos.get(this.uuid)
@@ -409,7 +416,7 @@ export struct StatusPage {
   }
 
   private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
-    if (this.config && AppManager.data.configUUIDMap.has(this.uuid)) {
+    if (this.config) {
       buildShareData(this.config, (data) => {
         sharableTarget.share(data);
       }, false, this.name, this.uuid)

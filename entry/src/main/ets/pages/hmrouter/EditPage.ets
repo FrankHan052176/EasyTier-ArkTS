@@ -1,4 +1,4 @@
-import { ConfigField, ContentUtil } from '../../ContentUtil'
+import { ConfigField, configFieldRegistry } from '../../ConfigFieldRegistry'
 import { FieldEdit } from '../../components/edit/FieldEdit'
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
@@ -15,6 +15,7 @@ import { Logger } from '../../util/Logger'
 import { common } from '@kit.AbilityKit'
 import { buildShareData, buildShareUrl } from '../../util/ShareUtil'
 import { EditPageParam } from '../../class/PageParam'
+import { ConfigJson } from '../../SchemaConfig'
 import { generateBarcode, scanCore } from '@kit.ScanKit'
 import { image } from '@kit.ImageKit'
 import { DialogHub, DialogMode } from '@hadss/dialoghub'
@@ -29,7 +30,7 @@ function QRImage(img: image.PixelMap) {
 function ShareMenu() {
   Menu() {
     MenuItem({content: "分享直达链接"}).onClick(() => {
-      let config = AppManager.easytier.getEditingConfig()
+      let config: ConfigJson | undefined = AppManager.easytier.getEditingConfig()
       if (config) {
         buildShareData(config, (data) => {
           let controller: systemShare.ShareController = new systemShare.ShareController(data);
@@ -47,7 +48,7 @@ function ShareMenu() {
       }
     })
     MenuItem({content: "扫码直达"}).onClick(() => {
-      let config = AppManager.easytier.getEditingConfig()
+      let config: ConfigJson | undefined = AppManager.easytier.getEditingConfig()
       if (config) {
         buildShareUrl(config, (content) => {
           let options: generateBarcode.CreateOptions = {
@@ -122,7 +123,7 @@ export struct EditPage {
   @Computed
   get name() {
     if (this.uuid) {
-      return AppManager.uiState.configUUIDNameMap.get(this.uuid)
+      return AppManager.easytier.getConfigName(this.uuid)
     }
     return ""
   }
@@ -197,7 +198,7 @@ export struct EditPage {
             .width('100%')
             .height(56)
         }
-        ForEach(ContentUtil.basicFields, (field: ConfigField) => {
+        ForEach(configFieldRegistry.basicFields, (field: ConfigField) => {
           ListItem() {
             FieldEdit({ field: field })
               .width('100%')
@@ -222,7 +223,7 @@ export struct EditPage {
               .width('100%')
               .height(56)
           }
-          FieldEdit({ field: ContentUtil.flagField })
+          FieldEdit({ field: configFieldRegistry.flagField })
             .width('100%')
           Row()
             .width('100%')
@@ -242,7 +243,7 @@ export struct EditPage {
             .width('100%')
             .height(56)
         }
-        ForEach(ContentUtil.advancedFields, (field: ConfigField) => {
+        ForEach(configFieldRegistry.advancedFields, (field: ConfigField) => {
           ListItem() {
             FieldEdit({ field: field })
               .width('100%')
@@ -266,7 +267,7 @@ export struct EditPage {
             .width('100%')
             .height(56)
         }
-        ForEach(ContentUtil.otherFields, (field: ConfigField) => {
+        ForEach(configFieldRegistry.otherFields, (field: ConfigField) => {
           ListItem() {
             FieldEdit({ field: field })
               .width('100%')
@@ -387,7 +388,7 @@ export struct EditPage {
   }
 
   private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
-    let config = AppManager.data.configUUIDMap.get(this.uuid ?? "")
+    let config: ConfigJson | undefined = this.uuid ? AppManager.easytier.getConfig(this.uuid) : undefined
     if (config) {
       buildShareData(config, (data) => {
         sharableTarget.share(data);

@@ -1,6 +1,7 @@
 import { FieldValue } from './Basic'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Svp2fp } from '../../AppManager'
+import { ConfigJson } from '../../SchemaConfig'
 
 export function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
@@ -105,7 +106,7 @@ export class IP implements FieldValue {
   @Monitor("ip")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
-      let config = AppManager.easytier.getEditingConfig()
+      let config: ConfigJson = AppManager.easytier.getEditingConfig()
       if (!config) {
         return
       }
@@ -113,7 +114,7 @@ export class IP implements FieldValue {
         return
       }
       let arr = config[this.fieldName] as string[]
-      let old = "" + monitor.value("ip")?.before ?? this.ip
+      let old = "" + (monitor.value("ip")?.before ?? this.ip)
       let index = arr.indexOf(old)
       if (index < 0) {
         return

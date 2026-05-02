@@ -1,6 +1,5 @@
-import { ContentUtil } from '../../../ContentUtil';
 import { AppManager } from '../../../AppManager';
-import { SecureModeConfig } from '../../../protobuf/common';
+import { syncTopLevelField } from '../../../ConfigSyncUtil';
 
 @ComponentV2
 export struct SecureModeConfigField {
@@ -15,13 +14,8 @@ export struct SecureModeConfigField {
     return AppManager.easytier.getEditingConfig()
   }
 
-  @Computed
-  get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
-  }
-
   aboutToAppear(): void {
-    let value: SecureModeConfig = this.config![ContentUtil.safeFieldName(this.field)]
+    let value = this.config![this.field] as ESObject | undefined
     if (value) {
       this.enable = value.enabled ?? false
       this.local_private_key = value.local_private_key ?? ""
@@ -30,13 +24,12 @@ export struct SecureModeConfigField {
   }
 
   updateConfig() {
-    this.config![ContentUtil.safeFieldName(this.field)] = {
+    this.config![this.field] = {
       enabled: this.enable,
       local_private_key: this.local_private_key,
       local_public_key: this.local_public_key
-    } as SecureModeConfig
-    this.preference?.putSync(this.field, this.config![this.field])
-    this.preference?.flushSync()
+    } as ESObject
+    syncTopLevelField(this.config!.instance_id!, this.field, this.config!)
   }
 
   build() {

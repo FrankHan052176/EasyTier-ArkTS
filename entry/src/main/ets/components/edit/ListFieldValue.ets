@@ -1,4 +1,3 @@
-import { NetworkConfig } from '../../protobuf/api_manage';
 import { Cidr, CidrBuilder, RouteBuilder } from '../../class/config/Cidr';
 import { EventHelper } from '../../util/EventHelper';
 import { ListenerBuilder, Url, UrlBuilder } from '../../class/config/Url';
@@ -6,6 +5,7 @@ import { IP, IPBuilder } from '../../class/config/IP';
 import { NetworkName, NetworkNameBuilder } from '../../class/config/NetworkName';
 import { PortForward, PortForwardBuilder } from '../../class/config/PortForward';
 import { FieldValue } from '../../class/config/Basic';
+import { ConfigJson } from '../../SchemaConfig';
 
 @ComponentV2
 struct Builders {
@@ -33,7 +33,7 @@ struct Builders {
 
 @ComponentV2
 export struct ListFieldValue {
-  @Consumer("config") config: NetworkConfig | null = null;
+  @Consumer("config") config: ConfigJson | null = null;
   @Param @Require field: string;
   @Param @Require type: string;
   @Param @Require value: FieldValue;

@@ -1,5 +1,6 @@
 import { FieldValue } from './Basic'
 import { AppManager, Svp2fp } from '../../AppManager'
+import { ConfigJson } from '../../SchemaConfig'
 
 function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
@@ -172,7 +173,7 @@ export class Cidr implements FieldValue {
   @Monitor("ip", "mask")
   onChange(monitor: IMonitor) {
     if (this.checkValid()) {
-      let config = AppManager.easytier.getEditingConfig()
+      let config: ConfigJson = AppManager.easytier.getEditingConfig()
       if (!config) {
         return
       }

@@ -65,7 +65,10 @@ export function preciseIntegerDivision(a: number, b: number) {
   return result;
 }
 
-export function convertAddrToIp(addr: number): string {
+export function convertAddrToIp(addr: number | number[]): string {
+  if (Array.isArray(addr)) {
+    return addr.join('.')
+  }
   const byte1 = (addr >> 24) & 0xFF;
   const byte2 = (addr >> 16) & 0xFF;
   const byte3 = (addr >> 8) & 0xFF;
@@ -106,8 +109,14 @@ export function stringArr2RouteArr(gateway: string, magicDNS: boolean, needExitN
   let result: connection.RouteInfo[] = []
   let routes = customRoutes || Array.from(AppManager.easytier.tunRoutes)
   let isForceGlobal = forceGlobal !== undefined ? forceGlobal : AppManager.uiState.force_global
+  const seenRoutes: Set<string> = new Set()
 
   routes.forEach((route) => {
+    const routeKey = `${route.networkAddress}/${route.prefix}`
+    if (seenRoutes.has(routeKey)) {
+      return
+    }
+    seenRoutes.add(routeKey)
     result.push({
       interface: "vpn-tun",
       destination: {
@@ -156,6 +165,19 @@ export function stringArr2RouteArr(gateway: string, magicDNS: boolean, needExitN
     })
   }
   return result
+}
+
+export function mergeRouteStrings(primary?: string[], secondary?: string[]): string[] {
+  const merged: string[] = []
+  const seen: Set<string> = new Set()
+  ;[...(primary ?? []), ...(secondary ?? [])].forEach((route) => {
+    if (route.length === 0 || seen.has(route)) {
+      return
+    }
+    seen.add(route)
+    merged.push(route)
+  })
+  return merged
 }
 
 export enum Protocol {

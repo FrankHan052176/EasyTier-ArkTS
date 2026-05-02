@@ -25,7 +25,7 @@ export struct Favorite {
 
   @Computed
   get favoriteName(): string {
-    return this.favoriteUuid ? AppManager.uiState.configUUIDNameMap.get(this.favoriteUuid) ?? "Unknown" : "无收藏"
+    return this.favoriteUuid ? AppManager.easytier.getConfigName(this.favoriteUuid) ?? "Unknown" : "无收藏"
   }
 
   toggle() {

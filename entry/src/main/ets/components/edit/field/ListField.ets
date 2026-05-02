@@ -12,9 +12,8 @@ import { IP, setEditValue_IP } from '../../../class/config/IP';
 import { NetworkName, setEditValue_NetworkName } from '../../../class/config/NetworkName';
 import { EventHelper } from '../../../util/EventHelper';
 import { PortForward, setEditValue_PortForward } from '../../../class/config/PortForward';
-import { PortForwardConfig } from '../../../protobuf/api_manage';
-import { collections } from '@kit.ArkTS';
-import { SafePortForwardConfig } from '../../../class/SafeProtoClass';
+import { getFieldPathValue, syncTopLevelField } from '../../../ConfigSyncUtil';
+import { ConfigFieldValue } from '../../../SchemaConfig';
 
 @ComponentV2
 export struct ListField {
@@ -31,11 +30,6 @@ export struct ListField {
   }
 
   @Computed
-  get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
-  }
-
-  @Computed
   get comp_height() {
     if (this.items.length == 0) {
       return 70
@@ -47,7 +41,9 @@ export struct ListField {
   }
 
   updateItems() {
-    this.items = AppManager.easytier.getEditingConfig()![this.field].map((value: string | PortForwardConfig) => {
+    const rawValues: ConfigFieldValue = getFieldPathValue(AppManager.easytier.getEditingConfig()!, [this.field])
+    const values: (string | ESObject)[] = rawValues as (string | ESObject)[]
+    this.items = values.map((value: string | ESObject) => {
       switch (this.type) {
         case "cidr":
           return new Cidr().readFrom(value as string)?.bind(this.field)
@@ -63,7 +59,7 @@ export struct ListField {
         case "network_name":
           return new NetworkName().readFrom(value as string)?.bind(this.field)
         case "port_forward":
-          return new PortForward().readFrom(value as PortForwardConfig)?.bind(this.field)
+          return new PortForward().readFrom(value as ESObject)?.bind(this.field)
         default:
           return undefined
       }
@@ -73,7 +69,7 @@ export struct ListField {
   aboutToAppear(): void {
     if (!this.config![this.field]) {
       if (this.type === "port_forward") {
-        this.config![this.field] = new Array<PortForwardConfig>()
+          this.config![this.field] = new Array<ESObject>()
       } else {
         this.config![this.field] = new Array<string>()
       }
@@ -81,19 +77,6 @@ export struct ListField {
     this.updateItems()
     EventHelper.emitterListener("edit_refresh_" + this.field, () => {
       this.updateItems()
-      if (this.type === "port_forward") {
-        let arr_pw = this.config![this.field] as PortForwardConfig[]
-        let SafeArr = new collections.Array<SafePortForwardConfig>()
-        arr_pw.forEach((value) => {
-          SafeArr.push(new SafePortForwardConfig(value))
-        })
-        this.preference?.putSync(this.field, SafeArr)
-      } else {
-        let arr = this.config![this.field] as string[]
-        let SafeArr = new collections.Array<string>(...arr)
-        this.preference?.putSync(this.field, SafeArr)
-      }
-      this.preference?.flushSync()
     })
   }
 
@@ -155,6 +138,7 @@ export struct ListField {
           this.scroller.closeAllSwipeActions()
           deleteListValue(this.config!, this.type, this.field, value)
           this.updateItems()
+          syncTopLevelField(this.config!.instance_id!, this.field, this.config!)
         })
     }
   }

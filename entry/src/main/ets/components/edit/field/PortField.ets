@@ -1,5 +1,5 @@
-import { ContentUtil } from '../../../ContentUtil';
 import { AppManager } from '../../../AppManager';
+import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 
 @Extend(TextInput)
 function fieldTextInput() {
@@ -16,19 +16,15 @@ function fieldTextInput() {
 @ComponentV2
 export struct PortField {
   @Param @Require field: string;
+  @Param fieldPath: string[] = [this.field]
   @Param @Require text: ResourceStr;
   @Consumer("field_edit_enable") enable: boolean = true
-  @Local value: string = "" + (this.config![this.field] ?? 0);
+  @Local value: string = "" + (getFieldPathValue(this.config!, this.fieldPath) ?? 0);
   @Local isEdit: boolean = false;
 
   @Computed
   get config() {
     return AppManager.easytier.getEditingConfig()
-  }
-
-  @Computed
-  get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
   }
 
   @Computed
@@ -59,10 +55,10 @@ export struct PortField {
   }
 
   change(value: string) {
+    this.value = value
     let num = Number.parseInt(value)
-    this.config![ContentUtil.safeFieldName(this.field)] = Number.isNaN(num) ? 0 : num
-    this.preference?.putSync(this.field, this.config![this.field])
-    this.preference?.flushSync()
+    setFieldPathValue(this.config!, this.fieldPath, Number.isNaN(num) ? 0 : num)
+    syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)
   }
 
   build() {

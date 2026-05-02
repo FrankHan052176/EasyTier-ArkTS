@@ -1,6 +1,7 @@
-import { ContentUtil } from '../../../ContentUtil';
+import { hasFieldTag } from '../../../ConfigFieldUi';
 import { getFieldI18Name } from '../FieldEdit';
 import { AppManager } from '../../../AppManager';
+import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 
 @Extend(TextInput)
 function fieldTextInput() {
@@ -17,8 +18,9 @@ function fieldTextInput() {
 @ComponentV2
 export struct NumberField {
   @Param @Require field: string;
+  @Param fieldPath: string[] = [this.field]
   @Consumer("field_edit_enable") enable: boolean = true
-  @Local value: string = "" + (this.config![this.field] ?? "");
+  @Local value: string = "" + (getFieldPathValue(this.config!, this.fieldPath) ?? "");
   @Local intensity: number = 0;
   controller: TextInputController = new TextInputController()
   @Local offsetX: number = 0;
@@ -26,17 +28,12 @@ export struct NumberField {
 
   @Computed
   get hasTitle() {
-    return ContentUtil.hasTag(this.field, "topFieldName")
+    return hasFieldTag(this.field, "topFieldName")
   }
 
   @Computed
   get config() {
     return AppManager.easytier.getEditingConfig()
-  }
-
-  @Computed
-  get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
   }
 
   @Computed
@@ -53,14 +50,13 @@ export struct NumberField {
           .fieldTextInput()
           .onChange((value) => {
             if (value.length == 0) {
-              this.config![this.field] = undefined
-              this.preference?.deleteSync(this.field)
-              this.preference?.flushSync()
+              setFieldPathValue(this.config!, this.fieldPath, undefined)
+              syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)
             }else {
               let num = Number.parseInt(value)
-              this.config![this.field] = Number.isNaN(num) ? 0 : num
-              this.preference?.putSync(this.field, this.config![this.field])
-              this.preference?.flushSync()
+              this.value = value
+              setFieldPathValue(this.config!, this.fieldPath, Number.isNaN(num) ? 0 : num)
+              syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)
             }
           })
           .fontColor(this.fontColor)

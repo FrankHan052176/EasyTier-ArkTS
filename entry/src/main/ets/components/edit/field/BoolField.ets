@@ -1,10 +1,11 @@
-import { ContentUtil } from '../../../ContentUtil';
 import { AppManager, Sfp2vp, Svp2fp } from '../../../AppManager';
+import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { flagsCategory, flagsSymbol } from '../../../util/FlagsInfo';
 
 @ComponentV2
 export struct BoolField {
   @Param @Require field: string
+  @Param fieldPath: string[] = [this.field]
   @Consumer('field_width') field_width: number = 0
   @Param text: ResourceStr = $r("app.string.i18_enable");
   @Local button: boolean = true;
@@ -14,13 +15,8 @@ export struct BoolField {
     return AppManager.easytier.getEditingConfig()
   }
 
-  @Computed
-  get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
-  }
-
   aboutToAppear(): void {
-    this.button = this.config![ContentUtil.safeFieldName(this.field)] || false
+    this.button = (getFieldPathValue(this.config!, this.fieldPath) as boolean) || false
   }
 
   build() {
@@ -71,10 +67,9 @@ export struct BoolField {
         duration: 300
       }, () => {
         this.button = !this.button
-        this.config![ContentUtil.safeFieldName(this.field)] = this.button
+        setFieldPathValue(this.config!, this.fieldPath, this.button)
       })
-      this.preference?.putSync(this.field, this.config![this.field])
-      this.preference?.flushSync()
+      syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)
     })
   }
 }

@@ -1,32 +1,35 @@
-import { compressStr, uncompressStr } from "../CompressUtil";
-import { mappedJson, unmappedJson } from "../MappedUtil";
-import { NetworkConfig } from "../protobuf/api_manage";
 import { systemShare } from "@kit.ShareKit";
 import { uniformTypeDescriptor } from "@kit.ArkData";
 import { Logger } from "./Logger";
 import { url } from "@kit.ArkTS";
 import { AppManager } from "../AppManager";
-import { getHostname } from "./Conversion";
+import easytier, { SharedConfigLinkPayload } from 'easytier-ohrs';
+import { syncWholeConfig } from '../ConfigSyncUtil';
+import { ConfigJson } from '../SchemaConfig';
 
-export function buildShareUrl(config: NetworkConfig, callback: (uri: string) => void, only_start: boolean = false,
-  name: string | undefined = AppManager.uiState.configUUIDNameMap.get(config.instance_id!) ?? "404") {
-  compressStr(mappedJson(config)).then((data) => {
-    let urlName = name?("&name="+name):""
-    callback('https://easytier.cn/comp_cfg?cfg=' + data + urlName + (only_start?"&only_start=true":""))
-  }).catch((e: Error) => {
-    Logger.error("compressedConfig" + JSON.stringify(e), "ShareUtil")
-  })
+export function buildShareUrl(config: ConfigJson, callback: (uri: string) => void, only_start: boolean = false,
+  name: string | undefined = AppManager.easytier.getConfigName(config.instance_id!) ?? "404") {
+  try {
+    const displayName = name ?? config.instance_id ?? '404'
+    syncWholeConfig(config.instance_id!, displayName, config)
+    const uri = easytier.buildConfigShareLink(config.instance_id!, only_start)
+    if (uri) {
+      callback(uri)
+    }
+  } catch (e) {
+    Logger.error("buildShareUrl error: " + JSON.stringify(e), "ShareUtil")
+  }
 }
 
-export async function buildShareUrlSync(config: NetworkConfig, only_start: boolean = false,
-  name: string | undefined = AppManager.uiState.configUUIDNameMap.get(config.instance_id!) ?? "404"): Promise<string> {
-  let data = await compressStr(mappedJson(config))
-  let urlName = name?("&name="+name):""
-  return 'https://easytier.cn/comp_cfg?cfg=' + data + urlName + (only_start?"&only_start=true":"")
+export async function buildShareUrlSync(config: ConfigJson, only_start: boolean = false,
+  name: string | undefined = AppManager.easytier.getConfigName(config.instance_id!) ?? "404"): Promise<string> {
+  const displayName = name ?? config.instance_id ?? '404'
+  syncWholeConfig(config.instance_id!, displayName, config)
+  return easytier.buildConfigShareLink(config.instance_id!, only_start) ?? ''
 }
 
-export function buildShareData(config: NetworkConfig, callback: (data: systemShare.SharedData) => void, only_start: boolean = false,
-  name: string | undefined = AppManager.uiState.configUUIDNameMap.get(config.instance_id!) ?? "404", uuid: string | undefined | null = config.instance_id) {
+export function buildShareData(config: ConfigJson, callback: (data: systemShare.SharedData) => void, only_start: boolean = false,
+  name: string | undefined = AppManager.easytier.getConfigName(config.instance_id!) ?? "404", uuid: string | undefined | null = config.instance_id) {
   buildShareUrl(config, (url) => {
     try {
       let shareData: systemShare.SharedData = new systemShare.SharedData({
@@ -43,19 +46,26 @@ export function buildShareData(config: NetworkConfig, callback: (data: systemSha
 }
 
 export async function unwrapUrl(url: url.URL) {
-  let cfg = url.params.get("cfg")
-  let name = url.params.get("name")
-  let only_start = url.params.get("only_start")
-  Logger.debug("get Cfg "+name+": " + cfg, "ShareUtil")
-  if (cfg) {
-    let config = unmappedJson(await uncompressStr(cfg))
-    config.instance_id = AppManager.data.safeUUID()
-    config.hostname = getHostname()
-    AppManager.data.tempConfigMap.set(config.instance_id!, config)
-    if (only_start && AppManager.easytier.runningNetworks.size == 0) {
-      AppManager.easytier.temp_start(name?name:config.instance_id!, config)
-    }else {
-      AppManager.data.readConfig(config.instance_id!, name?name:config.instance_id!, config)
+  try {
+    const payload: SharedConfigLinkPayload | null = easytier.parseConfigShareLink(url.toString())
+    if (!payload) {
+      return
     }
+    const config: ConfigJson = JSON.parse(payload.configJson) as ConfigJson
+    const displayName: string = payload.displayName ?? config.instance_id ?? 'shared'
+    Logger.debug("unwrap shared config: " + displayName, "ShareUtil")
+
+    if (payload.onlyStart && AppManager.easytier.runningNetworks.size == 0) {
+      AppManager.easytier.temp_start(displayName, config)
+      return
+    }
+
+    const importedId: string | null = easytier.importConfigShareLink(url.toString(), payload.displayName)
+    const storedJson = importedId ? easytier.getConfig(importedId) : undefined
+    const importedConfig: ConfigJson = storedJson ? JSON.parse(storedJson) as ConfigJson : config
+    const finalId: string = importedId ?? importedConfig.instance_id!
+    AppManager.data.readConfig(finalId, payload.displayName ?? finalId, importedConfig)
+  } catch (e) {
+    Logger.error("unwrapUrl error: " + JSON.stringify(e), "ShareUtil")
   }
 }

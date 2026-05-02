@@ -1,5 +1,7 @@
 import { AppManager } from '../../../AppManager';
-import { ContentUtil } from '../../../ContentUtil';
+import { hasFieldTag } from '../../../ConfigFieldUi';
+import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
+import { getCombinedConfigChildren } from '../../../SchemaLayout';
 
 @Extend(TextInput)
 function fieldTextInput(onChange: EditableTextOnChangeCallback, editChange: OnSubmitCallback, ip: boolean,
@@ -25,9 +27,10 @@ function fieldTextInput(onChange: EditableTextOnChangeCallback, editChange: OnSu
 @ComponentV2
 export struct CidrField {
   @Param @Require field: string;
+  @Param fieldPath: string[] = []
   @Param @Require text: ResourceStr;
-  @Local value_ip: string = this.config![ContentUtil.safeFieldName(this.ipField)] || "";
-  @Local value_mask: string = "" + (this.config![ContentUtil.safeFieldName(this.maskField)] || 24);
+  @Local value_ip: string = (getFieldPathValue(this.config!, this.ipFieldPath) as string) || "";
+  @Local value_mask: string = "" + (getFieldPathValue(this.config!, this.maskFieldPath) ?? 24);
   @Local editIP: boolean = false
   @Local editMask: boolean = false
   @Consumer("field_edit_enable") enable: boolean = true
@@ -38,18 +41,23 @@ export struct CidrField {
   }
 
   @Computed
-  get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
-  }
-
-  @Computed
   get ipField() {
-    return ContentUtil.combinedField[this.field][0]
+    return getCombinedConfigChildren(this.field)[0]
   }
 
   @Computed
   get maskField() {
-    return ContentUtil.combinedField[this.field][1]
+    return getCombinedConfigChildren(this.field)[1]
+  }
+
+  @Computed
+  get ipFieldPath() {
+    return [...this.fieldPath.slice(0, this.fieldPath.length - 1), this.ipField]
+  }
+
+  @Computed
+  get maskFieldPath() {
+    return [...this.fieldPath.slice(0, this.fieldPath.length - 1), this.maskField]
   }
 
   @Computed
@@ -64,12 +72,12 @@ export struct CidrField {
 
   @Computed
   get insideName() {
-    return ContentUtil.hasTag(this.field, "insideName")
+    return hasFieldTag(this.field, "insideName")
   }
 
   @Computed
   get outsideName() {
-    return ContentUtil.hasTag(this.field, "outsideName")
+    return hasFieldTag(this.field, "outsideName")
   }
 
   build() {
@@ -88,9 +96,9 @@ export struct CidrField {
         Row() {
           TextInput({ text: this.value_ip!! })
             .fieldTextInput((value) => {
-              this.config![this.ipField] = value
-              this.preference?.putSync(this.ipField, value)
-              this.preference?.flushSync()
+              this.value_ip = value
+              setFieldPathValue(this.config!, this.ipFieldPath, value)
+              syncFieldPath(this.config!.instance_id!, this.ipFieldPath, this.config!)
             }, () => {
               this.getUIContext().getFocusController().requestFocus(this.field + "mask");
             }, true, this.field)
@@ -105,10 +113,10 @@ export struct CidrField {
             .fontColor(this.fontColor)
           TextInput({ text: this.value_mask!! })
             .fieldTextInput((value) => {
+              this.value_mask = value
               let num = Number.parseInt(value)
-              this.config![this.maskField] = Number.isNaN(num) ? 0 : num
-              this.preference?.putSync(this.maskField, this.config![this.maskField])
-              this.preference?.flushSync()
+              setFieldPathValue(this.config!, this.maskFieldPath, Number.isNaN(num) ? 0 : num)
+              syncFieldPath(this.config!.instance_id!, this.maskFieldPath, this.config!)
             }, () => {
             }, false, this.field)
             .width(30)

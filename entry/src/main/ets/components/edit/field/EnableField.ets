@@ -1,11 +1,13 @@
 import { curves } from '@kit.ArkUI';
-import { ContentUtil } from '../../../ContentUtil';
+import { hasFieldTag } from '../../../ConfigFieldUi';
 import { getFieldI18Name } from '../FieldEdit';
 import { AppManager, Svp2fp } from '../../../AppManager';
+import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 
 @ComponentV2
 export struct EnableField {
   @Param @Require field: string;
+  @Param fieldPath: string[] = [this.field]
   @Consumer("field_edit_enable") enable: boolean = true
   @Local button: boolean = true;
 
@@ -15,22 +17,17 @@ export struct EnableField {
   }
 
   @Computed
-  get preference() {
-    return AppManager.preference.configPreferences.get(AppManager.uiState.editingInstance ?? "")
-  }
-
-  @Computed
   get hasTitle() {
-    return ContentUtil.hasTag(this.field, "rightFieldName")
+    return hasFieldTag(this.field, "rightFieldName")
   }
 
   @Computed
   get isInverse() {
-    return ContentUtil.hasTag(this.field, "inverse")
+    return hasFieldTag(this.field, "inverse")
   }
 
   aboutToAppear(): void {
-    this.button = this.config![ContentUtil.safeFieldName(this.field)] ?? false
+    this.button = (getFieldPathValue(this.config!, this.fieldPath) as boolean) ?? false
     this.updateEnable()
   }
 
@@ -44,9 +41,8 @@ export struct EnableField {
       duration: 300
     }, () => {
       this.button = isOn
-      this.config![ContentUtil.safeFieldName(this.field)] = this.button
-      this.preference?.putSync(this.field, this.config![this.field])
-      this.preference?.flushSync()
+      setFieldPathValue(this.config!, this.fieldPath, this.button)
+      syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)
     })
     animateToImmediately({
       curve: curves.springMotion(0.4, 0.7),

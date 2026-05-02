@@ -381,6 +381,14 @@
       "value": "禁用此节点的IPv6功能，仅使用IPv4进行网络通信。"
     },
     {
+      "name": "ipv6_public_addr_auto",
+      "value": "自动获取公网 IPv6"
+    },
+    {
+      "name": "ipv6_public_addr_auto_help",
+      "value": "自动从共享了 IPv6 子网的对等节点获取一个公网 IPv6 地址。"
+    },
+    {
       "name": "enable_kcp_proxy",
       "value": "启用 KCP 代理"
     },
@@ -515,6 +523,14 @@
     {
       "name": "disable_udp_hole_punching_help",
       "value": "禁用UDP打洞功能"
+    },
+    {
+      "name": "disable_upnp",
+      "value": "禁用 UPnP"
+    },
+    {
+      "name": "disable_upnp_help",
+      "value": "禁用符合条件监听器的运行时 UPnP/NAT-PMP 端口映射；自动端口映射默认开启。"
     },
     {
       "name": "disable_sym_hole_punching",
