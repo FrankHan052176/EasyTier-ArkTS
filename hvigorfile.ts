@@ -5,23 +5,6 @@ import { parse } from 'yaml';
 import crypto from "crypto";
 import fs from 'fs';
 import path from 'path';
-const scalarTypeMap = {
-    string: "string",
-    bool: "boolean",
-    bytes: "Uint8Array",
-    int32: "number",
-    uint32: "number",
-    sint32: "number",
-    fixed32: "number",
-    sfixed32: "number",
-    int64: "number",
-    uint64: "number",
-    sint64: "number",
-    fixed64: "number",
-    sfixed64: "number",
-    double: "number",
-    float: "number",
-};
 const build_time_file = "./entry/src/main/ets/util/info/BuildTime.ets"
 const appInfo = "./AppScope/app.json5"
 const en_file = "./entry/src/main/resources/base/element/easytier.json"

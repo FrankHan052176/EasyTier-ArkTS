@@ -58,6 +58,7 @@ export class EasyTierUtil {
   task2: taskpool.LongTask | undefined
   tunRoutes: SafeSet<NetworkSegment> = new SafeSet()
   client: socket.LocalSocket | undefined
+  vpnMessageBuffer: string = ''
   private isVpnConnected: boolean = false
   private lastKernelRoutesSignature: string = ''
 
@@ -204,6 +205,7 @@ export class EasyTierUtil {
   private connectToVpnExtension(socketName: string) {
     this.client?.close()
     this.client = socket.constructLocalSocketInstance()
+    this.vpnMessageBuffer = ''
     let address: socket.LocalConnectOptions = {
       address: {
         address: AppManager.content.context!.filesDir + '/' + socketName
@@ -228,13 +230,20 @@ export class EasyTierUtil {
 
     this.client!.on('message', (value: socket.LocalSocketMessageInfo) => {
       try {
-        let str = buffer.from(value.message).toString();
-        let msg: ESObject = JSON.parse(str);
-        if (msg.type === "runtime_snapshot") {
-          this.processRuntimeSnapshot(msg.data as RuntimeAggregateState, true)
-        } else if (msg.type === "logs") {
-          let logData: ESObject = msg.data;
-          this.processLogs(logData.appLogs as string[], logData.nmLogs as string[], logData.ohLogs as string[])
+        this.vpnMessageBuffer += buffer.from(value.message).toString()
+        const messages = this.vpnMessageBuffer.split('\n')
+        this.vpnMessageBuffer = messages.pop() ?? ''
+        for (const rawMessage of messages) {
+          if (rawMessage.length === 0) {
+            continue
+          }
+          let msg: ESObject = JSON.parse(rawMessage);
+          if (msg.type === "runtime_snapshot") {
+            this.processRuntimeSnapshot(msg.data as RuntimeAggregateState, true)
+          } else if (msg.type === "logs") {
+            let logData: ESObject = msg.data;
+            this.processLogs(logData.appLogs as string[], logData.nmLogs as string[], logData.ohLogs as string[])
+          }
         }
       } catch (e) {
         Logger.error("Failed to process VpnExtension message: " + JSON.stringify(e), this)

@@ -180,7 +180,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   }
 
   private broadcast(msg: VpnMessage) {
-    let str = JSON.stringify(msg);
+    let str = JSON.stringify(msg) + '\n';
     let uint8Array = buffer.from(str).buffer
     this.connections.forEach(conn => {
       conn.send({ data: uint8Array }).catch((err: BusinessError) => {
@@ -224,7 +224,9 @@ export default class EasyTierAbility extends VpnExtensionAbility {
           if (msg.messageType === 'runtime_snapshot') {
             const snapshot = JSON.parse(msg.payloadJson) as RuntimeAggregateState
             this.broadcast({ type: 'runtime_snapshot', data: snapshot })
-            this.processSnapshotForTun(snapshot)
+            if (!this.needTUN && (this.vpn_routes || deviceInfo.sdkApiVersion >= 20)) {
+              this.updateRoutesFromSnapshot(snapshot)
+            }
           } else if (msg.messageType === 'tun_request') {
             const payload = JSON.parse(msg.payloadJson) as TunRequestPayload
             Logger.info(`received tun_request instance=${payload.instanceId} cidr=${payload.virtualIpv4Cidr ?? ''} ipv4=${payload.virtualIpv4 ?? ''} routes=${JSON.stringify(payload.aggregatedRoutes)}`, "EasyTierAbility")
@@ -235,28 +237,6 @@ export default class EasyTierAbility extends VpnExtensionAbility {
         Logger.error(`kernel socket message error: ${JSON.stringify(e)}`, "EasyTierAbility")
       }
     })
-  }
-
-  private processSnapshotForTun(snapshot: RuntimeAggregateState): void {
-    const instance = (snapshot.instances ?? []).find((value: RuntimeInstanceState) => value.instanceId === this.instance_id)
-    if (!instance) {
-      Logger.info(`processSnapshotForTun missing instance=${this.instance_id}`, "EasyTierAbility")
-      return
-    }
-    Logger.info(`processSnapshotForTun instance=${this.instance_id} needTUN=${this.needTUN} tunAttached=${instance.tunAttached} tunRequired=${instance.tunRequired} ipv4=${instance.myNodeInfo?.virtualIpv4 ?? ''} cidr=${instance.myNodeInfo?.virtualIpv4Cidr ?? ''}`, "EasyTierAbility")
-    if (this.needTUN && instance.myNodeInfo?.virtualIpv4Cidr && instance.myNodeInfo?.virtualIpv4) {
-      this.needTUN = false
-      const mask = Number(instance.myNodeInfo.virtualIpv4Cidr.split('/')[1] ?? '24')
-      this.setupTunWithRoutes(
-        instance.myNodeInfo.virtualIpv4,
-        mask,
-        instance.magicDnsEnabled,
-        instance.needExitNode,
-        snapshot.tun.aggregatedRoutes,
-      )
-      return
-    }
-    this.updateRoutesFromSnapshot(snapshot)
   }
 
   private updateRoutesFromSnapshot(snapshot: RuntimeAggregateState): void {
@@ -283,6 +263,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   }
 
   private setupTunFromPayload(payload: TunRequestPayload) {
+    this.needTUN = false
     const cidr = payload.virtualIpv4Cidr ?? ''
     const ip = payload.virtualIpv4 ?? cidr.split('/')[0]
     const mask = Number(cidr.split('/')[1] ?? '24')
@@ -329,20 +310,5 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     }).catch((err: Error) => {
       Logger.error(`vpnConnection create failed: ${JSON.stringify(err)}`, "EasyTierAbility");
     });
-  }
-
-  private addTunRoute(route: string): boolean {
-    let result = true;
-    this.tunRoutes.forEach(oldRoute => {
-      result = !oldRoute.contains(route) && result;
-    });
-    if (result) {
-      try {
-        this.tunRoutes.add(new NetworkSegment(route));
-      } catch (e) {
-        return false;
-      }
-    }
-    return result;
   }
 }
