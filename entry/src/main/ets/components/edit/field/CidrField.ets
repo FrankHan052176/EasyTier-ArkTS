@@ -1,7 +1,7 @@
 import { AppManager } from '../../../AppManager';
-import { hasFieldTag } from '../../../ConfigFieldUi';
+import { hasFieldTag } from '../../../config/fields/ConfigFieldUi';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
-import { getCombinedConfigChildren } from '../../../SchemaLayout';
+import { getCombinedConfigChildren } from '../../../config/schema/SchemaLayout';
 
 @Extend(TextInput)
 function fieldTextInput(onChange: EditableTextOnChangeCallback, editChange: OnSubmitCallback, ip: boolean,

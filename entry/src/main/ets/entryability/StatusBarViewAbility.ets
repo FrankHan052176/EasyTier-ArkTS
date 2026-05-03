@@ -1,6 +1,6 @@
 import { StatusBarViewExtensionAbility } from '@kit.DeskTopExtensionKit';
 import { UIExtensionContentSession, Want } from '@kit.AbilityKit';
-import { Logger, LogLocate } from '../util/Logger';
+import { Logger, LogLocate } from '../shared/logging/Logger';
 import { AppManager } from '../AppManager';
 
 @LogLocate("StatusBarViewAbility")

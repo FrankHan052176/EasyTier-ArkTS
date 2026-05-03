@@ -1,7 +1,7 @@
 import { convertToProtocol, Protocol } from '../util/Conversion'
 import { CircleArray } from './container/CircleArray'
 import { PeerInfoDataSource } from './data_source/PeerInfoDataSource'
-import { NatTypeValue, RuntimeInstanceState, RuntimePeerInfo } from '../RuntimeTypes'
+import { NatTypeValue, RuntimeInstanceState, RuntimePeerInfo } from '../types/runtime/RuntimeTypes'
 
 function fixedRate(value: number): number {
   if (value > 107374182) {

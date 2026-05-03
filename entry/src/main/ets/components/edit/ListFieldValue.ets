@@ -5,7 +5,7 @@ import { IP, IPBuilder } from '../../class/config/IP';
 import { NetworkName, NetworkNameBuilder } from '../../class/config/NetworkName';
 import { PortForward, PortForwardBuilder } from '../../class/config/PortForward';
 import { FieldValue } from '../../class/config/Basic';
-import { ConfigJson } from '../../SchemaConfig';
+import { ConfigJson } from '../../config/schema/SchemaConfig';
 
 @ComponentV2
 struct Builders {

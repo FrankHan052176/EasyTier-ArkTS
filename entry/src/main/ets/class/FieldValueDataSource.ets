@@ -1,5 +1,5 @@
 import { AppManager } from '../AppManager';
-import { Logger, LogLocate } from '../util/Logger';
+import { Logger, LogLocate } from '../shared/logging/Logger';
 import { FieldValue } from './config/Basic';
 
 @LogLocate("FieldValueDataSource")

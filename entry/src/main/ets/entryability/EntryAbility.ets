@@ -3,7 +3,7 @@ import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
 import { geoLocationManager } from '@kit.LocationKit';
 import { window } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
-import { Logger, LogLocate } from '../util/Logger';
+import { Logger, LogLocate } from '../shared/logging/Logger';
 import { BusinessError, deviceInfo, emitter } from '@kit.BasicServicesKit';
 import easytier from 'easytier-ohrs';
 import { vpnExtension, socket } from '@kit.NetworkKit';
@@ -20,7 +20,7 @@ import { sendToast } from '../ToastUtil';
 import { isIpAddr } from '../class/config/IP';
 import { distributedKVStore } from '@kit.ArkData';
 import { BottomAnimator } from '../class/animator/BottomAnimator';
-import { configFieldRegistry } from '../ConfigFieldRegistry';
+import { configFieldRegistry } from '../config/fields/ConfigFieldRegistry';
 import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 import { rpc } from '@kit.IPCKit';
@@ -28,11 +28,11 @@ import { buildShareUrlSync, unwrapUrl } from '../util/ShareUtil';
 import { updateFavorite } from '../CommunicationUtil';
 import { cancelNotification, publishTextNotification } from '../util/NoticeHelper';
 import { netHandover } from '@kit.NetworkBoostKit';
-import { ConfigJson } from '../SchemaConfig';
-import { RuntimeAggregateState } from '../RuntimeTypes';
-import { KERNEL_SOCKET_NAME, TunRequestPayload } from '../kernel_bridge/KernelBridgeTypes'
-import { decodeSocketChunk, parseKernelSocketMessage } from '../kernel_bridge/SocketCodec'
-import { buildBaseRoutes, buildRuntimeTunUpdate, routeSignature } from '../kernel_bridge/RouteStore'
+import { ConfigJson } from '../config/schema/SchemaConfig';
+import { RuntimeAggregateState } from '../types/runtime/RuntimeTypes';
+import { KERNEL_SOCKET_NAME, TunRequestPayload } from '../bridge/kernel/KernelBridgeTypes'
+import { decodeSocketChunk, parseKernelSocketMessage } from '../bridge/kernel/SocketCodec'
+import { buildBaseRoutes, buildRuntimeTunUpdate, routeSignature } from '../bridge/kernel/RouteStore'
 
 const easytier_release = easytier
 

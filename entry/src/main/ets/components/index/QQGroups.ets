@@ -1,6 +1,6 @@
 import { AppManager } from '../../AppManager'
 import { common } from '@kit.AbilityKit'
-import { Logger } from '../../util/Logger'
+import { Logger } from '../../shared/logging/Logger'
 import { EventHelper } from '../../util/EventHelper'
 import { LightModifier } from '../../class/modifier/SymbolLight'
 import { StackLightModifier } from '../../class/modifier/BackgroundLight'

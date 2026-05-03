@@ -1,7 +1,7 @@
 import { UIType, WindowUtil } from '../WindowUtil'
 import { AppManager } from '../AppManager'
 import { connection } from '@kit.NetworkKit'
-import { NetworkSegment } from '../class/NetworkSegment'
+import { NetworkSegment } from '../models/network/NetworkSegment'
 
 export function trafficBytes(bytes: number): string {
   if (bytes > 107374182) {

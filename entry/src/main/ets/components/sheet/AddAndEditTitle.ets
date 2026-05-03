@@ -2,7 +2,7 @@ import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkU
 import { AppManager } from '../../AppManager';
 import { addValue, clearEditValue, confirmCheck } from '../../class/config/Basic';
 import { EventHelper } from '../../util/EventHelper';
-import { Logger } from '../../util/Logger';
+import { Logger } from '../../shared/logging/Logger';
 import { GlobalConfigSuggestions } from '../edit/GlobalConfigSuggestion';
 
 function getI18_FieldName(fieldName: string): string {

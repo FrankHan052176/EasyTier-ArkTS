@@ -1,23 +1,23 @@
 import { vpnExtension, VpnExtensionAbility, socket, connection } from '@kit.NetworkKit';
-import { Logger } from '../util/Logger';
+import { Logger } from '../shared/logging/Logger';
 import Want from '@ohos.app.ability.Want';
 import { fileIo } from '@kit.CoreFileKit';
 import easytier from 'easytier-ohrs';
 import entry from 'libentry.so';
 import { buffer, JSON } from '@kit.ArkTS';
-import { convertAddrToIp, stringArr2RouteArr } from '../util/Conversion';
+import { stringArr2RouteArr } from '../util/Conversion';
 import { deviceInfo, BusinessError } from '@kit.BasicServicesKit';
-import { NetworkSegment } from '../class/NetworkSegment';
-import { SafeSet } from '../util/SafeSet';
-import { ConfigJson } from '../SchemaConfig';
-import { RuntimeAggregateState, RuntimeInstanceState } from '../RuntimeTypes';
-import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnLogData, VpnMessage } from '../kernel_bridge/KernelBridgeTypes'
-import { decodeSocketChunk, parseKernelSocketMessage } from '../kernel_bridge/SocketCodec'
-import { collectPeerProxyCidrs, mergeMissingProxyRoutes, normalizeRouteStrings, routeSignature } from '../kernel_bridge/RouteStore'
+import { NetworkSegment } from '../models/network/NetworkSegment';
+import { SafeSet } from '../shared/utils/collections/SafeSet';
+import { ConfigJson } from '../config/schema/SchemaConfig';
+import { RuntimeAggregateState, RuntimeInstanceState } from '../types/runtime/RuntimeTypes';
+import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnLogData, VpnMessage } from '../bridge/kernel/KernelBridgeTypes'
+import { decodeSocketChunk, parseKernelSocketMessage } from '../bridge/kernel/SocketCodec'
+import { collectPeerProxyCidrs, mergeMissingProxyRoutes, normalizeRouteStrings, routeSignature } from '../bridge/kernel/RouteStore'
 
 export default class EasyTierAbility extends VpnExtensionAbility {
   server: socket.LocalSocketServer | undefined
-  connections: Set<socket.LocalSocketConnection> = new Set()
+  connections: Map<number, socket.LocalSocketConnection> = new Map()
   kernelClient: socket.LocalSocket | undefined
   kernelMessageBuffer: string = ''
   vpnConnection: vpnExtension.VpnConnection | undefined
@@ -95,13 +95,13 @@ export default class EasyTierAbility extends VpnExtensionAbility {
 
     this.server.on('connect', (connection: socket.LocalSocketConnection) => {
       Logger.debug("UI process connected to VpnServer", "EasyTierAbility")
-      this.connections.add(connection);
+      this.connections.set(connection.clientId, connection);
       connection.on('error', (err: Object) => {
         Logger.error(`Connection error: ${JSON.stringify(err)}`, "EasyTierAbility");
-        this.connections.delete(connection);
+        this.connections.delete(connection.clientId);
       });
       connection.on('close', () => {
-        this.connections.delete(connection);
+        this.connections.delete(connection.clientId);
       });
     });
   }
@@ -177,7 +177,6 @@ export default class EasyTierAbility extends VpnExtensionAbility {
             }
           } else if (msg.messageType === 'tun_request') {
             const payload = JSON.parse(msg.payloadJson) as TunRequestPayload
-            Logger.info(`received tun_request instance=${payload.instanceId} cidr=${payload.virtualIpv4Cidr ?? ''} ipv4=${payload.virtualIpv4 ?? ''} routes=${JSON.stringify(payload.aggregatedRoutes)}`, "EasyTierAbility")
             this.setupTunFromPayload(payload)
           }
         }
@@ -201,8 +200,6 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     const cidr = instance?.myNodeInfo?.virtualIpv4Cidr
     const ip = instance?.myNodeInfo?.virtualIpv4
     const aggregatedRoutes = tun?.aggregatedRoutes ?? []
-    const routeViews = (instance?.routes ?? []).map((route) => `ipv4Cidr=${route.ipv4Cidr ?? ''},proxyCidrs=${JSON.stringify(route.proxyCidrs ?? [])}`)
-    Logger.info(`updateRoutesFromSnapshot instance=${this.instance_id} virtualIpv4=${ip ?? ''} virtualIpv4Cidr=${cidr ?? ''} aggregatedRoutes=${JSON.stringify(aggregatedRoutes)} routeViews=${JSON.stringify(routeViews)}`, 'EasyTierAbility')
     const baseSignature = routeSignature(aggregatedRoutes)
     if (baseSignature !== this.lastBaseRoutesSignature) {
       this.lastBaseRoutesSignature = baseSignature
@@ -210,7 +207,6 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     }
     this.mergeProxyRoutes(collectPeerProxyCidrs(instance))
     const currentRoutes = this.getTunRouteStrings()
-    Logger.info(`updateRoutesFromSnapshot mergedRoutes instance=${this.instance_id} currentRoutes=${JSON.stringify(currentRoutes)}`, 'EasyTierAbility')
     const currentSignature = routeSignature(currentRoutes)
     if (!cidr || !ip || currentSignature === this.lastRoutesSignature) {
       return

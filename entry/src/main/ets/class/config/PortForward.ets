@@ -9,7 +9,7 @@ import { FieldValue } from './Basic'
 import { AppManager, Svp2fp } from '../../AppManager'
 import { LengthMetrics } from '@kit.ArkUI'
 import { ProtocolSelector } from '../../components/util/ProtocolSelector'
-import { ConfigJson } from '../../SchemaConfig'
+import { ConfigJson } from '../../config/schema/SchemaConfig'
 
 function isIpAddr(value: string): boolean {
   return RegExp("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")

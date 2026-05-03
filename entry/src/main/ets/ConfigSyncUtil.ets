@@ -1,5 +1,5 @@
 import easytier from 'easytier-ohrs'
-import { ConfigJson, ConfigFieldValue } from './SchemaConfig'
+import { ConfigJson, ConfigFieldValue } from './config/schema/SchemaConfig'
 
 function getTopLevelValue(config: ConfigJson, field: string): ConfigFieldValue {
   return config[field] as ConfigFieldValue

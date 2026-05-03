@@ -1,6 +1,6 @@
  import { notificationManager } from '@kit.NotificationKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { Logger } from './Logger';
+import { Logger } from '../shared/logging/Logger';
 import { InstanceInfo } from '../class/InstanceInfo';
 import { AppManager } from '../AppManager';
 

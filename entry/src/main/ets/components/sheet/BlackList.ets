@@ -1,7 +1,7 @@
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from "@kit.ArkUI"
 import { EventHelper } from "../../util/EventHelper"
 import { AppManager } from "../../AppManager"
-import { Logger } from "../../util/Logger"
+import { Logger } from "../../shared/logging/Logger"
 import { ToolButton } from "../util/ToolButtons"
 import { deviceInfo } from "@kit.BasicServicesKit"
 

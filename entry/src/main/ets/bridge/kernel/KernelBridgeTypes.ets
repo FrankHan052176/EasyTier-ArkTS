@@ -1,4 +1,4 @@
-import { RuntimeAggregateState } from '../RuntimeTypes'
+import { RuntimeAggregateState } from '../../types/runtime/RuntimeTypes'
 
 export const KERNEL_SOCKET_NAME = 'easytier-kernel.sock'
 

@@ -1,7 +1,7 @@
 import { FieldValue } from './Basic'
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Svp2fp } from '../../AppManager'
-import { ConfigJson } from '../../SchemaConfig'
+import { ConfigJson } from '../../config/schema/SchemaConfig'
 
 @Extend(Text)
 function tips() {

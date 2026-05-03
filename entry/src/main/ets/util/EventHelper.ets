@@ -1,5 +1,5 @@
 import { BusinessError, commonEventManager, emitter } from '@kit.BasicServicesKit';
-import { Logger } from './Logger';
+import { Logger } from '../shared/logging/Logger';
 
 export class EventHelper {
   public static bundleName = "top.frankhan.easytier"

@@ -13,7 +13,7 @@ import { NetworkName, setEditValue_NetworkName } from '../../../class/config/Net
 import { EventHelper } from '../../../util/EventHelper';
 import { PortForward, setEditValue_PortForward } from '../../../class/config/PortForward';
 import { getFieldPathValue, syncTopLevelField } from '../../../ConfigSyncUtil';
-import { ConfigFieldValue } from '../../../SchemaConfig';
+import { ConfigFieldValue } from '../../../config/schema/SchemaConfig';
 
 @ComponentV2
 export struct ListField {

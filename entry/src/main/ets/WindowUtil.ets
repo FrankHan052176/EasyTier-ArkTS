@@ -1,5 +1,5 @@
 import { AppManager, Spx2vp } from './AppManager'
-import { Logger, LogLocate } from './util/Logger'
+import { Logger, LogLocate } from './shared/logging/Logger'
 import { ConfigurationConstant } from '@kit.AbilityKit'
 
 export enum UIType {

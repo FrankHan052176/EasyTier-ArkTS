@@ -1,6 +1,6 @@
 import { AppManager } from '../../AppManager'
 import { EventHelper } from '../../util/EventHelper'
-import { Logger } from '../../util/Logger'
+import { Logger } from '../../shared/logging/Logger'
 import { WindowUtil } from '../../WindowUtil'
 
 interface InstanceEntry {

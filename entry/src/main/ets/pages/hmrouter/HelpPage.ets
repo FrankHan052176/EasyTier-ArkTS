@@ -4,7 +4,7 @@ import { LengthMetrics } from "@kit.ArkUI";
 import { hdsEffect } from "@kit.UIDesignKit";
 import { WindowUtil } from "../../WindowUtil";
 import { lane } from "../../util/Conversion";
-import { Logger } from "../../util/Logger";
+import { Logger } from "../../shared/logging/Logger";
 import { DesktopLayout } from "desktop_layout";
 
 @HMRouter({ pageUrl: "HelpPage" })

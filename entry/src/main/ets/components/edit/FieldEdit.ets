@@ -1,5 +1,5 @@
-import { ConfigField } from '../../ConfigFieldRegistry'
-import { getFieldI18nKey, hasFieldTag, isVaultField } from '../../ConfigFieldUi'
+import { ConfigField } from '../../config/fields/ConfigFieldRegistry'
+import { getFieldI18nKey, hasFieldTag, isVaultField } from '../../config/fields/ConfigFieldUi'
 import { BoolField } from './field/BoolField'
 import { LengthMetrics } from '@kit.ArkUI'
 import { StringField } from './field/StringField'

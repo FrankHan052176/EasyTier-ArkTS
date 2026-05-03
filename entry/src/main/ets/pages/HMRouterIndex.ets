@@ -5,7 +5,7 @@ import { AppManager } from '../AppManager';
 import { DialogHub, DialogMode } from '@hadss/dialoghub';
 import { statusBarManager } from '@kit.DeskTopExtensionKit';
 import { image } from '@kit.ImageKit';
-import { Logger } from '../util/Logger';
+import { Logger } from '../shared/logging/Logger';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { deferredLink } from '@kit.AppLinkingKit';
 import { url } from '@kit.ArkTS';

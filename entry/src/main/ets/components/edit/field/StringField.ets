@@ -1,4 +1,4 @@
-import { hasFieldTag } from '../../../ConfigFieldUi';
+import { hasFieldTag } from '../../../config/fields/ConfigFieldUi';
 import { getFieldI18Name } from '../FieldEdit';
 import { AppManager } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';

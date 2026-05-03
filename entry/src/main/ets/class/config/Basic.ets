@@ -15,7 +15,7 @@ import {
   setEditValue_PortForward
 } from './PortForward';
 import { clearEditValue_Url, EditValue_Url, setEditValue_Url, Url } from './Url';
-import { ConfigJson } from '../../SchemaConfig';
+import { ConfigJson } from '../../config/schema/SchemaConfig';
 import { syncTopLevelField } from '../../ConfigSyncUtil';
 
 export interface FieldValue {

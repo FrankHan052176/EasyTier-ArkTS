@@ -1,11 +1,11 @@
 import { systemShare } from "@kit.ShareKit";
 import { uniformTypeDescriptor } from "@kit.ArkData";
-import { Logger } from "./Logger";
+import { Logger } from "../shared/logging/Logger";
 import { url } from "@kit.ArkTS";
 import { AppManager } from "../AppManager";
 import easytier, { SharedConfigLinkPayload } from 'easytier-ohrs';
 import { syncWholeConfig } from '../ConfigSyncUtil';
-import { ConfigJson } from '../SchemaConfig';
+import { ConfigJson } from '../config/schema/SchemaConfig';
 
 export function buildShareUrl(config: ConfigJson, callback: (uri: string) => void, only_start: boolean = false,
   name: string | undefined = AppManager.easytier.getConfigName(config.instance_id!) ?? "404") {

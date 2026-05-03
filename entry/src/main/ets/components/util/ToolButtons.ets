@@ -1,6 +1,6 @@
 import { BusinessError, pasteboard } from '@kit.BasicServicesKit'
 import { Svp2fp } from '../../AppManager'
-import { Logger } from '../../util/Logger'
+import { Logger } from '../../shared/logging/Logger'
 
 @ComponentV2
 export struct ToolButton {

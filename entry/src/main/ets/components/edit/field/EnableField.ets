@@ -1,5 +1,5 @@
 import { curves } from '@kit.ArkUI';
-import { hasFieldTag } from '../../../ConfigFieldUi';
+import { hasFieldTag } from '../../../config/fields/ConfigFieldUi';
 import { getFieldI18Name } from '../FieldEdit';
 import { AppManager, Svp2fp } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';

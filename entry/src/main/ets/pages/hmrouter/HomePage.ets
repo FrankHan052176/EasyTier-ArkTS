@@ -18,7 +18,7 @@ import { motion } from '@kit.MultimodalAwarenessKit';
 import { harmonyShare } from '@kit.ShareKit';
 import { WindowUtil } from '../../WindowUtil';
 import { buildShareData } from '../../util/ShareUtil';
-import { ConfigJson } from '../../SchemaConfig';
+import { ConfigJson } from '../../config/schema/SchemaConfig';
 import { Instances } from '../../components/index/Instances';
 import { Favorite } from '../../components/index/Favorite';
 import { Logs as Logs } from '../../components/index/Logs';

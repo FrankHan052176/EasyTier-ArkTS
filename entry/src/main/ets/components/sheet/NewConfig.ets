@@ -1,6 +1,6 @@
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics, uiAppearance } from '@kit.ArkUI';
 import { ToolButtonWithPaste } from '../util/ToolButtons';
-import { Logger } from '../../util/Logger';
+import { Logger } from '../../shared/logging/Logger';
 import { EventHelper } from '../../util/EventHelper';
 import { hdsEffect } from '@kit.UIDesignKit';
 import { deviceInfo } from '@kit.BasicServicesKit';

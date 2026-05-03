@@ -1,7 +1,7 @@
 import { ContextUtil } from './ContextUtil';
 import { DataUtil } from './DataUtil';
 import { EasyTierUtil } from './EasyTierUtil';
-import { LogLocate } from './util/Logger';
+import { LogLocate } from './shared/logging/Logger';
 import { distributedKVStore } from '@kit.ArkData';
 import { PermissionUtil } from './PermissionUtil';
 import { PreferenceUtil } from './PreferencesUtil';
