@@ -1,10 +1,6 @@
 import easytier from 'easytier-ohrs'
 import { ConfigJson, ConfigFieldValue } from './SchemaConfig'
 
-function getSchemaTopLevelFields(): string[] {
-  return easytier.getNetworkConfigSchema().children.map((field) => field.name)
-}
-
 function getTopLevelValue(config: ConfigJson, field: string): ConfigFieldValue {
   return config[field] as ConfigFieldValue
 }

@@ -7,6 +7,8 @@ const DEFAULT_SEQUENCE = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2
 @LogLocate("UIState")
 @ObservedV2
 export class UIState {
+  socketFilesDir: string = ''
+
   // --- 运行时状态 ---
   @Trace isStatusBar: boolean = false
   @Trace editingInstance: string | undefined
@@ -25,7 +27,6 @@ export class UIState {
   @Trace holding_detector: boolean = false
   @Trace help2: boolean = false
   @Trace white_list: boolean = false
-  @Trace git_core: boolean = true
   @Trace vault_mode: boolean = false
   @Trace ask_dlp: boolean = false
   @Trace ext_mode: boolean = false
@@ -36,6 +37,14 @@ export class UIState {
 
   init() {
     // 逻辑已移动到 PreferencesUtil.init 中直接赋值，此处仅做二次校验或初始化
+  }
+
+  setSocketFilesDir(filesDir: string) {
+    this.socketFilesDir = filesDir
+  }
+
+  getSocketPath(socketName: string): string {
+    return this.socketFilesDir.length > 0 ? `${this.socketFilesDir}/${socketName}` : socketName
   }
 
   // 自动持久化：监听所有配置变量的变化并保存

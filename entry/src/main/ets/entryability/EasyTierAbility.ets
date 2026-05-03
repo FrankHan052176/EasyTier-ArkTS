@@ -5,44 +5,15 @@ import { fileIo } from '@kit.CoreFileKit';
 import easytier from 'easytier-ohrs';
 import entry from 'libentry.so';
 import { buffer, JSON } from '@kit.ArkTS';
-import { convertAddrToIp, mergeRouteStrings, stringArr2RouteArr } from '../util/Conversion';
+import { convertAddrToIp, stringArr2RouteArr } from '../util/Conversion';
 import { deviceInfo, BusinessError } from '@kit.BasicServicesKit';
 import { NetworkSegment } from '../class/NetworkSegment';
 import { SafeSet } from '../util/SafeSet';
 import { ConfigJson } from '../SchemaConfig';
 import { RuntimeAggregateState, RuntimeInstanceState } from '../RuntimeTypes';
-
-const easytier_release = easytier
-
-const KERNEL_SOCKET_NAME = 'easytier-kernel.sock'
-
-interface KernelSocketMessage {
-  messageType: string;
-  payloadJson: string;
-}
-
-interface TunRequestPayload {
-  configId: string;
-  instanceId: string;
-  displayName: string;
-  virtualIpv4?: string;
-  virtualIpv4Cidr?: string;
-  aggregatedRoutes: string[];
-  magicDnsEnabled: boolean;
-  needExitNode: boolean;
-}
-
-// 定义消息通信接口
-interface VpnLogData {
-  appLogs: string[];
-  nmLogs: string[];
-  ohLogs: string[];
-}
-
-interface VpnMessage {
-  type: string;
-  data: RuntimeAggregateState | VpnLogData;
-}
+import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnLogData, VpnMessage } from '../kernel_bridge/KernelBridgeTypes'
+import { decodeSocketChunk, parseKernelSocketMessage } from '../kernel_bridge/SocketCodec'
+import { collectPeerProxyCidrs, mergeMissingProxyRoutes, normalizeRouteStrings, routeSignature } from '../kernel_bridge/RouteStore'
 
 export default class EasyTierAbility extends VpnExtensionAbility {
   server: socket.LocalSocketServer | undefined
@@ -51,13 +22,11 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   kernelMessageBuffer: string = ''
   vpnConnection: vpnExtension.VpnConnection | undefined
   timer: number | undefined
-  
-  // Instance state
-  git_core: boolean = true
   config: ConfigJson | undefined
   instance_id: string = ""
   needTUN: boolean = false
   tunRoutes: SafeSet<NetworkSegment> = new SafeSet()
+  socketFilesDir: string = ''
   
   // Preferences passed from UI
   vpn_routes: boolean = false
@@ -68,12 +37,13 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   force_global: boolean = true
   show_log: boolean = false
   lastRoutesSignature: string = ""
+  lastBaseRoutesSignature: string = ""
 
   onCreate(want: Want): void {
     Logger.debug("VpnExtAbi create", "EasyTierAbility")
     if (want.parameters == undefined) return;
+    this.socketFilesDir = want.parameters["socket_files_dir"] as string ?? this.context.filesDir;
     this.setupServer(want.parameters["socket"] as string);
-    this.git_core = want.parameters["git_core"] as boolean;
     this.config = JSON.parse(want.parameters["cfg"] as string) as ConfigJson;
     this.instance_id = this.config.instance_id!!;
     this.needTUN = !this.config.no_tun;
@@ -84,22 +54,13 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     this.dev = want.parameters["dev"] as boolean ?? false;
     this.force_global = want.parameters["force_global"] as boolean ?? true;
     this.show_log = want.parameters["show_log"] as boolean ?? false;
-    easytier.initConfigStore(this.context.filesDir)
+    easytier.initConfigStore(this.socketFilesDir)
     entry.hilogInit();
     easytier.hilogGlobalOptions(0, "fhl")
-    easytier_release.hilogGlobalOptions(0, "fhl")
-    if (this.git_core) {
-      easytier.initPanicHook();
-    } else {
-      easytier_release.initPanicHook();
-    }
+    easytier.initPanicHook();
 
     if (this.show_log) {
-      if (this.git_core) {
-        easytier.initTracingSubscriber();
-      } else {
-        easytier_release.initTracingSubscriber();
-      }
+      easytier.initTracingSubscriber();
     }
     this.startCollecting();
     this.startKernel();
@@ -118,7 +79,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
 
   private setupServer(socketName: string) {
     this.server = socket.constructLocalSocketServerInstance();
-    let sandboxPath: string = this.context.filesDir + '/' + socketName;
+    let sandboxPath: string = this.socketFilesDir + '/' + socketName;
     try {
       fileIo.unlinkSync(sandboxPath);
     } catch (e) {}
@@ -147,27 +108,18 @@ export default class EasyTierAbility extends VpnExtensionAbility {
 
   private startKernel() {
     let cfgStr = JSON.stringify(this.config);
-    if (this.git_core) {
-      if (!easytier.parseNetworkConfig(cfgStr) || !easytier.runNetworkInstance(cfgStr)) {
-        Logger.error("Failed to start git_core kernel", "EasyTierAbility");
-      }
-    } else {
-      if (!easytier_release.parseNetworkConfig(cfgStr) || !easytier_release.runNetworkInstance(cfgStr)) {
-        Logger.error("Failed to start release kernel", "EasyTierAbility");
-      }
+    if (!easytier.parseNetworkConfig(cfgStr) || !easytier.runNetworkInstance(cfgStr)) {
+      Logger.error("Failed to start git_core kernel", "EasyTierAbility");
     }
   }
 
   private stopKernel() {
-    if (this.git_core) {
-      easytier.stopKernel(this.instance_id);
-    } else {
-      easytier_release.stopNetworkInstance([this.instance_id]);
-    }
+    easytier.stopKernel(this.instance_id);
+    this.clearTunRoutes()
   }
 
   private startCollecting() {
-    this.connectToKernelSocket(this.context.filesDir + '/' + KERNEL_SOCKET_NAME)
+    this.connectToKernelSocket(this.socketFilesDir + '/' + KERNEL_SOCKET_NAME)
     this.timer = setInterval(() => {
       // Collect Logs
       let appLogs = entry.getAppLog();
@@ -213,14 +165,10 @@ export default class EasyTierAbility extends VpnExtensionAbility {
 
     this.kernelClient.on('message', (value: socket.LocalSocketMessageInfo) => {
       try {
-        this.kernelMessageBuffer += buffer.from(value.message).toString()
-        const messages = this.kernelMessageBuffer.split('\n')
-        this.kernelMessageBuffer = messages.pop() ?? ''
-        for (const rawMessage of messages) {
-          if (rawMessage.length === 0) {
-            continue
-          }
-          const msg = JSON.parse(rawMessage) as KernelSocketMessage
+        const decoded = decodeSocketChunk(this.kernelMessageBuffer, value.message)
+        this.kernelMessageBuffer = decoded.rest
+        for (const rawMessage of decoded.messages) {
+          const msg = parseKernelSocketMessage(rawMessage)
           if (msg.messageType === 'runtime_snapshot') {
             const snapshot = JSON.parse(msg.payloadJson) as RuntimeAggregateState
             this.broadcast({ type: 'runtime_snapshot', data: snapshot })
@@ -246,20 +194,30 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     const tun = snapshot.tun
     const attachedIds = tun?.attachedInstanceIds ?? []
     if (!tun?.active || attachedIds.indexOf(this.instance_id) < 0) {
-      this.lastRoutesSignature = ''
+      this.clearTunRoutes()
       return
     }
     const instance = (snapshot.instances ?? []).find((value: RuntimeInstanceState) => value.instanceId === this.instance_id)
     const cidr = instance?.myNodeInfo?.virtualIpv4Cidr
     const ip = instance?.myNodeInfo?.virtualIpv4
     const aggregatedRoutes = tun?.aggregatedRoutes ?? []
-    const routeSignature = JSON.stringify(aggregatedRoutes)
-    if (!cidr || !ip || routeSignature === this.lastRoutesSignature) {
+    const routeViews = (instance?.routes ?? []).map((route) => `ipv4Cidr=${route.ipv4Cidr ?? ''},proxyCidrs=${JSON.stringify(route.proxyCidrs ?? [])}`)
+    Logger.info(`updateRoutesFromSnapshot instance=${this.instance_id} virtualIpv4=${ip ?? ''} virtualIpv4Cidr=${cidr ?? ''} aggregatedRoutes=${JSON.stringify(aggregatedRoutes)} routeViews=${JSON.stringify(routeViews)}`, 'EasyTierAbility')
+    const baseSignature = routeSignature(aggregatedRoutes)
+    if (baseSignature !== this.lastBaseRoutesSignature) {
+      this.lastBaseRoutesSignature = baseSignature
+      this.replaceTunRoutes(aggregatedRoutes)
+    }
+    this.mergeProxyRoutes(collectPeerProxyCidrs(instance))
+    const currentRoutes = this.getTunRouteStrings()
+    Logger.info(`updateRoutesFromSnapshot mergedRoutes instance=${this.instance_id} currentRoutes=${JSON.stringify(currentRoutes)}`, 'EasyTierAbility')
+    const currentSignature = routeSignature(currentRoutes)
+    if (!cidr || !ip || currentSignature === this.lastRoutesSignature) {
       return
     }
-    this.lastRoutesSignature = routeSignature
+    this.lastRoutesSignature = currentSignature
     this.setupTunWithRoutes(ip, Number(cidr.split('/')[1] ?? '24'), instance?.magicDnsEnabled as boolean ?? false,
-      instance?.needExitNode as boolean ?? false, aggregatedRoutes)
+      instance?.needExitNode as boolean ?? false, currentRoutes)
   }
 
   private setupTunFromPayload(payload: TunRequestPayload) {
@@ -267,7 +225,44 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     const cidr = payload.virtualIpv4Cidr ?? ''
     const ip = payload.virtualIpv4 ?? cidr.split('/')[0]
     const mask = Number(cidr.split('/')[1] ?? '24')
-    this.setupTunWithRoutes(ip, mask, payload.magicDnsEnabled, payload.needExitNode, payload.aggregatedRoutes)
+    const routes = this.initTunRoutes(payload.aggregatedRoutes)
+    this.setupTunWithRoutes(ip, mask, payload.magicDnsEnabled, payload.needExitNode, routes)
+  }
+
+  private replaceTunRoutes(routes: string[]): string[] {
+    const normalizedRoutes = normalizeRouteStrings(routes)
+    this.tunRoutes.clear()
+    normalizedRoutes.forEach((route) => {
+      this.tunRoutes.add(new NetworkSegment(route))
+    })
+    return normalizedRoutes
+  }
+
+  private mergeProxyRoutes(proxyCidrs: string[]): boolean {
+    const merged = mergeMissingProxyRoutes(this.getTunRouteStrings(), proxyCidrs)
+    if (!merged.changed) {
+      return false
+    }
+    this.replaceTunRoutes(merged.routes)
+    return true
+  }
+
+  private initTunRoutes(routes: string[]): string[] {
+    const normalizedRoutes = this.replaceTunRoutes(routes)
+    const signature = routeSignature(normalizedRoutes)
+    this.lastBaseRoutesSignature = signature
+    this.lastRoutesSignature = signature
+    return normalizedRoutes
+  }
+
+  private clearTunRoutes(): void {
+    this.tunRoutes.clear()
+    this.lastBaseRoutesSignature = ''
+    this.lastRoutesSignature = ''
+  }
+
+  private getTunRouteStrings(): string[] {
+    return Array.from(this.tunRoutes).map((route) => route.toString())
   }
 
   private setupTunWithRoutes(ip: string, mask: number, magicDNS: boolean, needExitNode: boolean, routes: string[]) {
@@ -278,15 +273,15 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       ...this.black_list
     ];
 
-    const configRoutes = (this.config?.routes as string[] | undefined) ?? []
-    const mergedRoutes = mergeRouteStrings(routes, configRoutes)
+    Logger.info(`setupTunWithRoutes routes kernel=${JSON.stringify(routes)}`, "EasyTierAbility")
     let routesArr: NetworkSegment[] = [];
-    mergedRoutes.forEach((route) => {
+    routes.forEach((route) => {
       try {
         routesArr.push(new NetworkSegment(route))
       } catch (_) {
       }
     })
+    Logger.info(`setupTunWithRoutes parsedRoutes=${JSON.stringify(routesArr.map((route) => route.networkAddress + '/' + route.prefix))}`, "EasyTierAbility")
 
     let vpnConfig: vpnExtension.VpnConfig = {
       addresses: [{ address: { address: ip, family: 1 }, prefixLength: mask }],
@@ -296,6 +291,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       mtu: 1380,
       routes: stringArr2RouteArr(ip, magicDNS, needExitNode, routesArr, this.force_global)
     };
+    Logger.info(`setupTunWithRoutes finalVpnRoutes=${JSON.stringify(vpnConfig.routes ?? [])}`, "EasyTierAbility")
 
     if (!this.vpnConnection) {
       this.vpnConnection = vpnExtension.createVpnConnection(this.context);

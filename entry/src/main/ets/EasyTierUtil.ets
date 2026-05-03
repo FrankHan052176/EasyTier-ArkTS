@@ -9,7 +9,7 @@ import { NetworkSegment } from './class/NetworkSegment'
 import { SafeSet } from './util/SafeSet'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { getDefaultConfig } from './ConfigDefaults'
-import { buffer, JSON, taskpool, util } from '@kit.ArkTS'
+import { JSON, taskpool } from '@kit.ArkTS'
 import { LogDataSource } from './class/data_source/LogDataSource'
 import { updateFavorite } from './CommunicationUtil'
 import { HMRouterMgr } from '@hadss/hmrouter'
@@ -22,8 +22,10 @@ import { socket, vpnExtension } from '@kit.NetworkKit'
 import { syncWholeConfig } from './ConfigSyncUtil'
 import { ConfigJson } from './SchemaConfig'
 import { RuntimeAggregateState, RuntimeInstanceState } from './RuntimeTypes'
+import { VpnLogData } from './kernel_bridge/KernelBridgeTypes'
+import { decodeSocketChunk, parseVpnBridgeMessage } from './kernel_bridge/SocketCodec'
+import { buildBaseRoutes, collectPeerProxyCidrs, mergeMissingProxyRoutes, normalizeRouteStrings, routeSignature } from './kernel_bridge/RouteStore'
 
-const easytier_release = easytier
 
 interface StoredConfigMetaLite {
   configId: string
@@ -61,6 +63,7 @@ export class EasyTierUtil {
   vpnMessageBuffer: string = ''
   private isVpnConnected: boolean = false
   private lastKernelRoutesSignature: string = ''
+  private lastBaseRoutesSignature: string = ''
 
   init() {
     EventHelper.emitterListener("worker_readLogs", (event) => {
@@ -88,11 +91,7 @@ export class EasyTierUtil {
   }
 
   version() {
-    if (AppManager.uiState.git_core) {
-      return easytier.easytierVersion()
-    }else {
-      return easytier_release.easytierVersion()
-    }
+    return easytier.easytierVersion()
   }
 
   convertToml2NetworkConfig(toml: string): string {
@@ -120,10 +119,12 @@ export class EasyTierUtil {
     }
 
     const instances = snapshot.instances ?? []
+    Logger.debug(`processRuntimeSnapshot fromVpn=${fromVpn} extMode=${AppManager.uiState.ext_mode} instances=${instances.length}`, this)
     const activeIds = new Set<string>()
     instances.forEach((instance) => {
       const instanceId = this.getValidInstanceId(instance)
       if (!instanceId) {
+        Logger.error(`processRuntimeSnapshot skip invalid instanceId: ${JSON.stringify(instance)}`, this)
         return
       }
       activeIds.add(instanceId)
@@ -148,46 +149,75 @@ export class EasyTierUtil {
 
     if (!AppManager.uiState.ext_mode) {
       const tun = snapshot.tun
-      const aggregatedRoutes = tun?.aggregatedRoutes ?? []
-      const routeSignature = JSON.stringify(aggregatedRoutes)
       if (!tun?.active) {
-        this.lastKernelRoutesSignature = ''
+        this.clearTunRoutes()
         return
       }
-      if (routeSignature !== this.lastKernelRoutesSignature) {
-        this.lastKernelRoutesSignature = routeSignature
-        this.tunRoutes.clear()
-        aggregatedRoutes.forEach((route: string): void => {
-          try {
-            this.tunRoutes.add(new NetworkSegment(route))
-          } catch (_) {
-          }
-        })
-        let firstAttached: RuntimeInstanceState | undefined = undefined
-        for (const instance of (snapshot.instances ?? [])) {
-          const instanceId = this.getValidInstanceId(instance)
-          if (instanceId && (tun.attachedInstanceIds ?? []).includes(instanceId) && !!instance.myNodeInfo?.virtualIpv4Cidr) {
-            firstAttached = instance
-            break
-          }
-        }
-        const cidr = firstAttached?.myNodeInfo?.virtualIpv4Cidr
-        const ip = firstAttached?.myNodeInfo?.virtualIpv4
-        if (cidr && ip) {
-          const mask = Number(cidr.split('/')[1] ?? '24')
-          EventHelper.emitterPublish("update_route", {
-            data: {
-              ip,
-              mask,
-              id: firstAttached?.instanceId,
-              magicDNS: firstAttached?.magicDnsEnabled ?? false,
-              needExitNode: firstAttached?.needExitNode ?? false,
-              routes: aggregatedRoutes
-            }
-          })
+      let firstAttached: RuntimeInstanceState | undefined = undefined
+      for (const instance of (snapshot.instances ?? [])) {
+        const instanceId = this.getValidInstanceId(instance)
+        if (instanceId && (tun.attachedInstanceIds ?? []).includes(instanceId) && !!instance.myNodeInfo?.virtualIpv4Cidr) {
+          firstAttached = instance
+          break
         }
       }
+      const cidr = firstAttached?.myNodeInfo?.virtualIpv4Cidr
+      const ip = firstAttached?.myNodeInfo?.virtualIpv4
+      if (!cidr || !ip) {
+        return
+      }
+
+      const aggregatedRoutes = tun?.aggregatedRoutes ?? []
+      const baseRoutes = buildBaseRoutes(aggregatedRoutes, cidr)
+      const baseSignature = routeSignature(baseRoutes)
+      if (baseSignature !== this.lastBaseRoutesSignature) {
+        this.lastBaseRoutesSignature = baseSignature
+        this.replaceTunRoutes(baseRoutes)
+      }
+
+      this.mergeProxyRoutes(collectPeerProxyCidrs(firstAttached))
+      const currentRoutes = this.getTunRouteStrings()
+      const currentSignature = routeSignature(currentRoutes)
+      if (currentSignature !== this.lastKernelRoutesSignature) {
+        this.lastKernelRoutesSignature = currentSignature
+      }
     }
+  }
+
+  private replaceTunRoutes(routes: string[]): string[] {
+    const normalizedRoutes = normalizeRouteStrings(routes)
+    this.tunRoutes.clear()
+    normalizedRoutes.forEach((route) => {
+      this.tunRoutes.add(new NetworkSegment(route))
+    })
+    return normalizedRoutes
+  }
+
+  private mergeProxyRoutes(proxyCidrs: string[]): boolean {
+    const merged = mergeMissingProxyRoutes(this.getTunRouteStrings(), proxyCidrs)
+    if (!merged.changed) {
+      return false
+    }
+    this.replaceTunRoutes(merged.routes)
+    return true
+  }
+
+  public initTunRoutes(routes: string[]): string[] {
+    const normalizedRoutes = this.replaceTunRoutes(routes)
+    const signature = routeSignature(normalizedRoutes)
+    this.lastBaseRoutesSignature = signature
+    this.lastKernelRoutesSignature = signature
+    return normalizedRoutes
+  }
+
+  public clearTunRoutes(): void {
+    this.tunRoutes.clear()
+    this.lastBaseRoutesSignature = ''
+    this.lastKernelRoutesSignature = ''
+  }
+
+  public getTunRouteStrings(): string[] {
+    return Array.from(this.tunRoutes).map((route) => route.toString())
   }
 
   processLogs(appLogs: string[], nmLogs: string[], ohLogs: string[]) {
@@ -208,7 +238,7 @@ export class EasyTierUtil {
     this.vpnMessageBuffer = ''
     let address: socket.LocalConnectOptions = {
       address: {
-        address: AppManager.content.context!.filesDir + '/' + socketName
+        address: AppManager.uiState.getSocketPath(socketName)
       }
     }
 
@@ -216,7 +246,7 @@ export class EasyTierUtil {
     let connect = () => {
       if (!AppManager.uiState.ext_mode) return;
       this.client?.connect(address).then(() => {
-        Logger.info("Connected to VpnExtension socket", this)
+        Logger.debug("Connected to VpnExtension socket", this)
         this.isVpnConnected = true
       }).catch((err: object) => {
         this.isVpnConnected = false
@@ -230,19 +260,17 @@ export class EasyTierUtil {
 
     this.client!.on('message', (value: socket.LocalSocketMessageInfo) => {
       try {
-        this.vpnMessageBuffer += buffer.from(value.message).toString()
-        const messages = this.vpnMessageBuffer.split('\n')
-        this.vpnMessageBuffer = messages.pop() ?? ''
-        for (const rawMessage of messages) {
-          if (rawMessage.length === 0) {
-            continue
-          }
-          let msg: ESObject = JSON.parse(rawMessage);
+        const decoded = decodeSocketChunk(this.vpnMessageBuffer, value.message)
+        this.vpnMessageBuffer = decoded.rest
+        for (const rawMessage of decoded.messages) {
+          const msg = parseVpnBridgeMessage(rawMessage)
           if (msg.type === "runtime_snapshot") {
+            const snapshot = msg.data as RuntimeAggregateState
+            Logger.debug(`VpnExtension runtime_snapshot received instances=${snapshot.instances?.length ?? 0}`, this)
             this.processRuntimeSnapshot(msg.data as RuntimeAggregateState, true)
           } else if (msg.type === "logs") {
-            let logData: ESObject = msg.data;
-            this.processLogs(logData.appLogs as string[], logData.nmLogs as string[], logData.ohLogs as string[])
+            const logData = msg.data as VpnLogData
+            this.processLogs(logData.appLogs, logData.nmLogs, logData.ohLogs)
           }
         }
       } catch (e) {
@@ -261,7 +289,7 @@ export class EasyTierUtil {
       if (config) {
         Logger.debug("start config: "+ JSON.stringify(config, undefined, 2), this)
         syncWholeConfig(uuid, this.getConfigName(uuid) ?? uuid, config)
-        if (AppManager.uiState.git_core?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
+        if (easytier.parseNetworkConfig(JSON.stringify(config))) {
           if (!config.no_tun) {
             this.needTUN.add(uuid)
           }
@@ -273,7 +301,7 @@ export class EasyTierUtil {
                 cfg: JSON.stringify(config),
                 name: this.getConfigName(uuid) ?? "",
                 socket: "easytier_vpn_socket",
-                git_core: AppManager.uiState.git_core,
+                socket_files_dir: AppManager.uiState.socketFilesDir,
                 vpn_routes: AppManager.uiState.vpn_routes,
                 white_list: AppManager.uiState.white_list,
                 black_list: AppManager.preference.getBlackList(),
@@ -312,7 +340,7 @@ export class EasyTierUtil {
     if (config) {
       Logger.debug("temp start config: "+ JSON.stringify(config, undefined, 2), this)
       syncWholeConfig(config.instance_id!, name, config)
-      if (AppManager.uiState.git_core?easytier.parseNetworkConfig(JSON.stringify(config)):easytier_release.parseNetworkConfig(JSON.stringify(config))) {
+      if (easytier.parseNetworkConfig(JSON.stringify(config))) {
         if (!config.no_tun) {
           this.needTUN.add(config.instance_id!)
         }
@@ -324,7 +352,7 @@ export class EasyTierUtil {
               cfg: JSON.stringify(config),
               name: name,
               socket: "easytier_vpn_socket",
-              git_core: AppManager.uiState.git_core,
+              socket_files_dir: AppManager.uiState.socketFilesDir,
               vpn_routes: AppManager.uiState.vpn_routes,
               white_list: AppManager.uiState.white_list,
               black_list: AppManager.preference.getBlackList(),
@@ -370,16 +398,13 @@ export class EasyTierUtil {
         return value.length > 0
       }) as string[]
       EventHelper.emitterPublish("stop_bg")
-      if (AppManager.uiState.git_core) {
-        runningIds.forEach((value) => {
-          easytier.stopKernel(value)
-        })
-      } else if (runningIds.length > 0) {
-        easytier_release.stopNetworkInstance(runningIds)
-      }
+      runningIds.forEach((value) => {
+        easytier.stopKernel(value)
+      })
     }
 
     // 显式清理 UI 状态
+    this.clearTunRoutes()
     this.runningNetworks.clear()
     this.instanceInfos.clear()
 
@@ -460,22 +485,6 @@ export class EasyTierUtil {
 
   public isFavoritesRunning(): boolean {
     return this.isRunning(AppManager.uiState.favorite)
-  }
-
-  private addTunRoutes(route: string): boolean {
-    let result = true
-    this.tunRoutes.forEach((oldRoute) => {
-      result = !oldRoute.contains(route) && result
-    })
-    if (result) {
-      try {
-        this.tunRoutes.add(new NetworkSegment(route))
-      } catch (e) {
-        Logger.error("[" + route + "] 是非法路由.", this)
-        return false
-      }
-    }
-    return result
   }
 
   public writeAndShareLogs() {

@@ -73,45 +73,6 @@ export function Setting_Sheet() {
     }
     .margin({ bottom: 10 })
 
-    if (release) {
-      ListItem() {
-        Row() {
-          Row() {
-            SymbolGlyph($r("sys.symbol.arrow_2_circlepath"))
-              .fontColor([$r("sys.color.font_primary")])
-              .fontSize(16)
-              .margin({ right: 5 })
-            Text("Git内核")
-              .fontColor($r("sys.color.font_primary"))
-              .fontSize(16)
-              .margin({ right: 5 })
-            if (AppManager.uiState.inittedGitCore != AppManager.uiState.git_core) {
-              Text("重启后生效")
-                .fontColor($r("sys.color.font_secondary"))
-                .fontSize(14)
-            }
-          }
-
-          Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.git_core })
-            .selectedColor($r('sys.color.brand'))
-            .switchPointColor($r('sys.color.comp_background_list_card'))
-            .onChange((isOn: boolean) => {
-              AppManager.uiState.git_core = isOn
-            })
-            .height(29)
-            .width(52)
-        }
-        .height(49)
-        .borderRadius(18)
-        .alignItems(VerticalAlign.Center)
-        .justifyContent(FlexAlign.SpaceBetween)
-        .width('100%')
-        .backgroundColor($r("sys.color.background_secondary"))
-        .padding(10)
-      }
-      .margin({ bottom: 10 })
-    }
-
     ListItem() {
       Row() {
         Row() {

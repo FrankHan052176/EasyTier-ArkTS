@@ -1,9 +1,7 @@
-import easytier from 'easytier-ohrs'
-import { deviceInfo } from '@kit.BasicServicesKit'
 import { ConfigJson } from './SchemaConfig'
 
 export function getDefaultConfig(hostname: string): ConfigJson {
-  const cfg = JSON.parse(deviceInfo.productModel !== 'emulator' ? (easytier.getDefaultConfig() ?? '{}') : '{}') as ConfigJson
+  const cfg = JSON.parse('{}') as ConfigJson
   cfg.networking_method = 1
   cfg.public_server_url = ''
   cfg.enable_relay_network_whitelist = true

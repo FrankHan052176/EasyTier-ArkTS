@@ -7,7 +7,7 @@ import { Logger, LogLocate } from '../util/Logger';
 import { BusinessError, deviceInfo, emitter } from '@kit.BasicServicesKit';
 import easytier from 'easytier-ohrs';
 import { vpnExtension, socket } from '@kit.NetworkKit';
-import { JSON, buffer, url } from '@kit.ArkTS';
+import { JSON, url } from '@kit.ArkTS';
 import entry from 'libentry.so';
 import { BUILD_TIME } from '../util/info/BuildTime';
 import { SpiderMan } from '@simplepeng/spider-man';
@@ -18,7 +18,6 @@ import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
 import { DialogHub } from '@hadss/dialoghub';
 import { sendToast } from '../ToastUtil';
 import { isIpAddr } from '../class/config/IP';
-import { mergeRouteStrings } from '../util/Conversion';
 import { distributedKVStore } from '@kit.ArkData';
 import { BottomAnimator } from '../class/animator/BottomAnimator';
 import { configFieldRegistry } from '../ConfigFieldRegistry';
@@ -31,25 +30,11 @@ import { cancelNotification, publishTextNotification } from '../util/NoticeHelpe
 import { netHandover } from '@kit.NetworkBoostKit';
 import { ConfigJson } from '../SchemaConfig';
 import { RuntimeAggregateState } from '../RuntimeTypes';
+import { KERNEL_SOCKET_NAME, TunRequestPayload } from '../kernel_bridge/KernelBridgeTypes'
+import { decodeSocketChunk, parseKernelSocketMessage } from '../kernel_bridge/SocketCodec'
+import { buildBaseRoutes, buildRuntimeTunUpdate, routeSignature } from '../kernel_bridge/RouteStore'
 
 const easytier_release = easytier
-const KERNEL_SOCKET_NAME = 'easytier-kernel.sock'
-
-interface KernelSocketMessage {
-  messageType: string
-  payloadJson: string
-}
-
-interface TunRequestPayload {
-  configId: string
-  instanceId: string
-  displayName: string
-  virtualIpv4?: string
-  virtualIpv4Cidr?: string
-  aggregatedRoutes: string[]
-  magicDnsEnabled: boolean
-  needExitNode: boolean
-}
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
@@ -57,6 +42,7 @@ export default class EntryAbility extends UIAbility {
   kernelClient: socket.LocalSocket | undefined
   kernelMessageBuffer: string = ''
   kernelSocketConnected: boolean = false
+  lastRuntimeTunRouteSignature: string = ''
 
   startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined) {
     if (!AppManager.permission.isGetLocPerm() ||
@@ -185,6 +171,7 @@ export default class EntryAbility extends UIAbility {
 
   async initApp() {
     AppManager.uiState.init()
+    AppManager.uiState.setSocketFilesDir(this.context.filesDir)
     configFieldRegistry.init()
     try {
       await AppManager.preference.init(this.context)
@@ -343,7 +330,7 @@ export default class EntryAbility extends UIAbility {
     EventHelper.emitterListener("start_bg", (data) => {
       this.prepare_vpn(() => {
         Logger.info("start_bg_task", this)
-        this.connectToKernelSocket(this.context.filesDir + '/' + KERNEL_SOCKET_NAME)
+        this.connectToKernelSocket(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
         this.startContinuousTask(data.data!.cfg, data.data?.uuid, data.data?.name);
       })
     })
@@ -385,10 +372,6 @@ export default class EntryAbility extends UIAbility {
         this.setup_tun(ip, mask, magicDNS, inst_id, needExitNode, routes)
       })
     }
-    EventHelper.emitterListener("update_route", (data) => {
-      Logger.info("update_route", this)
-      restart(data)
-    })
     EventHelper.emitterListener("change_ipv4", (data) => {
       Logger.info("change_ipv4", this)
       restart(data)
@@ -407,8 +390,7 @@ export default class EntryAbility extends UIAbility {
     Logger.info(`setup_tun start instance=${inst_id} ip=${ip}/${mask} magicDNS=${magicDNS} needExitNode=${needExitNode}`, this)
     Logger.debug("当前IP:" + ip, this)
     Logger.debug("当前路由表:" + Array.from(AppManager.easytier.tunRoutes).join(","), this)
-    const configRoutes = (AppManager.easytier.getConfig(inst_id)?.routes as string[] | undefined) ?? []
-    const mergedRoutes = mergeRouteStrings(routes, configRoutes)
+    Logger.info(`setup_tun routes kernel=${JSON.stringify(routes ?? [])}`, this)
     let appList = [
       deviceInfo.sdkApiVersion >= 22? "":"top.frankhan.easytier",
       ...AppManager.preference.getBlackList()
@@ -427,8 +409,9 @@ export default class EntryAbility extends UIAbility {
       trustedApplications: AppManager.uiState.white_list?appList:[],
       dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.uiState.dev ? [this.safeDns()] : ["223.5.5.5"]),
       mtu: 1380,
-      routes: AppManager.preference.getVpnCfgRoutes(ip, magicDNS, needExitNode, mergedRoutes)
+      routes: AppManager.preference.getVpnCfgRoutes(ip, magicDNS, needExitNode, routes)
     }
+    Logger.info(`setup_tun finalVpnRoutes=${JSON.stringify(vpnConfig.routes ?? [])}`, this)
     if (this.vpnConnection === undefined) {
       Logger.error("vpnConnection not found", this)
       return
@@ -551,28 +534,38 @@ export default class EntryAbility extends UIAbility {
 
     this.kernelClient.on('message', (value: socket.LocalSocketMessageInfo) => {
       try {
-        this.kernelMessageBuffer += buffer.from(value.message).toString()
-        const messages = this.kernelMessageBuffer.split('\n')
-        this.kernelMessageBuffer = messages.pop() ?? ''
-        for (const rawMessage of messages) {
-          if (rawMessage.length === 0) {
-            continue
-          }
-          const msg = JSON.parse(rawMessage) as KernelSocketMessage
+        const decoded = decodeSocketChunk(this.kernelMessageBuffer, value.message)
+        this.kernelMessageBuffer = decoded.rest
+        for (const rawMessage of decoded.messages) {
+          const msg = parseKernelSocketMessage(rawMessage)
           if (msg.messageType === 'runtime_snapshot') {
+            const snapshot = JSON.parse(msg.payloadJson) as RuntimeAggregateState
             EventHelper.emitterPublish("kernel_runtime_snapshot", {
               data: {
-                snapshot: JSON.parse(msg.payloadJson) as RuntimeAggregateState
+                snapshot
               }
             })
+            const tunUpdate = buildRuntimeTunUpdate(snapshot, AppManager.uiState.selected)
+            if (tunUpdate) {
+              const signature = routeSignature(tunUpdate.routes)
+              if (signature !== this.lastRuntimeTunRouteSignature) {
+                this.lastRuntimeTunRouteSignature = signature
+                this.setup_tun(tunUpdate.ip, tunUpdate.mask, tunUpdate.magicDNS, AppManager.uiState.selected ?? '', tunUpdate.needExitNode, tunUpdate.routes)
+              }
+            }
           } else if (msg.messageType === 'tun_request') {
             const payload = JSON.parse(msg.payloadJson) as TunRequestPayload
             const cidr = payload.virtualIpv4Cidr ?? ''
             const ip = payload.virtualIpv4 ?? cidr.split('/')[0]
             const mask = Number(cidr.split('/')[1] ?? '24')
-            Logger.info(`received tun_request instance=${payload.instanceId} ip=${ip} cidr=${cidr} routes=${JSON.stringify(payload.aggregatedRoutes)}`, this)
-            this.setup_tun(ip, mask, payload.magicDnsEnabled, payload.instanceId, payload.needExitNode,
-              payload.aggregatedRoutes)
+            const routes = buildBaseRoutes(payload.aggregatedRoutes, cidr)
+            const currentRoutes = AppManager.easytier.getTunRouteStrings()
+            if (currentRoutes.length > routes.length) {
+              continue
+            }
+            AppManager.easytier.initTunRoutes(routes)
+            this.lastRuntimeTunRouteSignature = routeSignature(routes)
+            this.setup_tun(ip, mask, payload.magicDnsEnabled, payload.instanceId, payload.needExitNode, routes)
           }
         }
       } catch (e) {

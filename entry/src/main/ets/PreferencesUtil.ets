@@ -1,4 +1,4 @@
-import { preferences, ValueType } from '@kit.ArkData';
+import { preferences } from '@kit.ArkData';
 import { Context } from '@kit.AbilityKit';
 import easytier from 'easytier-ohrs';
 import { AppManager } from './AppManager';
@@ -50,7 +50,6 @@ export class PreferenceUtil {
       s.dns = this.preferences.getSync("dns", "").valueOf() as string;
       s.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean;
       s.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean;
-      s.git_core = this.preferences.getSync("git_core", !release).valueOf() as boolean;
       s.vault_mode = this.preferences.getSync("vault_mode", false).valueOf() as boolean;
       s.ext_mode = this.preferences.getSync("ext_mode", false).valueOf() as boolean;
       s.ask_dlp = this.preferences.getSync("ask_dlp", false).valueOf() as boolean;
@@ -58,7 +57,6 @@ export class PreferenceUtil {
       s.help2 = this.preferences.getSync("help2", true).valueOf() as boolean;
 
       // 记录启动时内核相关的状态
-      s.inittedGitCore = release ? s.git_core : true;
       s.inittedLog = s.show_log;
 
       s.selected = this.preferences!.getSync("selected", "").toString() || undefined;
