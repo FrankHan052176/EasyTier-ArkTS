@@ -1,6 +1,6 @@
 import { ValueType } from '@kit.ArkData';
-import { AppManager } from '../AppManager';
-import { Logger, LogLocate } from '../shared/logging/Logger';
+import { AppManager } from '../../AppManager';
+import { Logger, LogLocate } from '../../shared/logging/Logger';
 
 const DEFAULT_SEQUENCE = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
 

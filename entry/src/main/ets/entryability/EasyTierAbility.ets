@@ -6,14 +6,13 @@ import easytier from 'easytier-ohrs';
 import entry from 'libentry.so';
 import { buffer, JSON } from '@kit.ArkTS';
 import { stringArr2RouteArr } from '../util/Conversion';
-import { deviceInfo, BusinessError } from '@kit.BasicServicesKit';
 import { NetworkSegment } from '../models/network/NetworkSegment';
-import { SafeSet } from '../shared/utils/collections/SafeSet';
+import { deviceInfo, BusinessError } from '@kit.BasicServicesKit';
 import { ConfigJson } from '../config/schema/SchemaConfig';
 import { RuntimeAggregateState, RuntimeInstanceState } from '../types/runtime/RuntimeTypes';
-import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnLogData, VpnMessage } from '../bridge/kernel/KernelBridgeTypes'
-import { decodeSocketChunk, parseKernelSocketMessage } from '../bridge/kernel/SocketCodec'
-import { collectPeerProxyCidrs, mergeMissingProxyRoutes, normalizeRouteStrings, routeSignature } from '../bridge/kernel/RouteStore'
+import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnLogData, VpnMessage } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
+import { decodeSocketChunk, parseKernelSocketMessage } from '../infrastructure/bridge/kernel/SocketCodec'
+import { routeSignature } from '../infrastructure/bridge/kernel/RouteStore'
 
 export default class EasyTierAbility extends VpnExtensionAbility {
   server: socket.LocalSocketServer | undefined
@@ -25,7 +24,6 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   config: ConfigJson | undefined
   instance_id: string = ""
   needTUN: boolean = false
-  tunRoutes: SafeSet<NetworkSegment> = new SafeSet()
   socketFilesDir: string = ''
   
   // Preferences passed from UI
@@ -37,7 +35,6 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   force_global: boolean = true
   show_log: boolean = false
   lastRoutesSignature: string = ""
-  lastBaseRoutesSignature: string = ""
 
   onCreate(want: Want): void {
     Logger.debug("VpnExtAbi create", "EasyTierAbility")
@@ -115,7 +112,6 @@ export default class EasyTierAbility extends VpnExtensionAbility {
 
   private stopKernel() {
     easytier.stopKernel(this.instance_id);
-    this.clearTunRoutes()
   }
 
   private startCollecting() {
@@ -193,27 +189,19 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     const tun = snapshot.tun
     const attachedIds = tun?.attachedInstanceIds ?? []
     if (!tun?.active || attachedIds.indexOf(this.instance_id) < 0) {
-      this.clearTunRoutes()
       return
     }
     const instance = (snapshot.instances ?? []).find((value: RuntimeInstanceState) => value.instanceId === this.instance_id)
     const cidr = instance?.myNodeInfo?.virtualIpv4Cidr
     const ip = instance?.myNodeInfo?.virtualIpv4
-    const aggregatedRoutes = tun?.aggregatedRoutes ?? []
-    const baseSignature = routeSignature(aggregatedRoutes)
-    if (baseSignature !== this.lastBaseRoutesSignature) {
-      this.lastBaseRoutesSignature = baseSignature
-      this.replaceTunRoutes(aggregatedRoutes)
-    }
-    this.mergeProxyRoutes(collectPeerProxyCidrs(instance))
-    const currentRoutes = this.getTunRouteStrings()
-    const currentSignature = routeSignature(currentRoutes)
+    const routes = tun?.aggregatedRoutes ?? []
+    const currentSignature = routeSignature(routes)
     if (!cidr || !ip || currentSignature === this.lastRoutesSignature) {
       return
     }
     this.lastRoutesSignature = currentSignature
     this.setupTunWithRoutes(ip, Number(cidr.split('/')[1] ?? '24'), instance?.magicDnsEnabled as boolean ?? false,
-      instance?.needExitNode as boolean ?? false, currentRoutes)
+      instance?.needExitNode as boolean ?? false, routes)
   }
 
   private setupTunFromPayload(payload: TunRequestPayload) {
@@ -221,44 +209,9 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     const cidr = payload.virtualIpv4Cidr ?? ''
     const ip = payload.virtualIpv4 ?? cidr.split('/')[0]
     const mask = Number(cidr.split('/')[1] ?? '24')
-    const routes = this.initTunRoutes(payload.aggregatedRoutes)
+    const routes = payload.aggregatedRoutes ?? []
+    this.lastRoutesSignature = routeSignature(routes)
     this.setupTunWithRoutes(ip, mask, payload.magicDnsEnabled, payload.needExitNode, routes)
-  }
-
-  private replaceTunRoutes(routes: string[]): string[] {
-    const normalizedRoutes = normalizeRouteStrings(routes)
-    this.tunRoutes.clear()
-    normalizedRoutes.forEach((route) => {
-      this.tunRoutes.add(new NetworkSegment(route))
-    })
-    return normalizedRoutes
-  }
-
-  private mergeProxyRoutes(proxyCidrs: string[]): boolean {
-    const merged = mergeMissingProxyRoutes(this.getTunRouteStrings(), proxyCidrs)
-    if (!merged.changed) {
-      return false
-    }
-    this.replaceTunRoutes(merged.routes)
-    return true
-  }
-
-  private initTunRoutes(routes: string[]): string[] {
-    const normalizedRoutes = this.replaceTunRoutes(routes)
-    const signature = routeSignature(normalizedRoutes)
-    this.lastBaseRoutesSignature = signature
-    this.lastRoutesSignature = signature
-    return normalizedRoutes
-  }
-
-  private clearTunRoutes(): void {
-    this.tunRoutes.clear()
-    this.lastBaseRoutesSignature = ''
-    this.lastRoutesSignature = ''
-  }
-
-  private getTunRouteStrings(): string[] {
-    return Array.from(this.tunRoutes).map((route) => route.toString())
   }
 
   private setupTunWithRoutes(ip: string, mask: number, magicDNS: boolean, needExitNode: boolean, routes: string[]) {

@@ -14,7 +14,7 @@ export struct Instances {
 
   @Computed
   get uuids() {
-    return AppManager.easytier.getAllConfigIds()
+    return AppManager.data.configIds
   }
 
   @Computed

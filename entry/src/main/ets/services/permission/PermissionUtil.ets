@@ -1,8 +1,8 @@
 import { abilityAccessCtrl, bundleManager, Permissions } from '@kit.AbilityKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { vpnExtension } from '@kit.NetworkKit';
-import { AppManager } from './AppManager';
-import { Logger, LogLocate } from './shared/logging/Logger';
+import { AppManager } from '../../AppManager';
+import { Logger, LogLocate } from '../../shared/logging/Logger';
 import { notificationManager } from '@kit.NotificationKit';
 import { common } from '@kit.AbilityKit';
 

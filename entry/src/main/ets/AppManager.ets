@@ -1,12 +1,12 @@
-import { ContextUtil } from './ContextUtil';
-import { DataUtil } from './DataUtil';
+import { ContextUtil } from './services/context/ContextUtil';
+import { DataUtil } from './services/data/storage/DataUtil';
 import { EasyTierUtil } from './EasyTierUtil';
 import { LogLocate } from './shared/logging/Logger';
 import { distributedKVStore } from '@kit.ArkData';
-import { PermissionUtil } from './PermissionUtil';
-import { PreferenceUtil } from './PreferencesUtil';
-import { WebUtil } from './WebUtil';
-import { UIState } from './class/UIState';
+import { PermissionUtil } from './services/permission/PermissionUtil';
+import { PreferenceUtil } from './services/preferences/storage/PreferencesUtil';
+import { WebUtil } from './services/web/WebUtil';
+import { UIState } from './store/ui/UIState';
 
 @LogLocate("AppManager")
 export class AppManager {

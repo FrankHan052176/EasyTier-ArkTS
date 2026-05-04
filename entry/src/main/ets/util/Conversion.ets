@@ -107,7 +107,7 @@ export function logColor(log: string): ResourceColor {
 
 export function stringArr2RouteArr(gateway: string, magicDNS: boolean, needExitNode: boolean, customRoutes?: NetworkSegment[], forceGlobal?: boolean): connection.RouteInfo[] {
   let result: connection.RouteInfo[] = []
-  let routes = customRoutes || Array.from(AppManager.easytier.tunRoutes)
+  let routes = customRoutes || []
   let isForceGlobal = forceGlobal !== undefined ? forceGlobal : AppManager.uiState.force_global
   const seenRoutes: Set<string> = new Set()
 

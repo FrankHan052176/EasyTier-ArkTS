@@ -1,22 +1,22 @@
-import { Logger, LogLocate } from './shared/logging/Logger';
+import { Logger, LogLocate } from '../../../shared/logging/Logger';
 import { util } from '@kit.ArkTS';
-import { FieldValueDataSource } from './class/FieldValueDataSource';
-import { Url } from './class/config/Url';
-import { AppManager } from './AppManager';
-import { getDefaultConfig } from './config/defaults/ConfigDefaults';
-import { getHostname } from './util/Conversion';
+import { FieldValueDataSource } from '../../../class/FieldValueDataSource';
+import { Url } from '../../../class/config/Url';
+import { AppManager } from '../../../AppManager';
+import { getDefaultConfig } from '../../../config/defaults/ConfigDefaults';
+import { getHostname } from '../../../util/Conversion';
 import { distributedKVStore } from '@kit.ArkData';
 import { deviceInfo } from '@kit.BasicServicesKit';
-import { FieldValue } from './class/config/Basic';
-import { Cidr } from './class/config/Cidr';
-import { PortForward } from './class/config/PortForward';
-import { NetworkName } from './class/config/NetworkName';
-import { IP } from './class/config/IP';
+import { FieldValue } from '../../../class/config/Basic';
+import { Cidr } from '../../../class/config/Cidr';
+import { PortForward } from '../../../class/config/PortForward';
+import { NetworkName } from '../../../class/config/NetworkName';
+import { IP } from '../../../class/config/IP';
 import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
 import { HMRouterMgr } from '@hadss/hmrouter';
 import easytier from 'easytier-ohrs';
-import { ConfigJson } from './config/schema/SchemaConfig';
-import { syncWholeConfig } from './ConfigSyncUtil';
+import { ConfigJson } from '../../../config/schema/SchemaConfig';
+import { syncWholeConfig } from '../../../ConfigSyncUtil';
 
 interface StoredConfigMetaLite {
   configId: string

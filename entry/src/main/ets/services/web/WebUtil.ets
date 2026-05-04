@@ -1,7 +1,7 @@
 import { rcp } from '@kit.RemoteCommunicationKit';
-import { AppManager } from './AppManager';
-import { EventHelper } from './util/EventHelper';
-import { Logger, LogLocate } from './shared/logging/Logger';
+import { AppManager } from '../../AppManager';
+import { EventHelper } from '../../util/EventHelper';
+import { Logger, LogLocate } from '../../shared/logging/Logger';
 import { http } from '@kit.NetworkKit';
 
 @LogLocate("WebUtil")

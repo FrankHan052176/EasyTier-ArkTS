@@ -1,15 +1,15 @@
 import { preferences } from '@kit.ArkData';
 import { Context } from '@kit.AbilityKit';
 import easytier from 'easytier-ohrs';
-import { AppManager } from './AppManager';
-import { Logger, LogLocate } from './shared/logging/Logger';
+import { AppManager } from '../../../AppManager';
+import { Logger, LogLocate } from '../../../shared/logging/Logger';
 import { JSON } from '@kit.ArkTS';
-import { NetworkSegment } from './models/network/NetworkSegment';
-import { AppInfo } from './components/sheet/BlackList';
+import { NetworkSegment } from '../../../models/network/NetworkSegment';
+import { AppInfo } from '../../../components/sheet/BlackList';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { connection } from '@kit.NetworkKit';
-import { stringArr2RouteArr } from './util/Conversion';
-import { release } from './util/info/ArtifactsType';
+import { stringArr2RouteArr } from '../../../util/Conversion';
+import { release } from '../../../util/info/ArtifactsType';
 
 const easytier_release = easytier
 

@@ -25,14 +25,14 @@ import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 import { rpc } from '@kit.IPCKit';
 import { buildShareUrlSync, unwrapUrl } from '../util/ShareUtil';
-import { updateFavorite } from '../CommunicationUtil';
+import { updateFavorite } from '../services/form/CommunicationUtil';
 import { cancelNotification, publishTextNotification } from '../util/NoticeHelper';
 import { netHandover } from '@kit.NetworkBoostKit';
 import { ConfigJson } from '../config/schema/SchemaConfig';
 import { RuntimeAggregateState } from '../types/runtime/RuntimeTypes';
-import { KERNEL_SOCKET_NAME, TunRequestPayload } from '../bridge/kernel/KernelBridgeTypes'
-import { decodeSocketChunk, parseKernelSocketMessage } from '../bridge/kernel/SocketCodec'
-import { buildBaseRoutes, buildRuntimeTunUpdate, routeSignature } from '../bridge/kernel/RouteStore'
+import { KERNEL_SOCKET_NAME, TunRequestPayload } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
+import { decodeSocketChunk, parseKernelSocketMessage } from '../infrastructure/bridge/kernel/SocketCodec'
+import { buildRuntimeTunUpdate, routeSignature } from '../infrastructure/bridge/kernel/RouteStore'
 
 const easytier_release = easytier
 
@@ -389,7 +389,6 @@ export default class EntryAbility extends UIAbility {
   setup_tun(ip: string, mask: number, magicDNS: boolean, inst_id: string, needExitNode: boolean, routes?: string[]) {
     Logger.info(`setup_tun start instance=${inst_id} ip=${ip}/${mask} magicDNS=${magicDNS} needExitNode=${needExitNode}`, this)
     Logger.debug("当前IP:" + ip, this)
-    Logger.debug("当前路由表:" + Array.from(AppManager.easytier.tunRoutes).join(","), this)
     Logger.info(`setup_tun routes kernel=${JSON.stringify(routes ?? [])}`, this)
     let appList = [
       deviceInfo.sdkApiVersion >= 22? "":"top.frankhan.easytier",
@@ -558,12 +557,7 @@ export default class EntryAbility extends UIAbility {
             const cidr = payload.virtualIpv4Cidr ?? ''
             const ip = payload.virtualIpv4 ?? cidr.split('/')[0]
             const mask = Number(cidr.split('/')[1] ?? '24')
-            const routes = buildBaseRoutes(payload.aggregatedRoutes, cidr)
-            const currentRoutes = AppManager.easytier.getTunRouteStrings()
-            if (currentRoutes.length > routes.length) {
-              continue
-            }
-            AppManager.easytier.initTunRoutes(routes)
+            const routes = payload.aggregatedRoutes ?? []
             this.lastRuntimeTunRouteSignature = routeSignature(routes)
             this.setup_tun(ip, mask, payload.magicDnsEnabled, payload.instanceId, payload.needExitNode, routes)
           }

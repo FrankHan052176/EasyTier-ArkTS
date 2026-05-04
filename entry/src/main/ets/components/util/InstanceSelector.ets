@@ -14,11 +14,6 @@ export struct InstanceSelector {
   @Local isSelecting: boolean = false
 
   @Computed
-  get uuids() {
-    return AppManager.easytier.getAllConfigIds()
-  }
-
-  @Computed
   get entries(): InstanceEntry[] {
     const entries = AppManager.easytier.listStoredConfigs()
     return entries.map((item) => {
@@ -91,18 +86,18 @@ export struct InstanceSelector {
 
       // List
       List({ space: 12 }) {
-        ForEach(this.entries, (entry: InstanceEntry) => {
+        ForEach(AppManager.data.configIds, (uuid: string) => {
           ListItem() {
             Row() {
               Column() {
-                Text(entry.label)
+                Text(AppManager.easytier.getConfigName(uuid))
                   .fontSize(16)
-                  .fontWeight(entry.uuid === this.selectedUuid ? FontWeight.Bold : FontWeight.Medium)
-                  .fontColor(entry.uuid === this.selectedUuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))
+                  .fontWeight(uuid === this.selectedUuid ? FontWeight.Bold : FontWeight.Medium)
+                  .fontColor(uuid === this.selectedUuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-                Text(entry.uuid)
+                Text(uuid)
                   .fontSize(12)
                   .fontColor($r('sys.color.font_tertiary'))
                   .margin({ top: 4 })
@@ -112,7 +107,7 @@ export struct InstanceSelector {
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start)
 
-              if (entry.uuid === this.selectedUuid) {
+              if (uuid === this.selectedUuid) {
                 SymbolGlyph($r('sys.symbol.checkmark'))
                   .fontSize(24)
                   .fontColor([$r('sys.color.brand')])
@@ -124,12 +119,12 @@ export struct InstanceSelector {
             .backgroundColor($r('sys.color.comp_background_tertiary'))
             .borderRadius(16)
             .onClick(() => {
-              this.onSelect(entry.uuid)
+              this.onSelect(uuid)
               this.isSelecting = false
             })
           }
-          .swipeAction({ end: this.DeleteAction(entry.uuid) })
-        }, (entry: InstanceEntry) => entry.uuid)
+          .swipeAction({ end: this.DeleteAction(uuid) })
+        }, (uuid: string) => uuid)
       }
       .width('100%')
       .layoutWeight(1)

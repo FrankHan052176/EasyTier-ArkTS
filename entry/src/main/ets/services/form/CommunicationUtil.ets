@@ -1,6 +1,6 @@
-import { AppManager } from "./AppManager"
+import { AppManager } from "../../AppManager"
 import { formBindingData, formProvider } from "@kit.FormKit"
-import { Logger } from "./shared/logging/Logger"
+import { Logger } from "../../shared/logging/Logger"
 import { BusinessError } from "@kit.BasicServicesKit";
 
 export function updateFavorite() {
