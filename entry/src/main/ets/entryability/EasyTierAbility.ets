@@ -39,9 +39,14 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   onCreate(want: Want): void {
     Logger.debug("VpnExtAbi create", "EasyTierAbility")
     if (want.parameters == undefined) return;
+    const cfgParam = want.parameters["cfg"] as string | undefined
+    if (!cfgParam) {
+      Logger.debug("VpnExtAbi create without cfg, likely permission probe", "EasyTierAbility")
+      return
+    }
     this.socketFilesDir = want.parameters["socket_files_dir"] as string ?? this.context.filesDir;
     this.setupServer(want.parameters["socket"] as string);
-    this.config = JSON.parse(want.parameters["cfg"] as string) as ConfigJson;
+    this.config = JSON.parse(cfgParam) as ConfigJson;
     this.instance_id = this.config.instance_id!!;
     this.needTUN = !this.config.no_tun;
     this.vpn_routes = want.parameters["vpn_routes"] as boolean ?? false;
