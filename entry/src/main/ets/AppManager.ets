@@ -2,7 +2,6 @@ import { ContextUtil } from './services/context/ContextUtil';
 import { DataUtil } from './services/data/storage/DataUtil';
 import { EasyTierUtil } from './EasyTierUtil';
 import { LogLocate } from './shared/logging/Logger';
-import { distributedKVStore } from '@kit.ArkData';
 import { PermissionUtil } from './services/permission/PermissionUtil';
 import { PreferenceUtil } from './services/preferences/storage/PreferencesUtil';
 import { WebUtil } from './services/web/WebUtil';
@@ -10,7 +9,6 @@ import { UIState } from './store/ui/UIState';
 
 @LogLocate("AppManager")
 export class AppManager {
-  public static KVManager: distributedKVStore.KVManager | undefined
   public static data: DataUtil = new DataUtil()
   public static content: ContextUtil = new ContextUtil()
   public static easytier: EasyTierUtil = new EasyTierUtil()

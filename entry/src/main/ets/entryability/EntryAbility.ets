@@ -18,7 +18,6 @@ import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
 import { DialogHub } from '@hadss/dialoghub';
 import { sendToast } from '../ToastUtil';
 import { isIpAddr } from '../class/config/IP';
-import { distributedKVStore } from '@kit.ArkData';
 import { BottomAnimator } from '../class/animator/BottomAnimator';
 import { configFieldRegistry } from '../config/fields/ConfigFieldRegistry';
 import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
@@ -177,19 +176,6 @@ export default class EntryAbility extends UIAbility {
       await AppManager.preference.init(this.context)
     } catch (error) {
       Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
-    }
-    if (!AppManager.uiState.noOldData) {
-      let context = this.context;
-      try {
-        const kvManagerConfig: distributedKVStore.KVManagerConfig = {
-          bundleName: 'top.frankhan.easytier',
-          context: context,
-        }
-        AppManager.KVManager = distributedKVStore.createKVManager(kvManagerConfig)
-      } catch (e) {
-        let error = e as BusinessError;
-        Logger.info(`Failed to create KVManager. Code:${error.code},message:${error.message}`, this);
-      }
     }
     await AppManager.data.init()
     if (deviceInfo.productModel !== "emulator") {

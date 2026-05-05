@@ -5,7 +5,6 @@ import { Url } from '../../../class/config/Url';
 import { AppManager } from '../../../AppManager';
 import { getDefaultConfig } from '../../../config/defaults/ConfigDefaults';
 import { getHostname } from '../../../util/Conversion';
-import { distributedKVStore } from '@kit.ArkData';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { FieldValue } from '../../../class/config/Basic';
 import { Cidr } from '../../../class/config/Cidr';
@@ -102,59 +101,6 @@ export class DataUtil {
 
   public async init() {
     this.refreshConfigIds()
-    if (AppManager.KVManager) {
-      Logger.warn('Find old Data.', this)
-      const options: distributedKVStore.Options = {
-        createIfMissing: true,
-        encrypt: false,
-        backup: false,
-        autoSync: false,
-        kvStoreType: distributedKVStore.KVStoreType.DEVICE_COLLABORATION,
-        securityLevel: distributedKVStore.SecurityLevel.S2
-      };
-      try {
-        let store = await AppManager.KVManager.getKVStore<distributedKVStore.DeviceKVStore>('configs', options)
-        Logger.debug('Succeeded in getting KVStore.', this)
-        store.getEntries("peer_", (err, entries) => {
-          if (err) {
-            Logger.error(`Failed to get KVStore: Code:${err.code},message:${err.message}`, this);
-            return;
-          }
-          if (entries.length == 0) {
-            Logger.debug('No Peer', this)
-          } else {
-            entries.forEach((entry) => {
-              let value = new Url()
-              if (value.fromString(entry.value.value.toString())) {
-                Logger.debug('Read Peer: ' + value.toString(), this)
-                this.getDataSource("peer").add(value)
-              }
-            })
-          }
-          store.getEntries("config_", (err, entries) => {
-            if (err) {
-              Logger.error(`Failed to get KVStore: Code:${err.code},message:${err.message}`, this);
-              return;
-            }
-            if (entries.length == 0) {
-              Logger.debug('No Config', this)
-            } else {
-              entries.forEach((entry) => {
-                let toml = entry.value.value.toString()
-                Logger.debug('Read Config: ' + entry.key, this)
-                this.importToml(toml)
-              })
-            }
-            AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs').catch(() => {
-            })
-          })
-        })
-      } catch (err) {
-        Logger.error(`Failed to get KVStore: Code:${err.code},message:${err.message}`, this);
-        AppManager.KVManager!.deleteKVStore("top.frankhan.easytier", 'configs').catch(() => {
-        })
-      }
-    }
   }
 
   public safeUUID(): string {
