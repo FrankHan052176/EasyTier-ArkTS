@@ -125,8 +125,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       // Collect Logs
       let appLogs = entry.getAppLog();
       let nmLogs = entry.getNetworkManagerLog();
-      let ohLogs = entry.getOHLog();
-      const logData: VpnLogData = { appLogs, nmLogs, ohLogs };
+      const logData: VpnLogData = { appLogs, nmLogs };
       const logMsg: VpnMessage = { type: "logs", data: logData };
       this.broadcast(logMsg);
     }, 100);

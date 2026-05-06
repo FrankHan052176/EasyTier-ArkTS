@@ -4,9 +4,8 @@
 #include "hilog/log.h"
 #include "LockFreeRingBuffer.h"
 
-LockFreeRingBuffer<5000> appLog;
-LockFreeRingBuffer<5000> nmLog;
-LockFreeRingBuffer<5000> ohLog;
+LockFreeRingBuffer<100> appLog;
+LockFreeRingBuffer<100> nmLog;
 void MyHiLog(const LogType type, const LogLevel level, const unsigned int domain, const char *tag, const char *msg) {
     std::string finalMsg;
     if (level >= LOG_DEBUG && strcmp(tag, "fhl") == 0) {
@@ -15,9 +14,6 @@ void MyHiLog(const LogType type, const LogLevel level, const unsigned int domain
     } else if (level >= LOG_WARN && strcmp(tag, "NETMANAGER_EXT") == 0) {
         finalMsg = std::to_string(static_cast<int>(level)) + "[NETMANAGER_EXT] " + msg;
         nmLog.write(finalMsg);
-    } else if (level >= LOG_ERROR) {
-        finalMsg = std::to_string(static_cast<int>(level)) + msg;
-        ohLog.write(finalMsg);
     }
 }
 static napi_value hilogInit(napi_env env, napi_callback_info info) {
@@ -56,29 +52,12 @@ static napi_value getNetworkManagerLog(napi_env env, napi_callback_info info) {
     }
     return output_array;
 }
-static napi_value getOHLog(napi_env env, napi_callback_info info) {
-    std::vector<std::string> messages = ohLog.read_all();
-    napi_value output_array;
-    napi_status status = napi_create_array(env, &output_array);
-    if (status != napi_ok) {
-        return nullptr;
-    }
-    for (size_t i = 0; i < messages.size(); i++) {
-        napi_value jsString;
-        status = napi_create_string_utf8(env, messages[i].c_str(), NAPI_AUTO_LENGTH, &jsString);
-        if (status == napi_ok) {
-            napi_set_element(env, output_array, i, jsString);
-        }
-    }
-    return output_array;
-}
 
 EXTERN_C_START
 static napi_value Init(napi_env env, napi_value exports) {
     napi_property_descriptor desc[] = {
         {"getAppLog", nullptr, getAppLog, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"getNetworkManagerLog", nullptr, getNetworkManagerLog, nullptr, nullptr, nullptr, napi_default, nullptr},
-        {"getOHLog", nullptr, getOHLog, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"hilogInit", nullptr, hilogInit, nullptr, nullptr, nullptr, napi_default, nullptr}};
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
     return exports;

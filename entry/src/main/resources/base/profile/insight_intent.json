@@ -1,0 +1,43 @@
+{
+  "insightIntents": [
+    {
+      "intentName": "JumpFunctionPage",
+      "domain": "ToolsDomain",
+      "intentVersion": "1.0.1",
+      "srcEntry": "./ets/entryability/InsightIntentExecutorImpl.ets",
+      "uiAbility": {
+        "ability": "EntryAbility",
+        "executeMode": [
+          "foreground"
+        ]
+      },
+      "inputParams": [{
+        "properties": {
+          "pageId": {
+            "type": "string",
+            "enum": [
+              {
+                "value": "1",
+                "displayName": "一键回家",
+                "keywords": [
+                  "回家"
+                ],
+                "displayDescription": "快捷启动收藏实例",
+                "icon": "https://abc.xx"
+              },
+              {
+                "value": "2",
+                "displayName": "扫一扫",
+                "keywords": [
+                  "扫码"
+                ],
+                "displayDescription": "用于扫码",
+                "icon": "https://abc.xx"
+              }
+            ]
+          }
+        }
+      }]
+    }
+  ]
+}

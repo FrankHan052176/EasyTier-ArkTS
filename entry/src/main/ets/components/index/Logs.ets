@@ -30,16 +30,11 @@ export struct Logs {
 
   @Computed
   get totalCount(): number {
-    if (false) {
-      return this.appCount + this.netCount + this.ohCount
-    }else {
-      return this.appCount + this.netCount
-    }
+    return this.appCount + this.netCount
   }
 
   @Computed
   get latestLog(): string {
-    // 简单的获取最后一条日志的逻辑，优先显示App日志，其次网络
     if (this.appCount > 0) {
       return AppManager.easytier.appLogs.getData(this.appCount - 1)
     }
@@ -63,12 +58,6 @@ export struct Logs {
         TabContent() {
           this.LogList(AppManager.easytier.nmLogs)
         }.tabBar("网络日志")
-
-        if (false) {
-          TabContent() {
-            this.LogList(AppManager.easytier.ohLogs)
-          }.tabBar("ArkUI日志")
-        }
       }
       .barMode(BarMode.Fixed)
       .width('100%')

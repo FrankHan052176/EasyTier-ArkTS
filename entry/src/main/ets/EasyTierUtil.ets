@@ -32,12 +32,10 @@ async function readLogsWorker(): Promise<void> {
   setInterval(() => {
     let appLogs = entry.getAppLog()
     let nmLogs = entry.getNetworkManagerLog()
-    let ohLogs = entry.getOHLog()
     EventHelper.emitterPublish("worker_readLogs", {
       data: {
         appLogs: appLogs,
-        nmLogs: nmLogs,
-        ohLogs: ohLogs
+        nmLogs: nmLogs
       }
     })
   }, 100)
@@ -60,7 +58,7 @@ export class EasyTierUtil {
   init() {
     EventHelper.emitterListener("worker_readLogs", (event) => {
       if (event?.data) {
-        this.processLogs(event.data.appLogs as string[], event.data.nmLogs as string[], event.data.ohLogs as string[])
+        this.processLogs(event.data.appLogs as string[], event.data.nmLogs as string[])
       }
     })
     EventHelper.emitterListener("kernel_runtime_snapshot", (event) => {
@@ -141,15 +139,12 @@ export class EasyTierUtil {
 
   }
 
-  processLogs(appLogs: string[], nmLogs: string[], ohLogs: string[]) {
+  processLogs(appLogs: string[], nmLogs: string[]) {
     appLogs.forEach((value) => {
       this.appLogs.add(value)
     })
     nmLogs.forEach((value) => {
       this.nmLogs.add(value)
-    })
-    ohLogs.forEach((value) => {
-      this.ohLogs.add(value)
     })
   }
 
@@ -168,7 +163,7 @@ export class EasyTierUtil {
         this.processRuntimeSnapshot(snapshot, true)
       },
       onLogs: (logData: VpnLogData) => {
-        this.processLogs(logData.appLogs, logData.nmLogs, logData.ohLogs)
+        this.processLogs(logData.appLogs, logData.nmLogs)
       }
     })
   }

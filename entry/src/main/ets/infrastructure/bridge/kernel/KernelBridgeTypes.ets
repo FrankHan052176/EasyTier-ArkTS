@@ -21,7 +21,6 @@ export interface TunRequestPayload {
 export interface VpnLogData {
   appLogs: string[]
   nmLogs: string[]
-  ohLogs: string[]
 }
 
 export interface VpnMessage {
