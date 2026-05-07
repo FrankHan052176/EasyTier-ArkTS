@@ -1,5 +1,5 @@
 import { AppManager } from '../../../AppManager';
-import { deleteFieldValue as deleteListValue, FieldValue } from '../../../class/config/Basic';
+import { deleteFieldValue as deleteListValue, FieldValue, setEditOriginalValue } from '../../../class/config/Basic';
 import { FieldValueDataSource } from '../../../class/FieldValueDataSource';
 import { lane } from '../../../util/Conversion';
 import { ToolButton } from '../../util/ToolButtons';
@@ -14,6 +14,7 @@ import { EventHelper } from '../../../util/EventHelper';
 import { PortForward, setEditValue_PortForward } from '../../../class/config/PortForward';
 import { getFieldPathValue, syncTopLevelField } from '../../../ConfigSyncUtil';
 import { ConfigFieldValue } from '../../../config/schema/SchemaConfig';
+import { Logger } from '../../../shared/logging/Logger';
 
 @ComponentV2
 export struct ListField {
@@ -118,6 +119,8 @@ export struct ListField {
               break;
             }
           }
+          setEditOriginalValue(this.type, value)
+          Logger.debug(`ListField edit open field=${this.field} type=${this.type} original=${value.toString()}`, 'ListField')
           EventHelper.emitterPublish("edit_open_sheet", {
             data: {
               type: "edit_" + this.type + "|" + this.field
@@ -136,6 +139,7 @@ export struct ListField {
         })
         .onClick(() => {
           this.scroller.closeAllSwipeActions()
+          Logger.debug(`ListField delete field=${this.field} type=${this.type} value=${value.toString()}`, 'ListField')
           deleteListValue(this.config!, this.type, this.field, value)
           this.updateItems()
           syncTopLevelField(this.config!.instance_id!, this.field, this.config!)

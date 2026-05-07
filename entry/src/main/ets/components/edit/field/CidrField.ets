@@ -98,13 +98,17 @@ export struct CidrField {
             .fieldTextInput((value) => {
               this.value_ip = value
               setFieldPathValue(this.config!, this.ipFieldPath, value)
-              syncFieldPath(this.config!.instance_id!, this.ipFieldPath, this.config!)
             }, () => {
+              syncFieldPath(this.config!.instance_id!, this.ipFieldPath, this.config!)
               this.getUIContext().getFocusController().requestFocus(this.field + "mask");
             }, true, this.field)
             .layoutWeight(100)
             .onEditChange((isEdit) => {
+              const wasEdit = this.editIP
               this.editIP = isEdit
+              if (wasEdit && !isEdit) {
+                syncFieldPath(this.config!.instance_id!, this.ipFieldPath, this.config!)
+              }
             })
             .fontColor(this.fontColor)
             .enabled(this.enable)
@@ -116,12 +120,16 @@ export struct CidrField {
               this.value_mask = value
               let num = Number.parseInt(value)
               setFieldPathValue(this.config!, this.maskFieldPath, Number.isNaN(num) ? 0 : num)
-              syncFieldPath(this.config!.instance_id!, this.maskFieldPath, this.config!)
             }, () => {
+              syncFieldPath(this.config!.instance_id!, this.maskFieldPath, this.config!)
             }, false, this.field)
             .width(30)
             .onEditChange((isEdit) => {
+              const wasEdit = this.editMask
               this.editMask = isEdit
+              if (wasEdit && !isEdit) {
+                syncFieldPath(this.config!.instance_id!, this.maskFieldPath, this.config!)
+              }
             })
             .fontColor(this.fontColor)
             .enabled(this.enable)

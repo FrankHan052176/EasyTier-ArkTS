@@ -17,6 +17,7 @@ import {
 import { clearEditValue_Url, EditValue_Url, setEditValue_Url, Url } from './Url';
 import { ConfigJson } from '../../config/schema/SchemaConfig';
 import { syncTopLevelField } from '../../ConfigSyncUtil';
+import { Logger } from '../../shared/logging/Logger';
 
 export interface FieldValue {
   fromString(value: string): boolean
@@ -26,6 +27,101 @@ export interface FieldValue {
   checkValid(): boolean
 
   bind(fieldName: string): FieldValue
+}
+
+let EditOriginalValue_Cidr: Cidr | undefined
+let EditOriginalValue_Url: Url | undefined
+let EditOriginalValue_IP: IP | undefined
+let EditOriginalValue_NetworkName: NetworkName | undefined
+let EditOriginalValue_PortForward: PortForward | undefined
+
+export function setEditOriginalValue(type: string, value: FieldValue) {
+  Logger.info(`setEditOriginalValue type=${type} value=${value.toString()}`, 'Basic')
+  switch (type) {
+    case "route":
+    case "cidr":
+      EditOriginalValue_Cidr = new Cidr().readFrom(value.toString())
+      break
+    case "mapped_listener":
+    case "listener":
+    case "peer":
+      EditOriginalValue_Url = new Url()
+      EditOriginalValue_Url.fromString(value.toString())
+      break
+    case "ip":
+      EditOriginalValue_IP = new IP().readFrom(value.toString())
+      break
+    case "network_name":
+      EditOriginalValue_NetworkName = new NetworkName()
+      EditOriginalValue_NetworkName.fromString(value.toString())
+      break
+    case "port_forward":
+      EditOriginalValue_PortForward = new PortForward()
+      EditOriginalValue_PortForward.fromString(value.toString())
+      break
+  }
+}
+
+export function commitEditValue(config: ConfigJson, name: string, type: string): void {
+  Logger.debug(`commitEditValue start field=${name} type=${type}`, 'Basic')
+  switch (type) {
+    case "route":
+    case "cidr": {
+      if (!EditOriginalValue_Cidr || !EditValue_Cidr) return
+      const list = config[name] as string[]
+      const index = list.indexOf(EditOriginalValue_Cidr.toString())
+      if (index >= 0) {
+        list[index] = EditValue_Cidr.toString()
+        Logger.debug(`commitEditValue cidr field=${name} old=${EditOriginalValue_Cidr.toString()} new=${EditValue_Cidr.toString()}`, 'Basic')
+      }
+      break
+    }
+    case "mapped_listener":
+    case "listener":
+    case "peer": {
+      if (!EditOriginalValue_Url || !EditValue_Url) return
+      const list = config[name] as string[]
+      const index = list.indexOf(EditOriginalValue_Url.toString())
+      if (index >= 0) {
+        list[index] = EditValue_Url.toString()
+        Logger.debug(`commitEditValue url field=${name} old=${EditOriginalValue_Url.toString()} new=${EditValue_Url.toString()}`, 'Basic')
+      }
+      break
+    }
+    case "ip": {
+      if (!EditOriginalValue_IP || !EditValue_IP) return
+      const list = config[name] as string[]
+      const index = list.indexOf(EditOriginalValue_IP.toString())
+      if (index >= 0) {
+        list[index] = EditValue_IP.toString()
+        Logger.debug(`commitEditValue ip field=${name} old=${EditOriginalValue_IP.toString()} new=${EditValue_IP.toString()}`, 'Basic')
+      }
+      break
+    }
+    case "network_name": {
+      if (!EditOriginalValue_NetworkName || !EditValue_NetworkName) return
+      const list = config[name] as string[]
+      const index = list.indexOf(EditOriginalValue_NetworkName.toString())
+      if (index >= 0) {
+        list[index] = EditValue_NetworkName.toString()
+        Logger.debug(`commitEditValue network_name field=${name} old=${EditOriginalValue_NetworkName.toString()} new=${EditValue_NetworkName.toString()}`, 'Basic')
+      }
+      break
+    }
+    case "port_forward": {
+      if (!EditOriginalValue_PortForward || !EditValue_PortForward) return
+      const old: ESObject = EditOriginalValue_PortForward.toInterface()
+      const list: ESObject[] = config[name] as ESObject[]
+      const index = list.findIndex((element: ESObject) => element.bind_ip === old.bind_ip &&
+        element.bind_port === old.bind_port && element.dst_ip === old.dst_ip &&
+        element.dst_port === old.dst_port && element.proto === old.proto)
+      if (index >= 0) {
+        list[index] = EditValue_PortForward.toInterface()
+        Logger.debug(`commitEditValue port_forward field=${name} replaced index=${index}`, 'Basic')
+      }
+      break
+    }
+  }
 }
 
 export function addFieldValue(type: string, name: string) {
@@ -150,24 +246,29 @@ export function clearEditValue(type: string) {
     case "route":
     case "cidr": {
       clearEditValue_Cidr()
+      EditOriginalValue_Cidr = undefined
       break;
     }
     case "mapped_listener":
     case "listener":
     case "peer": {
       clearEditValue_Url()
+      EditOriginalValue_Url = undefined
       break;
     }
     case "ip": {
       clearEditValue_IP()
+      EditOriginalValue_IP = undefined
       break;
     }
     case "network_name": {
       clearEditValue_NetworkName()
+      EditOriginalValue_NetworkName = undefined
       break;
     }
     case "port_forward": {
       clearEditValue_PortForward()
+      EditOriginalValue_PortForward = undefined
       break;
     }
   }

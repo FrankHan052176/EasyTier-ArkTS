@@ -1,6 +1,8 @@
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI';
 import { AppManager } from '../../AppManager';
-import { addValue, clearEditValue, confirmCheck } from '../../class/config/Basic';
+import { addValue, clearEditValue, commitEditValue, confirmCheck } from '../../class/config/Basic';
+import { syncTopLevelField } from '../../ConfigSyncUtil';
+import { ConfigJson } from '../../config/schema/SchemaConfig';
 import { EventHelper } from '../../util/EventHelper';
 import { Logger } from '../../shared/logging/Logger';
 import { GlobalConfigSuggestions } from '../edit/GlobalConfigSuggestion';
@@ -86,6 +88,17 @@ export struct EditTitle {
       isSaveIconRequired: false,
       onCancel: () => {
         this.popup = false
+        if (confirmCheck(this.fieldType)) {
+          const config: ConfigJson | undefined = AppManager.easytier.getEditingConfig()
+          const configId: string | undefined = config?.instance_id
+          if (config && configId) {
+            Logger.debug(`EditTitle save field=${this.fieldName} type=${this.fieldType} configId=${configId}`, 'AddAndEditTitle')
+            commitEditValue(config, this.fieldName, this.fieldType)
+            syncTopLevelField(configId, this.fieldName, config)
+          }
+        } else {
+          Logger.debug(`EditTitle skip save invalid field=${this.fieldName} type=${this.fieldType}`, 'AddAndEditTitle')
+        }
         clearEditValue(this.fieldType)
         EventHelper.emitterPublish("edit_close_sheet")
         EventHelper.emitterPublish("edit_refresh_" + this.fieldName)
