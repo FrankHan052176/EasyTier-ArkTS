@@ -339,78 +339,55 @@ export struct StatusPage {
   }
 
   build() {
-    Column() {
-      if (deviceInfo.sdkApiVersion >= 20) {
-        HdsNavigation() {
-          this.content()
-        }
-        .bindToScrollable([this.scroller])
-        .titleBar({
-          style: {
-            scrollEffectOpts: {
-              enableScrollEffect: true,
-              scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
-              blurEffectiveStartOffset: LengthMetrics.vp(0),
-              blurEffectiveEndOffset: LengthMetrics.vp(20),
+    HdsNavigation() {
+      this.content()
+    }
+    .bindToScrollable([this.scroller])
+    .titleBar({
+      style: {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(20),
+        },
+        originalStyle: {
+          contentStyle: {
+            titleStyle: {
+              mainTitleColor: $r("sys.color.font_primary"),
+              subTitleColor: $r("sys.color.font_secondary")
             },
-            originalStyle: {
-              contentStyle: {
-                titleStyle: {
-                  mainTitleColor: $r("sys.color.font_primary"),
-                  subTitleColor: $r("sys.color.font_secondary")
-                },
-                menuStyle: {
-                  backgroundColor: $r("sys.color.interactive_hover")
-                },
-                backIconStyle: {
-                  backgroundColor: $r("sys.color.interactive_hover"),
-                  iconColor: $r("sys.color.font_primary")
-                }
-              }
+            menuStyle: {
+              iconColor: $r("sys.color.font_primary")
             },
-            systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
-              materialType: hdsMaterial.MaterialType.ADAPTIVE,
-              materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-            }: undefined
-          },
-          content: {
-            title: {
-              mainTitle: this.name,
-              subTitle: this.uuid
-            },
-            menu: {
-              value: [
-                HdsMenuButton("停止运行", $r("sys.symbol.pause_fill"), () => {
-                  AppManager.easytier.stop()
-                })
-              ]
+            backIconStyle: {
+              iconColor: $r("sys.color.font_primary")
             }
           }
-        })
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.MINI)
-        .hideBackButton(false)
-        .hideTitleBar(false)
-      } else {
-        Navigation() {
-          this.content()
+        },
+        systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
+          materialType: hdsMaterial.MaterialType.ADAPTIVE,
+          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+        }: undefined
+      },
+      content: {
+        title: {
+          mainTitle: this.name,
+          subTitle: this.uuid
+        },
+        menu: {
+          value: [
+            HdsMenuButton("停止运行", $r("sys.symbol.pause_fill"), () => {
+              AppManager.easytier.stop()
+            })
+          ]
         }
-        .mode(NavigationMode.Stack)
-        .titleMode(NavigationTitleMode.Mini)
-        .title({
-          main: this.name!,
-          sub: this.uuid!
-        }, {
-          backgroundColor: $r('sys.color.background_secondary')
-        })
-        .hideBackButton(false)
-        .menus([
-          MenuButton("停止运行", $r("sys.symbol.pause_fill"), () => {
-            AppManager.easytier.stop()
-          })
-        ])
       }
-    }
+    })
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .hideBackButton(false)
+    .hideTitleBar(false)
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }

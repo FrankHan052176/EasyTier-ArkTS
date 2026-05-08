@@ -295,80 +295,76 @@ export struct EditPage {
   }
 
   build() {
-    Column() {
-      HdsNavigation() {
-        this.content()
-      }
-      .titleBar({
-        style: {
-          scrollEffectOpts: {
-            enableScrollEffect: true,
-            scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
-            blurEffectiveStartOffset: LengthMetrics.vp(0),
-            blurEffectiveEndOffset: LengthMetrics.vp(20),
-          },
-          originalStyle: {
-            contentStyle: {
-              titleStyle: {
-                mainTitleColor: $r("sys.color.font_primary"),
-                subTitleColor: $r("sys.color.font_secondary")
-              },
-              menuStyle: {
-                backgroundColor: $r("sys.color.interactive_hover"),
-                iconColor: $r("sys.color.font_primary")
-              },
-              backIconStyle: {
-                backgroundColor: $r("sys.color.interactive_hover"),
-                iconColor: $r("sys.color.font_primary")
-              }
-            }
-          },
-          systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
-            materialType: hdsMaterial.MaterialType.ADAPTIVE,
-            materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-          }: undefined
-        },
-        content: {
-          title: {
-            mainTitle: this.name!,
-            subTitle: this.uuid!
-          },
-          menu: {
-            value: [
-              HdsMenuButton($r("app.string.i18_favorite"),
-                AppManager.data.isFavorite(this.uuid!) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"), () => {
-                  AppManager.data.changeFavorite(this.uuid!)
-                }),
-              HdsMenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"),
-                async () => {
-                  let uiContext = this.getUIContext();
-                  let promptAction = uiContext.getPromptAction();
-                  let contentNode = new ComponentContent(uiContext, wrapBuilder(ShareMenu));
-                  promptAction.openMenu(
-                    contentNode,
-                    { id: this.share_menu_id }
-                  ).catch(() => {})
-                }, this.share_menu_id),
-              HdsMenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), () => {
-                HMRouterMgr.pop()
-                AppManager.data.delConfig(this.uuid!)
-              }),
-              HdsMenuButton($r("app.string.i18_rename"), $r("sys.symbol.pencil_line_1"), () => {
-                EventHelper.emitterPublish("edit_open_sheet", {
-                  data: {
-                    type: "rename"
-                  }
-                })
-              })
-            ]
-          }
-        }
-      })
-      .mode(NavigationMode.Stack)
-      .titleMode(HdsNavigationTitleMode.MINI)
-      .hideBackButton(false)
-      .hideTitleBar(false)
+    HdsNavigation() {
+      this.content()
     }
+    .titleBar({
+      style: {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(20),
+        },
+        originalStyle: {
+          contentStyle: {
+            titleStyle: {
+              mainTitleColor: $r("sys.color.font_primary"),
+              subTitleColor: $r("sys.color.font_secondary")
+            },
+            menuStyle: {
+              iconColor: $r("sys.color.font_primary")
+            },
+            backIconStyle: {
+              iconColor: $r("sys.color.font_primary")
+            }
+          }
+        },
+        systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
+          materialType: hdsMaterial.MaterialType.ADAPTIVE,
+          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+        }: undefined
+      },
+      content: {
+        title: {
+          mainTitle: this.name!,
+          subTitle: this.uuid!
+        },
+        menu: {
+          value: [
+            HdsMenuButton($r("app.string.i18_favorite"),
+              AppManager.data.isFavorite(this.uuid!) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"), () => {
+                AppManager.data.changeFavorite(this.uuid!)
+              }),
+            HdsMenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"),
+              async () => {
+                let uiContext = this.getUIContext();
+                let promptAction = uiContext.getPromptAction();
+                let contentNode = new ComponentContent(uiContext, wrapBuilder(ShareMenu));
+                promptAction.openMenu(
+                  contentNode,
+                  { id: this.share_menu_id }
+                ).catch(() => {})
+              }, this.share_menu_id),
+            HdsMenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), () => {
+              HMRouterMgr.pop()
+              AppManager.data.delConfig(this.uuid!)
+            }),
+            HdsMenuButton($r("app.string.i18_rename"), $r("sys.symbol.pencil_line_1"), () => {
+              EventHelper.emitterPublish("edit_open_sheet", {
+                data: {
+                  type: "rename"
+                }
+              })
+            })
+          ]
+        }
+      }
+    })
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .hideBackButton(false)
+    .hideTitleBar(false)
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .bindSheet(this.sheet, SheetContentBuilder(this.sheet_type), {

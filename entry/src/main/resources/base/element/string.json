@@ -107,6 +107,14 @@
     {
       "name": "favorite_widget_display_name",
       "value": "FavoriteWidget"
+    },
+    {
+      "name": "disable_relay_data",
+      "value": "Disable Relay Data"
+    },
+    {
+      "name": "ipv6_public_addr_provider",
+      "value": "IPv6 Public Addr Provider"
     }
   ]
 }

@@ -320,92 +320,63 @@ export struct HomePage {
   }
 
   build() {
-    Column() {
-      if (deviceInfo.sdkApiVersion >= 20) {
-        HdsNavigation() {
-          this.content()
-        }
-        .height('100%')
-        .width('100%')
-        .titleBar({
-          style: {
-            scrollEffectOpts: {
-              enableScrollEffect: true,
-              scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
-              blurEffectiveStartOffset: LengthMetrics.vp(0),
-              blurEffectiveEndOffset: LengthMetrics.vp(20),
+    HdsNavigation() {
+      this.content()
+    }
+    .height('100%')
+    .width('100%')
+    .titleBar({
+      style: {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(20),
+        },
+        originalStyle: {
+          contentStyle: {
+            titleStyle: {
+              mainTitleColor: $r("sys.color.font_primary"),
+              subTitleColor: $r("sys.color.font_secondary")
             },
-            originalStyle: {
-              contentStyle: {
-                titleStyle: {
-                  mainTitleColor: $r("sys.color.font_primary"),
-                  subTitleColor: $r("sys.color.font_secondary")
-                },
-                menuStyle: {
-                  backgroundColor: $r("sys.color.interactive_hover")
-                }
-              }
+            menuStyle: {
+              iconColor: $r("sys.color.font_primary")
             },
-            systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
-              materialType: hdsMaterial.MaterialType.ADAPTIVE,
-              materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-            }: undefined
-          },
-          content: {
-            title: {
-              mainTitle: "EasyTier",
-              subTitle: "v"+AppManager.easytier.version().split("-")[0]
-            },
-            menu: {
-              value: [
-                HdsMenuButton("new", $r("sys.symbol.plus"), () => {
-                  AppManager.permission.requestDistributePerm(false).then(() => {
-                    this.sheet_type = "new"
-                    this.sheet = true
-                  })
-                }),
-                HdsMenuButton("setting", $r("sys.symbol.gearshape"), () => {
-                  this.sheet_type = "setting"
-                  this.sheet = true
-                })
-              ]
+            backIconStyle: {
+              iconColor: $r("sys.color.font_primary")
             }
           }
-        })
-        .mode(NavigationMode.Stack)
-        .titleMode(HdsNavigationTitleMode.FREE)
-        .hideBackButton(true)
-        .hideTitleBar(false)
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      } else {
-        Navigation() {
-          this.content()
-        }
-        .height('100%')
-        .width('100%')
-        .mode(NavigationMode.Stack)
-        .titleMode(NavigationTitleMode.Free)
-        .title({
-          main: "EasyTier",
-          sub: "v"+AppManager.easytier.version().split("-")[0]
-        }, {
-          backgroundColor: $r('sys.color.background_secondary')
-        })
-        .menus([
-          MenuButton("new", $r("sys.symbol.plus"), () => {
-            AppManager.permission.requestDistributePerm(false).then(() => {
-              this.sheet_type = "new"
+        },
+        systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
+          materialType: hdsMaterial.MaterialType.ADAPTIVE,
+          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+        }: undefined
+      },
+      content: {
+        title: {
+          mainTitle: "EasyTier",
+          subTitle: "v"+AppManager.easytier.version().split("-")[0]
+        },
+        menu: {
+          value: [
+            HdsMenuButton("new", $r("sys.symbol.plus"), () => {
+              AppManager.permission.requestDistributePerm(false).then(() => {
+                this.sheet_type = "new"
+                this.sheet = true
+              })
+            }),
+            HdsMenuButton("setting", $r("sys.symbol.gearshape"), () => {
+              this.sheet_type = "setting"
               this.sheet = true
             })
-          }),
-          MenuButton("setting", $r("sys.symbol.gearshape"), () => {
-            this.sheet_type = "setting"
-            this.sheet = true
-          }),
-        ])
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+          ]
+        }
       }
-    }
+    })
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.FREE)
+    .hideBackButton(true)
+    .hideTitleBar(false)
     .height('100%')
     .width('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])

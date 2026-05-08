@@ -42,7 +42,7 @@ export struct HMRouterIndex {
   async aboutToAppear(): Promise<void> {
     DialogHub.init(this.getUIContext(), DialogMode.CUSTOM_DIALOG);
     AppManager.init(this.getUIContext())
-    if (canIUse("SystemCapability.PCService.StatusBarManager")) {
+    if (canIUse("SystemCapability.PCService.StatusBarManager") && false) {
       try {
         const blackFileData =
           this.getUIContext().getHostContext()!.resourceManager.getRawFileContentSync('statusBar.svg');

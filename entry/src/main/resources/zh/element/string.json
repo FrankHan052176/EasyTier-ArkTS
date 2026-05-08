@@ -79,6 +79,14 @@
     {
       "name": "favorite_widget_display_name",
       "value": "收藏实例"
+    },
+    {
+      "name": "disable_relay_data",
+      "value": "拒绝中转数据"
+    },
+    {
+      "name": "ipv6_public_addr_provider",
+      "value": "提供IPv6公网"
     }
   ]
 }
