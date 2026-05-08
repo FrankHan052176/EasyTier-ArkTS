@@ -15,7 +15,9 @@ const FIELD_TAGS: Record<string, string> = {
   identity: 'hideTitle',
   virtual_ip: 'insideName',
   vpn_portal_client_network: 'outsideName',
-  encryption_algorithm: 'leftFieldName'
+  encryption_algorithm: 'leftFieldName',
+  local_private_key: 'leftFieldName',
+  local_public_key: 'leftFieldName'
 }
 
 export function getFieldI18nKey(fieldName: string): string {

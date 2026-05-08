@@ -9,7 +9,10 @@ export const IGNORED_CONFIG_FIELDS: ReadonlySet<string> = new Set([
   'enable_relay_network_whitelist',
   'enable_manual_routes',
   'instance_id',
-  'credential_file'
+  'credential_file',
+  'acl',
+  'ipv6_public_addr_prefix',
+  'secure_mode'
 ])
 
 export const COMBINED_CONFIG_FIELDS: Record<string, string[]> = {

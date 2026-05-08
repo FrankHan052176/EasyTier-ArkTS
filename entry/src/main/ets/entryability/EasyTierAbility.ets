@@ -35,6 +35,8 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   force_global: boolean = true
   show_log: boolean = false
   lastRoutesSignature: string = ""
+  private tunCreateSeq: number = 0
+  private lastTunTrigger: string = ""
 
   onCreate(want: Want): void {
     Logger.debug("VpnExtAbi create", "EasyTierAbility")
@@ -173,10 +175,14 @@ export default class EasyTierAbility extends VpnExtensionAbility {
             const snapshot = JSON.parse(msg.payloadJson) as RuntimeAggregateState
             this.broadcast({ type: 'runtime_snapshot', data: snapshot })
             if (!this.needTUN && (this.vpn_routes || deviceInfo.sdkApiVersion >= 20)) {
+              this.lastTunTrigger = 'runtime_snapshot'
+              Logger.debug(`kernel runtime_snapshot trigger instance=${this.instance_id} needTUN=${this.needTUN} lastSig=${this.lastRoutesSignature} routes=${JSON.stringify(snapshot.tun?.aggregatedRoutes ?? [])}`, "EasyTierAbility")
               this.updateRoutesFromSnapshot(snapshot)
             }
           } else if (msg.messageType === 'tun_request') {
             const payload = JSON.parse(msg.payloadJson) as TunRequestPayload
+            this.lastTunTrigger = 'tun_request'
+            Logger.info(`kernel tun_request trigger instance=${this.instance_id} cidr=${payload.virtualIpv4Cidr ?? ''} sig=${routeSignature(payload.aggregatedRoutes ?? [])}`, "EasyTierAbility")
             this.setupTunFromPayload(payload)
           }
         }
@@ -200,12 +206,12 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     const ip = instance?.myNodeInfo?.virtualIpv4
     const routes = tun?.aggregatedRoutes ?? []
     const currentSignature = routeSignature(routes)
+    Logger.debug(`updateRoutesFromSnapshot enter instance=${this.instance_id} trigger=${this.lastTunTrigger} currentSig=${currentSignature} lastSig=${this.lastRoutesSignature} cidr=${cidr ?? ''} ip=${ip ?? ''} routes=${JSON.stringify(routes)}`, "EasyTierAbility")
     if (!cidr || !ip || currentSignature === this.lastRoutesSignature) {
+      Logger.debug(`updateRoutesFromSnapshot skip instance=${this.instance_id} trigger=${this.lastTunTrigger} currentSig=${currentSignature} lastSig=${this.lastRoutesSignature}`, "EasyTierAbility")
       return
     }
     this.lastRoutesSignature = currentSignature
-    this.setupTunWithRoutes(ip, Number(cidr.split('/')[1] ?? '24'), instance?.magicDnsEnabled as boolean ?? false,
-      instance?.needExitNode as boolean ?? false, routes)
   }
 
   private setupTunFromPayload(payload: TunRequestPayload) {
@@ -215,18 +221,20 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     const mask = Number(cidr.split('/')[1] ?? '24')
     const routes = payload.aggregatedRoutes ?? []
     this.lastRoutesSignature = routeSignature(routes)
+    Logger.debug(`setupTunFromPayload instance=${this.instance_id} trigger=${this.lastTunTrigger} sig=${this.lastRoutesSignature} cidr=${cidr} ip=${ip} routes=${JSON.stringify(routes)}`, "EasyTierAbility")
     this.setupTunWithRoutes(ip, mask, payload.magicDnsEnabled, payload.needExitNode, routes)
   }
 
-  private setupTunWithRoutes(ip: string, mask: number, magicDNS: boolean, needExitNode: boolean, routes: string[]) {
-    Logger.info(`Setting up TUN for ${ip}/${mask}`, "EasyTierAbility");
+  private async setupTunWithRoutes(ip: string, mask: number, magicDNS: boolean, needExitNode: boolean, routes: string[]) {
+    this.tunCreateSeq++
+    Logger.info(`Setting up TUN #${this.tunCreateSeq} for ${ip}/${mask} trigger=${this.lastTunTrigger} sig=${this.lastRoutesSignature}`, "EasyTierAbility");
 
     let appList = [
       deviceInfo.sdkApiVersion >= 22 ? "" : "top.frankhan.easytier",
       ...this.black_list
     ];
 
-    Logger.info(`setupTunWithRoutes routes kernel=${JSON.stringify(routes)}`, "EasyTierAbility")
+    Logger.debug(`setupTunWithRoutes routes kernel=${JSON.stringify(routes)}`, "EasyTierAbility")
     let routesArr: NetworkSegment[] = [];
     routes.forEach((route) => {
       try {
@@ -234,7 +242,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       } catch (_) {
       }
     })
-    Logger.info(`setupTunWithRoutes parsedRoutes=${JSON.stringify(routesArr.map((route) => route.networkAddress + '/' + route.prefix))}`, "EasyTierAbility")
+    Logger.debug(`setupTunWithRoutes parsedRoutes=${JSON.stringify(routesArr.map((route) => route.networkAddress + '/' + route.prefix))}`, "EasyTierAbility")
 
     let vpnConfig: vpnExtension.VpnConfig = {
       addresses: [{ address: { address: ip, family: 1 }, prefixLength: mask }],
@@ -244,18 +252,20 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       mtu: 1380,
       routes: stringArr2RouteArr(ip, magicDNS, needExitNode, routesArr, this.force_global)
     };
-    Logger.info(`setupTunWithRoutes finalVpnRoutes=${JSON.stringify(vpnConfig.routes ?? [])}`, "EasyTierAbility")
+    Logger.debug(`setupTunWithRoutes finalVpnRoutes=${JSON.stringify(vpnConfig.routes ?? [])}`, "EasyTierAbility")
 
     if (!this.vpnConnection) {
       this.vpnConnection = vpnExtension.createVpnConnection(this.context);
-      Logger.info("vpnConnection created in EasyTierAbility", "EasyTierAbility")
+      Logger.debug("vpnConnection created in EasyTierAbility", "EasyTierAbility")
     }
     Logger.debug("VpnConfig: "+JSON.stringify(vpnConfig, undefined, 2), "EasyTierAbility")
 
+    Logger.info(`setupTunWithRoutes calling create seq=${this.tunCreateSeq} trigger=${this.lastTunTrigger}`, "EasyTierAbility")
+    await this.vpnConnection.destroy()
     this.vpnConnection.create(vpnConfig).then((fd) => {
-      Logger.info(`vpnConnection.create success instance=${this.instance_id} fd=${fd}`, "EasyTierAbility")
+      Logger.info(`vpnConnection.create success instance=${this.instance_id} fd=${fd} seq=${this.tunCreateSeq} trigger=${this.lastTunTrigger}`, "EasyTierAbility")
       easytier.setTunFd(this.instance_id, fd);
-      Logger.info(`setTunFd sent instance=${this.instance_id}`, "EasyTierAbility")
+      Logger.debug(`setTunFd sent instance=${this.instance_id}`, "EasyTierAbility")
     }).catch((err: Error) => {
       Logger.error(`vpnConnection create failed: ${JSON.stringify(err)}`, "EasyTierAbility");
     });

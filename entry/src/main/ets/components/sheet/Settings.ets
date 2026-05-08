@@ -297,7 +297,7 @@ export function Setting_Sheet() {
       }
       .margin({ bottom: 10 })
 
-      if (AppManager.uiState.inittedLog) ListItem() {
+      ListItem() {
         Row() {
           Row() {
             SymbolGlyph($r("sys.symbol.doc"))

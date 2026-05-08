@@ -9,7 +9,6 @@ function fieldTextInput() {
   .borderRadius(0)
   .width(72)
   .type(InputType.Number)
-  .maxLength(5)
   .backgroundColor(Color.Transparent)
   .textAlign(TextAlign.Center)
   .enableAutoFill(false)

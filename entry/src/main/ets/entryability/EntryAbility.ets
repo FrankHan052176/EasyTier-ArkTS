@@ -372,7 +372,7 @@ export default class EntryAbility extends UIAbility {
     }
   }
 
-  setup_tun(ip: string, mask: number, magicDNS: boolean, inst_id: string, needExitNode: boolean, routes?: string[]) {
+  async setup_tun(ip: string, mask: number, magicDNS: boolean, inst_id: string, needExitNode: boolean, routes?: string[]) {
     Logger.info(`setup_tun start instance=${inst_id} ip=${ip}/${mask} magicDNS=${magicDNS} needExitNode=${needExitNode}`, this)
     Logger.debug("当前IP:" + ip, this)
     Logger.info(`setup_tun routes kernel=${JSON.stringify(routes ?? [])}`, this)
@@ -401,6 +401,7 @@ export default class EntryAbility extends UIAbility {
       Logger.error("vpnConnection not found", this)
       return
     }
+    await this.vpnConnection.destroy()
     Logger.debug("VPN配置:" + JSON.stringify(vpnConfig), this)
     this.vpnConnection.create(vpnConfig).then((fd) => {
       Logger.info(`vpnConnection.create success instance=${inst_id} fd=${fd}`, this)
