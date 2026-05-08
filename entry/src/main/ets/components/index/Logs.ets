@@ -3,6 +3,7 @@ import { logColor } from '../../util/Conversion'
 import { LightModifier } from '../../class/modifier/SymbolLight'
 import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 import { LogDataSource } from '../../class/data_source/LogDataSource'
+import { hdsEffect } from '@kit.UIDesignKit'
 
 @ComponentV2
 export struct Logs {
@@ -375,5 +376,12 @@ export struct Logs {
     })
     .attributeModifier(this.bgMode)
     .backgroundColor($r("sys.color.comp_background_primary"))
+    .shadow({
+      radius: 7,
+      color: '#1F000000'
+    })
+    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
+      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
+    }).buildEffect())
   }
 }

@@ -7,7 +7,7 @@ import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationA
 import { ComponentContent, LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { HdsMenuButton } from '../Components'
-import { SheetContentBuilder, SheetTitleBuilder } from '../../components/sheet/Basic'
+import { SheetContentBuilder } from '../../components/sheet/Basic'
 import { EventHelper } from '../../util/EventHelper'
 import { WindowUtil } from '../../WindowUtil'
 import { harmonyShare, systemShare } from '@kit.ShareKit'
@@ -193,11 +193,9 @@ export struct EditPage {
   content() {
     Swiper() {
       List({ space: 20 }) {
-        if (deviceInfo.sdkApiVersion >= 20) {
-          ListItem()
-            .width('100%')
-            .height(56)
-        }
+        ListItem()
+          .width('100%')
+          .height(56)
         ForEach(configFieldRegistry.basicFields, (field: ConfigField) => {
           ListItem() {
             FieldEdit({ field: field })
@@ -368,12 +366,11 @@ export struct EditPage {
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .bindSheet(this.sheet, SheetContentBuilder(this.sheet_type), {
-      height: SheetSize.FIT_CONTENT,
+      height: SheetSize.MEDIUM,
       preferType: SheetType.CENTER,
       showClose: false,
       dragBar: false,
       blurStyle: BlurStyle.Thin,
-      title: SheetTitleBuilder(this.sheet_type),
       onWillDismiss: (action) => {
         if (action.reason != DismissReason.SLIDE_DOWN) {
           action.dismiss()

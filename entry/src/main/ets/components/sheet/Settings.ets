@@ -35,6 +35,8 @@ function settingGroupHeader(title: string) {
 @Builder
 export function Setting_Sheet() {
   List() {
+    ListItem()
+      .height(64)
     ListItem() {
       Row() {
         Row() {
@@ -57,7 +59,7 @@ export function Setting_Sheet() {
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
-      .backgroundColor($r("sys.color.background_secondary"))
+      .backgroundColor($r("sys.color.background_primary"))
       .padding({
         left: 10,
         right: 5,
@@ -99,7 +101,7 @@ export function Setting_Sheet() {
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
-      .backgroundColor($r("sys.color.background_secondary"))
+      .backgroundColor($r("sys.color.background_primary"))
       .padding(10)
     }
     .margin({ bottom: 10 })
@@ -126,7 +128,7 @@ export function Setting_Sheet() {
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
-      .backgroundColor($r("sys.color.background_secondary"))
+      .backgroundColor($r("sys.color.background_primary"))
       .padding({
         left: 10,
         right: 5,
@@ -158,7 +160,7 @@ export function Setting_Sheet() {
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
-      .backgroundColor($r("sys.color.background_secondary"))
+      .backgroundColor($r("sys.color.background_primary"))
       .padding({
         left: 10,
         right: 5,
@@ -190,7 +192,7 @@ export function Setting_Sheet() {
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
-      .backgroundColor($r("sys.color.background_secondary"))
+      .backgroundColor($r("sys.color.background_primary"))
       .padding({
         left: 10,
         right: 5,
@@ -235,7 +237,7 @@ export function Setting_Sheet() {
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
-      .backgroundColor($r("sys.color.background_secondary"))
+      .backgroundColor($r("sys.color.background_primary"))
       .padding({
         left: 10,
         right: 5,
@@ -291,7 +293,7 @@ export function Setting_Sheet() {
         .alignItems(VerticalAlign.Center)
         .justifyContent(FlexAlign.SpaceBetween)
         .width('100%')
-        .backgroundColor($r("sys.color.background_secondary"))
+        .backgroundColor($r("sys.color.background_primary"))
         .padding(10)
       }
       .margin({ bottom: 10 })
@@ -318,7 +320,7 @@ export function Setting_Sheet() {
         .alignItems(VerticalAlign.Center)
         .justifyContent(FlexAlign.SpaceBetween)
         .width('100%')
-        .backgroundColor($r("sys.color.background_secondary"))
+        .backgroundColor($r("sys.color.background_primary"))
         .padding({
           left: 10,
           right: 5,
@@ -356,7 +358,7 @@ export function Setting_Sheet() {
           .alignItems(VerticalAlign.Center)
           .justifyContent(FlexAlign.SpaceBetween)
           .width('100%')
-          .backgroundColor($r("sys.color.background_secondary"))
+          .backgroundColor($r("sys.color.background_primary"))
           .padding(10)
         }
       }
@@ -388,7 +390,7 @@ export function Setting_Sheet() {
         .alignItems(VerticalAlign.Center)
         .justifyContent(FlexAlign.SpaceBetween)
         .width('100%')
-        .backgroundColor($r("sys.color.background_secondary"))
+        .backgroundColor($r("sys.color.background_primary"))
         .padding(10)
       }
       .margin({ bottom: 10 })
@@ -426,7 +428,7 @@ export function Setting_Sheet() {
           .alignItems(VerticalAlign.Center)
           .justifyContent(FlexAlign.SpaceBetween)
           .width('100%')
-          .backgroundColor($r("sys.color.background_secondary"))
+          .backgroundColor($r("sys.color.background_primary"))
           .padding({ left: 10, right: 10 })
         }
         .margin({ bottom: 10 })
@@ -458,7 +460,7 @@ export function Setting_Sheet() {
           .alignItems(VerticalAlign.Center)
           .justifyContent(FlexAlign.SpaceBetween)
           .width('100%')
-          .backgroundColor($r("sys.color.background_secondary"))
+          .backgroundColor($r("sys.color.background_primary"))
           .padding(10)
         }
         .margin({ bottom: 10 })
@@ -497,7 +499,7 @@ export function Setting_Sheet() {
         .alignItems(VerticalAlign.Center)
         .justifyContent(FlexAlign.SpaceBetween)
         .width('100%')
-        .backgroundColor($r("sys.color.background_secondary"))
+        .backgroundColor($r("sys.color.background_primary"))
         .padding({
           left: 10,
           right: 5,
@@ -538,7 +540,7 @@ export function Setting_Sheet() {
         .alignItems(VerticalAlign.Center)
         .justifyContent(FlexAlign.SpaceBetween)
         .width('100%')
-        .backgroundColor($r("sys.color.background_secondary"))
+        .backgroundColor($r("sys.color.background_primary"))
         .padding({
           left: 10,
           right: 5,
@@ -579,7 +581,7 @@ export function Setting_Sheet() {
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
-      .backgroundColor($r("sys.color.background_secondary"))
+      .backgroundColor($r("sys.color.background_primary"))
       .padding({
         left: 10,
         right: 5,
@@ -612,7 +614,7 @@ export function Setting_Sheet() {
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
-      .backgroundColor($r("sys.color.background_secondary"))
+      .backgroundColor($r("sys.color.background_primary"))
       .padding({
         left: 10,
         right: 5,

@@ -182,11 +182,9 @@ export struct StatusPage {
   content() {
     Scroll(this.scroller) {
       Column() {
-        if (deviceInfo.sdkApiVersion >= 20) {
-          Column()
-            .width('100%')
-            .height(71)
-        }
+        Column()
+          .width('100%')
+          .height(71)
         // 自身信息
         Column({ space: 20 }) {
           Row() {

@@ -4,6 +4,7 @@ import { Logger } from '../../shared/logging/Logger'
 import { EventHelper } from '../../util/EventHelper'
 import { LightModifier } from '../../class/modifier/SymbolLight'
 import { StackLightModifier } from '../../class/modifier/BackgroundLight'
+import { hdsEffect } from '@kit.UIDesignKit'
 
 @ComponentV2
 export struct QQGroups {
@@ -187,5 +188,12 @@ export struct QQGroups {
     .borderRadius(18)
     .attributeModifier(this.bgMode)
     .backgroundColor($r("sys.color.comp_background_primary"))
+    .shadow({
+      radius: 7,
+      color: '#1F000000'
+    })
+    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
+      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
+    }).buildEffect())
   }
 }

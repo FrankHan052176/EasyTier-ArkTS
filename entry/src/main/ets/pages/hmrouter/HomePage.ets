@@ -10,7 +10,7 @@ import { HdsMenuButton, MenuButton } from '../Components';
 import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { AppManager } from '../../AppManager';
 import { EventHelper } from '../../util/EventHelper';
-import { SheetContentBuilder, SheetTitleBuilder } from '../../components/sheet/Basic';
+import { SheetContentBuilder } from '../../components/sheet/Basic';
 import { ActionBarButton, ActionBarStyle, HdsActionBar, hdsMaterial } from '@kit.UIDesignKit';
 import { sendToast } from '../../ToastUtil';
 import { BottomAnimator } from '../../class/animator/BottomAnimator';
@@ -259,11 +259,9 @@ export struct HomePage {
   content() {
     Scroll() {
       Column() {
-        if (deviceInfo.sdkApiVersion >= 20) {
-          Column()
-            .width('100%')
-            .height(138)
-        }
+        Column()
+          .width('100%')
+          .height(138)
 
         DesktopLayout({
           comp_sequence: AppManager.uiState.raw_comp_sequence.split("|").map((value) => {
@@ -381,12 +379,10 @@ export struct HomePage {
     .width('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .bindSheet(this.sheet, SheetContentBuilder(this.sheet_type), {
-      height: this.sheet_type === "setting" ? SheetSize.LARGE : SheetSize.FIT_CONTENT,
+      height: this.sheet_type === "setting" ? SheetSize.LARGE : SheetSize.MEDIUM,
       preferType: SheetType.CENTER,
       showClose: false,
-      dragBar: false,
-      blurStyle: BlurStyle.Thin,
-      title: SheetTitleBuilder(this.sheet_type),
+      enableFloatingDragBar: true,
       onWillDismiss: (action) => {
         if (action.reason != DismissReason.SLIDE_DOWN) {
           action.dismiss()

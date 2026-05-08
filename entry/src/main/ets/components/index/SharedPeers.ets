@@ -152,5 +152,12 @@ export struct SharedPeers {
     .borderRadius(18)
     .attributeModifier(this.bgMode)
     .backgroundColor($r("sys.color.comp_background_primary"))
+    .shadow({
+      radius: 7,
+      color: '#09000000'
+    })
+    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
+      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
+    }).buildEffect())
   }
 }

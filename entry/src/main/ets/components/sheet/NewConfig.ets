@@ -8,6 +8,10 @@ import { AppManager, Spx2vp } from '../../AppManager';
 
 export let config_name: string | undefined
 
+export function setConfigName(value: string | undefined): void {
+  config_name = value
+}
+
 @ComponentV2
 export struct NewConfig_Title {
   build() {
@@ -86,42 +90,36 @@ export struct NewConfig_Content {
   build() {
     Column() {
       Column() {
-        if (deviceInfo.sdkApiVersion >= 20) {
-          TextInput({ placeholder: '请输入实例名称', text: config_name, controller: this.controller })
-            .fieldTextInput((value) => {
-              config_name = value
-            }, (isOn) => {
-              this.intensity = isOn ? 1 : 0
-            })
-            .overlay(this.LightPoint(), {
-              align: Alignment.Start,
-              offset: {
-                x: this.offsetX
-              }
-            })
-            .onSecurityStateChange(() => {
-              setTimeout(() => {
-                this.offsetX = Spx2vp(this.controller.getCaretOffset().x)
-              }, 10)
-            })
-            .onTextSelectionChange(() => {
-              setTimeout(() => {
-                this.offsetX = Spx2vp(this.controller.getCaretOffset().x)
-              }, 10)
-            })
-            .onContentScroll(() => {
-              setTimeout(() => {
-                this.offsetX = Spx2vp(this.controller.getCaretOffset().x)
-              }, 10)
-            })
-        } else {
-          TextInput({ placeholder: '请输入实例名称', text: config_name, controller: this.controller })
-            .fieldTextInput((value) => {
-              config_name = value
-            }, (isOn) => {
-              this.intensity = isOn ? 1 : 0
-            })
-        }
+        TextInput({ placeholder: '请输入实例名称', text: config_name, controller: this.controller })
+          .backgroundColor($r("sys.color.comp_background_tertiary"))
+          .borderRadius(8)
+          .padding(10)
+          .fieldTextInput((value) => {
+            config_name = value
+          }, (isOn) => {
+            this.intensity = isOn ? 1 : 0
+          })
+          .overlay(this.LightPoint(), {
+            align: Alignment.Start,
+            offset: {
+              x: this.offsetX
+            }
+          })
+          .onSecurityStateChange(() => {
+            setTimeout(() => {
+              this.offsetX = Spx2vp(this.controller.getCaretOffset().x)
+            }, 10)
+          })
+          .onTextSelectionChange(() => {
+            setTimeout(() => {
+              this.offsetX = Spx2vp(this.controller.getCaretOffset().x)
+            }, 10)
+          })
+          .onContentScroll(() => {
+            setTimeout(() => {
+              this.offsetX = Spx2vp(this.controller.getCaretOffset().x)
+            }, 10)
+          })
       }
       .width('100%')
       .borderWidth(0)
@@ -139,6 +137,7 @@ export struct NewConfig_Content {
       .onAreaChange((_a, b) => {
         this.comp_height = b.height.valueOf() as number
       })
+      .padding({top: 9, left: 9, right: 9})
 
       Row() {
         Row() {
@@ -189,7 +188,7 @@ export struct NewConfig_Content {
       .width('100%')
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.End)
-      .margin({ top: 10, bottom: 10 })
+      .margin({ top: 10, bottom: 10, right: 9 })
 
       Text(`
 实例名称用于用户区分实例，可同名。
@@ -200,10 +199,9 @@ export struct NewConfig_Content {
         .align(Alignment.Start)
         .fontSize(14)
         .fontColor($r("sys.color.font_secondary"))
-      Blank()
-        .width('100%')
-        .height(100)
     }
     .width('90%')
+    .borderRadius(18)
+    .backgroundColor($r("sys.color.background_primary"))
   }
 }

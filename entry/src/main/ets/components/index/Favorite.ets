@@ -2,6 +2,7 @@ import { AppManager } from '../../AppManager'
 import { sendToast } from '../../ToastUtil'
 import { LightModifier } from '../../class/modifier/SymbolLight'
 import { StackLightModifier } from '../../class/modifier/BackgroundLight'
+import { hdsEffect } from '@kit.UIDesignKit'
 
 @ComponentV2
 export struct Favorite {
@@ -319,5 +320,12 @@ export struct Favorite {
     .borderRadius(18)
     .attributeModifier(this.bgMode)
     .backgroundColor($r("sys.color.comp_background_primary"))
+    .shadow({
+      radius: 7,
+      color: '#1F000000'
+    })
+    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
+      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
+    }).buildEffect())
   }
 }
