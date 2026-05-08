@@ -62,10 +62,14 @@ function updateBuildTime() {
     const now = new Date();
     const buildTimeString = now.toISOString();
     const info = loadAppInfo();
+    const appContext = getNode(__filename).getContext(OhosPluginId.OHOS_APP_PLUGIN) as OhosAppContext;
+    const ohpmInfo = appContext?.getOhpmDependencyInfo?.() ?? {};
+    const core = ohpmInfo["easytier-ohrs"];
+    const coreVersion = core != undefined ? core.version : "2.4.5-0";
     try {
         fs.writeFileSync(
           build_time_file,
-            `export const BUILD_TIME:string = "${buildTimeString}"\nexport const APP_VERSION:string = "${info["app"]["versionName"]}"\nexport const APP_VERSION_CODE:string = "${info["app"]["versionCode"]}"`
+            `export const BUILD_TIME:string = "${buildTimeString}"\nexport const APP_VERSION:string = "${info["app"]["versionName"]}"\nexport const APP_VERSION_CODE:string = "${info["app"]["versionCode"]}"\nexport const CORE_VERSION:string = "${coreVersion}"`
         );
         console.log(`> hvigor Build time updated : ${buildTimeString}`);
     } catch (error) {
@@ -165,6 +169,23 @@ function getDayOfYearUTC(date: Date = new Date()): string {
     const day = Math.floor((now - startOfYear) / 86400000) + 1;
     return String(day).padStart(3, '0');
 }
+
+function normalizeVersionName(coreVersion: string, fallbackVersion: string, buildNumber: string): string {
+    const [baseVersion, buildSuffix] = (coreVersion || "").split("-")
+    const rawVersion = (baseVersion || fallbackVersion || "0.0.0")
+        .replace(/[^0-9.]/g, "")
+    const segments = rawVersion
+        .split(".")
+        .filter(segment => segment.length > 0)
+
+    while (segments.length < 3) {
+        segments.push("0")
+    }
+
+    const normalizedPatch = String(Number.parseInt(buildSuffix ?? buildNumber, 10) || 0)
+    return [...segments.slice(0, 3), normalizedPatch].join(".")
+}
+
 const rootNode = getNode(__filename);
 rootNode.afterNodeEvaluate(node => {
     const appContext = node.getContext(OhosPluginId.OHOS_APP_PLUGIN) as OhosAppContext;
@@ -180,9 +201,11 @@ rootNode.afterNodeEvaluate(node => {
     const buildNumber = loadBUILDNUMBER()
     const appJson5: AppJson.AppOptObj = appContext.getAppJsonOpt();
     const version = (""+coreVersion).split("-")[0].replace(".","").replace(".","")
-    appJson5.app.versionName += "&"+coreVersion;
+    appJson5.app.versionName = normalizeVersionName(coreVersion, appJson5.app.versionName, buildNumber)
     appJson5.app.versionCode = Number.parseInt(version+getDayOfYearUTC()+buildNumber)
     appContext.setAppJsonOpt(appJson5);
+    console.log("versionName: "+appJson5.app.versionName)
+    console.log("versionCode: "+appJson5.app.versionCode)
 })
 export default {
     system: appTasks,  /* Built-in plugin of Hvigor. It cannot be modified. */

@@ -1,10 +1,9 @@
 import { AppManager } from '../../AppManager'
 import { HMRouterMgr } from '@hadss/hmrouter'
-import { deviceInfo } from '@kit.BasicServicesKit'
-import { APP_VERSION, APP_VERSION_CODE, BUILD_TIME } from '../../util/info/BuildTime'
+import { APP_VERSION, APP_VERSION_CODE, BUILD_TIME, CORE_VERSION } from '../../util/info/BuildTime'
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
 import { EventHelper } from '../../util/EventHelper'
-import { release } from '../../util/info/ArtifactsType'
+import { deviceInfo } from '@kit.BasicServicesKit'
 
 @ComponentV2
 export struct Setting_Title {
@@ -48,7 +47,7 @@ export function Setting_Sheet() {
             .fontSize(16)
         }
 
-        Text(deviceInfo.productModel !== "emulator" ? AppManager.easytier.version() : "N/A")
+        Text(CORE_VERSION)
           .fontColor($r("sys.color.font_primary"))
           .fontSize(16)
           .margin({ right: 5 })
