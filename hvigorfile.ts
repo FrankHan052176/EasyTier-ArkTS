@@ -159,7 +159,7 @@ hvigor.nodesEvaluated(() => {
     })
 });
 function getDayOfYearUTC(date: Date = new Date()): string {
-    const startOfYear = Date.UTC(date.getUTCFullYear(), 0, 1);
+    const startOfYear = Date.UTC(date.getUTCFullYear() + 8 * 60 * 60 * 1000, 0, 1);
     const now = Date.UTC(
         date.getUTCFullYear(),
         date.getUTCMonth(),
