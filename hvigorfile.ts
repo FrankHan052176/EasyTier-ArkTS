@@ -159,16 +159,19 @@ hvigor.nodesEvaluated(() => {
     })
 });
 function getDayOfYearUTC(date: Date = new Date()): string {
-    const startOfYear = Date.UTC(date.getUTCFullYear() + 8 * 60 * 60 * 1000, 0, 1);
+    const beijing = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+
+    const startOfYear = Date.UTC(beijing.getUTCFullYear(), 0, 1);
     const now = Date.UTC(
-        date.getUTCFullYear(),
-        date.getUTCMonth(),
-        date.getUTCDate()
+        beijing.getUTCFullYear(),
+        beijing.getUTCMonth(),
+        beijing.getUTCDate()
     );
 
     const day = Math.floor((now - startOfYear) / 86400000) + 1;
     return String(day).padStart(3, '0');
 }
+
 
 function normalizeVersionName(coreVersion: string, fallbackVersion: string, buildNumber: string): string {
     const [baseVersion, buildSuffix] = (coreVersion || "").split("-")
