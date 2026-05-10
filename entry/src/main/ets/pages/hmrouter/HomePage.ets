@@ -379,7 +379,7 @@ export struct HomePage {
     .width('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .bindSheet(this.sheet, SheetContentBuilder(this.sheet_type), {
-      height: this.sheet_type === "setting" ? SheetSize.LARGE : SheetSize.MEDIUM,
+      height: this.sheet_type === "new" ? SheetSize.MEDIUM : SheetSize.LARGE,
       preferType: SheetType.CENTER,
       showClose: false,
       enableFloatingDragBar: true,

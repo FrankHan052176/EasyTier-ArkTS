@@ -525,6 +525,14 @@
       "value": "Disable udp hole punching"
     },
     {
+      "name": "enable_udp_broadcast_relay",
+      "value": "UDP Broadcast Relay"
+    },
+    {
+      "name": "enable_udp_broadcast_relay_help",
+      "value": "Windows only: capture local UDP broadcast packets from physical interfaces and forward them to EasyTier peers. Helps games to find rooms in local network. Requires administrator privileges."
+    },
+    {
       "name": "disable_upnp",
       "value": "Disable UPnP"
     },
@@ -799,6 +807,10 @@
     {
       "name": "event_ProxyCidrsUpdated",
       "value": "ProxyCidrsUpdated"
+    },
+    {
+      "name": "event_UdpBroadcastRelayStartResult",
+      "value": "UDP Broadcast Relay Start Result"
     },
     {
       "name": "web_login_title",
