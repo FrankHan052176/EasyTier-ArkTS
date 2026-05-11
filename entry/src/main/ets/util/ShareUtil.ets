@@ -56,7 +56,7 @@ export async function unwrapUrl(url: url.URL) {
     Logger.debug("unwrap shared config: " + displayName, "ShareUtil")
 
     if (payload.onlyStart && AppManager.easytier.runningNetworks.size == 0) {
-      AppManager.easytier.temp_start(displayName, config)
+      await AppManager.easytier.temp_start(displayName, config)
       return
     }
 

@@ -16,7 +16,8 @@ import { config_name, NewConfig_Content, NewConfig_Title, setConfigName } from '
 import { Rename_Content, Rename_Title } from './Rename'
 import { Setting_Sheet, Setting_Title } from './Settings'
 import { UI_Content, UI_Title } from './UIModifier'
-import { hdsMaterial, HdsNavigation, HdsNavigationMenuItemOptions, HdsNavigationTitleMode } from '@kit.UIDesignKit'
+import { hdsMaterial, HdsNavigation, HdsNavigationMenuItemOptions, HdsNavigationTitleMode,
+  TitleBarStyleOptions } from '@kit.UIDesignKit'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { LengthMetrics } from '@kit.ArkUI'
 
@@ -189,6 +190,62 @@ export struct SheetContent {
     return this.type.substring(5).substring(this.type.substring(5).indexOf('|') + 1)
   }
 
+  navTitleStyle(): TitleBarStyleOptions {
+    if (deviceInfo.distributionOSApiVersion >= 60100 && hdsMaterial.getSystemMaterialTypes().length > 0) {
+      return {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(20),
+        },
+        originalStyle: {
+          contentStyle: {
+            titleStyle: {
+              mainTitleColor: $r("sys.color.font_primary"),
+              subTitleColor: $r("sys.color.font_secondary")
+            },
+            menuStyle: {
+              iconColor: $r("sys.color.font_primary")
+            },
+            backIconStyle: {
+              iconColor: $r("sys.color.font_primary")
+            }
+          }
+        },
+        systemMaterialEffect: {
+          materialType: hdsMaterial.MaterialType.ADAPTIVE,
+          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+        }
+      }
+    }else {
+      return {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(20),
+        },
+        originalStyle: {
+          contentStyle: {
+            titleStyle: {
+              mainTitleColor: $r("sys.color.font_primary"),
+              subTitleColor: $r("sys.color.font_secondary")
+            },
+            menuStyle: {
+              iconColor: $r("sys.color.font_primary"),
+              backgroundColor: $r("sys.color.background_primary")
+            },
+            backIconStyle: {
+              iconColor: $r("sys.color.font_primary"),
+              backgroundColor: $r("sys.color.background_primary")
+            }
+          }
+        }
+      }
+    }
+  }
+
   build() {
     HdsNavigation() {
       if (this.type === "setting") {
@@ -241,32 +298,7 @@ export struct SheetContent {
     }
     .backgroundColor($r("sys.color.background_secondary"))
     .titleBar({
-      style: {
-        scrollEffectOpts: {
-          enableScrollEffect: true,
-          scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
-          blurEffectiveStartOffset: LengthMetrics.vp(0),
-          blurEffectiveEndOffset: LengthMetrics.vp(20),
-        },
-        originalStyle: {
-          contentStyle: {
-            titleStyle: {
-              mainTitleColor: $r("sys.color.font_primary"),
-              subTitleColor: $r("sys.color.font_secondary")
-            },
-            menuStyle: {
-              iconColor: $r("sys.color.font_primary")
-            },
-            backIconStyle: {
-              iconColor: $r("sys.color.font_primary")
-            }
-          }
-        },
-        systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
-          materialType: hdsMaterial.MaterialType.ADAPTIVE,
-          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-        }: undefined
-      },
+      style: this.navTitleStyle(),
       content: {
         title: {
           mainTitle: this.titleText()

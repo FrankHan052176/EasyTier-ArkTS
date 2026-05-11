@@ -10,7 +10,7 @@ import { NetworkSegment } from '../models/network/NetworkSegment';
 import { deviceInfo, BusinessError } from '@kit.BasicServicesKit';
 import { ConfigJson } from '../config/schema/SchemaConfig';
 import { RuntimeAggregateState, RuntimeInstanceState } from '../types/runtime/RuntimeTypes';
-import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnLogData, VpnMessage } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
+import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnContinueStateData, VpnLogData, VpnMessage } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
 import { decodeSocketChunk, parseKernelSocketMessage } from '../infrastructure/bridge/kernel/SocketCodec'
 import { routeSignature } from '../infrastructure/bridge/kernel/RouteStore'
 
@@ -37,6 +37,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   lastRoutesSignature: string = ""
   private tunCreateSeq: number = 0
   private lastTunTrigger: string = ""
+  private continuationActive: boolean = false
 
   private shouldProtectProcessNet(): boolean {
     return deviceInfo.sdkApiVersion >= 22 && this.force_global && (this.config?.exit_nodes?.length ?? 0) > 0
@@ -92,6 +93,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
 
   onDestroy(): void {
     Logger.debug("VpnExtAbi destroy", "EasyTierAbility")
+    this.publishContinuationState(false)
     if (this.timer) {
       clearInterval(this.timer);
     }
@@ -120,6 +122,10 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     this.server.on('connect', (connection: socket.LocalSocketConnection) => {
       Logger.debug("UI process connected to VpnServer", "EasyTierAbility")
       this.connections.set(connection.clientId, connection);
+      this.sendBridgeMessage(connection, {
+        type: 'continue_state',
+        data: { active: this.continuationActive } as VpnContinueStateData
+      })
       connection.on('error', (err: Object) => {
         Logger.error(`Connection error: ${JSON.stringify(err)}`, "EasyTierAbility");
         this.connections.delete(connection.clientId);
@@ -153,14 +159,26 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     }, 100);
   }
 
+  private sendBridgeMessage(connection: socket.LocalSocketConnection, msg: VpnMessage) {
+    const str = JSON.stringify(msg) + '\n'
+    const uint8Array = buffer.from(str).buffer
+    connection.send({ data: uint8Array }).catch((err: BusinessError) => {
+      Logger.error("Failed to send data to UI: " + JSON.stringify(err), "EasyTierAbility")
+    })
+  }
+
   private broadcast(msg: VpnMessage) {
-    let str = JSON.stringify(msg) + '\n';
-    let uint8Array = buffer.from(str).buffer
     this.connections.forEach(conn => {
-      conn.send({ data: uint8Array }).catch((err: BusinessError) => {
-        Logger.error("Failed to send data to UI: " + JSON.stringify(err), "EasyTierAbility");
-      });
+      this.sendBridgeMessage(conn, msg)
     });
+  }
+
+  private publishContinuationState(active: boolean): void {
+    this.continuationActive = active
+    this.broadcast({
+      type: 'continue_state',
+      data: { active } as VpnContinueStateData
+    })
   }
 
   private connectToKernelSocket(socketPath: string) {
@@ -284,9 +302,11 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     await this.vpnConnection.destroy()
     this.vpnConnection.create(vpnConfig).then((fd) => {
       Logger.info(`vpnConnection.create success instance=${this.instance_id} fd=${fd} seq=${this.tunCreateSeq} trigger=${this.lastTunTrigger}`, "EasyTierAbility")
+      this.publishContinuationState(true)
       easytier.setTunFd(this.instance_id, fd);
       Logger.debug(`setTunFd sent instance=${this.instance_id}`, "EasyTierAbility")
     }).catch((err: Error) => {
+      this.publishContinuationState(false)
       Logger.error(`vpnConnection create failed: ${JSON.stringify(err)}`, "EasyTierAbility");
     });
   }

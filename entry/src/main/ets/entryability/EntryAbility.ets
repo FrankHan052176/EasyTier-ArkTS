@@ -29,8 +29,8 @@ import { cancelNotification, publishTextNotification } from '../util/NoticeHelpe
 import { netHandover } from '@kit.NetworkBoostKit';
 import { ConfigJson } from '../config/schema/SchemaConfig';
 import { RuntimeAggregateState } from '../types/runtime/RuntimeTypes';
-import { KERNEL_SOCKET_NAME, TunRequestPayload } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
-import { decodeSocketChunk, parseKernelSocketMessage } from '../infrastructure/bridge/kernel/SocketCodec'
+import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnContinueStateData } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
+import { decodeSocketChunk, parseKernelSocketMessage, parseVpnBridgeMessage } from '../infrastructure/bridge/kernel/SocketCodec'
 
 const easytier_release = easytier
 
@@ -40,9 +40,88 @@ export default class EntryAbility extends UIAbility {
   kernelClient: socket.LocalSocket | undefined
   kernelMessageBuffer: string = ''
   kernelSocketConnected: boolean = false
+  continuationClient: socket.LocalSocket | undefined
+  continuationMessageBuffer: string = ''
+  continuationSocketConnected: boolean = false
 
   private shouldProtectProcessNet(config?: ConfigJson): boolean {
     return deviceInfo.sdkApiVersion >= 22 && AppManager.uiState.force_global && (config?.exit_nodes?.length ?? 0) > 0
+  }
+
+  private activateMissionContinue(): void {
+    this.context.setMissionContinueState(AbilityConstant.ContinueState.ACTIVE)
+  }
+
+  private deactivateMissionContinue(): void {
+    this.context.setMissionContinueState(AbilityConstant.ContinueState.INACTIVE)
+  }
+
+  private syncContinuationSocket(): void {
+    if (!AppManager.uiState.ext_mode) {
+      this.continuationClient?.close()
+      this.continuationClient = undefined
+      this.continuationMessageBuffer = ''
+      this.continuationSocketConnected = false
+      return
+    }
+    if (this.continuationSocketConnected) {
+      return
+    }
+    const socketPath = AppManager.uiState.getSocketPath('easytier_vpn_socket')
+    this.continuationClient?.close()
+    const client = socket.constructLocalSocketInstance()
+    this.continuationClient = client
+    this.continuationMessageBuffer = ''
+    const address: socket.LocalConnectOptions = {
+      address: {
+        address: socketPath
+      }
+    }
+
+    const reconnect = () => {
+      if (!AppManager.uiState.ext_mode || this.continuationSocketConnected) {
+        return
+      }
+      setTimeout(() => {
+        this.syncContinuationSocket()
+      }, 500)
+    }
+
+    client.connect(address).then(() => {
+      this.continuationSocketConnected = true
+      Logger.info('Connected to continuation socket', this)
+    }).catch((error: BusinessError) => {
+      Logger.debug(`continuation socket retry code=${error.code} message=${error.message}`, this)
+      reconnect()
+    })
+
+    client.on('message', (value: socket.LocalSocketMessageInfo) => {
+      try {
+        const decoded = decodeSocketChunk(this.continuationMessageBuffer, value.message)
+        this.continuationMessageBuffer = decoded.rest
+        for (const rawMessage of decoded.messages) {
+          const msg = parseVpnBridgeMessage(rawMessage)
+          if (msg.type === 'continue_state') {
+            const state = msg.data as VpnContinueStateData
+            if (state.active) {
+              this.activateMissionContinue()
+            } else {
+              this.deactivateMissionContinue()
+            }
+          }
+        }
+      } catch (error) {
+        Logger.error(`continuation socket message error: ${JSON.stringify(error)}`, this)
+      }
+    })
+
+    client.on('close', () => {
+      this.continuationSocketConnected = false
+      this.continuationClient = undefined
+      this.continuationMessageBuffer = ''
+      this.deactivateMissionContinue()
+      reconnect()
+    })
   }
 
   startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined) {
@@ -51,6 +130,14 @@ export default class EntryAbility extends UIAbility {
       if (!easytier.runNetworkInstance(cfg)) {
         sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
         Logger.error("启动失败", this)
+      } else {
+        try {
+          const config: ConfigJson = JSON.parse(cfg)
+          if (config.no_tun) {
+            this.activateMissionContinue()
+          }
+        } catch (_) {
+        }
       }
       return
     }
@@ -77,7 +164,13 @@ export default class EntryAbility extends UIAbility {
         try {
           backgroundTaskManager.startBackgroundRunning(this.context, ["location"], wantAgentObj).then(() => {
             if (AppManager.uiState.inittedGitCore?easytier.runNetworkInstance(cfg):easytier_release.runNetworkInstance(cfg)) {
-              this.context.setMissionContinueState(AbilityConstant.ContinueState.ACTIVE);
+              try {
+                const config: ConfigJson = JSON.parse(cfg)
+                if (config.no_tun) {
+                  this.activateMissionContinue()
+                }
+              } catch (_) {
+              }
               setTimeout(() => {
                 updateFavorite()
                 publishTextNotification(name ?? "N/A")
@@ -109,7 +202,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   stopContinuousTask() {
-    this.context.setMissionContinueState(AbilityConstant.ContinueState.INACTIVE);
+    this.deactivateMissionContinue();
     if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
       return;
     }
@@ -138,8 +231,11 @@ export default class EntryAbility extends UIAbility {
   }
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
-    this.context.setMissionContinueState(AbilityConstant.ContinueState.INACTIVE);
+    this.deactivateMissionContinue();
     this.listenCardCall()
+    EventHelper.emitterListener("entry_sync_continuation_socket", () => {
+      this.syncContinuationSocket()
+    })
     HMRouterMgr.openLog("INFO")
     HMRouterMgr.init({
       context: this.context
@@ -183,6 +279,7 @@ export default class EntryAbility extends UIAbility {
     if (deviceInfo.productModel !== "emulator") {
       AppManager.easytier.init()
     }
+    this.syncContinuationSocket()
     netHandover.on('handoverChange', (info: netHandover.HandoverInfo) => {
       if (info.handoverStart) {
 
@@ -291,6 +388,8 @@ export default class EntryAbility extends UIAbility {
     Logger.debug("onDestroy", this)
     this.stopContinuousTask()
     this.kernelClient?.close()
+    this.continuationClient?.close()
+    EventHelper.emitterOff("entry_sync_continuation_socket")
     this.callee.off("send_card_id")
     this.callee.off("start_favorite")
   }
@@ -416,6 +515,7 @@ export default class EntryAbility extends UIAbility {
     Logger.debug("VPN配置:" + JSON.stringify(vpnConfig), this)
     this.vpnConnection.create(vpnConfig).then((fd) => {
       Logger.info(`vpnConnection.create success instance=${inst_id} fd=${fd}`, this)
+      this.activateMissionContinue()
       if (AppManager.uiState.inittedGitCore) {
         easytier.setTunFd(inst_id, fd)
         Logger.info(`setTunFd sent to git_core instance=${inst_id}`, this)
@@ -493,6 +593,7 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     WindowUtil.foreground()
+    this.syncContinuationSocket()
   }
 
   onBackground(): void {

@@ -23,7 +23,11 @@ export interface VpnLogData {
   nmLogs: string[]
 }
 
+export interface VpnContinueStateData {
+  active: boolean
+}
+
 export interface VpnMessage {
   type: string
-  data: RuntimeAggregateState | VpnLogData
+  data: RuntimeAggregateState | VpnLogData | VpnContinueStateData
 }

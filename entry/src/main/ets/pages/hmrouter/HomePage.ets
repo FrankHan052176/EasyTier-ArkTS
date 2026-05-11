@@ -1,10 +1,11 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
-import { deviceInfo } from '@kit.BasicServicesKit';
+import { deviceInfo, SuppressWarnings, SuppressWarningsType } from '@kit.BasicServicesKit';
 import {
   HdsNavigation,
   HdsNavigationTitleMode,
   ScrollEffectType,
-  HdsNavigationAttribute
+  HdsNavigationAttribute,
+  TitleBarStyleOptions
 } from '@hms.hds.hdsBaseComponent';
 import { HdsMenuButton, MenuButton } from '../Components';
 import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
@@ -25,6 +26,7 @@ import { Logs as Logs } from '../../components/index/Logs';
 import { QQGroups } from '../../components/index/QQGroups';
 import { SharedPeers } from '../../components/index/SharedPeers'
 import { CompSizeWithPos, DesktopLayout } from 'desktop_layout';
+import { Logger } from '../../shared/logging/Logger';
 
 export function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
   let result = new SymbolGlyphModifier(symbol)
@@ -281,7 +283,8 @@ export struct HomePage {
               let size = layout.getCompSize(type)
               sequenceData += `${type}_${size.grid_x}_${size.grid_y}_${size.lane_w}_${size.lane_h}|`
             })
-            AppManager.preference.updateSequence(sequenceData.length > 0 ? sequenceData.substring(0, sequenceData.length - 1) :
+            AppManager.preference.updateSequence(sequenceData.length > 0 ?
+              sequenceData.substring(0, sequenceData.length - 1) :
               sequenceData)
           },
           contentBuilder: wrapBuilder(buildComp),
@@ -317,14 +320,9 @@ export struct HomePage {
     .edgeEffect(EdgeEffect.Spring)
   }
 
-  build() {
-    HdsNavigation() {
-      this.content()
-    }
-    .height('100%')
-    .width('100%')
-    .titleBar({
-      style: {
+  navTitleStyle(): TitleBarStyleOptions {
+    if (deviceInfo.distributionOSApiVersion >= 60100 && hdsMaterial.getSystemMaterialTypes().length > 0) {
+      return {
         scrollEffectOpts: {
           enableScrollEffect: true,
           scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
@@ -345,15 +343,51 @@ export struct HomePage {
             }
           }
         },
-        systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
+        systemMaterialEffect: {
           materialType: hdsMaterial.MaterialType.ADAPTIVE,
           materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-        }: undefined
-      },
+        }
+      }
+    }else {
+      return {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(20),
+        },
+        originalStyle: {
+          contentStyle: {
+            titleStyle: {
+              mainTitleColor: $r("sys.color.font_primary"),
+              subTitleColor: $r("sys.color.font_secondary")
+            },
+            menuStyle: {
+              iconColor: $r("sys.color.font_primary"),
+              backgroundColor: $r("sys.color.background_primary")
+            },
+            backIconStyle: {
+              iconColor: $r("sys.color.font_primary"),
+              backgroundColor: $r("sys.color.background_primary")
+            }
+          }
+        }
+      }
+    }
+  }
+
+  build() {
+    HdsNavigation() {
+      this.content()
+    }
+    .height('100%')
+    .width('100%')
+    .titleBar({
+      style: this.navTitleStyle(),
       content: {
         title: {
           mainTitle: "EasyTier",
-          subTitle: "v"+AppManager.easytier.version().split("-")[0]
+          subTitle: "v" + AppManager.easytier.version().split("-")[0]
         },
         menu: {
           value: [

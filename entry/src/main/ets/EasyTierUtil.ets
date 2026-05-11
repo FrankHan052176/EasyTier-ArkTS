@@ -25,6 +25,7 @@ import { routeSignature } from './infrastructure/bridge/kernel/RouteStore'
 import { getEditingConfig as getEditingStoredConfig, getStoredConfig, getStoredConfigLabel, getStoredConfigName, listStoredConfigs as listStoredConfigEntries, StoredConfigMetaLite } from './services/config/storage/StoredConfigService'
 import { connectVpnExtensionSocket } from './infrastructure/bridge/kernel/VpnExtensionSocketBridge'
 import { orchestrateInstanceStart } from './services/easytier/runtime/StartOrchestrationService'
+import { getHostname } from './util/Conversion'
 
 
 @Concurrent
@@ -50,6 +51,7 @@ export class EasyTierUtil {
   @Trace runningNetworks: Map<string, RuntimeInstanceState> = new Map()
   @Trace instanceInfos: Map<string, InstanceInfo> = new Map()
   @Trace needTUN: Set<string> = new Set()
+  @Trace temporaryConfigIds: Set<string> = new Set()
   task2: taskpool.LongTask | undefined
   client: socket.LocalSocket | undefined
   vpnMessageBuffer: string = ''
@@ -174,45 +176,44 @@ export class EasyTierUtil {
       if (config) {
         Logger.debug("start config: "+ JSON.stringify(config, undefined, 2), this)
         syncWholeConfig(uuid, this.getConfigName(uuid) ?? uuid, config)
-        if (easytier.parseNetworkConfig(JSON.stringify(config))) {
-          if (!config.no_tun) {
-            this.needTUN.add(uuid)
-          }
-          if (AppManager.uiState.ext_mode) {
-            let want: Want = {
-              bundleName: "top.frankhan.easytier",
-              abilityName: "EasyTierAbility",
-              parameters: {
-                cfg: JSON.stringify(config),
-                name: this.getConfigName(uuid) ?? "",
-                socket: "easytier_vpn_socket",
-                socket_files_dir: AppManager.uiState.socketFilesDir,
-                vpn_routes: AppManager.uiState.vpn_routes,
-                white_list: AppManager.uiState.white_list,
-                black_list: AppManager.preference.getBlackList(),
-                dns: AppManager.uiState.dns,
-                dev: AppManager.uiState.dev,
-                force_global: AppManager.uiState.force_global,
-                show_log: AppManager.uiState.show_log
+        return orchestrateInstanceStart({
+          config,
+          name: this.getConfigName(uuid) ?? uuid,
+          extMode: AppManager.uiState.ext_mode,
+          socketFilesDir: AppManager.uiState.socketFilesDir,
+          vpnRoutes: AppManager.uiState.vpn_routes,
+          whiteList: AppManager.uiState.white_list,
+          blackList: AppManager.preference.getBlackList(),
+          dns: AppManager.uiState.dns,
+          dev: AppManager.uiState.dev,
+          forceGlobal: AppManager.uiState.force_global,
+          showLog: AppManager.uiState.show_log,
+          addNeedTun: (instanceId: string) => {
+            this.needTUN.add(instanceId)
+          },
+          connectToVpnExtension: (socketName: string) => {
+            this.connectToVpnExtension(socketName)
+          },
+          ensureContinuationSocket: () => {
+            EventHelper.emitterPublish("entry_sync_continuation_socket")
+          },
+          requestVpnPerm: (callback: () => void) => {
+            AppManager.permission.requestVpnPerm(callback)
+          },
+          requestLocPerm: () => AppManager.permission.requestLocPerm(),
+          publishStartBg: (cfg: string, startId: string | undefined, startName: string) => {
+            EventHelper.emitterPublish("start_bg", {
+              data: {
+                cfg,
+                uuid: byCard ? undefined : startId,
+                name: startName
               }
-            }
-            vpnExtension.startVpnExtensionAbility(want)
-            this.connectToVpnExtension("easytier_vpn_socket")
-          } else {
-            AppManager.permission.requestLocPerm().then(() => {
-              EventHelper.emitterPublish("start_bg", {
-                data: {
-                  cfg: JSON.stringify(config),
-                  uuid: byCard?undefined:uuid,
-                  name: this.getConfigName(uuid)
-                }
-              })
             })
+          },
+          sendInvalidConfigToast: () => {
+            sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
           }
-        } else {
-          sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
-        }
-        return true
+        })
       } else {
         return false
       }
@@ -221,11 +222,14 @@ export class EasyTierUtil {
     }
   }
 
-  public temp_start(name: string, config: ConfigJson): boolean {
+  public async temp_start(name: string, config: ConfigJson): Promise<boolean> {
     if (config) {
+      await AppManager.permission.requestDistributePerm(false)
+      config.hostname = getHostname()
       Logger.debug("temp start config: "+ JSON.stringify(config, undefined, 2), this)
       syncWholeConfig(config.instance_id!, name, config)
-      return orchestrateInstanceStart({
+      this.temporaryConfigIds.add(config.instance_id!)
+      const started = orchestrateInstanceStart({
         config,
         name,
         extMode: AppManager.uiState.ext_mode,
@@ -243,6 +247,12 @@ export class EasyTierUtil {
         connectToVpnExtension: (socketName: string) => {
           this.connectToVpnExtension(socketName)
         },
+        ensureContinuationSocket: () => {
+          EventHelper.emitterPublish("entry_sync_continuation_socket")
+        },
+        requestVpnPerm: (callback: () => void) => {
+          AppManager.permission.requestVpnPerm(callback)
+        },
         requestLocPerm: () => AppManager.permission.requestLocPerm(),
         publishStartBg: (cfg: string, uuid: string | undefined, startName: string) => {
           EventHelper.emitterPublish("start_bg", {
@@ -257,12 +267,18 @@ export class EasyTierUtil {
           sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
         }
       })
+      if (!started) {
+        AppManager.data.delConfig(config.instance_id!)
+        this.temporaryConfigIds.delete(config.instance_id!)
+      }
+      return started
     } else {
-      return false
+      return Promise.resolve(false)
     }
   }
 
   public stop() {
+    const temporaryRunningIds = Array.from(this.temporaryConfigIds.values())
     if (AppManager.uiState.ext_mode) {
       let want: Want = {
         bundleName: "top.frankhan.easytier",
@@ -289,6 +305,10 @@ export class EasyTierUtil {
     setTimeout(() => {
       updateFavorite()
     }, 100)
+    temporaryRunningIds.forEach((configId) => {
+      AppManager.data.delConfig(configId)
+      this.temporaryConfigIds.delete(configId)
+    })
     let stack = HMRouterMgr.getPathStack("MainNavigation")!.getAllPathName()
     if (stack[stack.length-1] == "StatusPage") {
       HMRouterMgr.pop()

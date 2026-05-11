@@ -3,7 +3,8 @@ import { FieldEdit } from '../../components/edit/FieldEdit'
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute,
-  hdsMaterial } from '@kit.UIDesignKit'
+  hdsMaterial,
+  TitleBarStyleOptions} from '@kit.UIDesignKit'
 import { ComponentContent, LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { HdsMenuButton } from '../Components'
@@ -292,12 +293,9 @@ export struct EditPage {
     .indicator(DotIndicator.dot().top(46))
   }
 
-  build() {
-    HdsNavigation() {
-      this.content()
-    }
-    .titleBar({
-      style: {
+  navTitleStyle(): TitleBarStyleOptions {
+    if (deviceInfo.distributionOSApiVersion >= 60100 && hdsMaterial.getSystemMaterialTypes().length > 0) {
+      return {
         scrollEffectOpts: {
           enableScrollEffect: true,
           scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
@@ -318,11 +316,45 @@ export struct EditPage {
             }
           }
         },
-        systemMaterialEffect: deviceInfo.sdkApiVersion >= 23 ? {
+        systemMaterialEffect: {
           materialType: hdsMaterial.MaterialType.ADAPTIVE,
           materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
-        }: undefined
-      },
+        }
+      }
+    }else {
+      return {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(20),
+        },
+        originalStyle: {
+          contentStyle: {
+            titleStyle: {
+              mainTitleColor: $r("sys.color.font_primary"),
+              subTitleColor: $r("sys.color.font_secondary")
+            },
+            menuStyle: {
+              iconColor: $r("sys.color.font_primary"),
+              backgroundColor: $r("sys.color.background_primary")
+            },
+            backIconStyle: {
+              iconColor: $r("sys.color.font_primary"),
+              backgroundColor: $r("sys.color.background_primary")
+            }
+          }
+        }
+      }
+    }
+  }
+
+  build() {
+    HdsNavigation() {
+      this.content()
+    }
+    .titleBar({
+      style: this.navTitleStyle(),
       content: {
         title: {
           mainTitle: this.name!,

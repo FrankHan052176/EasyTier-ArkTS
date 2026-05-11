@@ -3,7 +3,11 @@ import { logColor } from '../../util/Conversion'
 import { LightModifier } from '../../class/modifier/SymbolLight'
 import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 import { LogDataSource } from '../../class/data_source/LogDataSource'
-import { hdsEffect } from '@kit.UIDesignKit'
+import { hdsEffect, hdsMaterial, HdsNavigation, HdsNavigationTitleMode,
+  IconStyleMode,
+  TitleBarStyleOptions } from '@kit.UIDesignKit'
+import { deviceInfo } from '@kit.BasicServicesKit'
+import { LengthMetrics } from '@kit.ArkUI'
 
 @ComponentV2
 export struct Logs {
@@ -48,25 +52,113 @@ export struct Logs {
     return "暂无日志数据"
   }
 
+  navTitleStyle(): TitleBarStyleOptions {
+    if (deviceInfo.distributionOSApiVersion >= 60100 && hdsMaterial.getSystemMaterialTypes().length > 0) {
+      return {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(20),
+        },
+        originalStyle: {
+          contentStyle: {
+            titleStyle: {
+              mainTitleColor: $r("sys.color.font_primary"),
+              subTitleColor: $r("sys.color.font_secondary")
+            },
+            menuStyle: {
+              iconColor: $r("sys.color.font_primary")
+            },
+            backIconStyle: {
+              iconColor: $r("sys.color.font_primary")
+            }
+          }
+        },
+        systemMaterialEffect: {
+          materialType: hdsMaterial.MaterialType.ADAPTIVE,
+          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+        }
+      }
+    }else {
+      return {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(20),
+        },
+        originalStyle: {
+          contentStyle: {
+            titleStyle: {
+              mainTitleColor: $r("sys.color.font_primary"),
+              subTitleColor: $r("sys.color.font_secondary")
+            },
+            menuStyle: {
+              iconColor: $r("sys.color.font_primary"),
+              backgroundColor: $r("sys.color.background_primary")
+            },
+            backIconStyle: {
+              iconColor: $r("sys.color.font_primary"),
+              backgroundColor: $r("sys.color.background_primary")
+            }
+          }
+        }
+      }
+    }
+  }
+
   @Builder
   LogSheetContent() {
-    Column() {
-      Tabs({ barPosition: BarPosition.Start, index: this.tab_index }) {
-        TabContent() {
-          this.LogList(AppManager.easytier.appLogs)
-        }.tabBar("App日志")
+    HdsNavigation() {
+      Column() {
+        Tabs({ barPosition: BarPosition.Start, index: this.tab_index }) {
+          TabContent() {
+            this.LogList(AppManager.easytier.appLogs)
+          }.tabBar("App日志")
 
-        TabContent() {
-          this.LogList(AppManager.easytier.nmLogs)
-        }.tabBar("网络日志")
+          TabContent() {
+            this.LogList(AppManager.easytier.nmLogs)
+          }.tabBar("网络日志")
+        }
+        .barMode(BarMode.Fixed)
+        .width('100%')
+        .layoutWeight(1)
+        .animationDuration(300)
       }
-      .barMode(BarMode.Fixed)
       .width('100%')
-      .layoutWeight(1)
-      .animationDuration(300)
+      .height('100%')
     }
-    .width('100%')
     .height('100%')
+    .width('100%')
+    .titleBar({
+      style: this.navTitleStyle(),
+      content: {
+        title: {
+          mainTitle: "日志中心"
+        },
+        menu: {
+          value: [{
+            content: {
+              icon: $r('sys.symbol.xmark'),
+              type: IconStyleMode.NORMAL,
+              action: () => {
+                this.showSheet = false;
+              },
+            }
+          }]
+        },
+
+      },
+      enableComponentSafeArea: true
+    })
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MODAL)
+    .hideBackButton(true)
+    .hideTitleBar(false)
+    .height('100%')
+    .width('100%')
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
   @Builder
@@ -191,7 +283,6 @@ export struct Logs {
         Row({ space: 16 }) {
           this.MiniStatItem($r('sys.symbol.house'), 0)
           this.MiniStatItem($r('sys.symbol.wifi'), 1)
-          this.MiniStatItem($r('sys.symbol.HarmonyOS'), 2)
         }
       }
       .width('100%')
@@ -235,7 +326,6 @@ export struct Logs {
       Column({ space: 8 }) {
         this.ListStatItem("App", this.appCount, $r('sys.symbol.house'), 0)
         this.ListStatItem("网络", this.netCount, $r('sys.symbol.wifi'), 1)
-        this.ListStatItem("系统", this.ohCount, $r('sys.symbol.HarmonyOS'), 2)
       }
       .justifyContent(FlexAlign.Center)
       .height('100%')
@@ -292,7 +382,6 @@ export struct Logs {
       Row({ space: 8 }) {
         this.CardStatItem("App日志", $r('sys.symbol.house'), 0)
         this.CardStatItem("网络日志", $r('sys.symbol.wifi'), 1)
-        this.CardStatItem("ArkUI", $r('sys.symbol.HarmonyOS'), 2)
       }
       .width('100%')
       .justifyContent(FlexAlign.SpaceBetween)
@@ -369,10 +458,8 @@ export struct Logs {
     .bindSheet($$this.showSheet, this.LogSheetContent(), {
       height: SheetSize.LARGE,
       preferType: SheetType.CENTER,
-      showClose: true,
-      dragBar: true,
-      title: { title: "日志中心" },
-      blurStyle: BlurStyle.Thin
+      showClose: false,
+      dragBar: false
     })
     .attributeModifier(this.bgMode)
     .backgroundColor($r("sys.color.comp_background_primary"))
