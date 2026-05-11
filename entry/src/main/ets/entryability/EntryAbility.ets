@@ -31,7 +31,6 @@ import { ConfigJson } from '../config/schema/SchemaConfig';
 import { RuntimeAggregateState } from '../types/runtime/RuntimeTypes';
 import { KERNEL_SOCKET_NAME, TunRequestPayload } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
 import { decodeSocketChunk, parseKernelSocketMessage } from '../infrastructure/bridge/kernel/SocketCodec'
-import { buildRuntimeTunUpdate, routeSignature } from '../infrastructure/bridge/kernel/RouteStore'
 
 const easytier_release = easytier
 
@@ -41,7 +40,10 @@ export default class EntryAbility extends UIAbility {
   kernelClient: socket.LocalSocket | undefined
   kernelMessageBuffer: string = ''
   kernelSocketConnected: boolean = false
-  lastRuntimeTunRouteSignature: string = ''
+
+  private shouldProtectProcessNet(config?: ConfigJson): boolean {
+    return deviceInfo.sdkApiVersion >= 22 && AppManager.uiState.force_global && (config?.exit_nodes?.length ?? 0) > 0
+  }
 
   startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined) {
     if (!AppManager.permission.isGetLocPerm() ||
@@ -314,10 +316,19 @@ export default class EntryAbility extends UIAbility {
   start_bg_Listener() {
     Logger.debug("start_bg_Listener", this)
     EventHelper.emitterListener("start_bg", (data) => {
-      this.prepare_vpn(() => {
+      let shouldProtect = false
+      const cfg = data.data?.cfg as string | undefined
+      try {
+        if (cfg) {
+          const config: ESObject = JSON.parse(cfg)
+          shouldProtect = this.shouldProtectProcessNet(config)
+        }
+      } catch (error) {
+      }
+      this.prepare_vpn(shouldProtect, () => {
         Logger.info("start_bg_task", this)
         this.connectToKernelSocket(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
-        this.startContinuousTask(data.data!.cfg, data.data?.uuid, data.data?.name);
+        this.startContinuousTask(cfg ?? '', data.data?.uuid, data.data?.name);
       })
     })
   }
@@ -417,9 +428,19 @@ export default class EntryAbility extends UIAbility {
     })
   }
 
-  prepare_vpn(callback: () => void = () => {}) {
+  prepare_vpn(shouldProtect: boolean = false, callback: () => void = () => {}) {
     if (this.vpnConnection !== undefined) {
       Logger.info("prepare_vpn reuse existing vpnConnection", this)
+      if (shouldProtect) {
+        this.vpnConnection.protectProcessNet().then(() => {
+          Logger.info("protectProcessNet completed before kernel start", this)
+          callback()
+        }).catch((error: BusinessError) => {
+          Logger.error(`protectProcessNet failed: ${error.code}, ${error.message}`, this)
+          callback()
+        })
+        return
+      }
       callback()
       return;
     }
@@ -427,9 +448,9 @@ export default class EntryAbility extends UIAbility {
     AppManager.permission.requestVpnPerm(async () => {
       this.vpnConnection = vpnExtension.createVpnConnection(getContext(this) as vpnExtension.VpnExtensionContext)
       Logger.info("vpnConnection created in prepare_vpn", this)
-      if (deviceInfo.sdkApiVersion >= 22) {
+      if (shouldProtect) {
         await this.vpnConnection.protectProcessNet()
-        Logger.info("protectProcessNet completed", this)
+        Logger.info("protectProcessNet completed before kernel start", this)
       }
       callback()
     })
@@ -531,21 +552,12 @@ export default class EntryAbility extends UIAbility {
                 snapshot
               }
             })
-            const tunUpdate = buildRuntimeTunUpdate(snapshot, AppManager.uiState.selected)
-            if (tunUpdate) {
-              const signature = routeSignature(tunUpdate.routes)
-              if (signature !== this.lastRuntimeTunRouteSignature) {
-                this.lastRuntimeTunRouteSignature = signature
-                this.setup_tun(tunUpdate.ip, tunUpdate.mask, tunUpdate.magicDNS, AppManager.uiState.selected ?? '', tunUpdate.needExitNode, tunUpdate.routes)
-              }
-            }
           } else if (msg.messageType === 'tun_request') {
             const payload = JSON.parse(msg.payloadJson) as TunRequestPayload
             const cidr = payload.virtualIpv4Cidr ?? ''
             const ip = payload.virtualIpv4 ?? cidr.split('/')[0]
             const mask = Number(cidr.split('/')[1] ?? '24')
             const routes = payload.aggregatedRoutes ?? []
-            this.lastRuntimeTunRouteSignature = routeSignature(routes)
             this.setup_tun(ip, mask, payload.magicDnsEnabled, payload.instanceId, payload.needExitNode, routes)
           }
         }

@@ -87,7 +87,7 @@ export class WebUtil {
 
   public async getAppInfo(pkgName: string, callback: (name: string, icon: string) => void) {
     const httpRequest = http.createHttp();
-    let response = await httpRequest.request("http://shenjack.top:10003/api/v0/apps/pkg_name/"+pkgName,
+    let response = await httpRequest.request("https://ddns.shenjack.top:10003/api/v0/apps/pkg_name/"+pkgName,
       {
         method: http.RequestMethod.GET,
         header: {

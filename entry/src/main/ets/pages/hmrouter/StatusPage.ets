@@ -390,7 +390,7 @@ export struct StatusPage {
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
-  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
+  immersiveCallback = (sharableTarget: harmonyShare.SharableTarget) => {
     if (this.config) {
       buildShareData(this.config, (data) => {
         sharableTarget.share(data);

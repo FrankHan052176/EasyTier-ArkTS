@@ -399,7 +399,7 @@ export struct HomePage {
     })
   }
 
-  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
+  immersiveCallback = (sharableTarget: harmonyShare.SharableTarget) => {
     if (AppManager.uiState.selected) {
       let config: ConfigJson | undefined = AppManager.easytier.getConfig(AppManager.uiState.selected)
       if (config) {

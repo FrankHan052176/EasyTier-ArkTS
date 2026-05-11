@@ -380,7 +380,7 @@ export struct EditPage {
     })
   }
 
-  private immersiveCallback(sharableTarget: harmonyShare.SharableTarget) {
+  immersiveCallback = (sharableTarget: harmonyShare.SharableTarget) => {
     let config: ConfigJson | undefined = this.uuid ? AppManager.easytier.getConfig(this.uuid) : undefined
     if (config) {
       buildShareData(config, (data) => {

@@ -38,6 +38,22 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   private tunCreateSeq: number = 0
   private lastTunTrigger: string = ""
 
+  private shouldProtectProcessNet(): boolean {
+    return deviceInfo.sdkApiVersion >= 22 && this.force_global && (this.config?.exit_nodes?.length ?? 0) > 0
+  }
+
+  private async prepareVpnProtection(): Promise<void> {
+    if (!this.shouldProtectProcessNet()) {
+      return
+    }
+    if (!this.vpnConnection) {
+      this.vpnConnection = vpnExtension.createVpnConnection(this.context)
+      Logger.debug("vpnConnection created for process protection", "EasyTierAbility")
+    }
+    await this.vpnConnection.protectProcessNet()
+    Logger.info("protectProcessNet completed before kernel start", "EasyTierAbility")
+  }
+
   onCreate(want: Want): void {
     Logger.debug("VpnExtAbi create", "EasyTierAbility")
     if (want.parameters == undefined) return;
@@ -66,8 +82,12 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     if (this.show_log) {
       easytier.initTracingSubscriber();
     }
-    this.startCollecting();
-    this.startKernel();
+    this.prepareVpnProtection().catch((err: Error) => {
+      Logger.error(`protectProcessNet failed before kernel start: ${JSON.stringify(err)}`, "EasyTierAbility")
+    }).finally(() => {
+      this.startCollecting();
+      this.startKernel();
+    })
   }
 
   onDestroy(): void {
