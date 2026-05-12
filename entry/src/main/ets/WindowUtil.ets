@@ -24,6 +24,10 @@ export class WindowUtil {
     WindowUtil.navigationBarHeight = Spx2vp(value)
   }
 
+  public static minSide(): number {
+    return Math.min(WindowUtil.width, WindowUtil.height)
+  }
+
   public static update(width: number, height: number) {
     animateToImmediately({
       duration: 300,

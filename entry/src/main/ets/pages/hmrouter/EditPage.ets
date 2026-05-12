@@ -23,8 +23,9 @@ import { DialogHub, DialogMode } from '@hadss/dialoghub'
 import { dlpAntiPeep } from '@kit.DeviceSecurityKit';
 
 @Builder
-function QRImage(img: image.PixelMap) {
-  Image(img).size({width: 400, height: 400})
+export function QRImage(img: image.PixelMap) {
+  Image(img).size({width: WindowUtil.minSide()*0.7, height: WindowUtil.minSide()*0.7})
+    .margin(8)
 }
 
 @Builder

@@ -128,10 +128,10 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       })
       connection.on('error', (err: Object) => {
         Logger.error(`Connection error: ${JSON.stringify(err)}`, "EasyTierAbility");
-        this.connections.delete(connection.clientId);
+        this.dropConnection(connection)
       });
       connection.on('close', () => {
-        this.connections.delete(connection.clientId);
+        this.dropConnection(connection)
       });
     });
   }
@@ -159,11 +159,20 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     }, 100);
   }
 
+  private dropConnection(connection: socket.LocalSocketConnection): void {
+    this.connections.delete(connection.clientId)
+  }
+
   private sendBridgeMessage(connection: socket.LocalSocketConnection, msg: VpnMessage) {
     const str = JSON.stringify(msg) + '\n'
     const uint8Array = buffer.from(str).buffer
     connection.send({ data: uint8Array }).catch((err: BusinessError) => {
-      Logger.error("Failed to send data to UI: " + JSON.stringify(err), "EasyTierAbility")
+      this.dropConnection(connection)
+      if (err.code === 2301032) {
+        Logger.debug("VpnServer peer disconnected: " + JSON.stringify(err), "EasyTierAbility")
+      } else {
+        Logger.error("Failed to send data to UI: " + JSON.stringify(err), "EasyTierAbility")
+      }
     })
   }
 

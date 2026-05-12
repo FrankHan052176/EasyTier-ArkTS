@@ -1,13 +1,12 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
-import { deviceInfo, SuppressWarnings, SuppressWarningsType } from '@kit.BasicServicesKit';
+import { deviceInfo } from '@kit.BasicServicesKit';
 import {
   HdsNavigation,
   HdsNavigationTitleMode,
-  ScrollEffectType,
   HdsNavigationAttribute,
   TitleBarStyleOptions
 } from '@hms.hds.hdsBaseComponent';
-import { HdsMenuButton, MenuButton } from '../Components';
+import { HdsMenuButton } from '../Components';
 import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { AppManager } from '../../AppManager';
 import { EventHelper } from '../../util/EventHelper';
@@ -18,7 +17,7 @@ import { BottomAnimator } from '../../class/animator/BottomAnimator';
 import { motion } from '@kit.MultimodalAwarenessKit';
 import { harmonyShare } from '@kit.ShareKit';
 import { WindowUtil } from '../../WindowUtil';
-import { buildShareData } from '../../util/ShareUtil';
+import { buildShareData, buildShareUrl } from '../../util/ShareUtil';
 import { ConfigJson } from '../../config/schema/SchemaConfig';
 import { Instances } from '../../components/index/Instances';
 import { Favorite } from '../../components/index/Favorite';
@@ -26,7 +25,10 @@ import { Logs as Logs } from '../../components/index/Logs';
 import { QQGroups } from '../../components/index/QQGroups';
 import { SharedPeers } from '../../components/index/SharedPeers'
 import { CompSizeWithPos, DesktopLayout } from 'desktop_layout';
-import { Logger } from '../../shared/logging/Logger';
+import { generateBarcode, scanCore } from '@kit.ScanKit';
+import { DialogHub, DialogMode } from '@hadss/dialoghub';
+import { image } from '@kit.ImageKit';
+import { QRImage } from './EditPage';
 
 export function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
   let result = new SymbolGlyphModifier(symbol)
@@ -123,22 +125,6 @@ export struct HomePage {
     harmonyShare.off('knockShare', this.immersiveCallback);
   }
 
-  restart() {
-    if (AppManager.easytier.runningNetworks.size > 0) {
-      let uuid = ""
-      for (const key of AppManager.easytier.runningNetworks.keys()) {
-        uuid = key
-        break;
-      }
-      AppManager.easytier.stop()
-      if (!AppManager.easytier.start(uuid)) {
-        sendToast("非法实例, 很可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
-      }
-    } else {
-      sendToast("Amazing!找不到启动的实例", $r("sys.symbol.exclamationmark_circle"), 1)
-    }
-  }
-
   startAndStop() {
     if (AppManager.easytier.runningNetworks.size > 0) {
       AppManager.easytier.stop()
@@ -164,6 +150,36 @@ export struct HomePage {
     }
   }
 
+  qr() {
+    if (!AppManager.uiState.selected) {
+      return
+    }
+    let config: ConfigJson | undefined = AppManager.easytier.getConfig(AppManager.uiState.selected)
+    if (config) {
+      buildShareUrl(config, (content) => {
+        let options: generateBarcode.CreateOptions = {
+          scanType: scanCore.ScanType.QR_CODE,
+          height: 400,
+          width: 400
+        }
+        try {
+          generateBarcode.createBarcode(content, options).then((pixelMap: image.PixelMap) => {
+            DialogHub.getCustomDialog()
+              .setOperableContent(wrapBuilder(QRImage), () => {
+                return pixelMap
+              })
+              .setStyle({
+                radius: 18,
+              })
+              .setConfig({ dialogBehavior: { isModal: true, autoDismiss: true, passThroughGesture: false }, dialogMode: DialogMode.CUSTOM_DIALOG })
+              .build()
+              .show();
+          }).catch((error: BusinessError) => {})
+        } catch (error) {}
+      }, true)
+    }
+  }
+
   @Builder
   actionBar() {
     Column() {
@@ -176,9 +192,9 @@ export struct HomePage {
             }
           })],
           endButtons: [new ActionBarButton({
-            baseIcon: $r('sys.symbol.arrow_clockwise'),
+            baseIcon: $r('sys.symbol.qrcode'),
             onClick: () => {
-              this.restart()
+              this.qr()
             }
           })],
           primaryButton: new ActionBarButton({
@@ -227,7 +243,7 @@ export struct HomePage {
 
           if (AppManager.easytier.runningNetworks.size > 0) {
             Button({ type: ButtonType.Circle }) {
-              SymbolGlyph($r('sys.symbol.arrow_clockwise'))
+              SymbolGlyph($r('sys.symbol.qrcode'))
                 .fontSize(24)
                 .fontColor([$r("sys.color.font_primary")])
             }
@@ -235,7 +251,7 @@ export struct HomePage {
             .height(48)
             .backgroundColor(Color.Transparent)
             .onClick(() => {
-              this.restart()
+              this.qr()
             })
           }
         }
