@@ -85,6 +85,11 @@ export function Setting_Sheet() {
             .fontColor($r("sys.color.font_primary"))
             .fontSize(16)
             .margin({ right: 5 })
+          if (AppManager.easytier.runningNetworks.size > 0) {
+            Text("运行时禁止切换")
+              .fontColor($r("sys.color.font_secondary"))
+              .fontSize(14)
+          }
         }
 
         Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.ext_mode })
@@ -95,6 +100,7 @@ export function Setting_Sheet() {
           })
           .height(29)
           .width(52)
+          .enabled(AppManager.easytier.runningNetworks.size == 0)
       }
       .height(49)
       .borderRadius(18)

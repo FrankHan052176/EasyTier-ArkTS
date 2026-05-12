@@ -108,7 +108,7 @@ export struct StatusPage {
               .textOverflow({
                 overflow: TextOverflow.Ellipsis
               })
-            Text(peer.ip)
+            Text(peer.ip+"/"+peer.peerId)
               .fontSize(11)
               .fontColor($r("sys.color.font_secondary"))
           }
