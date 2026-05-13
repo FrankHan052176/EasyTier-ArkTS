@@ -15,11 +15,10 @@ export struct InstanceSelector {
 
   @Computed
   get entries(): InstanceEntry[] {
-    const entries = AppManager.easytier.listStoredConfigs()
-    return entries.map((item) => {
+    return AppManager.data.configIds.map((uuid) => {
       return {
-        uuid: item.configId,
-        label: item.displayName && item.displayName.length > 0 ? item.displayName : item.configId
+        uuid,
+        label: AppManager.easytier.getConfigLabel(uuid, uuid)
       } as InstanceEntry
     })
   }
@@ -90,7 +89,7 @@ export struct InstanceSelector {
           ListItem() {
             Row() {
               Column() {
-                Text(AppManager.easytier.getConfigName(uuid))
+                Text(AppManager.easytier.getConfigLabel(uuid, uuid))
                   .fontSize(16)
                   .fontWeight(uuid === this.selectedUuid ? FontWeight.Bold : FontWeight.Medium)
                   .fontColor(uuid === this.selectedUuid ? $r('sys.color.brand') : $r('sys.color.font_primary'))

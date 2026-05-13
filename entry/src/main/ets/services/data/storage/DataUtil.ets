@@ -117,6 +117,7 @@ export class DataUtil {
     syncWholeConfig(config.instance_id, name, config)
     this.refreshConfigIds()
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
+    AppManager.uiState.selected = config.instance_id
     AppManager.uiState.editingInstance = config.instance_id
     HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid:config.instance_id, unsafe: false}, animator: animator });
     return config
