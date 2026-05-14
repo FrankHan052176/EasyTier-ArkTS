@@ -67,7 +67,9 @@ export class PeerInfo {
   }
 
   update(newInfo: PeerInfo) {
+    this.hostname = newInfo.hostname
     this.cost = newInfo.cost
+    this.ip = newInfo.ip
     this.latency_us = newInfo.latency_us
     this.protocol = newInfo.protocol
     this.loss = newInfo.loss
@@ -91,12 +93,14 @@ export class InstanceInfo {
   update(info: RuntimeInstanceState) {
     //      下载  上传
     let sum = [0, 0]
+    const activePeerIds: Set<number> = new Set()
     for (const route of info.routes ?? []) {
       if (route) {
         let ip = "waiting"
         if (route.ipv4) {
           ip = route.ipv4 as string
         }
+        activePeerIds.add(route.peerId)
         let peerInfo = new PeerInfo(route.peerId, route.hostname ?? "N/A", route.cost ?? 0, ip)
         const peer = (info.peers ?? []).find((value: RuntimePeerInfo) => value.peerId === route.peerId)
         let bytes = 0
@@ -120,6 +124,11 @@ export class InstanceInfo {
         this.peers.set(peerInfo)
       }
     }
+    this.peers.getIds().forEach((peerId) => {
+      if (!activePeerIds.has(peerId)) {
+        this.peers.del(peerId)
+      }
+    })
     for (const peer of (info.peers ?? [])) {
       for (const conn of (peer.conns ?? [])) {
         if (conn.stats) {

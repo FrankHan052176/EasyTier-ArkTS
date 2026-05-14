@@ -14,6 +14,10 @@ export class PeerInfoDataSource implements IDataSource {
     return this.values.get(this.idArray[index])!
   }
 
+  getIds(): number[] {
+    return [...this.idArray]
+  }
+
   registerDataChangeListener(listener: DataChangeListener): void {
     if (this.listeners.indexOf(listener) < 0) {
       this.listeners.push(listener);
@@ -81,6 +85,7 @@ export class PeerInfoDataSource implements IDataSource {
   del(peerId: number) {
     if (this.values.has(peerId)) {
       let index = this.idArray.indexOf(peerId)
+      this.values.delete(peerId)
       this.idArray.splice(index, 1)
       this.notifyDataDelete(index)
     }
