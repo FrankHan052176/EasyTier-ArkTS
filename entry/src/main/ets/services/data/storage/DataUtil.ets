@@ -31,8 +31,16 @@ export class DataUtil {
     try {
       const stored = JSON.parse(easytier.listConfigs()) as StoredConfigMetaLite[]
       this.configIds = (stored ?? []).map((item) => item.configId)
+      if (AppManager.uiState.selected && !this.configIds.includes(AppManager.uiState.selected)) {
+        AppManager.uiState.selected = this.configIds.length > 0 ? this.configIds[0] : undefined
+      }
+      if (AppManager.uiState.favorite && !this.configIds.includes(AppManager.uiState.favorite)) {
+        AppManager.uiState.favorite = undefined
+      }
     } catch (_) {
       this.configIds = []
+      AppManager.uiState.selected = undefined
+      AppManager.uiState.favorite = undefined
     }
   }
 
@@ -205,6 +213,7 @@ export class DataUtil {
     syncWholeConfig(config.instance_id!, name ?? config.instance_id!, config)
     this.refreshConfigIds()
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
+    AppManager.uiState.selected = config.instance_id
     AppManager.uiState.editingInstance = config.instance_id
     HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid:config.instance_id, unsafe: false}, animator: animator });
     return true

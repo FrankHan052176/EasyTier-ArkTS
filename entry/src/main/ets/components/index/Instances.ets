@@ -20,7 +20,8 @@ export struct Instances {
 
   @Computed
   get selectedUuid() {
-    return AppManager.uiState.selected
+    const selected = AppManager.uiState.selected
+    return selected && this.uuids.includes(selected) ? selected : undefined
   }
 
   @Computed
