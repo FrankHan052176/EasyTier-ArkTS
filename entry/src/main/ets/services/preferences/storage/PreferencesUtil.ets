@@ -124,6 +124,7 @@ export class PreferenceUtil {
       s.vault_mode = this.preferences.getSync("vault_mode", false).valueOf() as boolean;
       s.ext_mode = this.preferences.getSync("ext_mode", false).valueOf() as boolean;
       s.ask_dlp = this.preferences.getSync("ask_dlp", false).valueOf() as boolean;
+      s.cloud_auto_sync = this.preferences.getSync("cloud_auto_sync", false).valueOf() as boolean;
       s.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string;
       s.help2 = this.preferences.getSync("help2", true).valueOf() as boolean;
 

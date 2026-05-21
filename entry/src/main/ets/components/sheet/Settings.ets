@@ -4,6 +4,70 @@ import { APP_VERSION, APP_VERSION_CODE, BUILD_TIME, CORE_VERSION } from '../../u
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
 import { EventHelper } from '../../util/EventHelper'
 import { deviceInfo } from '@kit.BasicServicesKit'
+import { sendToast } from '../../ToastUtil'
+import { cloudSync } from '@kit.CoreFileKit'
+
+function formatSyncTime(raw: string): string {
+  let value = Number.parseInt(raw, 10) || 0
+  if (value <= 0) {
+    return '未记录'
+  }
+  if (value < 1000000000000) {
+    value *= 1000
+  }
+  const date = new Date(value)
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mi = String(date.getMinutes()).padStart(2, '0')
+  const ss = String(date.getSeconds()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`
+}
+
+function formatSyncState(state: cloudSync.SyncState): string {
+  switch (state) {
+    case cloudSync.SyncState.UPLOADING:
+      return '上传中'
+    case cloudSync.SyncState.UPLOAD_FAILED:
+      return '上传失败'
+    case cloudSync.SyncState.DOWNLOADING:
+      return '下载中'
+    case cloudSync.SyncState.DOWNLOAD_FAILED:
+      return '下载失败'
+    case cloudSync.SyncState.COMPLETED:
+      return '已完成'
+    case cloudSync.SyncState.STOPPED:
+      return '已停止'
+    default:
+      return '未知状态'
+  }
+}
+
+function formatSyncError(error: cloudSync.ErrorType): string {
+  switch (error) {
+    case cloudSync.ErrorType.NO_ERROR:
+      return '无'
+    case cloudSync.ErrorType.NETWORK_UNAVAILABLE:
+      return '网络不可用'
+    case cloudSync.ErrorType.WIFI_UNAVAILABLE:
+      return 'Wi-Fi 不可用'
+    case cloudSync.ErrorType.BATTERY_LEVEL_LOW:
+      return '电量过低'
+    case cloudSync.ErrorType.BATTERY_LEVEL_WARNING:
+      return '电量告警'
+    case cloudSync.ErrorType.CLOUD_STORAGE_FULL:
+      return '云空间已满'
+    case cloudSync.ErrorType.LOCAL_STORAGE_FULL:
+      return '本地存储已满'
+    case cloudSync.ErrorType.DEVICE_TEMPERATURE_TOO_HIGH:
+      return '设备温度过高'
+    case cloudSync.ErrorType.REMOTE_SERVER_ABNORMAL:
+      return '云端服务异常'
+    default:
+      return `错误码 ${error}`
+  }
+}
 
 @ComponentV2
 export struct Setting_Title {
@@ -333,6 +397,102 @@ export function Setting_Sheet() {
           top: 5,
           bottom: 5
         })
+      }
+      .margin({ bottom: 10 })
+
+      ListItem() {
+          Column({ space: 10 }) {
+            Row() {
+              Row() {
+                SymbolGlyph($r("sys.symbol.doc"))
+                  .fontColor([$r("sys.color.font_primary")])
+                  .fontSize(16)
+                  .margin({ right: 5 })
+                Text("配置同步到云空间")
+                  .fontColor($r("sys.color.font_primary"))
+                  .fontSize(16)
+              }
+              Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.cloud_auto_sync })
+                .selectedColor($r('sys.color.brand'))
+                .switchPointColor($r('sys.color.comp_background_list_card'))
+                .onChange((isOn: boolean) => {
+                  AppManager.uiState.cloud_auto_sync = isOn
+                  AppManager.cloudSync.onAutoSyncChanged(isOn)
+                })
+                .height(29)
+                .width(52)
+            }
+            .height(49)
+            .alignItems(VerticalAlign.Center)
+            .justifyContent(FlexAlign.SpaceBetween)
+            .width('100%')
+
+            Row({space: 8}) {
+              Row() {
+                Text(`本地变更：`)
+                  .fontSize(12)
+                  .fontColor($r("sys.color.font_secondary"))
+                Text(`${formatSyncTime(AppManager.cloudSync.localUpdatedAt)}`)
+                  .fontSize(12)
+                  .fontColor($r("sys.color.font_secondary"))
+                  .layoutWeight(1)
+                  .textAlign(TextAlign.End)
+              }
+              .layoutWeight(1)
+              Row() {
+                Text(`云端变更：`)
+                  .fontSize(12)
+                  .fontColor($r("sys.color.font_secondary"))
+                  .textAlign(TextAlign.End)
+                Text(`${formatSyncTime(AppManager.cloudSync.cloudUpdatedAt)}`)
+                  .fontSize(12)
+                  .fontColor($r("sys.color.font_secondary"))
+                  .textAlign(TextAlign.End)
+                  .layoutWeight(1)
+              }
+              .layoutWeight(1)
+              .align(Alignment.End)
+            }
+            .width('100%')
+
+            Text(`同步状态：${formatSyncState(AppManager.cloudSync.syncState)}`)
+              .fontSize(12)
+              .fontColor($r("sys.color.font_secondary"))
+
+            if (AppManager.cloudSync.syncError !== cloudSync.ErrorType.NO_ERROR) {
+              Text(`同步异常：${formatSyncError(AppManager.cloudSync.syncError)}`)
+                .fontSize(12)
+                .fontColor($r("sys.color.font_secondary"))
+
+              Text(AppManager.cloudSync.lastSyncMessage)
+                .fontSize(12)
+                .fontColor($r("sys.color.font_secondary"))
+            }
+
+            Row({ space: 8 }) {
+              Button('上传', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
+                .layoutWeight(1)
+                .borderRadius(13)
+                .onClick(() => {
+                  AppManager.cloudSync.uploadToCloud().catch(() => {
+                    sendToast('上传配置到云端失败', $r("sys.symbol.exclamationmark_circle"), 1)
+                  })
+                })
+              Button('更新', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.NORMAL, role: ButtonRole.NORMAL })
+                .layoutWeight(1)
+                .borderRadius(13)
+                .onClick(() => {
+                  AppManager.cloudSync.updateFromCloud().catch(() => {
+                    sendToast('从云端更新配置失败', $r("sys.symbol.exclamationmark_circle"), 1)
+                  })
+                })
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .padding({ left: 10, right: 5, top: 10, bottom: 10 })
+          .borderRadius(18)
+          .backgroundColor($r("sys.color.background_primary"))
       }
       .margin({ bottom: 10 })
 

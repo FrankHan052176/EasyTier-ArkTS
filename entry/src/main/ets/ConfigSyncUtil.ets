@@ -1,5 +1,8 @@
 import easytier from 'easytier-ohrs'
 import { ConfigJson, ConfigFieldValue } from './config/schema/SchemaConfig'
+import { EventHelper } from './util/EventHelper'
+
+export const CLOUD_CONFIG_CHANGED_EVENT = 'cloud_config_changed'
 
 function getTopLevelValue(config: ConfigJson, field: string): ConfigFieldValue {
   return config[field] as ConfigFieldValue
@@ -43,7 +46,11 @@ export function setFieldPathValue(config: ConfigJson, path: string[], value: Con
 
 export function syncTopLevelField(configId: string, field: string, config: ConfigJson): boolean {
   const value: ConfigFieldValue = getTopLevelValue(config, field)
-  return easytier.setConfigField(configId, field, JSON.stringify(value ?? null))
+  const ok = easytier.setConfigField(configId, field, JSON.stringify(value ?? null))
+  if (ok) {
+    EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
+  }
+  return ok
 }
 
 export function syncFieldPath(configId: string, path: string[], config: ConfigJson): boolean {
@@ -59,4 +66,5 @@ export function ensureKernelConfig(configId: string, displayName: string): void 
 export function syncWholeConfig(configId: string, displayName: string, config: ConfigJson): void {
   ensureKernelConfig(configId, displayName)
   easytier.saveConfig(configId, displayName, JSON.stringify(config))
+  EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
 }

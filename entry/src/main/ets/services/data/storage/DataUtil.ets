@@ -15,7 +15,8 @@ import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
 import { HMRouterMgr } from '@hadss/hmrouter';
 import easytier from 'easytier-ohrs';
 import { ConfigJson } from '../../../config/schema/SchemaConfig';
-import { syncWholeConfig } from '../../../ConfigSyncUtil';
+import { CLOUD_CONFIG_CHANGED_EVENT, syncWholeConfig } from '../../../ConfigSyncUtil';
+import { EventHelper } from '../../../util/EventHelper';
 
 interface StoredConfigMetaLite {
   configId: string
@@ -229,6 +230,7 @@ export class DataUtil {
     if (AppManager.easytier.getConfig(uuid)) {
       easytier.deleteStoredConfigMeta(uuid)
       this.refreshConfigIds()
+      EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
       return true
     } else {
       return false

@@ -1,5 +1,6 @@
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
+import { CLOUD_CONFIG_CHANGED_EVENT } from '../../ConfigSyncUtil'
 import { EventHelper } from '../../util/EventHelper'
 import easytier from 'easytier-ohrs'
 
@@ -76,6 +77,7 @@ export struct Rename_Content {
             if (value.length > 0) {
               if (AppManager.uiState.editingInstance) {
                 easytier.renameStoredConfig(AppManager.uiState.editingInstance, value)
+                EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
               }
             }
           })
