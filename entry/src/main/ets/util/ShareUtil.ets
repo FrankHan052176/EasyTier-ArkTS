@@ -2,6 +2,7 @@ import { systemShare } from "@kit.ShareKit";
 import { uniformTypeDescriptor } from "@kit.ArkData";
 import { Logger } from "../shared/logging/Logger";
 import { url } from "@kit.ArkTS";
+import { fileIo, fileUri } from '@kit.CoreFileKit'
 import { AppManager } from "../AppManager";
 import easytier, { SharedConfigLinkPayload } from 'easytier-ohrs';
 import { syncWholeConfig } from '../ConfigSyncUtil';
@@ -43,6 +44,50 @@ export function buildShareData(config: ConfigJson, callback: (data: systemShare.
       Logger.error("systemShare" + JSON.stringify(e), "ShareUtil")
     }
   }, only_start, name)
+}
+
+export function buildTomlShareData(config: ConfigJson, callback: (data: systemShare.SharedData) => void,
+  name: string | undefined = AppManager.easytier.getConfigName(config.instance_id!) ?? '404') {
+  try {
+    const configId: string | undefined = config.instance_id
+    if (!configId) {
+      return
+    }
+    const displayName = name ?? configId
+    syncWholeConfig(configId, displayName, config)
+    const tomlText = easytier.exportToml(configId)
+    if (!tomlText) {
+      return
+    }
+
+    const filePath = `${AppManager.content.context!.filesDir}/easytier-share.toml`
+    try {
+      fileIo.unlinkSync(filePath)
+    } catch (_) {}
+
+    let file: fileIo.File | null = null
+    try {
+      file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
+      fileIo.writeSync(file.fd, tomlText)
+      fileIo.closeSync(file)
+      const shareData: systemShare.SharedData = new systemShare.SharedData({
+        utd: uniformTypeDescriptor.UniformDataType.FILE,
+        uri: fileUri.getUriFromPath(filePath),
+        title: `${displayName}.toml`,
+        description: configId
+      })
+      callback(shareData)
+    } catch (err) {
+      Logger.error(`buildTomlShareData write error: ${JSON.stringify(err)}`, 'ShareUtil')
+      if (file) {
+        try {
+          fileIo.closeSync(file)
+        } catch (_) {}
+      }
+    }
+  } catch (e) {
+    Logger.error('buildTomlShareData error: ' + JSON.stringify(e), 'ShareUtil')
+  }
 }
 
 export async function unwrapUrl(url: url.URL) {

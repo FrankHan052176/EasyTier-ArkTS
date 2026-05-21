@@ -19,13 +19,18 @@ export interface RuntimePeerConnStats {
 }
 
 export interface RuntimePeerConnInfo {
+  connId?: string
   tunnelType?: string
+  localAddr?: string
+  remoteAddr?: string
+  resolvedRemoteAddr?: string
   lossRate?: number
   stats?: RuntimePeerConnStats
 }
 
 export interface RuntimePeerInfo {
   peerId: number
+  defaultConnId?: string
   conns: RuntimePeerConnInfo[]
 }
 

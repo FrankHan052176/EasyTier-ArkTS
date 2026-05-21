@@ -193,16 +193,23 @@ export enum Protocol {
   WSS6 = "wss6",
   WG = "wg",
   WG6 = "wg6",
+  HTTP = "http",
+  HTTPS = "https",
+  RING = "ring",
+  SRV = "srv",
   TXT = "txt",
   UNKNOWN = "N/A"
 }
 
-export const protocols =
-  [Protocol.TCP, Protocol.UDP, Protocol.QUIC, Protocol.WS, Protocol.WSS, Protocol.WG, Protocol.TXT]
+export const peerProtocols: Protocol[] = [Protocol.TCP, Protocol.UDP, Protocol.QUIC, Protocol.WS, Protocol.WSS,
+  Protocol.WG, Protocol.HTTP, Protocol.HTTPS, Protocol.RING, Protocol.SRV, Protocol.TXT]
 
-export const protocolsWithoutTXT = [Protocol.TCP, Protocol.UDP, Protocol.QUIC, Protocol.WS, Protocol.WSS, Protocol.WG]
+export const protocols: Protocol[] = [...peerProtocols]
 
-export const protocolsOnlyTcpAndUdp = [Protocol.TCP, Protocol.UDP]
+export const protocolsWithoutTXT: Protocol[] = [Protocol.TCP, Protocol.UDP, Protocol.QUIC, Protocol.WS,
+  Protocol.WSS, Protocol.WG]
+
+export const protocolsOnlyTcpAndUdp: Protocol[] = [Protocol.TCP, Protocol.UDP]
 
 export function convertToProtocol(input: string): Protocol {
   switch (input) {
@@ -230,6 +237,14 @@ export function convertToProtocol(input: string): Protocol {
       return Protocol.WG;
     case "wg6":
       return Protocol.WG6;
+    case "http":
+      return Protocol.HTTP;
+    case "https":
+      return Protocol.HTTPS;
+    case "ring":
+      return Protocol.RING;
+    case "srv":
+      return Protocol.SRV;
     case "txt":
       return Protocol.TXT;
     default:
@@ -249,6 +264,14 @@ export function protocolColor(protocol: Protocol): ResourceColor {
       return "#ff5ba854";
     case Protocol.WG:
       return "#ffed6f21";
+    case Protocol.HTTP:
+      return "#ff4f7cff";
+    case Protocol.HTTPS:
+      return "#ff3265e6";
+    case Protocol.RING:
+      return "#ff8e44ad";
+    case Protocol.SRV:
+      return "#ff00897b";
     case Protocol.TXT:
       return $r("sys.color.font_on_primary");
     default:
@@ -268,6 +291,14 @@ export function protocolBGColor(protocol: Protocol): ResourceColor {
       return "#335ba854";
     case Protocol.WG:
       return "#33ed6f21";
+    case Protocol.HTTP:
+      return "#334f7cff";
+    case Protocol.HTTPS:
+      return "#333265e6";
+    case Protocol.RING:
+      return "#338e44ad";
+    case Protocol.SRV:
+      return "#3300897b";
     case Protocol.TXT:
       return $r("sys.color.font_primary");
     default:

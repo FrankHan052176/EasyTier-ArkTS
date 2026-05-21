@@ -9,6 +9,13 @@ function isDomainOrIP(value: string): boolean {
   return /^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|([a-zA-Z0-9][-a-zA-Z0-9]*\.)+[a-zA-Z]{2,})$/.test(value)
 }
 
+function isDomainIPPathOrIdentifier(value: string): boolean {
+  if (value.length === 0) {
+    return false
+  }
+  return !/\s/.test(value)
+}
+
 function isPort(value: string): boolean {
   try {
     let num = Number.parseInt(value)
@@ -20,6 +27,88 @@ function isPort(value: string): boolean {
   } catch (e) {
     return false
   }
+}
+
+interface ParsedUrlValue {
+  domain: string
+  port: string
+}
+
+function protocolRequiresPort(protocol: Protocol): boolean {
+  return protocol === Protocol.TCP || protocol === Protocol.UDP || protocol === Protocol.QUIC ||
+    protocol === Protocol.WG || protocol === Protocol.TCP6 || protocol === Protocol.UDP6 ||
+    protocol === Protocol.QUIC6 || protocol === Protocol.WG6
+}
+
+function protocolSupportsOptionalPort(protocol: Protocol): boolean {
+  return protocol === Protocol.WS || protocol === Protocol.WSS || protocol === Protocol.HTTP || protocol === Protocol.HTTPS ||
+    protocol === Protocol.WS6 || protocol === Protocol.WSS6
+}
+
+function protocolUsesRawTarget(protocol: Protocol): boolean {
+  return protocol === Protocol.TXT || protocol === Protocol.RING || protocol === Protocol.SRV
+}
+
+function splitHostAndPort(value: string): ParsedUrlValue | undefined {
+  if (value.startsWith('[')) {
+    const closing = value.indexOf(']')
+    if (closing < 0) {
+      return undefined
+    }
+    const domain = value.substring(0, closing + 1)
+    const remain = value.substring(closing + 1)
+    if (!remain.startsWith(':')) {
+      return undefined
+    }
+    const port = remain.substring(1)
+    const parsed: ParsedUrlValue = { domain, port }
+    return parsed
+  }
+  const index = value.lastIndexOf(':')
+  if (index <= 0 || index === value.length - 1) {
+    return undefined
+  }
+  const parsed: ParsedUrlValue = {
+    domain: value.substring(0, index),
+    port: value.substring(index + 1)
+  }
+  return parsed
+}
+
+function parseUrlValue(proto: Protocol, rawValue: string): ParsedUrlValue | undefined {
+  const value = rawValue.trim()
+  if (protocolUsesRawTarget(proto)) {
+    if (!isDomainIPPathOrIdentifier(value)) {
+      return undefined
+    }
+    const parsed: ParsedUrlValue = { domain: value, port: '' }
+    return parsed
+  }
+
+  if (protocolRequiresPort(proto)) {
+    const parsed = splitHostAndPort(value)
+    if (!parsed || !isPort(parsed.port) || !isDomainIPPathOrIdentifier(parsed.domain)) {
+      return undefined
+    }
+    return parsed
+  }
+
+  if (protocolSupportsOptionalPort(proto)) {
+    const parsed = splitHostAndPort(value)
+    if (!parsed) {
+      if (!isDomainIPPathOrIdentifier(value)) {
+        return undefined
+      }
+      const noPortParsed: ParsedUrlValue = { domain: value, port: '' }
+      return noPortParsed
+    }
+    if (!isPort(parsed.port) || !isDomainIPPathOrIdentifier(parsed.domain)) {
+      return undefined
+    }
+    return parsed
+  }
+
+  return undefined
 }
 
 @ComponentV2
@@ -70,7 +159,7 @@ export function UrlBuilder(value: Url) {
       .width('100%')
       .justifyContent(FlexAlign.Start)
 
-      if (value.proto != Protocol.TXT) {
+      if (!protocolUsesRawTarget(value.proto)) {
         Text(value.port)
           .fontSize(14)
           .width('100%')
@@ -117,15 +206,17 @@ export function ListenerBuilder(value: Url) {
       .width('100%')
       .justifyContent(FlexAlign.Start)
 
-      Text(value.port)
-        .fontSize(14)
-        .width('100%')
-        .fontColor($r("sys.color.font_tertiary"))
-        .maxLines(1)
-        .textOverflow({
-          overflow: TextOverflow.Ellipsis
-        })
-        .textAlign(TextAlign.Start)
+      if (!protocolUsesRawTarget(value.proto)) {
+        Text(value.port.length > 0 ? value.port : "默认端口")
+          .fontSize(14)
+          .width('100%')
+          .fontColor($r("sys.color.font_tertiary"))
+          .maxLines(1)
+          .textOverflow({
+            overflow: TextOverflow.Ellipsis
+          })
+          .textAlign(TextAlign.Start)
+      }
     }
     .alignItems(HorizontalAlign.Start)
     .layoutWeight(100)
@@ -191,7 +282,7 @@ export struct UrlEditor {
               .borderRadius(8)
               .padding(10)
               .onChange((value: string) => {
-                if (isDomainOrIP(value)) {
+                if (isDomainIPPathOrIdentifier(value)) {
                   this.domain = false
                   if (EditValue_Url) {
                     EditValue_Url.domain = value
@@ -201,30 +292,36 @@ export struct UrlEditor {
                 }
               })
 
-            Text(":")
-              .fontSize(16)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r("sys.color.font_tertiary"))
+            if (!protocolUsesRawTarget(EditValue_Url!.proto)) {
+              Text(":")
+                .fontSize(16)
+                .fontWeight(FontWeight.Bold)
+                .fontColor($r("sys.color.font_tertiary"))
 
-            TextInput({ text: EditValue_Url!.port, placeholder: "端口" })
-              .layoutWeight(1)
-              .maxLength(5)
-              .type(InputType.Number)
-              .backgroundColor($r("sys.color.comp_background_tertiary"))
-              .borderRadius(8)
-              .padding(10)
-              .textAlign(TextAlign.Center)
-              .onChange((value: string) => {
-                if (isPort(value)) {
-                  this.port = false
-                  if (EditValue_Url) {
-                    EditValue_Url.port = value
+              TextInput({ text: EditValue_Url!.port, placeholder: protocolSupportsOptionalPort(EditValue_Url!.proto) ? "端口(可选)" : "端口" })
+                .layoutWeight(1)
+                .maxLength(5)
+                .type(InputType.Number)
+                .backgroundColor($r("sys.color.comp_background_tertiary"))
+                .borderRadius(8)
+                .padding(10)
+                .textAlign(TextAlign.Center)
+                .onChange((value: string) => {
+                  if (value.length === 0 && protocolSupportsOptionalPort(EditValue_Url!.proto)) {
+                    this.port = false
+                    if (EditValue_Url) {
+                      EditValue_Url.port = value
+                    }
+                  } else if (isPort(value)) {
+                    this.port = false
+                    if (EditValue_Url) {
+                      EditValue_Url.port = value
+                    }
+                  } else {
+                    this.port = true
                   }
-                } else {
-                  this.port = true
-                }
-              })
-              .enabled(EditValue_Url?.proto !== Protocol.TXT)
+                })
+            }
           }
           .width('100%')
         }
@@ -273,9 +370,13 @@ export class Url implements FieldValue {
         return
       }
       let arr = config[this.fieldName] as string[]
-      let old = (monitor.value("proto")?.before ?? this.proto) + "://"
-        + (monitor.value("domain")?.before ?? this.domain) + ":"
-        + (monitor.value("port")?.before ?? this.port)
+      const oldProto = monitor.value("proto")?.before as Protocol ?? this.proto
+      const oldDomain = monitor.value("domain")?.before as string ?? this.domain
+      const oldPort = monitor.value("port")?.before as string ?? this.port
+      let old = oldProto + "://" + oldDomain
+      if (!protocolUsesRawTarget(oldProto) && oldPort.length > 0) {
+        old += ":" + oldPort
+      }
       let index = arr.indexOf(old)
       if (index < 0) {
         return
@@ -291,23 +392,13 @@ export class Url implements FieldValue {
       return false
     } else {
       this.proto = convertToProtocol(arr[0])
-      if (this.proto != Protocol.TXT) {
-        let arr1 = arr[1].split(":")
-        if (arr.length != 2 || !isPort(arr1[1]) || !isDomainOrIP(arr1[0])) {
-          return false
-        } else {
-          this.domain = arr1[0]
-          this.port = arr1[1]
-          return true
-        }
-      }else {
-        if (isDomainOrIP(arr[1])) {
-          this.domain = arr[1]
-          return true
-        }else {
-          return false
-        }
+      const parsed = parseUrlValue(this.proto, arr[1])
+      if (!parsed) {
+        return false
       }
+      this.domain = parsed.domain
+      this.port = parsed.port
+      return true
     }
   }
 
@@ -318,36 +409,37 @@ export class Url implements FieldValue {
       return undefined
     } else {
       this.proto = convertToProtocol(arr[0])
-      if (this.proto != Protocol.TXT) {
-        let arr1 = arr[1].split(":")
-        if (arr.length != 2 || !isPort(arr1[1]) || !isDomainOrIP(arr1[0])) {
-          return undefined
-        } else {
-          this.domain = arr1[0]
-          this.port = arr1[1]
-          return this
-        }
-      }else {
-        if (isDomainOrIP(arr[1])) {
-          this.domain = arr[1]
-          return this
-        }else {
-          return undefined
-        }
+      const parsed = parseUrlValue(this.proto, arr[1])
+      if (!parsed) {
+        return undefined
       }
+      this.domain = parsed.domain
+      this.port = parsed.port
+      return this
     }
   }
 
   toString(): string {
-    if (this.proto === Protocol.TXT) {
+    if (protocolUsesRawTarget(this.proto)) {
       return this.proto + "://" + this.domain
-    } else {
-      return this.proto + "://" + this.domain + ":" + this.port
     }
+    if (this.port.length === 0 && protocolSupportsOptionalPort(this.proto)) {
+      return this.proto + "://" + this.domain
+    }
+    return this.proto + "://" + this.domain + ":" + this.port
   }
 
   checkValid(): boolean {
-    return isPort(this.port) && isDomainOrIP(this.domain)
+    if (!isDomainIPPathOrIdentifier(this.domain)) {
+      return false
+    }
+    if (protocolUsesRawTarget(this.proto)) {
+      return true
+    }
+    if (protocolSupportsOptionalPort(this.proto) && this.port.length === 0) {
+      return true
+    }
+    return isPort(this.port)
   }
 
   bind(fieldName: string): Url {

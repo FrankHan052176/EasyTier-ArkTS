@@ -3,11 +3,14 @@ import { Context } from '@kit.AbilityKit';
 import easytier from 'easytier-ohrs';
 import { AppManager } from '../../../AppManager';
 import { Logger, LogLocate } from '../../../shared/logging/Logger';
-import { JSON } from '@kit.ArkTS';
+import { JSON, util } from '@kit.ArkTS';
 import { NetworkSegment } from '../../../models/network/NetworkSegment';
 import { AppInfo } from '../../../components/sheet/BlackList';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import { connection } from '@kit.NetworkKit';
+import { syncWholeConfig } from '../../../ConfigSyncUtil';
+import { getDefaultConfig } from '../../../config/defaults/ConfigDefaults';
+import { ConfigFieldValue, ConfigJson } from '../../../config/schema/SchemaConfig';
 import { stringArr2RouteArr } from '../../../util/Conversion';
 import { release } from '../../../util/info/ArtifactsType';
 
@@ -26,8 +29,77 @@ export class PreferenceUtil {
   @Trace white_list_apps: Map<string, AppInfo> = new Map()
   
   public isInit: boolean = false
-  context: Context | undefined = undefined
   private initialized: boolean = false
+
+  private decodeLegacyConfigName(rawName: Object | undefined): string | undefined {
+    if (typeof rawName === 'string') {
+      return rawName
+    }
+    if (rawName instanceof Uint8Array) {
+      const decoder = util.TextDecoder.create('utf-8', { fatal: false, ignoreBOM: true })
+      return decoder.decodeToString(rawName, { stream: false })
+    }
+    return undefined
+  }
+
+  private normalizeLegacyConfigValue(rawValue: Object | undefined): ConfigFieldValue | undefined {
+    if (rawValue === undefined || rawValue === null) {
+      return rawValue as ConfigFieldValue
+    }
+    if (typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+      return rawValue as ConfigFieldValue
+    }
+    try {
+      return JSON.parse(JSON.stringify(rawValue)) as ConfigFieldValue
+    } catch (_) {
+      return undefined
+    }
+  }
+
+  private clearLegacyPreferenceStore(store: preferences.Preferences): void {
+    const all:ESObject = store.getAllSync() as ESObject
+    Object.keys(all).forEach((key) => {
+      store.deleteSync(key)
+    })
+    store.flushSync()
+  }
+
+  private async migrateLegacyPreferenceConfigs(context: Context): Promise<void> {
+    const legacyConfigIdPreferences = preferences.getPreferencesSync(context, { name: 'EasyTierConfigIDs' })
+    const allLegacyConfigs:ESObject = legacyConfigIdPreferences.getAllSync()
+    const legacyConfigIds = Object.keys(allLegacyConfigs)
+    if (legacyConfigIds.length === 0) {
+      return
+    }
+
+    Logger.info(`migrateLegacyPreferenceConfigs found ${legacyConfigIds.length} legacy configs`, this)
+    for (const configId of legacyConfigIds) {
+      try {
+        const displayName = this.decodeLegacyConfigName(allLegacyConfigs[configId] as ESObject) ?? configId
+        const legacyConfigPreference = preferences.getPreferencesSync(context, { name: configId })
+        if (!easytier.getConfig(configId)) {
+          const rawConfig:ESObject = legacyConfigPreference.getAllSync()
+          const config:ESObject = getDefaultConfig('')
+          Object.keys(rawConfig).forEach((field) => {
+            const normalized:ESObject = this.normalizeLegacyConfigValue(rawConfig[field] as Object)
+            if (normalized !== undefined) {
+              config[field] = normalized as ConfigFieldValue
+            }
+          })
+          config.instance_id = configId
+          syncWholeConfig(configId, displayName, config as ConfigJson)
+        }
+        this.clearLegacyPreferenceStore(legacyConfigPreference)
+        legacyConfigIdPreferences.deleteSync(configId)
+        await preferences.deletePreferences(context, configId)
+      } catch (error) {
+        Logger.error(`migrate legacy config failed id=${configId} err=${JSON.stringify(error)}`, this)
+      }
+    }
+    legacyConfigIdPreferences.flushSync()
+    await preferences.deletePreferences(context, 'EasyTierConfigIDs')
+    AppManager.data.refreshConfigIds()
+  }
 
   async init(context: Context) {
     if (this.initialized) {
@@ -35,7 +107,6 @@ export class PreferenceUtil {
     }
     this.initialized = true
     this.isInit = true
-    this.context = context
     try {
       easytier.initConfigStore(context.filesDir)
       this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
@@ -61,6 +132,8 @@ export class PreferenceUtil {
 
       s.selected = this.preferences!.getSync("selected", "").toString() || undefined;
       s.favorite = this.preferences!.getSync("favorite", "").toString() || undefined;
+
+      await this.migrateLegacyPreferenceConfigs(context)
 
       this.globalConfigs = preferences.getPreferencesSync(context, { name: 'EasyTierGlobalConfigs' })
       await new Promise<void>((resolve) => {

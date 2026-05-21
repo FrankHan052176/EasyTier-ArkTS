@@ -14,7 +14,7 @@ import { WindowUtil } from '../../WindowUtil'
 import { harmonyShare, systemShare } from '@kit.ShareKit'
 import { Logger } from '../../shared/logging/Logger'
 import { common } from '@kit.AbilityKit'
-import { buildShareData, buildShareUrl } from '../../util/ShareUtil'
+import { buildShareData, buildShareUrl, buildTomlShareData } from '../../util/ShareUtil'
 import { EditPageParam } from '../../types/navigation/PageParam'
 import { ConfigJson } from '../../config/schema/SchemaConfig'
 import { generateBarcode, scanCore } from '@kit.ScanKit'
@@ -75,39 +75,25 @@ function ShareMenu() {
         }, true)
       }
     })
-    // MenuItem({content: "分享Toml文件"}).onClick(() => {
-    //   let config = AppManager.easytier.getEditingConfig()
-    //   if (config) {
-    //     let filePath = AppManager.content.context!.filesDir + '/share.toml';
-    //     let file: fileIo.File | null = null;
-    //     try {
-    //       fileIo.unlinkSync(filePath)
-    //     }catch (_) {}
-    //     try {
-    //       file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
-    //       // TODO: 实现network config 转 toml
-    //       fileIo.writeSync(file.fd, "");
-    //       fileIo.closeSync(file);
-    //
-    //       let shareData: systemShare.SharedData = new systemShare.SharedData({
-    //         utd: uniformTypeDescriptor.UniformDataType.FILE,
-    //         uri: fileUri.getUriFromPath(filePath),
-    //         title: '分享日志'
-    //       });
-    //       let controller: systemShare.ShareController = new systemShare.ShareController(shareData);
-    //       controller.show(AppManager.content.context! as common.UIAbilityContext, {
-    //         selectionMode: systemShare.SelectionMode.SINGLE,
-    //         previewMode: systemShare.SharePreviewMode.DEFAULT,
-    //         excludedAbilities: [systemShare.ShareAbilityType.PRINT,
-    //           systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
-    //       }).catch(() => {
-    //         Logger.error(`systemShareConfig::An unexpected error occurred.`);
-    //       })
-    //     } catch (err) {
-    //       Logger.error(`日志文件写入失败. Code: ${err.code}, message: ${err.message}`)
-    //     }
-    //   }
-    // })
+    MenuItem({content: "分享Toml文件"}).onClick(() => {
+      let config: ConfigJson | undefined = AppManager.easytier.getEditingConfig()
+      if (config) {
+        const configName: string | undefined = AppManager.easytier.getConfigName(config.instance_id)
+        buildTomlShareData(config, (data) => {
+          let controller: systemShare.ShareController = new systemShare.ShareController(data);
+          let uiContext: UIContext = AppManager.content.uiContext!;
+          let context: common.UIAbilityContext = uiContext.getHostContext() as common.UIAbilityContext;
+          controller.show(context, {
+            selectionMode: systemShare.SelectionMode.SINGLE,
+            previewMode: systemShare.SharePreviewMode.DEFAULT,
+            excludedAbilities: [systemShare.ShareAbilityType.PRINT,
+              systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
+          }).catch(() => {
+            Logger.error(`[Index] systemShareConfig::An unexpected error occurred.`);
+          })
+        }, configName)
+      }
+    })
   }
 }
 

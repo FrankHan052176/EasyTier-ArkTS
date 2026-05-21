@@ -111,7 +111,7 @@ export class EasyTierUtil {
     }
 
     const instances = snapshot.instances ?? []
-    Logger.debug(`processRuntimeSnapshot fromVpn=${fromVpn} extMode=${AppManager.uiState.ext_mode} instances=${instances.length}`, this)
+    Logger.debug(`processRuntimeSnapshot fromVpn=${fromVpn} extMode=${AppManager.uiState.ext_mode} state=${JSON.stringify(snapshot)}`, this)
     const activeIds = new Set<string>()
     instances.forEach((instance) => {
       const instanceId = this.getValidInstanceId(instance)
@@ -127,7 +127,7 @@ export class EasyTierUtil {
       if (!this.instanceInfos.has(instanceId)) {
         this.instanceInfos.set(instanceId, new InstanceInfo())
       }
-      this.instanceInfos.get(instanceId)?.update(instance)
+      this.instanceInfos.get(instanceId)!.update(instance)
       this.updateNotification(instanceId)
     })
 

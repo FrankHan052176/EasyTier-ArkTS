@@ -8,7 +8,7 @@ import { addValue, clearEditValue, commitEditValue, confirmCheck } from '../../c
 import { syncTopLevelField } from '../../ConfigSyncUtil'
 import { ConfigJson } from '../../config/schema/SchemaConfig'
 import { HdsMenuButton } from '../../pages/Components'
-import { protocolsWithoutTXT } from '../../util/Conversion'
+import { peerProtocols, protocolsWithoutTXT } from '../../util/Conversion'
 import { EventHelper } from '../../util/EventHelper'
 import { AddTitle, EditTitle } from './AddAndEditTitle'
 import { BlackList_Content, BlackList_Title } from './BlackList'
@@ -260,7 +260,7 @@ export struct SheetContent {
             if (this.addFieldType === "cidr" || this.addFieldType === "route") {
               CidrEditor()
             } else if (this.addFieldType === "peer") {
-              UrlEditor()
+              UrlEditor({ protocolArr: peerProtocols })
             } else if (this.addFieldType === "listener" || this.addFieldType === "mapped_listener") {
               UrlEditor({ protocolArr: protocolsWithoutTXT })
             } else if (this.addFieldType === "ip") {
@@ -274,7 +274,7 @@ export struct SheetContent {
             if (this.editFieldType === "cidr" || this.editFieldType === "route") {
               CidrEditor()
             } else if (this.editFieldType === "peer") {
-              UrlEditor()
+              UrlEditor({ protocolArr: peerProtocols })
             } else if (this.editFieldType === "listener" || this.editFieldType === "mapped_listener") {
               UrlEditor({ protocolArr: protocolsWithoutTXT })
             } else if (this.editFieldType === "ip") {

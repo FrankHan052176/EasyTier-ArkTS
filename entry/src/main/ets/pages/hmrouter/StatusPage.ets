@@ -108,7 +108,7 @@ export struct StatusPage {
               .textOverflow({
                 overflow: TextOverflow.Ellipsis
               })
-            Text(peer.ip+"/"+peer.peerId)
+            Text(peer.ip+" / "+peer.peerId)
               .fontSize(11)
               .fontColor($r("sys.color.font_secondary"))
           }
@@ -159,6 +159,24 @@ export struct StatusPage {
               .backgroundColor(protocolBGColor(protocol))
               .margin({ left: 5 })
           })
+
+          if (peer.resolvedRemoteAddr.length > 0) {
+            Text(peer.resolvedRemoteAddr)
+              .fontSize(10)
+              .fontWeight(FontWeight.Bold)
+              .padding({
+                left: 6,
+                right: 6,
+                top: 3,
+                bottom: 3
+              })
+              .borderRadius(4)
+              .fontColor($r("sys.color.font_secondary"))
+              .backgroundColor($r("sys.color.background_secondary"))
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .margin({ left: 5 })
+          }
         }
 
         Row({ space: 4 }) {

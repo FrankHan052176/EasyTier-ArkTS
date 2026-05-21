@@ -1,7 +1,36 @@
 import { convertToProtocol, Protocol } from '../util/Conversion'
 import { CircleArray } from './container/CircleArray'
 import { PeerInfoDataSource } from './data_source/PeerInfoDataSource'
-import { NatTypeValue, RuntimeInstanceState, RuntimePeerInfo } from '../types/runtime/RuntimeTypes'
+import { NatTypeValue, RuntimeInstanceState, RuntimePeerConnInfo, RuntimePeerInfo } from '../types/runtime/RuntimeTypes'
+
+function tunnelTypeToProtocol(tunnelType: string): Protocol {
+  const normalized = tunnelType.toLowerCase()
+  const urlPrefix = normalized.split('://')[0]
+  const normalizedSegments = urlPrefix.split('-')
+  for (const segment of normalizedSegments) {
+    const protocol = convertToProtocol(segment)
+    if (protocol !== Protocol.UNKNOWN) {
+      return protocol
+    }
+  }
+  return convertToProtocol(normalized)
+}
+
+function protocolNeedsResolvedRemoteAddr(protocol: Protocol): boolean {
+  return protocol === Protocol.TXT || protocol === Protocol.HTTP || protocol === Protocol.HTTPS || protocol === Protocol.SRV
+}
+
+function pickPrimaryConn(conns: RuntimePeerConnInfo[], defaultConnId?: string): RuntimePeerConnInfo | undefined {
+  const defaultConn = conns.find((conn) => conn.connId === defaultConnId)
+  if (defaultConn) {
+    return defaultConn
+  }
+  const wrappedConn = conns.find((conn) => conn.tunnelType && protocolNeedsResolvedRemoteAddr(tunnelTypeToProtocol(conn.tunnelType)))
+  if (wrappedConn) {
+    return wrappedConn
+  }
+  return conns.length > 0 ? conns[0] : undefined
+}
 
 function fixedRate(value: number): number {
   if (value > 107374182) {
@@ -39,6 +68,7 @@ export class PeerInfo {
   @Trace byte_arr: CircleArray<number> = new CircleArray(10)
   @Trace last_bytes: number = 0
   @Trace ip: string
+  @Trace resolvedRemoteAddr: string = ''
 
   constructor(
     peerId: number,
@@ -73,6 +103,7 @@ export class PeerInfo {
     this.latency_us = newInfo.latency_us
     this.protocol = newInfo.protocol
     this.loss = newInfo.loss
+    this.resolvedRemoteAddr = newInfo.resolvedRemoteAddr
     this.push(newInfo.last_bytes)
   }
 }
@@ -106,20 +137,30 @@ export class InstanceInfo {
         let bytes = 0
         let loss = 0
         let latency_us = 99999999999
-        let protocols: Set<Protocol> = new Set
-        for (const conn of (peer?.conns ?? [])) {
+        let protocols: Protocol[] = []
+        let resolvedRemoteAddr = ''
+        const peerConns = peer?.conns ?? []
+        for (const conn of peerConns) {
           if (conn.stats) {
             bytes += conn.stats.rxBytes + conn.stats.txBytes
             latency_us = Math.min(conn.stats.latencyUs, latency_us)
           }
-          if (conn.tunnelType) {
-            protocols.add(convertToProtocol(conn.tunnelType.toLowerCase()))
-            loss = Math.max(conn.lossRate ?? 0, loss)
+          loss = Math.max(conn.lossRate ?? 0, loss)
+        }
+        const primaryConn = pickPrimaryConn(peerConns, peer?.defaultConnId)
+        if (primaryConn?.tunnelType) {
+          const protocol = tunnelTypeToProtocol(primaryConn.tunnelType)
+          if (protocol !== Protocol.UNKNOWN) {
+            protocols = [protocol]
+          }
+          if (protocolNeedsResolvedRemoteAddr(protocol) && primaryConn.resolvedRemoteAddr) {
+            resolvedRemoteAddr = primaryConn.resolvedRemoteAddr
           }
         }
         peerInfo.latency_us = latency_us
         peerInfo.loss = loss
-        peerInfo.protocol = Array.from(protocols)
+        peerInfo.protocol = protocols
+        peerInfo.resolvedRemoteAddr = resolvedRemoteAddr
         peerInfo.last_bytes = bytes
         this.peers.set(peerInfo)
       }

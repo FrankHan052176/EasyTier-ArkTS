@@ -7,7 +7,7 @@ export struct ProtocolSelector {
   @Param @Require selected: Protocol
   @Local newSelected: Protocol = this.selected
   @Event onChange: (protocol: Protocol) => void
-  @Param comp_width: number = 70
+  @Param comp_width: number = 75
   @Local isSelecting: boolean = false
   @Local scroller: Scroller = new Scroller()
   @Local scrollerMoveTimer: number = 0
@@ -15,7 +15,7 @@ export struct ProtocolSelector {
 
   @Computed
   get scrollWidth() {
-    let availableWidth = Math.floor(WindowUtil.width * 0.9)
+    let availableWidth = Math.floor(WindowUtil.width * 0.85)
     let n = Math.min(Math.floor(availableWidth / this.comp_width), this.selectorProtocols.length)
     return n * this.comp_width
   }
