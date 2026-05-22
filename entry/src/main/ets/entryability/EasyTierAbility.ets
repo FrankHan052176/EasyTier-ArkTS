@@ -13,6 +13,8 @@ import { RuntimeAggregateState, RuntimeInstanceState } from '../types/runtime/Ru
 import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnContinueStateData, VpnLogData, VpnMessage } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
 import { decodeSocketChunk, parseKernelSocketMessage } from '../infrastructure/bridge/kernel/SocketCodec'
 import { routeSignature } from '../infrastructure/bridge/kernel/RouteStore'
+import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../services/runtime/RuntimeStatsService'
+import { AppManager } from '../AppManager'
 
 export default class EasyTierAbility extends VpnExtensionAbility {
   server: socket.LocalSocketServer | undefined
@@ -140,10 +142,14 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     let cfgStr = JSON.stringify(this.config);
     if (!easytier.parseNetworkConfig(cfgStr) || !easytier.runNetworkInstance(cfgStr)) {
       Logger.error("Failed to start git_core kernel", "EasyTierAbility");
+      stopRuntimeStatsRecording()
+    } else {
+      startRuntimeStatsRecording(this.context.filesDir)
     }
   }
 
   private stopKernel() {
+    stopRuntimeStatsRecording()
     easytier.stopKernel(this.instance_id);
   }
 

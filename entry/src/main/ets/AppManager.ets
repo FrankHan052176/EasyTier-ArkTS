@@ -7,6 +7,7 @@ import { PreferenceUtil } from './services/preferences/storage/PreferencesUtil';
 import { WebUtil } from './services/web/WebUtil';
 import { UIState } from './store/ui/UIState';
 import { CloudConfigSyncService } from './services/cloud/CloudConfigSyncService';
+import { RuntimeStatsService } from './services/runtime/RuntimeStatsService';
 import { common } from '@kit.AbilityKit';
 
 @LogLocate("AppManager")
@@ -19,12 +20,14 @@ export class AppManager {
   public static web: WebUtil = new WebUtil()
   public static uiState: UIState = new UIState()
   public static cloudSync: CloudConfigSyncService = new CloudConfigSyncService()
+  public static runtimeStats: RuntimeStatsService = new RuntimeStatsService()
 
   static async init(uiContext: UIContext) {
     AppManager.content.init(uiContext)
     AppManager.permission.updatePermStatus()
     await AppManager.preference.init(AppManager.content.context!)
     await AppManager.cloudSync.init(AppManager.content.context! as common.UIAbilityContext)
+    await AppManager.runtimeStats.init(AppManager.content.context! as common.UIAbilityContext)
   }
 }
 

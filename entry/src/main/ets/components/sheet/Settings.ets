@@ -69,6 +69,30 @@ function formatSyncError(error: cloudSync.ErrorType): string {
   }
 }
 
+function formatCacheState(state: cloudSync.State): string {
+  switch (state) {
+    case cloudSync.State.RUNNING:
+      return '缓存中'
+    case cloudSync.State.COMPLETED:
+      return '缓存完成'
+    case cloudSync.State.FAILED:
+      return '缓存失败'
+    case cloudSync.State.STOPPED:
+      return '未缓存'
+    default:
+      return '未知状态'
+  }
+}
+
+function formatCacheError(error: cloudSync.DownloadErrorType): string {
+  switch (error) {
+    case cloudSync.DownloadErrorType.NO_ERROR:
+      return '无'
+    default:
+      return `错误码 ${error}`
+  }
+}
+
 @ComponentV2
 export struct Setting_Title {
   build() {
@@ -135,6 +159,70 @@ export function Setting_Sheet() {
           AppManager.uiState.dev = !AppManager.uiState.dev
         })
       )
+    }
+    .margin({ bottom: 10 })
+
+    ListItem() {
+      Row() {
+        Row() {
+          SymbolGlyph($r("sys.symbol.timer"))
+            .fontColor([$r("sys.color.font_primary")])
+            .fontSize(16)
+            .margin({ right: 5 })
+          Text("内核运行时长")
+            .fontColor($r("sys.color.font_primary"))
+            .fontSize(16)
+        }
+
+        Text(AppManager.runtimeStats.runtimeDurationText)
+          .fontColor($r("sys.color.font_primary"))
+          .fontSize(16)
+          .margin({ right: 5 })
+      }
+      .height(49)
+      .borderRadius(18)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .backgroundColor($r("sys.color.background_primary"))
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
+    }
+    .margin({ bottom: 10 })
+
+    ListItem() {
+      Row() {
+        Row() {
+          SymbolGlyph($r("sys.symbol.clock"))
+            .fontColor([$r("sys.color.font_primary")])
+            .fontSize(16)
+            .margin({ right: 5 })
+          Text("内核内存占用")
+            .fontColor($r("sys.color.font_primary"))
+            .fontSize(16)
+        }
+
+        Text(AppManager.runtimeStats.memoryUsageText)
+          .fontColor($r("sys.color.font_primary"))
+          .fontSize(16)
+          .margin({ right: 5 })
+      }
+      .height(49)
+      .borderRadius(18)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .backgroundColor($r("sys.color.background_primary"))
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
     }
     .margin({ bottom: 10 })
 
@@ -459,15 +547,25 @@ export function Setting_Sheet() {
               .fontSize(12)
               .fontColor($r("sys.color.font_secondary"))
 
+            Text(`缓存状态：${formatCacheState(AppManager.cloudSync.cacheState)}${AppManager.cloudSync.cacheState === cloudSync.State.RUNNING ? ` (${AppManager.cloudSync.cacheProgress}%)` : ''}`)
+              .fontSize(12)
+              .fontColor($r("sys.color.font_secondary"))
+
             if (AppManager.cloudSync.syncError !== cloudSync.ErrorType.NO_ERROR) {
               Text(`同步异常：${formatSyncError(AppManager.cloudSync.syncError)}`)
                 .fontSize(12)
                 .fontColor($r("sys.color.font_secondary"))
+            }
 
-              Text(AppManager.cloudSync.lastSyncMessage)
+            if (AppManager.cloudSync.cacheError !== cloudSync.DownloadErrorType.NO_ERROR) {
+              Text(`缓存异常：${formatCacheError(AppManager.cloudSync.cacheError)}`)
                 .fontSize(12)
                 .fontColor($r("sys.color.font_secondary"))
             }
+
+            Text(`最近结果：${AppManager.cloudSync.lastSyncMessage}`)
+              .fontSize(12)
+              .fontColor($r("sys.color.font_secondary"))
 
             Row({ space: 8 }) {
               Button('上传', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
@@ -488,9 +586,18 @@ export function Setting_Sheet() {
                 })
             }
             .width('100%')
+
+            Button('全部重置', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.NORMAL, role: ButtonRole.ERROR })
+              .width('100%')
+              .borderRadius(13)
+              .onClick(() => {
+                AppManager.cloudSync.resetAllSyncData().catch(() => {
+                  sendToast('重置本地与云端数据失败', $r("sys.symbol.exclamationmark_circle"), 1)
+                })
+              })
           }
           .width('100%')
-          .padding({ left: 10, right: 5, top: 10, bottom: 10 })
+          .padding({ left: 10, right: 10, top: 0, bottom: 10 })
           .borderRadius(18)
           .backgroundColor($r("sys.color.background_primary"))
       }

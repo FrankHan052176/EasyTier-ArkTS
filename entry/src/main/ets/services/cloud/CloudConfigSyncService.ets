@@ -1,6 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { JSON } from '@kit.ArkTS'
-import { cloudSync, fileIo } from '@kit.CoreFileKit'
+import { cloudSync, fileIo, fileUri } from '@kit.CoreFileKit'
 import easytier from 'easytier-ohrs'
 import { AppManager } from '../../AppManager'
 import { CLOUD_CONFIG_CHANGED_EVENT } from '../../ConfigSyncUtil'
@@ -32,6 +32,9 @@ interface StoredConfigMetaLite {
 export class CloudConfigSyncService {
   @Trace syncState: cloudSync.SyncState = cloudSync.SyncState.STOPPED
   @Trace syncError: cloudSync.ErrorType = cloudSync.ErrorType.NO_ERROR
+  @Trace cacheState: cloudSync.State = cloudSync.State.STOPPED
+  @Trace cacheError: cloudSync.DownloadErrorType = cloudSync.DownloadErrorType.NO_ERROR
+  @Trace cacheProgress: number = 0
   @Trace lastSyncMessage: string = '未同步'
   @Trace localUpdatedAt: string = '0'
   @Trace cloudUpdatedAt: string = '0'
@@ -39,7 +42,9 @@ export class CloudConfigSyncService {
   private initialized: boolean = false
   private context: common.UIAbilityContext | undefined = undefined
   private readonly fileSync = new cloudSync.FileSync()
+  private readonly cloudFileCache = new cloudSync.CloudFileCache()
   private reconcileTimer: number | undefined = undefined
+  private pendingImportTimestamp: string | undefined = undefined
   private readonly fileSyncCallback = (pg: cloudSync.SyncProgress) => {
     this.syncState = pg.state
     this.syncError = pg.error
@@ -49,6 +54,23 @@ export class CloudConfigSyncService {
       }
     } else if (pg.state === cloudSync.SyncState.UPLOAD_FAILED || pg.state === cloudSync.SyncState.DOWNLOAD_FAILED) {
       this.lastSyncMessage = '同步流程异常，请检查下方错误信息'
+    }
+  }
+  private readonly cacheProgressCallback = (pg: cloudSync.DownloadProgress) => {
+    this.cacheState = pg.state
+    this.cacheError = pg.error
+    this.cacheProgress = pg.size > 0 ? Math.min(100, Math.trunc(pg.processed * 100 / pg.size)) : 0
+    if (pg.state === cloudSync.State.COMPLETED && this.pendingImportTimestamp && pg.uri === fileUri.getUriFromPath(this.cloudDbPath())) {
+      const updatedAt = this.pendingImportTimestamp
+      this.pendingImportTimestamp = undefined
+      if (this.importSnapshotFromCloud(updatedAt)) {
+        this.lastSyncMessage = '云端快照已缓存到本地并完成导入'
+      } else {
+        this.lastSyncMessage = '云端快照缓存完成，但导入失败'
+      }
+    } else if (pg.state === cloudSync.State.FAILED) {
+      this.lastSyncMessage = '云端快照缓存失败，请检查缓存错误'
+      this.pendingImportTimestamp = undefined
     }
   }
 
@@ -61,6 +83,7 @@ export class CloudConfigSyncService {
     this.ensureLocalSyncDir()
     this.ensureCloudSyncDir()
     this.fileSync.on('progress', this.fileSyncCallback)
+    this.cloudFileCache.on('progress', this.cacheProgressCallback)
     EventHelper.emitterListener(CLOUD_CONFIG_CHANGED_EVENT, () => {
       this.touchLocalMeta(this.nowTs())
       if (AppManager.uiState.cloud_auto_sync) {
@@ -77,7 +100,6 @@ export class CloudConfigSyncService {
     this.refreshMetaState()
     if (AppManager.uiState.cloud_auto_sync) {
       this.safeStartFileSync('自动同步初始化')
-      this.scheduleAutoSync(200)
     }
   }
 
@@ -137,6 +159,46 @@ export class CloudConfigSyncService {
 
   private cloudDbPath(): string {
     return `${this.ensureCloudSyncDir()}/${CLOUD_DB_FILE}`
+  }
+
+  private isCloudSnapshotReady(): boolean {
+    try {
+      const stat = fileIo.statSync(this.cloudDbPath())
+      const hasLocalEntity = (Number(stat.location) & 1) !== 0
+      return stat.size > 0 && hasLocalEntity
+    } catch (_) {
+      return false
+    }
+  }
+
+  private async ensureCloudSnapshotCached(updatedAt: string): Promise<boolean> {
+    if (this.isCloudSnapshotReady()) {
+      return true
+    }
+    this.pendingImportTimestamp = updatedAt
+    this.lastSyncMessage = '云端快照仅有元数据，正在缓存到本地'
+    try {
+      await this.cloudFileCache.start(fileUri.getUriFromPath(this.cloudDbPath()))
+      return false
+    } catch (error) {
+      Logger.error(`ensureCloudSnapshotCached failed: ${JSON.stringify(error)}`, this)
+      this.lastSyncMessage = '触发云端快照缓存失败'
+      this.pendingImportTimestamp = undefined
+      return false
+    }
+  }
+
+  private resetMetaState(): void {
+    this.cacheState = cloudSync.State.STOPPED
+    this.cacheError = cloudSync.DownloadErrorType.NO_ERROR
+    this.cacheProgress = 0
+    this.pendingImportTimestamp = undefined
+  }
+
+  private removeFileIfExists(path: string): void {
+    try {
+      fileIo.unlinkSync(path)
+    } catch (_) {}
   }
 
   private writeTextFile(path: string, content: string): void {
@@ -262,8 +324,12 @@ export class CloudConfigSyncService {
 
   async updateFromCloud(): Promise<void> {
     const cloudMeta = this.readCloudMeta()
-    if (cloudMeta.updatedAt === '0' || !fileIo.accessSync(this.cloudDbPath())) {
-      throw new Error('cloud snapshot not found')
+    if (cloudMeta.updatedAt === '0') {
+      this.lastSyncMessage = '云端尚无配置快照'
+      return
+    }
+    if (!await this.ensureCloudSnapshotCached(cloudMeta.updatedAt)) {
+      return
     }
     if (!this.importSnapshotFromCloud(cloudMeta.updatedAt)) {
       throw new Error('import snapshot failed')
@@ -306,9 +372,43 @@ export class CloudConfigSyncService {
     if (enabled) {
       this.lastSyncMessage = '已开启自动同步，将优先采用较新的快照'
       this.safeStartFileSync('自动同步初始化')
-      this.scheduleAutoSync(200)
     } else {
       this.lastSyncMessage = '已关闭自动同步'
     }
+  }
+
+  async resetAllSyncData(): Promise<void> {
+    if (this.reconcileTimer !== undefined) {
+      clearTimeout(this.reconcileTimer)
+      this.reconcileTimer = undefined
+    }
+    try {
+      await this.fileSync.stop()
+    } catch (_) {}
+    try {
+      await this.cloudFileCache.stop(fileUri.getUriFromPath(this.cloudDbPath()), true)
+    } catch (_) {}
+    try {
+      AppManager.easytier.stop()
+    } catch (_) {}
+
+    this.removeFileIfExists(this.cloudDbPath())
+    this.removeFileIfExists(`${this.cloudDbPath()}-wal`)
+    this.removeFileIfExists(`${this.cloudDbPath()}-shm`)
+    this.removeFileIfExists(this.cloudMetaPath())
+    this.removeFileIfExists(this.localMetaPath())
+    this.removeFileIfExists(`${this.context?.filesDir ?? ''}/${CLOUD_DB_FILE}`)
+    this.removeFileIfExists(`${this.context?.filesDir ?? ''}/${CLOUD_DB_FILE}-wal`)
+    this.removeFileIfExists(`${this.context?.filesDir ?? ''}/${CLOUD_DB_FILE}-shm`)
+
+    easytier.initConfigStore(this.context?.filesDir ?? '')
+    AppManager.data.refreshConfigIds()
+    AppManager.uiState.selected = undefined
+    AppManager.uiState.favorite = undefined
+    this.refreshMetaState()
+    this.resetMetaState()
+    this.syncState = cloudSync.SyncState.STOPPED
+    this.syncError = cloudSync.ErrorType.NO_ERROR
+    this.lastSyncMessage = '已清理本地与云端同步数据'
   }
 }

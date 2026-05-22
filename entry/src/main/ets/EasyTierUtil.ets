@@ -176,7 +176,7 @@ export class EasyTierUtil {
       if (config) {
         Logger.debug("start config: "+ JSON.stringify(config, undefined, 2), this)
         syncWholeConfig(uuid, this.getConfigName(uuid) ?? uuid, config)
-        return orchestrateInstanceStart({
+        const started = orchestrateInstanceStart({
           config,
           name: this.getConfigName(uuid) ?? uuid,
           extMode: AppManager.uiState.ext_mode,
@@ -214,6 +214,10 @@ export class EasyTierUtil {
             sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
           }
         })
+        if (started) {
+          AppManager.runtimeStats.startLiveRefresh()
+        }
+        return started
       } else {
         return false
       }
@@ -270,6 +274,8 @@ export class EasyTierUtil {
       if (!started) {
         AppManager.data.delConfig(config.instance_id!)
         this.temporaryConfigIds.delete(config.instance_id!)
+      } else {
+        AppManager.runtimeStats.startLiveRefresh()
       }
       return started
     } else {
@@ -279,6 +285,7 @@ export class EasyTierUtil {
 
   public stop() {
     const temporaryRunningIds = Array.from(this.temporaryConfigIds.values())
+    AppManager.runtimeStats.stopLiveRefresh()
     if (AppManager.uiState.ext_mode) {
       let want: Want = {
         bundleName: "top.frankhan.easytier",

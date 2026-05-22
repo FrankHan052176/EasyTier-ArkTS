@@ -23,6 +23,7 @@ import { configFieldRegistry } from '../config/fields/ConfigFieldRegistry';
 import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 import { rpc } from '@kit.IPCKit';
+import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../services/runtime/RuntimeStatsService';
 import { buildShareUrlSync, unwrapUrl } from '../util/ShareUtil';
 import { updateFavorite } from '../services/form/CommunicationUtil';
 import { cancelNotification, publishTextNotification } from '../util/NoticeHelper';
@@ -131,6 +132,7 @@ export default class EntryAbility extends UIAbility {
         sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
         Logger.error("启动失败", this)
       } else {
+        startRuntimeStatsRecording(this.context.filesDir)
         try {
           const config: ConfigJson = JSON.parse(cfg)
           if (config.no_tun) {
@@ -164,6 +166,7 @@ export default class EntryAbility extends UIAbility {
         try {
           backgroundTaskManager.startBackgroundRunning(this.context, ["location"], wantAgentObj).then(() => {
             if (AppManager.uiState.inittedGitCore?easytier.runNetworkInstance(cfg):easytier_release.runNetworkInstance(cfg)) {
+              startRuntimeStatsRecording(this.context.filesDir)
               try {
                 const config: ConfigJson = JSON.parse(cfg)
                 if (config.no_tun) {
@@ -203,6 +206,7 @@ export default class EntryAbility extends UIAbility {
 
   stopContinuousTask() {
     this.deactivateMissionContinue();
+    stopRuntimeStatsRecording()
     if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
       return;
     }
