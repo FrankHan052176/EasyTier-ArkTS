@@ -16,6 +16,11 @@ import { release } from '../../../util/info/ArtifactsType';
 
 const easytier_release = easytier
 
+interface StoredConfigMetaLite {
+  configId: string
+  favorite: boolean
+}
+
 const defaultSequence = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
 
 @LogLocate("PreferenceUtil")
@@ -30,6 +35,28 @@ export class PreferenceUtil {
   
   public isInit: boolean = false
   private initialized: boolean = false
+
+  private getStoredFavoriteConfigId(): string | undefined {
+    try {
+      const entries = JSON.parse(easytier.listConfigs()) as StoredConfigMetaLite[]
+      return entries.find((entry) => entry.favorite)?.configId
+    } catch (_) {
+      return undefined
+    }
+  }
+
+  private reconcileFavoritePreference(preferredFavorite: string | undefined): void {
+    const storedFavorite = this.getStoredFavoriteConfigId()
+    if (storedFavorite) {
+      AppManager.uiState.favorite = storedFavorite
+      return
+    }
+    if (preferredFavorite && easytier.getConfig(preferredFavorite) && easytier.setConfigFavorite(preferredFavorite, true)) {
+      AppManager.uiState.favorite = preferredFavorite
+      return
+    }
+    AppManager.uiState.favorite = undefined
+  }
 
   private decodeLegacyConfigName(rawName: Object | undefined): string | undefined {
     if (typeof rawName === 'string') {
@@ -64,6 +91,30 @@ export class PreferenceUtil {
     store.flushSync()
   }
 
+  private async deleteLegacyPreferenceConfig(context: Context, legacyConfigIdPreferences: preferences.Preferences,
+    configId: string, legacyConfigPreference?: preferences.Preferences): Promise<void> {
+    const store = legacyConfigPreference ?? preferences.getPreferencesSync(context, { name: configId })
+    this.clearLegacyPreferenceStore(store)
+    legacyConfigIdPreferences.deleteSync(configId)
+    await preferences.deletePreferences(context, configId)
+  }
+
+  async clearLegacyPreferenceSources(context: Context): Promise<void> {
+    const legacyConfigIdPreferences = preferences.getPreferencesSync(context, { name: 'EasyTierConfigIDs' })
+    const legacyConfigIds = Object.keys(legacyConfigIdPreferences.getAllSync() as ESObject)
+    for (const configId of legacyConfigIds) {
+      try {
+        await this.deleteLegacyPreferenceConfig(context, legacyConfigIdPreferences, configId)
+      } catch (error) {
+        Logger.error(`clear legacy config source failed id=${configId} err=${JSON.stringify(error)}`, this)
+      }
+    }
+    legacyConfigIdPreferences.flushSync()
+    if (Object.keys(legacyConfigIdPreferences.getAllSync() as ESObject).length === 0) {
+      await preferences.deletePreferences(context, 'EasyTierConfigIDs')
+    }
+  }
+
   private async migrateLegacyPreferenceConfigs(context: Context): Promise<void> {
     const legacyConfigIdPreferences = preferences.getPreferencesSync(context, { name: 'EasyTierConfigIDs' })
     const allLegacyConfigs:ESObject = legacyConfigIdPreferences.getAllSync()
@@ -77,27 +128,32 @@ export class PreferenceUtil {
       try {
         const displayName = this.decodeLegacyConfigName(allLegacyConfigs[configId] as ESObject) ?? configId
         const legacyConfigPreference = preferences.getPreferencesSync(context, { name: configId })
+        let migrated = true
         if (!easytier.getConfig(configId)) {
           const rawConfig:ESObject = legacyConfigPreference.getAllSync()
           const config:ESObject = getDefaultConfig('')
           Object.keys(rawConfig).forEach((field) => {
-            const normalized:ESObject = this.normalizeLegacyConfigValue(rawConfig[field] as Object)
+            const normalized: ConfigFieldValue | undefined = this.normalizeLegacyConfigValue(rawConfig[field] as Object)
             if (normalized !== undefined) {
               config[field] = normalized as ConfigFieldValue
             }
           })
           config.instance_id = configId
-          syncWholeConfig(configId, displayName, config as ConfigJson)
+          migrated = syncWholeConfig(configId, displayName, config as ConfigJson)
         }
-        this.clearLegacyPreferenceStore(legacyConfigPreference)
-        legacyConfigIdPreferences.deleteSync(configId)
-        await preferences.deletePreferences(context, configId)
+        if (!migrated) {
+          Logger.error(`migrate legacy config save failed id=${configId}`, this)
+          continue
+        }
+        await this.deleteLegacyPreferenceConfig(context, legacyConfigIdPreferences, configId, legacyConfigPreference)
       } catch (error) {
         Logger.error(`migrate legacy config failed id=${configId} err=${JSON.stringify(error)}`, this)
       }
     }
     legacyConfigIdPreferences.flushSync()
-    await preferences.deletePreferences(context, 'EasyTierConfigIDs')
+    if (Object.keys(legacyConfigIdPreferences.getAllSync() as ESObject).length === 0) {
+      await preferences.deletePreferences(context, 'EasyTierConfigIDs')
+    }
     AppManager.data.refreshConfigIds()
   }
 
@@ -131,10 +187,12 @@ export class PreferenceUtil {
       // 记录启动时内核相关的状态
       s.inittedLog = s.show_log;
 
-      s.selected = this.preferences!.getSync("selected", "").toString() || undefined;
-      s.favorite = this.preferences!.getSync("favorite", "").toString() || undefined;
+      const preferredSelected = this.preferences!.getSync("selected", "").toString() || undefined
+      const preferredFavorite = this.preferences!.getSync("favorite", "").toString() || undefined
+      s.selected = preferredSelected
 
       await this.migrateLegacyPreferenceConfigs(context)
+      this.reconcileFavoritePreference(preferredFavorite)
 
       this.globalConfigs = preferences.getPreferencesSync(context, { name: 'EasyTierGlobalConfigs' })
       await new Promise<void>((resolve) => {
@@ -183,6 +241,10 @@ export class PreferenceUtil {
 
   updateSequence(sequence: string) {
     AppManager.uiState.raw_comp_sequence = sequence;
+  }
+
+  refreshFavoriteFromStore(): void {
+    AppManager.uiState.favorite = this.getStoredFavoriteConfigId()
   }
 
   getAppInfo(pkgName: string): AppInfo | undefined {

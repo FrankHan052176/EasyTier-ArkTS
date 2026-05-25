@@ -12,6 +12,9 @@ import { common } from '@kit.AbilityKit';
 
 @LogLocate("AppManager")
 export class AppManager {
+  private static initialized: boolean = false
+  private static initPromise: Promise<void> | undefined = undefined
+
   public static data: DataUtil = new DataUtil()
   public static content: ContextUtil = new ContextUtil()
   public static easytier: EasyTierUtil = new EasyTierUtil()
@@ -25,9 +28,28 @@ export class AppManager {
   static async init(uiContext: UIContext) {
     AppManager.content.init(uiContext)
     AppManager.permission.updatePermStatus()
-    await AppManager.preference.init(AppManager.content.context!)
-    await AppManager.cloudSync.init(AppManager.content.context! as common.UIAbilityContext)
-    await AppManager.runtimeStats.init(AppManager.content.context! as common.UIAbilityContext)
+    if (AppManager.initialized) {
+      return
+    }
+    if (AppManager.initPromise) {
+      await AppManager.initPromise
+      return
+    }
+    AppManager.initPromise = (async () => {
+      await AppManager.preference.init(AppManager.content.context!)
+      await AppManager.cloudSync.init(AppManager.content.context! as common.UIAbilityContext)
+      await AppManager.runtimeStats.init(AppManager.content.context! as common.UIAbilityContext)
+      AppManager.initialized = true
+    })()
+    try {
+      await AppManager.initPromise
+    } catch (error) {
+      AppManager.initPromise = undefined
+      if (error instanceof Error) {
+        throw error
+      }
+      throw new Error(`AppManager init failed: ${JSON.stringify(error)}`)
+    }
   }
 }
 

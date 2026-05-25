@@ -3,6 +3,9 @@ import { JSON } from '@kit.ArkTS'
 import { getDefaultConfig } from '../../../config/defaults/ConfigDefaults'
 import { ConfigJson } from '../../../config/schema/SchemaConfig'
 
+let editingConfigCacheId: string | undefined = undefined
+let editingConfigCache: ConfigJson | undefined = undefined
+
 export interface StoredConfigMetaLite {
   configId: string
   displayName: string
@@ -49,6 +52,37 @@ export function listStoredConfigs(): StoredConfigMetaLite[] {
   }
 }
 
+export function cacheEditingConfig(editingId: string | undefined, config: ConfigJson | undefined): void {
+  editingConfigCacheId = editingId
+  editingConfigCache = config
+}
+
+export function refreshEditingConfig(editingId: string | undefined): ConfigJson | undefined {
+  if (!editingId || editingId.length === 0) {
+    editingConfigCacheId = undefined
+    editingConfigCache = undefined
+    return getDefaultConfig('')
+  }
+  editingConfigCacheId = editingId
+  editingConfigCache = getStoredConfig(editingId) ?? getDefaultConfig('')
+  return editingConfigCache
+}
+
+export function clearEditingConfigCache(editingId?: string): void {
+  if (!editingId || editingConfigCacheId === editingId) {
+    editingConfigCacheId = undefined
+    editingConfigCache = undefined
+  }
+}
+
 export function getEditingConfig(editingId: string | undefined): ConfigJson | undefined {
-  return editingId ? (getStoredConfig(editingId) ?? getDefaultConfig('')) : getDefaultConfig('')
+  if (!editingId || editingId.length === 0) {
+    editingConfigCacheId = undefined
+    editingConfigCache = undefined
+    return getDefaultConfig('')
+  }
+  if (editingConfigCacheId !== editingId || !editingConfigCache) {
+    return refreshEditingConfig(editingId)
+  }
+  return editingConfigCache
 }

@@ -1,5 +1,7 @@
 import easytier from 'easytier-ohrs'
 import { ConfigJson, ConfigFieldValue } from './config/schema/SchemaConfig'
+import { cacheEditingConfig } from './services/config/storage/StoredConfigService'
+import { isCloudResetting } from './services/cloud/CloudMutationGate'
 import { EventHelper } from './util/EventHelper'
 
 export const CLOUD_CONFIG_CHANGED_EVENT = 'cloud_config_changed'
@@ -45,9 +47,13 @@ export function setFieldPathValue(config: ConfigJson, path: string[], value: Con
 }
 
 export function syncTopLevelField(configId: string, field: string, config: ConfigJson): boolean {
+  if (isCloudResetting()) {
+    return false
+  }
   const value: ConfigFieldValue = getTopLevelValue(config, field)
   const ok = easytier.setConfigField(configId, field, JSON.stringify(value ?? null))
   if (ok) {
+    cacheEditingConfig(configId, config)
     EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
   }
   return ok
@@ -57,14 +63,28 @@ export function syncFieldPath(configId: string, path: string[], config: ConfigJs
   return syncTopLevelField(configId, path[0], config)
 }
 
-export function ensureKernelConfig(configId: string, displayName: string): void {
-  if (!easytier.getConfig(configId)) {
-    easytier.createConfig(configId, displayName)
+export function ensureKernelConfig(configId: string, displayName: string): boolean {
+  if (isCloudResetting()) {
+    return false
   }
+  if (easytier.getConfig(configId)) {
+    return true
+  }
+  return easytier.createConfig(configId, displayName)
 }
 
-export function syncWholeConfig(configId: string, displayName: string, config: ConfigJson): void {
-  ensureKernelConfig(configId, displayName)
-  easytier.saveConfig(configId, displayName, JSON.stringify(config))
+export function syncWholeConfig(configId: string, displayName: string, config: ConfigJson): boolean {
+  if (isCloudResetting()) {
+    return false
+  }
+  if (!ensureKernelConfig(configId, displayName)) {
+    return false
+  }
+  const ok = easytier.saveConfig(configId, displayName, JSON.stringify(config))
+  if (!ok) {
+    return false
+  }
+  cacheEditingConfig(configId, config)
   EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
+  return true
 }

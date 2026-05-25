@@ -41,7 +41,11 @@ export struct HMRouterIndex {
 
   async aboutToAppear(): Promise<void> {
     DialogHub.init(this.getUIContext(), DialogMode.CUSTOM_DIALOG);
-    AppManager.init(this.getUIContext())
+    try {
+      await AppManager.init(this.getUIContext())
+    } catch (error) {
+      Logger.error(`AppManager init failed: ${JSON.stringify(error)}`, 'HMRouterIndex')
+    }
     if (canIUse("SystemCapability.PCService.StatusBarManager") && false) {
       try {
         const blackFileData =

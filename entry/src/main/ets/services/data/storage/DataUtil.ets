@@ -16,6 +16,8 @@ import { HMRouterMgr } from '@hadss/hmrouter';
 import easytier from 'easytier-ohrs';
 import { ConfigJson } from '../../../config/schema/SchemaConfig';
 import { CLOUD_CONFIG_CHANGED_EVENT, syncWholeConfig } from '../../../ConfigSyncUtil';
+import { isCloudResetting } from '../../cloud/CloudMutationGate';
+import { clearEditingConfigCache } from '../../config/storage/StoredConfigService';
 import { EventHelper } from '../../../util/EventHelper';
 
 interface StoredConfigMetaLite {
@@ -54,14 +56,21 @@ export class DataUtil {
   }
 
   public changeFavorite(uuid: string | undefined) {
-    if (!uuid) {
+    if (!uuid || isCloudResetting()) {
       return
     }
     if (this.isFavorite(uuid)) {
+      if (!easytier.setConfigFavorite(uuid, false)) {
+        return
+      }
       AppManager.uiState.favorite = undefined
     } else {
+      if (!easytier.setConfigFavorite(uuid, true)) {
+        return
+      }
       AppManager.uiState.favorite = uuid
     }
+    EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
   }
 
   public initDataSource(type: string, arr: string[]) {
@@ -123,7 +132,9 @@ export class DataUtil {
   public newConfig(name: string): ConfigJson {
     let config: ConfigJson = getDefaultConfig(getHostname())
     config.instance_id = this.safeUUID()
-    syncWholeConfig(config.instance_id, name, config)
+    if (!syncWholeConfig(config.instance_id, name, config)) {
+      return config
+    }
     this.refreshConfigIds()
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
     AppManager.uiState.selected = config.instance_id
@@ -140,6 +151,9 @@ export class DataUtil {
   }
 
   public importToml(cfg_toml: string): boolean {
+    if (isCloudResetting()) {
+      return false
+    }
     if (deviceInfo.productModel === "emulator") {
       return false
     }
@@ -211,7 +225,9 @@ export class DataUtil {
         this.getDataSource("port_forward").add(pf)
       }
     })
-    syncWholeConfig(config.instance_id!, name ?? config.instance_id!, config)
+    if (!syncWholeConfig(config.instance_id!, name ?? config.instance_id!, config)) {
+      return false
+    }
     this.refreshConfigIds()
     const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
     AppManager.uiState.selected = config.instance_id
@@ -221,6 +237,9 @@ export class DataUtil {
   }
 
   public delConfig(uuid: string): boolean {
+    if (isCloudResetting()) {
+      return false
+    }
     if (AppManager.uiState.favorite === uuid) {
       AppManager.uiState.favorite = undefined
     }
@@ -228,6 +247,7 @@ export class DataUtil {
       AppManager.uiState.selected = undefined
     }
     if (AppManager.easytier.getConfig(uuid)) {
+      clearEditingConfigCache(uuid)
       easytier.deleteStoredConfigMeta(uuid)
       this.refreshConfigIds()
       EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)

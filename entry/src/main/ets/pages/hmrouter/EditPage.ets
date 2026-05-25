@@ -17,6 +17,7 @@ import { common } from '@kit.AbilityKit'
 import { buildShareData, buildShareUrl, buildTomlShareData } from '../../util/ShareUtil'
 import { EditPageParam } from '../../types/navigation/PageParam'
 import { ConfigJson } from '../../config/schema/SchemaConfig'
+import { clearEditingConfigCache, refreshEditingConfig } from '../../services/config/storage/StoredConfigService'
 import { generateBarcode, scanCore } from '@kit.ScanKit'
 import { image } from '@kit.ImageKit'
 import { DialogHub, DialogMode } from '@hadss/dialoghub'
@@ -131,6 +132,7 @@ export struct EditPage {
     let param = HMRouterMgr.getCurrentParam() as EditPageParam;
     this.uuid = param.uuid
     this.unsafe = param.unsafe
+    refreshEditingConfig(this.uuid)
     EventHelper.emitterListener("edit_open_sheet", (data) => {
       this.sheet_type = data.data!.type as string
       this.sheet = true
@@ -168,6 +170,7 @@ export struct EditPage {
       harmonyShare.off('gesturesShare', this.immersiveCallback);
     }
     AppManager.uiState.editingInstance = undefined
+    clearEditingConfigCache(this.uuid)
     if (canIUse("SystemCapability.Security.DlpAntiPeep")) {
       try {
         dlpAntiPeep.off('dlpAntiPeep', this.onStatusChange);

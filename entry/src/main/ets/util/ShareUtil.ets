@@ -7,6 +7,9 @@ import { AppManager } from "../AppManager";
 import easytier, { SharedConfigLinkPayload } from 'easytier-ohrs';
 import { syncWholeConfig } from '../ConfigSyncUtil';
 import { ConfigJson } from '../config/schema/SchemaConfig';
+import { isCloudResetting } from '../services/cloud/CloudMutationGate';
+import { CLOUD_CONFIG_CHANGED_EVENT } from '../ConfigSyncUtil';
+import { EventHelper } from './EventHelper';
 
 export function buildShareUrl(config: ConfigJson, callback: (uri: string) => void, only_start: boolean = false,
   name: string | undefined = AppManager.easytier.getConfigName(config.instance_id!) ?? "404") {
@@ -92,6 +95,9 @@ export function buildTomlShareData(config: ConfigJson, callback: (data: systemSh
 
 export async function unwrapUrl(url: url.URL) {
   try {
+    if (isCloudResetting()) {
+      return
+    }
     const payload: SharedConfigLinkPayload | null = easytier.parseConfigShareLink(url.toString())
     if (!payload) {
       return
@@ -106,6 +112,9 @@ export async function unwrapUrl(url: url.URL) {
     }
 
     const importedId: string | null = easytier.importConfigShareLink(url.toString(), payload.displayName)
+    if (importedId) {
+      EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
+    }
     const storedJson = importedId ? easytier.getConfig(importedId) : undefined
     const importedConfig: ConfigJson = storedJson ? JSON.parse(storedJson) as ConfigJson : config
     const finalId: string = importedId ?? importedConfig.instance_id!

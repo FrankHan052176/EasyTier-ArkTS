@@ -8,6 +8,7 @@ const RUNTIME_STATS_FILE = 'easytier-runtime-stats.json'
 const SAMPLE_INTERVAL_MS = 100
 
 interface RuntimeStatsSnapshot {
+  sessionId: string
   startedAt: number
   updatedAt: number
   runningMs: number
@@ -28,20 +29,28 @@ function runtimeStatsFilePath(filesDir: string): string {
 }
 
 function writeRuntimeStatsSnapshot(path: string, snapshot: RuntimeStatsSnapshot): void {
+  const tempPath = `${path}.tmp`
   try {
-    fileIo.unlinkSync(path)
+    fileIo.unlinkSync(tempPath)
   } catch (_) {}
   let file: fileIo.File | null = null
   try {
-    file = fileIo.openSync(path, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
+    file = fileIo.openSync(tempPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
     fileIo.writeSync(file.fd, JSON.stringify(snapshot))
     fileIo.closeSync(file)
+    try {
+      fileIo.unlinkSync(path)
+    } catch (_) {}
+    fileIo.renameSync(tempPath, path)
   } catch (error) {
     if (file) {
       try {
         fileIo.closeSync(file)
       } catch (_) {}
     }
+    try {
+      fileIo.unlinkSync(tempPath)
+    } catch (_) {}
     throw new Error(`writeRuntimeStatsSnapshot failed: ${JSON.stringify(error)}`)
   }
 }
@@ -79,12 +88,17 @@ class RuntimeStatsRecorder {
   private timer: number | undefined = undefined
   private startedAt: number = 0
   private filePath: string = ''
+  private sessionId: string = ''
+  private sessionNonce: number = 0
   private sampling: boolean = false
+  private samplingSessionId: string = ''
 
   start(filesDir: string): void {
     this.stop()
     this.filePath = runtimeStatsFilePath(filesDir)
     this.startedAt = Date.now()
+    this.sessionNonce += 1
+    this.sessionId = `${this.startedAt}-${this.sessionNonce}`
     this.sampleAndPersist()
     this.timer = setInterval(() => {
       this.sampleAndPersist()
@@ -98,28 +112,41 @@ class RuntimeStatsRecorder {
     }
     this.filePath = ''
     this.startedAt = 0
+    this.sessionId = ''
     this.sampling = false
+    this.samplingSessionId = ''
   }
 
   private sampleAndPersist(): void {
-    if (this.sampling || this.filePath.length === 0 || this.startedAt <= 0) {
+    if (this.sampling || this.filePath.length === 0 || this.startedAt <= 0 || this.sessionId.length === 0) {
       return
     }
     this.sampling = true
+    const currentSessionId = this.sessionId
+    const currentFilePath = this.filePath
+    const currentStartedAt = this.startedAt
+    this.samplingSessionId = currentSessionId
     taskpool.execute(collectRuntimeMemoryPssKb).then((result) => {
+      if (this.sessionId !== currentSessionId || this.filePath !== currentFilePath || this.startedAt !== currentStartedAt) {
+        return
+      }
       const memoryPssKb = String(result ?? '')
       const now = Date.now()
       const snapshot: RuntimeStatsSnapshot = {
-        startedAt: this.startedAt,
+        sessionId: currentSessionId,
+        startedAt: currentStartedAt,
         updatedAt: now,
-        runningMs: now - this.startedAt,
+        runningMs: now - currentStartedAt,
         memoryPssKb
       }
-      writeRuntimeStatsSnapshot(this.filePath, snapshot)
+      writeRuntimeStatsSnapshot(currentFilePath, snapshot)
     }).catch((error: Error) => {
       Logger.error(`RuntimeStatsRecorder sample error: ${JSON.stringify(error)}`, 'RuntimeStatsRecorder')
     }).finally(() => {
-      this.sampling = false
+      if (this.samplingSessionId === currentSessionId) {
+        this.sampling = false
+        this.samplingSessionId = ''
+      }
     })
   }
 }
@@ -168,6 +195,8 @@ export class RuntimeStatsService {
   refreshFromDisk(): void {
     const snapshot = readRuntimeStatsSnapshot(this.filePath)
     if (!snapshot) {
+      this.runtimeDurationText = 'N/A'
+      this.memoryUsageText = 'N/A'
       return
     }
     this.runtimeDurationText = formatDuration(snapshot.runningMs)

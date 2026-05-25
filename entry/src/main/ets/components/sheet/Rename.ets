@@ -1,6 +1,7 @@
 import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { CLOUD_CONFIG_CHANGED_EVENT } from '../../ConfigSyncUtil'
+import { isCloudResetting } from '../../services/cloud/CloudMutationGate'
 import { EventHelper } from '../../util/EventHelper'
 import easytier from 'easytier-ohrs'
 
@@ -75,7 +76,7 @@ export struct Rename_Content {
           .width('80%')
           .onChange((value: string) => {
             if (value.length > 0) {
-              if (AppManager.uiState.editingInstance) {
+              if (AppManager.uiState.editingInstance && !isCloudResetting()) {
                 easytier.renameStoredConfig(AppManager.uiState.editingInstance, value)
                 EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
               }
