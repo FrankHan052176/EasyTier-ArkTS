@@ -10,7 +10,7 @@ import { HdsMenuButton } from '../Components';
 import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { AppManager } from '../../AppManager';
 import { EventHelper } from '../../util/EventHelper';
-import { SheetContentBuilder } from '../../components/sheet/Basic';
+import { HomeSheetContentBuilder } from '../../components/sheet/HomeSheet';
 import { ActionBarButton, ActionBarStyle, HdsActionBar, hdsMaterial } from '@kit.UIDesignKit';
 import { sendToast } from '../../ToastUtil';
 import { BottomAnimator } from '../../class/animator/BottomAnimator';
@@ -28,7 +28,7 @@ import { CompSizeWithPos, DesktopLayout } from 'desktop_layout';
 import { generateBarcode, scanCore } from '@kit.ScanKit';
 import { DialogHub, DialogMode } from '@hadss/dialoghub';
 import { image } from '@kit.ImageKit';
-import { QRImage } from './EditPage';
+import { QRImage } from '../../components/util/QRImage';
 
 export function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
   let result = new SymbolGlyphModifier(symbol)
@@ -428,7 +428,7 @@ export struct HomePage {
     .height('100%')
     .width('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-    .bindSheet(this.sheet, SheetContentBuilder(this.sheet_type), {
+    .bindSheet(this.sheet, HomeSheetContentBuilder(this.sheet_type), {
       height: this.sheet_type === "new" ? SheetSize.MEDIUM : SheetSize.LARGE,
       preferType: SheetType.CENTER,
       showClose: false,

@@ -10,12 +10,10 @@ import { vpnExtension, socket } from '@kit.NetworkKit';
 import { JSON, url } from '@kit.ArkTS';
 import entry from 'libentry.so';
 import { BUILD_TIME } from '../util/info/BuildTime';
-import { SpiderMan } from '@simplepeng/spider-man';
 import { WindowUtil } from '../WindowUtil';
 import { HMRouterMgr } from '@hadss/hmrouter';
 import { AppManager } from '../AppManager';
 import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
-import { DialogHub } from '@hadss/dialoghub';
 import { sendToast } from '../ToastUtil';
 import { isIpAddr } from '../class/config/IP';
 import { BottomAnimator } from '../class/animator/BottomAnimator';
@@ -27,11 +25,11 @@ import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../servic
 import { buildShareUrlSync, unwrapUrl } from '../util/ShareUtil';
 import { updateFavorite } from '../services/form/CommunicationUtil';
 import { cancelNotification, publishTextNotification } from '../util/NoticeHelper';
-import { netHandover } from '@kit.NetworkBoostKit';
 import { ConfigJson } from '../config/schema/SchemaConfig';
 import { RuntimeAggregateState } from '../types/runtime/RuntimeTypes';
 import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnContinueStateData } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
 import { decodeSocketChunk, parseKernelSocketMessage, parseVpnBridgeMessage } from '../infrastructure/bridge/kernel/SocketCodec'
+import { CrashLogService } from '../services/crash/CrashLogService'
 
 const easytier_release = easytier
 
@@ -237,6 +235,7 @@ export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     this.deactivateMissionContinue();
     this.listenCardCall()
+    CrashLogService.init(this.context.filesDir)
     EventHelper.emitterListener("entry_sync_continuation_socket", () => {
       this.syncContinuationSocket()
     })
@@ -284,13 +283,6 @@ export default class EntryAbility extends UIAbility {
       AppManager.easytier.init()
     }
     this.syncContinuationSocket()
-    netHandover.on('handoverChange', (info: netHandover.HandoverInfo) => {
-      if (info.handoverStart) {
-
-      }else if (info.handoverComplete) {
-
-      }
-    })
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam) {
@@ -561,7 +553,6 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
-    SpiderMan.init();
     HMRouterTransitions.init(windowStage);
     try {
       windowStage.getMainWindowSync().on('windowSizeChange', (data) => {
@@ -581,13 +572,6 @@ export default class EntryAbility extends UIAbility {
         Logger.error('Failed to load the content. Cause: ' + JSON.stringify(err), this);
         return;
       }
-      windowStage.getMainWindow().then((windowObj) => {
-        try {
-          DialogHub.init(windowObj.getUIContext());
-        } catch (error) {
-        }
-      }).catch(() => {
-      })
     });
   }
 
@@ -597,11 +581,13 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     WindowUtil.foreground()
+    AppManager.easytier.setRuntimeSnapshotForeground(true)
     this.syncContinuationSocket()
   }
 
   onBackground(): void {
     WindowUtil.background()
+    AppManager.easytier.setRuntimeSnapshotForeground(false)
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {
@@ -651,14 +637,14 @@ export default class EntryAbility extends UIAbility {
         for (const rawMessage of decoded.messages) {
           const msg = parseKernelSocketMessage(rawMessage)
           if (msg.messageType === 'runtime_snapshot') {
-            const snapshot = JSON.parse(msg.payloadJson) as RuntimeAggregateState
+            const snapshot = typeof msg.payloadJson === 'string' ? JSON.parse(msg.payloadJson) as RuntimeAggregateState : msg.payloadJson as RuntimeAggregateState
             EventHelper.emitterPublish("kernel_runtime_snapshot", {
               data: {
                 snapshot
               }
             })
           } else if (msg.messageType === 'tun_request') {
-            const payload = JSON.parse(msg.payloadJson) as TunRequestPayload
+            const payload = typeof msg.payloadJson === 'string' ? JSON.parse(msg.payloadJson) as TunRequestPayload : msg.payloadJson as TunRequestPayload
             const cidr = payload.virtualIpv4Cidr ?? ''
             const ip = payload.virtualIpv4 ?? cidr.split('/')[0]
             const mask = Number(cidr.split('/')[1] ?? '24')

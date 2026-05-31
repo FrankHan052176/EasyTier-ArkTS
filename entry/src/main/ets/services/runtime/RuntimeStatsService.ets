@@ -5,7 +5,7 @@ import hidebug from '@ohos.hidebug'
 import { LogLocate, Logger } from '../../shared/logging/Logger'
 
 const RUNTIME_STATS_FILE = 'easytier-runtime-stats.json'
-const SAMPLE_INTERVAL_MS = 100
+const SAMPLE_INTERVAL_MS = 1000
 
 interface RuntimeStatsSnapshot {
   sessionId: string

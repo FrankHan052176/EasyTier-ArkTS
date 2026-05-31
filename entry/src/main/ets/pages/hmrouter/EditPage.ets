@@ -22,12 +22,7 @@ import { generateBarcode, scanCore } from '@kit.ScanKit'
 import { image } from '@kit.ImageKit'
 import { DialogHub, DialogMode } from '@hadss/dialoghub'
 import { dlpAntiPeep } from '@kit.DeviceSecurityKit';
-
-@Builder
-export function QRImage(img: image.PixelMap) {
-  Image(img).size({width: WindowUtil.minSide()*0.7, height: WindowUtil.minSide()*0.7})
-    .margin(8)
-}
+import { QRImage } from '../../components/util/QRImage'
 
 @Builder
 function ShareMenu() {
@@ -108,6 +103,11 @@ export struct EditPage {
   @Local sheet: boolean = false
   @Local sheet_type: string = ""
   @Local share_menu_id: string = "share_menu_id"
+  @Local loadedFlagPage: boolean = false
+  @Local loadedAdvancedPage: boolean = false
+  @Local loadedOtherPage: boolean = false
+  private active: boolean = false
+  private dlpRegistered: boolean = false
 
   @Computed
   get name() {
@@ -128,10 +128,12 @@ export struct EditPage {
     }
   }
 
-  async aboutToAppear(): Promise<void> {
+  aboutToAppear(): void {
+    this.active = true
     let param = HMRouterMgr.getCurrentParam() as EditPageParam;
     this.uuid = param.uuid
     this.unsafe = param.unsafe
+    this.ensureVisiblePagesLoaded(0)
     refreshEditingConfig(this.uuid)
     EventHelper.emitterListener("edit_open_sheet", (data) => {
       this.sheet_type = data.data!.type as string
@@ -142,18 +144,32 @@ export struct EditPage {
     })
     harmonyShare.on('knockShare', this.immersiveCallback);
     harmonyShare.on('gesturesShare', this.immersiveCallback);
+    setTimeout(() => {
+      this.initDlpAntiPeep()
+    }, 0)
+  }
+
+  private async initDlpAntiPeep(): Promise<void> {
     if (canIUse("SystemCapability.Security.DlpAntiPeep")) {
       try {
         const isOpen = await dlpAntiPeep.isDlpAntiPeepSwitchOn();
+        if (!this.active) {
+          return
+        }
         if (isOpen) {
           dlpAntiPeep.on('dlpAntiPeep', this.onStatusChange);
+          this.dlpRegistered = true
         } else if (!AppManager.uiState.ask_dlp) {
           AppManager.uiState.ask_dlp = true
           const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
           const result = await dlpAntiPeep.requestAntiPeepOptions(context);
+          if (!this.active) {
+            return
+          }
           if (result === dlpAntiPeep.AntiPeepOptionsResult.SUCCESS ||
             result === dlpAntiPeep.AntiPeepOptionsResult.ALREADY_ON) {
             dlpAntiPeep.on('dlpAntiPeep', this.onStatusChange);
+            this.dlpRegistered = true
           }
         }
       } catch (error) {
@@ -163,6 +179,10 @@ export struct EditPage {
   }
 
   aboutToDisappear(): void {
+    this.active = false
+    this.loadedFlagPage = false
+    this.loadedAdvancedPage = false
+    this.loadedOtherPage = false
     EventHelper.emitterOff("edit_open_sheet")
     EventHelper.emitterOff("edit_close_sheet")
     harmonyShare.off('knockShare', this.immersiveCallback);
@@ -171,11 +191,29 @@ export struct EditPage {
     }
     AppManager.uiState.editingInstance = undefined
     clearEditingConfigCache(this.uuid)
-    if (canIUse("SystemCapability.Security.DlpAntiPeep")) {
+    if (this.dlpRegistered && canIUse("SystemCapability.Security.DlpAntiPeep")) {
       try {
         dlpAntiPeep.off('dlpAntiPeep', this.onStatusChange);
+        this.dlpRegistered = false
       } catch (error) {
         console.error(`Failed to off DlpAntiPeep. Code: ${error.code}, message: ${error.message}`);
+      }
+    }
+  }
+
+  private visiblePageCount(): number {
+    return Math.max(1, Math.trunc(WindowUtil.uiType / 2))
+  }
+
+  private ensureVisiblePagesLoaded(index: number): void {
+    const lastVisiblePage = Math.min(3, index + this.visiblePageCount() - 1)
+    for (let page = index; page <= lastVisiblePage; page++) {
+      if (page === 1) {
+        this.loadedFlagPage = true
+      } else if (page === 2) {
+        this.loadedAdvancedPage = true
+      } else if (page === 3) {
+        this.loadedOtherPage = true
       }
     }
   }
@@ -205,74 +243,86 @@ export struct EditPage {
       .padding({ left: 20, right: 20 })
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
-      Scroll() {
-        Column({ space: 20 }) {
-          if (deviceInfo.sdkApiVersion >= 20) {
+      if (this.loadedFlagPage) {
+        Scroll() {
+          Column({ space: 20 }) {
+            if (deviceInfo.sdkApiVersion >= 20) {
+              Row()
+                .width('100%')
+                .height(56)
+            }
+            FieldEdit({ field: configFieldRegistry.flagField })
+              .width('100%')
             Row()
+              .width('100%')
+              .height(150)
+          }
+        }
+        .width('100%')
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.None)
+        .padding({ left: 20, right: 20 })
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      } else {
+        Column().width('100%').height('100%')
+      }
+
+      if (this.loadedAdvancedPage) {
+        List({ space: 20 }) {
+          if (deviceInfo.sdkApiVersion >= 20) {
+            ListItem()
               .width('100%')
               .height(56)
           }
-          FieldEdit({ field: configFieldRegistry.flagField })
-            .width('100%')
-          Row()
+          ForEach(configFieldRegistry.advancedFields, (field: ConfigField) => {
+            ListItem() {
+              FieldEdit({ field: field })
+                .width('100%')
+            }
+          })
+          ListItem()
             .width('100%')
             .height(150)
         }
+        .width('100%')
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .chainAnimation(true)
+        .edgeEffect(EdgeEffect.None)
+        .padding({ left: 20, right: 20 })
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      } else {
+        Column().width('100%').height('100%')
       }
-      .width('100%')
-      .height('100%')
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.None)
-      .padding({ left: 20, right: 20 })
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
 
-      List({ space: 20 }) {
-        if (deviceInfo.sdkApiVersion >= 20) {
+      if (this.loadedOtherPage) {
+        List({ space: 20 }) {
+          if (deviceInfo.sdkApiVersion >= 20) {
+            ListItem()
+              .width('100%')
+              .height(56)
+          }
+          ForEach(configFieldRegistry.otherFields, (field: ConfigField) => {
+            ListItem() {
+              FieldEdit({ field: field })
+                .width('100%')
+            }
+          })
           ListItem()
             .width('100%')
-            .height(56)
+            .height(150)
         }
-        ForEach(configFieldRegistry.advancedFields, (field: ConfigField) => {
-          ListItem() {
-            FieldEdit({ field: field })
-              .width('100%')
-          }
-        })
-        ListItem()
-          .width('100%')
-          .height(150)
+        .width('100%')
+        .height('100%')
+        .scrollBar(BarState.Off)
+        .chainAnimation(true)
+        .edgeEffect(EdgeEffect.None)
+        .padding({ left: 20, right: 20 })
+        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      } else {
+        Column().width('100%').height('100%')
       }
-      .width('100%')
-      .height('100%')
-      .scrollBar(BarState.Off)
-      .chainAnimation(true)
-      .edgeEffect(EdgeEffect.None)
-      .padding({ left: 20, right: 20 })
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-
-      List({ space: 20 }) {
-        if (deviceInfo.sdkApiVersion >= 20) {
-          ListItem()
-            .width('100%')
-            .height(56)
-        }
-        ForEach(configFieldRegistry.otherFields, (field: ConfigField) => {
-          ListItem() {
-            FieldEdit({ field: field })
-              .width('100%')
-          }
-        })
-        ListItem()
-          .width('100%')
-          .height(150)
-      }
-      .width('100%')
-      .height('100%')
-      .scrollBar(BarState.Off)
-      .chainAnimation(true)
-      .edgeEffect(EdgeEffect.None)
-      .padding({ left: 20, right: 20 })
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     }
     .width('100%')
     .height('100%')
@@ -281,6 +331,9 @@ export struct EditPage {
     .displayCount(WindowUtil.uiType / 2)
     .loop(false)
     .indicator(DotIndicator.dot().top(46))
+    .onChange((index: number) => {
+      this.ensureVisiblePagesLoaded(index)
+    })
   }
 
   navTitleStyle(): TitleBarStyleOptions {

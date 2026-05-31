@@ -26,6 +26,7 @@ import { getEditingConfig as getEditingStoredConfig, getStoredConfig, getStoredC
 import { connectVpnExtensionSocket } from './infrastructure/bridge/kernel/VpnExtensionSocketBridge'
 import { orchestrateInstanceStart } from './services/easytier/runtime/StartOrchestrationService'
 import { getHostname } from './util/Conversion'
+import { CrashLogService } from './services/crash/CrashLogService'
 
 
 @Concurrent
@@ -56,6 +57,9 @@ export class EasyTierUtil {
   client: socket.LocalSocket | undefined
   vpnMessageBuffer: string = ''
   private isVpnConnected: boolean = false
+  private runtimeSnapshotSubscriptionCount: number = 0
+  private runtimeSnapshotSubscribed: boolean = false
+  private runtimeSnapshotForeground: boolean = true
 
   init() {
     EventHelper.emitterListener("worker_readLogs", (event) => {
@@ -78,7 +82,9 @@ export class EasyTierUtil {
   }
 
   destroy() {
-    taskpool.terminateTask(this.task2)
+    if (this.task2) {
+      taskpool.terminateTask(this.task2)
+    }
     this.client?.close()
   }
 
@@ -141,6 +147,36 @@ export class EasyTierUtil {
 
   }
 
+  private markOptimisticRunning(config: ConfigJson, displayName: string): void {
+    const instanceId = config.instance_id as string | undefined
+    if (!instanceId) {
+      return
+    }
+    const networkLength = Number(config.network_length ?? 24)
+    const virtualIpv4 = typeof config.virtual_ipv4 === 'string' ? config.virtual_ipv4 as string : undefined
+    const state: RuntimeInstanceState = {
+      configId: instanceId,
+      instanceId,
+      displayName,
+      running: true,
+      tunRequired: !Boolean(config.no_tun),
+      tunAttached: false,
+      magicDnsEnabled: Boolean(config.enable_magic_dns),
+      needExitNode: Array.isArray(config.exit_nodes) && config.exit_nodes.length > 0,
+      myNodeInfo: {
+        virtualIpv4,
+        virtualIpv4Cidr: virtualIpv4 ? `${virtualIpv4}/${networkLength}` : undefined,
+      },
+      routes: [],
+      peers: []
+    }
+    this.runningNetworks.set(instanceId, state)
+    if (!this.instanceInfos.has(instanceId)) {
+      this.instanceInfos.set(instanceId, new InstanceInfo())
+    }
+    this.instanceInfos.get(instanceId)!.update(state)
+  }
+
   processLogs(appLogs: string[], nmLogs: string[]) {
     appLogs.forEach((value) => {
       this.appLogs.add(value)
@@ -156,6 +192,7 @@ export class EasyTierUtil {
       getSocketPath: (name: string) => AppManager.uiState.getSocketPath(name),
       onConnected: () => {
         this.isVpnConnected = true
+        this.sendRuntimeSnapshotSubscription()
       },
       onDisconnected: () => {
         this.isVpnConnected = false
@@ -168,6 +205,52 @@ export class EasyTierUtil {
         this.processLogs(logData.appLogs, logData.nmLogs)
       }
     })
+  }
+
+  public requestRuntimeSnapshotSubscription(enabled: boolean): void {
+    if (enabled) {
+      this.runtimeSnapshotSubscriptionCount += 1
+    } else {
+      this.runtimeSnapshotSubscriptionCount = Math.max(0, this.runtimeSnapshotSubscriptionCount - 1)
+    }
+    this.updateRuntimeSnapshotSubscription(enabled)
+  }
+
+  public setRuntimeSnapshotForeground(active: boolean): void {
+    if (this.runtimeSnapshotForeground === active) {
+      return
+    }
+    this.runtimeSnapshotForeground = active
+    this.updateRuntimeSnapshotSubscription(false)
+  }
+
+  private updateRuntimeSnapshotSubscription(forceResend: boolean): void {
+    const shouldSubscribe = this.runtimeSnapshotSubscriptionCount > 0 && this.runtimeSnapshotForeground
+    if (shouldSubscribe === this.runtimeSnapshotSubscribed) {
+      if (forceResend && shouldSubscribe) {
+        this.sendRuntimeSnapshotSubscription()
+      }
+      return
+    }
+    this.runtimeSnapshotSubscribed = shouldSubscribe
+    this.sendRuntimeSnapshotSubscription()
+  }
+
+  private sendRuntimeSnapshotSubscription(): void {
+    if (!this.client || !this.isVpnConnected || !AppManager.uiState.ext_mode) {
+      return
+    }
+    const rawMessage = JSON.stringify({
+      type: 'snapshot_subscription',
+      data: { enabled: this.runtimeSnapshotSubscribed }
+    }) + '\n'
+    try {
+      this.client.send({ data: rawMessage }).catch((error: object) => {
+        Logger.error(`send snapshot subscription failed: ${JSON.stringify(error)}`, this)
+      })
+    } catch (error) {
+      Logger.error(`send snapshot subscription threw: ${JSON.stringify(error)}`, this)
+    }
   }
 
   public start(uuid: string | undefined = AppManager.uiState.selected, byCard: boolean = false): boolean {
@@ -215,6 +298,7 @@ export class EasyTierUtil {
           }
         })
         if (started) {
+          this.markOptimisticRunning(config, this.getConfigName(uuid) ?? uuid)
           AppManager.runtimeStats.startLiveRefresh()
         }
         return started
@@ -275,6 +359,7 @@ export class EasyTierUtil {
         AppManager.data.delConfig(config.instance_id!)
         this.temporaryConfigIds.delete(config.instance_id!)
       } else {
+        this.markOptimisticRunning(config, name)
         AppManager.runtimeStats.startLiveRefresh()
       }
       return started
@@ -388,6 +473,39 @@ export class EasyTierUtil {
       })
     } catch (err) {
       Logger.error(`日志文件写入失败. Code: ${err.code}, message: ${err.message}`, this)
+    }
+  }
+
+  public writeAndShareCrashLog() {
+    const context = AppManager.content.context! as common.UIAbilityContext
+    const filePath = CrashLogService.getLogPath(context.filesDir)
+    try {
+      if (Number(fileIo.statSync(filePath).size) <= 0) {
+        sendToast('暂无崩溃日志', $r('sys.symbol.doc'), 1)
+        return
+      }
+    } catch (_) {
+      sendToast('暂无崩溃日志', $r('sys.symbol.doc'), 1)
+      return
+    }
+
+    try {
+      let shareData: systemShare.SharedData = new systemShare.SharedData({
+        utd: uniformTypeDescriptor.UniformDataType.FILE,
+        uri: fileUri.getUriFromPath(filePath),
+        title: '分享崩溃日志'
+      });
+      let controller: systemShare.ShareController = new systemShare.ShareController(shareData);
+      controller.show(context, {
+        selectionMode: systemShare.SelectionMode.SINGLE,
+        previewMode: systemShare.SharePreviewMode.DEFAULT,
+        excludedAbilities: [systemShare.ShareAbilityType.PRINT,
+          systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
+      }).catch(() => {
+        Logger.error(`systemShareCrashLog::An unexpected error occurred.`, this);
+      })
+    } catch (err) {
+      Logger.error(`崩溃日志分享失败. Code: ${err.code}, message: ${err.message}`, this)
     }
   }
 }

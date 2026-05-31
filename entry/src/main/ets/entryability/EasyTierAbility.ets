@@ -9,9 +9,8 @@ import { stringArr2RouteArr } from '../util/Conversion';
 import { NetworkSegment } from '../models/network/NetworkSegment';
 import { deviceInfo, BusinessError } from '@kit.BasicServicesKit';
 import { ConfigJson } from '../config/schema/SchemaConfig';
-import { RuntimeAggregateState, RuntimeInstanceState } from '../types/runtime/RuntimeTypes';
-import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnContinueStateData, VpnLogData, VpnMessage } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
-import { decodeSocketChunk, parseKernelSocketMessage } from '../infrastructure/bridge/kernel/SocketCodec'
+import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnContinueStateData, VpnLogData, VpnMessage, VpnSnapshotSubscriptionData } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
+import { buildVpnRuntimeSnapshotMessage, decodeSocketChunk, isRuntimeSnapshotMessage, parseKernelSocketMessage, parseVpnBridgeMessage } from '../infrastructure/bridge/kernel/SocketCodec'
 import { routeSignature } from '../infrastructure/bridge/kernel/RouteStore'
 import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../services/runtime/RuntimeStatsService'
 import { AppManager } from '../AppManager'
@@ -21,6 +20,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   connections: Map<number, socket.LocalSocketConnection> = new Map()
   kernelClient: socket.LocalSocket | undefined
   kernelMessageBuffer: string = ''
+  bridgeMessageBuffers: Map<number, string> = new Map()
   vpnConnection: vpnExtension.VpnConnection | undefined
   timer: number | undefined
   config: ConfigJson | undefined
@@ -40,6 +40,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   private tunCreateSeq: number = 0
   private lastTunTrigger: string = ""
   private continuationActive: boolean = false
+  private snapshotSubscribers: Set<number> = new Set()
 
   private shouldProtectProcessNet(): boolean {
     return deviceInfo.sdkApiVersion >= 22 && this.force_global && (this.config?.exit_nodes?.length ?? 0) > 0
@@ -78,6 +79,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     this.force_global = want.parameters["force_global"] as boolean ?? true;
     this.show_log = want.parameters["show_log"] as boolean ?? false;
     easytier.initConfigStore(this.socketFilesDir)
+    easytier.setKernelSnapshotEnabled(false)
     entry.hilogInit();
     easytier.hilogGlobalOptions(0, "fhl")
     easytier.initPanicHook();
@@ -132,10 +134,34 @@ export default class EasyTierAbility extends VpnExtensionAbility {
         Logger.error(`Connection error: ${JSON.stringify(err)}`, "EasyTierAbility");
         this.dropConnection(connection)
       });
+      connection.on('message', (value: socket.LocalSocketMessageInfo) => {
+        this.processBridgeMessage(connection, value.message)
+      })
       connection.on('close', () => {
         this.dropConnection(connection)
       });
     });
+  }
+
+  private processBridgeMessage(connection: socket.LocalSocketConnection, message: ArrayBuffer | Uint8Array | string): void {
+    try {
+      const decoded = decodeSocketChunk(this.bridgeMessageBuffers.get(connection.clientId) ?? '', message)
+      this.bridgeMessageBuffers.set(connection.clientId, decoded.rest)
+      for (const rawMessage of decoded.messages) {
+        const msg = parseVpnBridgeMessage(rawMessage)
+        if (msg.type === 'snapshot_subscription') {
+          const data = msg.data as VpnSnapshotSubscriptionData
+          if (data.enabled) {
+            this.snapshotSubscribers.add(connection.clientId)
+          } else {
+            this.snapshotSubscribers.delete(connection.clientId)
+          }
+          this.syncKernelSnapshotSubscription()
+        }
+      }
+    } catch (error) {
+      Logger.error(`VpnServer bridge message error: ${JSON.stringify(error)}`, "EasyTierAbility")
+    }
   }
 
   private startKernel() {
@@ -156,6 +182,9 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   private startCollecting() {
     this.connectToKernelSocket(this.socketFilesDir + '/' + KERNEL_SOCKET_NAME)
     this.timer = setInterval(() => {
+      if (this.connections.size === 0) {
+        return
+      }
       // Collect Logs
       let appLogs = entry.getAppLog();
       let nmLogs = entry.getNetworkManagerLog();
@@ -167,11 +196,21 @@ export default class EasyTierAbility extends VpnExtensionAbility {
 
   private dropConnection(connection: socket.LocalSocketConnection): void {
     this.connections.delete(connection.clientId)
+    this.bridgeMessageBuffers.delete(connection.clientId)
+    this.snapshotSubscribers.delete(connection.clientId)
+    this.syncKernelSnapshotSubscription()
+  }
+
+  private syncKernelSnapshotSubscription(): void {
+    easytier.setKernelSnapshotEnabled(this.snapshotSubscribers.size > 0)
   }
 
   private sendBridgeMessage(connection: socket.LocalSocketConnection, msg: VpnMessage) {
-    const str = JSON.stringify(msg) + '\n'
-    const uint8Array = buffer.from(str).buffer
+    this.sendRawBridgeMessage(connection, JSON.stringify(msg) + '\n')
+  }
+
+  private sendRawBridgeMessage(connection: socket.LocalSocketConnection, rawMessage: string) {
+    const uint8Array = buffer.from(rawMessage).buffer
     connection.send({ data: uint8Array }).catch((err: BusinessError) => {
       this.dropConnection(connection)
       if (err.code === 2301032) {
@@ -185,6 +224,12 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   private broadcast(msg: VpnMessage) {
     this.connections.forEach(conn => {
       this.sendBridgeMessage(conn, msg)
+    });
+  }
+
+  private broadcastRaw(rawMessage: string) {
+    this.connections.forEach(conn => {
+      this.sendRawBridgeMessage(conn, rawMessage)
     });
   }
 
@@ -223,17 +268,15 @@ export default class EasyTierAbility extends VpnExtensionAbility {
         const decoded = decodeSocketChunk(this.kernelMessageBuffer, value.message)
         this.kernelMessageBuffer = decoded.rest
         for (const rawMessage of decoded.messages) {
-          const msg = parseKernelSocketMessage(rawMessage)
-          if (msg.messageType === 'runtime_snapshot') {
-            const snapshot = JSON.parse(msg.payloadJson) as RuntimeAggregateState
-            this.broadcast({ type: 'runtime_snapshot', data: snapshot })
-            if (!this.needTUN && (this.vpn_routes || deviceInfo.sdkApiVersion >= 20)) {
-              this.lastTunTrigger = 'runtime_snapshot'
-              Logger.debug(`kernel runtime_snapshot trigger instance=${this.instance_id} needTUN=${this.needTUN} lastSig=${this.lastRoutesSignature} routes=${JSON.stringify(snapshot.tun?.aggregatedRoutes ?? [])}`, "EasyTierAbility")
-              this.updateRoutesFromSnapshot(snapshot)
+          if (isRuntimeSnapshotMessage(rawMessage)) {
+            if (this.connections.size > 0) {
+              this.broadcastRaw(buildVpnRuntimeSnapshotMessage(rawMessage))
             }
-          } else if (msg.messageType === 'tun_request') {
-            const payload = JSON.parse(msg.payloadJson) as TunRequestPayload
+            continue
+          }
+          const msg = parseKernelSocketMessage(rawMessage)
+          if (msg.messageType === 'tun_request') {
+            const payload = typeof msg.payloadJson === 'string' ? JSON.parse(msg.payloadJson) as TunRequestPayload : msg.payloadJson as TunRequestPayload
             this.lastTunTrigger = 'tun_request'
             Logger.info(`kernel tun_request trigger instance=${this.instance_id} cidr=${payload.virtualIpv4Cidr ?? ''} sig=${routeSignature(payload.aggregatedRoutes ?? [])}`, "EasyTierAbility")
             this.setupTunFromPayload(payload)
@@ -243,28 +286,6 @@ export default class EasyTierAbility extends VpnExtensionAbility {
         Logger.error(`kernel socket message error: ${JSON.stringify(e)}`, "EasyTierAbility")
       }
     })
-  }
-
-  private updateRoutesFromSnapshot(snapshot: RuntimeAggregateState): void {
-    if (!(this.vpn_routes || deviceInfo.sdkApiVersion >= 20)) {
-      return
-    }
-    const tun = snapshot.tun
-    const attachedIds = tun?.attachedInstanceIds ?? []
-    if (!tun?.active || attachedIds.indexOf(this.instance_id) < 0) {
-      return
-    }
-    const instance = (snapshot.instances ?? []).find((value: RuntimeInstanceState) => value.instanceId === this.instance_id)
-    const cidr = instance?.myNodeInfo?.virtualIpv4Cidr
-    const ip = instance?.myNodeInfo?.virtualIpv4
-    const routes = tun?.aggregatedRoutes ?? []
-    const currentSignature = routeSignature(routes)
-    Logger.debug(`updateRoutesFromSnapshot enter instance=${this.instance_id} trigger=${this.lastTunTrigger} currentSig=${currentSignature} lastSig=${this.lastRoutesSignature} cidr=${cidr ?? ''} ip=${ip ?? ''} routes=${JSON.stringify(routes)}`, "EasyTierAbility")
-    if (!cidr || !ip || currentSignature === this.lastRoutesSignature) {
-      Logger.debug(`updateRoutesFromSnapshot skip instance=${this.instance_id} trigger=${this.lastTunTrigger} currentSig=${currentSignature} lastSig=${this.lastRoutesSignature}`, "EasyTierAbility")
-      return
-    }
-    this.lastRoutesSignature = currentSignature
   }
 
   private setupTunFromPayload(payload: TunRequestPayload) {

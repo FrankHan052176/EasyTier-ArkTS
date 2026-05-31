@@ -1,5 +1,4 @@
 import { Cidr, CidrBuilder, RouteBuilder } from '../../class/config/Cidr';
-import { EventHelper } from '../../util/EventHelper';
 import { ListenerBuilder, Url, UrlBuilder } from '../../class/config/Url';
 import { IP, IPBuilder } from '../../class/config/IP';
 import { NetworkName, NetworkNameBuilder } from '../../class/config/NetworkName';
@@ -37,16 +36,6 @@ export struct ListFieldValue {
   @Param @Require field: string;
   @Param @Require type: string;
   @Param @Require value: FieldValue;
-  private scroller: ListScroller = new ListScroller();
-
-  aboutToAppear(): void {
-    EventHelper.emitterListener("click_edit", () => {
-      try {
-        this.scroller.closeAllSwipeActions();
-      } catch (error) {
-      }
-    })
-  }
 
   @Styles
   backgroundStyle() {

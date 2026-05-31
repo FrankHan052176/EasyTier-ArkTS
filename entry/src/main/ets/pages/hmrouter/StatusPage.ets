@@ -44,6 +44,9 @@ export struct StatusPage {
   }
 
   aboutToAppear(): void {
+    try {
+      AppManager.easytier.requestRuntimeSnapshotSubscription(true)
+    } catch (_) {}
     this.uuid = HMRouterMgr.getCurrentParam() as string;
     this.name = AppManager.easytier.getConfigName(this.uuid) ?? "临时配置"
     this.config = AppManager.easytier.getConfig(this.uuid) ?? null
@@ -71,6 +74,9 @@ export struct StatusPage {
   }
 
   aboutToDisappear(): void {
+    try {
+      AppManager.easytier.requestRuntimeSnapshotSubscription(false)
+    } catch (_) {}
     harmonyShare.off('knockShare', this.immersiveCallback);
     if (deviceInfo.sdkApiVersion >= 20) {
       harmonyShare.off('gesturesShare', this.immersiveCallback);

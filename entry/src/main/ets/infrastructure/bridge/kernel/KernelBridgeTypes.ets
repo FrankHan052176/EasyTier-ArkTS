@@ -4,7 +4,7 @@ export const KERNEL_SOCKET_NAME = 'easytier-kernel.sock'
 
 export interface KernelSocketMessage {
   messageType: string
-  payloadJson: string
+  payloadJson: string | Object
 }
 
 export interface TunRequestPayload {
@@ -27,7 +27,11 @@ export interface VpnContinueStateData {
   active: boolean
 }
 
+export interface VpnSnapshotSubscriptionData {
+  enabled: boolean
+}
+
 export interface VpnMessage {
   type: string
-  data: RuntimeAggregateState | VpnLogData | VpnContinueStateData
+  data: RuntimeAggregateState | VpnLogData | VpnContinueStateData | VpnSnapshotSubscriptionData
 }
