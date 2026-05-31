@@ -17,7 +17,7 @@ import { common } from '@kit.AbilityKit'
 import { buildShareData, buildShareUrl, buildTomlShareData } from '../../util/ShareUtil'
 import { EditPageParam } from '../../types/navigation/PageParam'
 import { ConfigJson } from '../../config/schema/SchemaConfig'
-import { clearEditingConfigCache, refreshEditingConfig } from '../../services/config/storage/StoredConfigService'
+import { clearEditingConfigCache, refreshEditingConfigAsync } from '../../services/config/storage/StoredConfigService'
 import { generateBarcode, scanCore } from '@kit.ScanKit'
 import { image } from '@kit.ImageKit'
 import { DialogHub, DialogMode } from '@hadss/dialoghub'
@@ -93,6 +93,62 @@ function ShareMenu() {
   }
 }
 
+class EditPageSectionDataSource implements IDataSource {
+  private sections: string[] = ['basic', 'flags', 'advanced', 'other']
+  private listeners: DataChangeListener[] = []
+
+  totalCount(): number {
+    return this.sections.length
+  }
+
+  getData(index: number): string {
+    return this.sections[index]
+  }
+
+  registerDataChangeListener(listener: DataChangeListener): void {
+    if (this.listeners.indexOf(listener) < 0) {
+      this.listeners.push(listener)
+    }
+  }
+
+  unregisterDataChangeListener(listener: DataChangeListener): void {
+    const index = this.listeners.indexOf(listener)
+    if (index >= 0) {
+      this.listeners.splice(index, 1)
+    }
+  }
+}
+
+class ConfigFieldDataSource implements IDataSource {
+  private fields: ConfigField[] = []
+  private listeners: DataChangeListener[] = []
+
+  constructor(fields: ConfigField[]) {
+    this.fields = fields
+  }
+
+  totalCount(): number {
+    return this.fields.length
+  }
+
+  getData(index: number): ConfigField {
+    return this.fields[index]
+  }
+
+  registerDataChangeListener(listener: DataChangeListener): void {
+    if (this.listeners.indexOf(listener) < 0) {
+      this.listeners.push(listener)
+    }
+  }
+
+  unregisterDataChangeListener(listener: DataChangeListener): void {
+    const index = this.listeners.indexOf(listener)
+    if (index >= 0) {
+      this.listeners.splice(index, 1)
+    }
+  }
+}
+
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
 export struct EditPage {
@@ -103,9 +159,12 @@ export struct EditPage {
   @Local sheet: boolean = false
   @Local sheet_type: string = ""
   @Local share_menu_id: string = "share_menu_id"
-  @Local loadedFlagPage: boolean = false
-  @Local loadedAdvancedPage: boolean = false
-  @Local loadedOtherPage: boolean = false
+  @Local editingConfigReady: boolean = false
+  @Local titleText: string = ""
+  private pageDataSource: EditPageSectionDataSource = new EditPageSectionDataSource()
+  private basicFieldDataSource: ConfigFieldDataSource = new ConfigFieldDataSource(configFieldRegistry.basicFields)
+  private advancedFieldDataSource: ConfigFieldDataSource = new ConfigFieldDataSource(configFieldRegistry.advancedFields)
+  private otherFieldDataSource: ConfigFieldDataSource = new ConfigFieldDataSource(configFieldRegistry.otherFields)
   private active: boolean = false
   private dlpRegistered: boolean = false
 
@@ -133,8 +192,9 @@ export struct EditPage {
     let param = HMRouterMgr.getCurrentParam() as EditPageParam;
     this.uuid = param.uuid
     this.unsafe = param.unsafe
-    this.ensureVisiblePagesLoaded(0)
-    refreshEditingConfig(this.uuid)
+    this.titleText = this.uuid ?? ""
+    this.editingConfigReady = false
+    this.loadEditingConfig(this.uuid)
     EventHelper.emitterListener("edit_open_sheet", (data) => {
       this.sheet_type = data.data!.type as string
       this.sheet = true
@@ -178,11 +238,22 @@ export struct EditPage {
     }
   }
 
+  private loadEditingConfig(uuid: string | undefined): void {
+    refreshEditingConfigAsync(uuid).then(() => {
+      if (!this.active || this.uuid !== uuid) {
+        return
+      }
+      this.editingConfigReady = true
+    }).catch(() => {
+      if (!this.active || this.uuid !== uuid) {
+        return
+      }
+      this.editingConfigReady = true
+    })
+  }
+
   aboutToDisappear(): void {
     this.active = false
-    this.loadedFlagPage = false
-    this.loadedAdvancedPage = false
-    this.loadedOtherPage = false
     EventHelper.emitterOff("edit_open_sheet")
     EventHelper.emitterOff("edit_close_sheet")
     harmonyShare.off('knockShare', this.immersiveCallback);
@@ -201,139 +272,154 @@ export struct EditPage {
     }
   }
 
-  private visiblePageCount(): number {
-    return Math.max(1, Math.trunc(WindowUtil.uiType / 2))
+  @Builder
+  basicPage() {
+    List({ space: 20 }) {
+      ListItem()
+        .width('100%')
+        .height(56)
+      LazyForEach(this.basicFieldDataSource, (field: ConfigField) => {
+        ListItem() {
+          FieldEdit({ field: field })
+            .width('100%')
+        }
+      }, (field: ConfigField) => field.name)
+      ListItem()
+        .width('100%')
+        .height(150)
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+    .cachedCount(4)
+    .chainAnimation(true)
+    .edgeEffect(EdgeEffect.None)
+    .padding({ left: 20, right: 20 })
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
   }
 
-  private ensureVisiblePagesLoaded(index: number): void {
-    const lastVisiblePage = Math.min(3, index + this.visiblePageCount() - 1)
-    for (let page = index; page <= lastVisiblePage; page++) {
-      if (page === 1) {
-        this.loadedFlagPage = true
-      } else if (page === 2) {
-        this.loadedAdvancedPage = true
-      } else if (page === 3) {
-        this.loadedOtherPage = true
+  @Builder
+  flagsPage() {
+    Scroll() {
+      Column({ space: 20 }) {
+        Row()
+          .width('100%')
+          .height(56)
+        FieldEdit({ field: configFieldRegistry.flagField })
+          .width('100%')
+        Row()
+          .width('100%')
+          .height(150)
       }
     }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.None)
+    .padding({ left: 20, right: 20 })
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  @Builder
+  advancedPage() {
+    List({ space: 20 }) {
+      ListItem()
+        .width('100%')
+        .height(56)
+      LazyForEach(this.advancedFieldDataSource, (field: ConfigField) => {
+        ListItem() {
+          FieldEdit({ field: field })
+            .width('100%')
+        }
+      }, (field: ConfigField) => field.name)
+      ListItem()
+        .width('100%')
+        .height(150)
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+    .cachedCount(4)
+    .chainAnimation(true)
+    .edgeEffect(EdgeEffect.None)
+    .padding({ left: 20, right: 20 })
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  @Builder
+  otherPage() {
+    List({ space: 20 }) {
+      ListItem()
+        .width('100%')
+        .height(56)
+      LazyForEach(this.otherFieldDataSource, (field: ConfigField) => {
+        ListItem() {
+          FieldEdit({ field: field })
+            .width('100%')
+        }
+      }, (field: ConfigField) => field.name)
+      ListItem()
+        .width('100%')
+        .height(150)
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+    .cachedCount(4)
+    .chainAnimation(true)
+    .edgeEffect(EdgeEffect.None)
+    .padding({ left: 20, right: 20 })
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  @Builder
+  pageContent(section: string) {
+    Column() {
+      if (section === 'basic') {
+        this.basicPage()
+      } else if (section === 'flags') {
+        this.flagsPage()
+      } else if (section === 'advanced') {
+        this.advancedPage()
+      } else {
+        this.otherPage()
+      }
+    }
+    .width('100%')
+    .height('100%')
   }
 
   @Builder
   content() {
     Swiper() {
-      List({ space: 20 }) {
-        ListItem()
-          .width('100%')
-          .height(56)
-        ForEach(configFieldRegistry.basicFields, (field: ConfigField) => {
-          ListItem() {
-            FieldEdit({ field: field })
-              .width('100%')
-          }
-        })
-        ListItem()
-          .width('100%')
-          .height(150)
-      }
-      .width('100%')
-      .height('100%')
-      .scrollBar(BarState.Off)
-      .chainAnimation(true)
-      .edgeEffect(EdgeEffect.None)
-      .padding({ left: 20, right: 20 })
-      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-
-      if (this.loadedFlagPage) {
-        Scroll() {
-          Column({ space: 20 }) {
-            if (deviceInfo.sdkApiVersion >= 20) {
-              Row()
-                .width('100%')
-                .height(56)
-            }
-            FieldEdit({ field: configFieldRegistry.flagField })
-              .width('100%')
-            Row()
-              .width('100%')
-              .height(150)
-          }
-        }
-        .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
-        .edgeEffect(EdgeEffect.None)
-        .padding({ left: 20, right: 20 })
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      } else {
-        Column().width('100%').height('100%')
-      }
-
-      if (this.loadedAdvancedPage) {
-        List({ space: 20 }) {
-          if (deviceInfo.sdkApiVersion >= 20) {
-            ListItem()
-              .width('100%')
-              .height(56)
-          }
-          ForEach(configFieldRegistry.advancedFields, (field: ConfigField) => {
-            ListItem() {
-              FieldEdit({ field: field })
-                .width('100%')
-            }
-          })
-          ListItem()
-            .width('100%')
-            .height(150)
-        }
-        .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
-        .chainAnimation(true)
-        .edgeEffect(EdgeEffect.None)
-        .padding({ left: 20, right: 20 })
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      } else {
-        Column().width('100%').height('100%')
-      }
-
-      if (this.loadedOtherPage) {
-        List({ space: 20 }) {
-          if (deviceInfo.sdkApiVersion >= 20) {
-            ListItem()
-              .width('100%')
-              .height(56)
-          }
-          ForEach(configFieldRegistry.otherFields, (field: ConfigField) => {
-            ListItem() {
-              FieldEdit({ field: field })
-                .width('100%')
-            }
-          })
-          ListItem()
-            .width('100%')
-            .height(150)
-        }
-        .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
-        .chainAnimation(true)
-        .edgeEffect(EdgeEffect.None)
-        .padding({ left: 20, right: 20 })
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-      } else {
-        Column().width('100%').height('100%')
-      }
+      LazyForEach(this.pageDataSource, (section: string) => {
+        this.pageContent(section)
+      }, (section: string) => section)
     }
     .width('100%')
     .height('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .id("edit_content")
     .displayCount(WindowUtil.uiType / 2)
+    .cachedCount(3)
     .loop(false)
     .indicator(DotIndicator.dot().top(46))
-    .onChange((index: number) => {
-      this.ensureVisiblePagesLoaded(index)
-    })
+  }
+
+  @Builder
+  loadingContent() {
+    Column({ space: 12 }) {
+      LoadingProgress()
+        .width(36)
+        .height(36)
+      Text('正在加载配置')
+        .fontSize(14)
+        .fontColor($r('sys.color.font_secondary'))
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
   }
 
   navTitleStyle(): TitleBarStyleOptions {
@@ -394,13 +480,17 @@ export struct EditPage {
 
   build() {
     HdsNavigation() {
-      this.content()
+      if (this.editingConfigReady) {
+        this.content()
+      } else {
+        this.loadingContent()
+      }
     }
     .titleBar({
       style: this.navTitleStyle(),
       content: {
         title: {
-          mainTitle: this.name!,
+          mainTitle: this.titleText,
           subTitle: this.uuid!
         },
         menu: {

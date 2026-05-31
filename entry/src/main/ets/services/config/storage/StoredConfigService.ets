@@ -1,10 +1,19 @@
 import easytier from 'easytier-ohrs'
-import { JSON } from '@kit.ArkTS'
+import { JSON, taskpool } from '@kit.ArkTS'
 import { getDefaultConfig } from '../../../config/defaults/ConfigDefaults'
 import { ConfigJson } from '../../../config/schema/SchemaConfig'
 
 let editingConfigCacheId: string | undefined = undefined
 let editingConfigCache: ConfigJson | undefined = undefined
+
+@Concurrent
+async function loadStoredConfigWorker(uuid: string): Promise<ConfigJson | undefined> {
+  const rawConfig = easytier.getConfig(uuid)
+  if (!rawConfig) {
+    return undefined
+  }
+  return JSON.parse(rawConfig as string) as ConfigJson
+}
 
 export interface StoredConfigMetaLite {
   configId: string
@@ -66,6 +75,28 @@ export function refreshEditingConfig(editingId: string | undefined): ConfigJson 
   editingConfigCacheId = editingId
   editingConfigCache = getStoredConfig(editingId) ?? getDefaultConfig('')
   return editingConfigCache
+}
+
+export async function refreshEditingConfigAsync(editingId: string | undefined): Promise<ConfigJson | undefined> {
+  if (!editingId || editingId.length === 0) {
+    editingConfigCacheId = undefined
+    editingConfigCache = getDefaultConfig('')
+    return editingConfigCache
+  }
+  editingConfigCacheId = editingId
+  try {
+    const config: ConfigJson | undefined = await taskpool.execute(loadStoredConfigWorker, editingId)
+    if (editingConfigCacheId !== editingId) {
+      return editingConfigCache
+    }
+    editingConfigCache = config ?? getDefaultConfig('')
+    return editingConfigCache
+  } catch (_) {
+    if (editingConfigCacheId === editingId) {
+      editingConfigCache = getDefaultConfig('')
+    }
+    return editingConfigCache
+  }
 }
 
 export function clearEditingConfigCache(editingId?: string): void {
