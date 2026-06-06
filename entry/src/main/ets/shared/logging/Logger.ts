@@ -1,4 +1,4 @@
-import { hilog } from '@kit.PerformanceAnalysisKit';
+import easytier from 'easytier-ohrs'
 
 export const LOG_LOCATE_METADATA = Symbol('log_locate');
 
@@ -12,52 +12,43 @@ export function LogLocate(className: string): ClassDecorator {
 }
 
 export class Logger {
-  private static domain = 0
-  private static tag = "fhl"
-
   public static info(msg: string, target: any | string = null) {
-    if (typeof target === "string") {
-      hilog.info(this.domain, this.tag, "[" + target + "] " + msg)
-    } else {
-      hilog.info(this.domain, this.tag, this.getPrefix(target) + msg)
-    }
+    this.write(4, target, msg)
   }
 
   public static warn(msg: string, target: any | string = null) {
-    if (typeof target === "string") {
-      hilog.warn(this.domain, this.tag, "[" + target + "] " + msg)
-    } else {
-      hilog.warn(this.domain, this.tag, this.getPrefix(target) + msg)
-    }
+    this.write(6, target, msg)
   }
 
   public static error(msg: string, target: any | string = null) {
-    if (typeof target === "string") {
-      hilog.error(this.domain, this.tag, "[" + target + "] " + msg)
-    } else {
-      hilog.error(this.domain, this.tag, this.getPrefix(target) + msg)
-    }
+    this.write(5, target, msg)
   }
 
   public static debug(msg: string, target: any | string = null) {
-    if (typeof target === "string") {
-      hilog.debug(this.domain, this.tag, "[" + target + "] " + msg)
-    } else {
-      hilog.debug(this.domain, this.tag, this.getPrefix(target) + msg)
+    this.write(3, target, msg)
+  }
+
+  private static write(level: number, target: any | string, msg: string): void {
+    try {
+      easytier.writeAppLog(level, this.getTarget(target), msg)
+    } catch (_) {
     }
   }
 
-  private static getPrefix(target: any): string {
+  private static getTarget(target: any): string {
     if (target == null) {
-      return "[Null] ";
+      return "Null";
+    }
+    if (typeof target === "string") {
+      return target
     }
     const prefix = Reflect.get(target, LOG_LOCATE_METADATA)
     if (prefix) {
-      return `[${prefix}] `
+      return prefix
     } else if (target.prototype && Reflect.get(target.prototype, LOG_LOCATE_METADATA)) {
-      return `[${Reflect.get(target.prototype, LOG_LOCATE_METADATA)}] `
+      return Reflect.get(target.prototype, LOG_LOCATE_METADATA) as string
     } else {
-      return `[${target.constructor.name}] `
+      return target.constructor.name
     }
   }
 }

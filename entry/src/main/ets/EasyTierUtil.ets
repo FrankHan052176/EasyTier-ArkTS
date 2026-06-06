@@ -1,13 +1,12 @@
-import entry from 'libentry.so'
 import easytier from 'easytier-ohrs'
 import { EventHelper } from './util/EventHelper'
 import { AppManager } from './AppManager'
 import { Logger, LogLocate } from './shared/logging/Logger'
 import { sendToast } from './ToastUtil'
 import { InstanceInfo } from './class/InstanceInfo'
-import { deviceInfo } from '@kit.BasicServicesKit'
+import { emitter } from '@kit.BasicServicesKit'
 import { getDefaultConfig } from './config/defaults/ConfigDefaults'
-import { JSON, taskpool } from '@kit.ArkTS'
+import { JSON } from '@kit.ArkTS'
 import { LogDataSource } from './class/data_source/LogDataSource'
 import { updateFavorite } from './services/form/CommunicationUtil'
 import { HMRouterMgr } from '@hadss/hmrouter'
@@ -29,52 +28,38 @@ import { getHostname } from './util/Conversion'
 import { CrashLogService } from './services/crash/CrashLogService'
 
 
-@Concurrent
-async function readLogsWorker(): Promise<void> {
-  setInterval(() => {
-    let appLogs = entry.getAppLog()
-    let nmLogs = entry.getNetworkManagerLog()
-    EventHelper.emitterPublish("worker_readLogs", {
-      data: {
-        appLogs: appLogs,
-        nmLogs: nmLogs
-      }
-    })
-  }, 100)
-}
-
 @LogLocate("EasyTierUtil")
 @ObservedV2
 export class EasyTierUtil {
   @Trace appLogs: LogDataSource = new LogDataSource
-  @Trace nmLogs: LogDataSource = new LogDataSource
-  @Trace ohLogs: LogDataSource = new LogDataSource
   @Trace runningNetworks: Map<string, RuntimeInstanceState> = new Map()
   @Trace instanceInfos: Map<string, InstanceInfo> = new Map()
   @Trace needTUN: Set<string> = new Set()
   @Trace temporaryConfigIds: Set<string> = new Set()
-  task2: taskpool.LongTask | undefined
+  private logTimer: number | undefined
   client: socket.LocalSocket | undefined
   vpnMessageBuffer: string = ''
   private isVpnConnected: boolean = false
   private runtimeSnapshotSubscriptionCount: number = 0
   private runtimeSnapshotSubscribed: boolean = false
   private runtimeSnapshotForeground: boolean = true
+  private initialized: boolean = false
+  private kernelRuntimeSnapshotCallback: Callback<emitter.EventData> = (event: emitter.EventData) => {
+    if (event?.data?.snapshot) {
+      this.processRuntimeSnapshot(event.data.snapshot as RuntimeAggregateState, false)
+    }
+  }
 
   init() {
-    EventHelper.emitterListener("worker_readLogs", (event) => {
-      if (event?.data) {
-        this.processLogs(event.data.appLogs as string[], event.data.nmLogs as string[])
-      }
-    })
-    EventHelper.emitterListener("kernel_runtime_snapshot", (event) => {
-      if (event?.data?.snapshot) {
-        this.processRuntimeSnapshot(event.data.snapshot as RuntimeAggregateState, false)
-      }
-    })
+    if (this.initialized) {
+      return
+    }
+    this.initialized = true
+    EventHelper.emitterListener("kernel_runtime_snapshot", this.kernelRuntimeSnapshotCallback)
 
-    this.task2 = new taskpool.LongTask(readLogsWorker)
-    taskpool.execute(this.task2)
+    this.logTimer = setInterval(() => {
+      this.processLogs(easytier.drainLogLines())
+    }, 500)
 
     if (AppManager.uiState.ext_mode) {
       this.connectToVpnExtension("easytier_vpn_socket")
@@ -82,10 +67,17 @@ export class EasyTierUtil {
   }
 
   destroy() {
-    if (this.task2) {
-      taskpool.terminateTask(this.task2)
+    if (!this.initialized) {
+      return
+    }
+    this.initialized = false
+    EventHelper.emitterOff("kernel_runtime_snapshot", this.kernelRuntimeSnapshotCallback)
+    if (this.logTimer !== undefined) {
+      clearInterval(this.logTimer)
+      this.logTimer = undefined
     }
     this.client?.close()
+    this.client = undefined
   }
 
   version() {
@@ -117,7 +109,6 @@ export class EasyTierUtil {
     }
 
     const instances = snapshot.instances ?? []
-    Logger.debug(`processRuntimeSnapshot fromVpn=${fromVpn} extMode=${AppManager.uiState.ext_mode} state=${JSON.stringify(snapshot)}`, this)
     const activeIds = new Set<string>()
     instances.forEach((instance) => {
       const instanceId = this.getValidInstanceId(instance)
@@ -177,12 +168,9 @@ export class EasyTierUtil {
     this.instanceInfos.get(instanceId)!.update(state)
   }
 
-  processLogs(appLogs: string[], nmLogs: string[]) {
-    appLogs.forEach((value) => {
+  processLogs(logs: string[]) {
+    logs.forEach((value) => {
       this.appLogs.add(value)
-    })
-    nmLogs.forEach((value) => {
-      this.nmLogs.add(value)
     })
   }
 
@@ -202,7 +190,7 @@ export class EasyTierUtil {
         this.processRuntimeSnapshot(snapshot, true)
       },
       onLogs: (logData: VpnLogData) => {
-        this.processLogs(logData.appLogs, logData.nmLogs)
+        this.processLogs(logData.logs)
       }
     })
   }
@@ -270,7 +258,8 @@ export class EasyTierUtil {
           dns: AppManager.uiState.dns,
           dev: AppManager.uiState.dev,
           forceGlobal: AppManager.uiState.force_global,
-          showLog: AppManager.uiState.show_log,
+          coreLog: AppManager.uiState.core_log,
+          debugLog: AppManager.uiState.debug_log,
           addNeedTun: (instanceId: string) => {
             this.needTUN.add(instanceId)
           },
@@ -328,7 +317,8 @@ export class EasyTierUtil {
         dns: AppManager.uiState.dns,
         dev: AppManager.uiState.dev,
         forceGlobal: AppManager.uiState.force_global,
-        showLog: AppManager.uiState.show_log,
+        coreLog: AppManager.uiState.core_log,
+        debugLog: AppManager.uiState.debug_log,
         addNeedTun: (instanceId: string) => {
           this.needTUN.add(instanceId)
         },
@@ -453,9 +443,12 @@ export class EasyTierUtil {
       fileIo.unlinkSync(filePath)
     }catch (_) {}
     try {
-      file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
-      fileIo.writeSync(file.fd, this.appLogs.join2String());
-      fileIo.closeSync(file);
+      if (!easytier.exportLogArchive(filePath)) {
+        file = fileIo.openSync(filePath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
+        fileIo.writeSync(file.fd, this.appLogs.join2String());
+        fileIo.closeSync(file);
+        file = null
+      }
 
       let shareData: systemShare.SharedData = new systemShare.SharedData({
         utd: uniformTypeDescriptor.UniformDataType.FILE,
@@ -472,6 +465,11 @@ export class EasyTierUtil {
         Logger.error(`systemShareConfig::An unexpected error occurred.`, this);
       })
     } catch (err) {
+      if (file) {
+        try {
+          fileIo.closeSync(file)
+        } catch (_) {}
+      }
       Logger.error(`日志文件写入失败. Code: ${err.code}, message: ${err.message}`, this)
     }
   }

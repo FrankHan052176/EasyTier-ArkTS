@@ -4,6 +4,7 @@ import { PeerInfo } from '../InstanceInfo';
 export class LogDataSource implements IDataSource {
   private listeners: DataChangeListener[] = [];
   @Trace private logs: string[] = [];
+  private readonly maxLogs: number = 500;
 
   totalCount(): number {
     return this.logs.length
@@ -62,19 +63,37 @@ export class LogDataSource implements IDataSource {
     });
   }
 
+  private trimOverflow(): number {
+    const overflow = this.logs.length - this.maxLogs
+    if (overflow > 0) {
+      this.logs.splice(0, overflow)
+    }
+    return overflow
+  }
+
   add(log: string) {
-    this.notifyDataAdd(this.logs.push(log)-1)
+    const index = this.logs.push(log) - 1
+    if (this.trimOverflow() > 0) {
+      this.notifyDataReload()
+    } else {
+      this.notifyDataAdd(index)
+    }
   }
 
   addFrom(log: string[]) {
-    let len = this.logs.push(...log)
-    this.notifyDatasetChange([
-      {
-        type: DataOperationType.ADD,
-        index: len-log.length,
-        count: log.length
-      }
-    ])
+    if (log.length === 0) {
+      return
+    }
+    const len = this.logs.push(...log)
+    if (this.trimOverflow() > 0) {
+      this.notifyDataReload()
+      return
+    }
+    this.notifyDatasetChange([{
+      type: DataOperationType.ADD,
+      index: len - log.length,
+      count: log.length
+    }])
   }
 
   del(index: number) {

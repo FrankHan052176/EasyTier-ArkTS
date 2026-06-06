@@ -1,6 +1,6 @@
 import easytier from 'easytier-ohrs'
 import { ConfigJson, ConfigFieldValue } from './config/schema/SchemaConfig'
-import { cacheEditingConfig } from './services/config/storage/StoredConfigService'
+import { cacheEditingConfig, canSyncEditingConfigField, markEditingConfigFieldDirty } from './services/config/storage/StoredConfigService'
 import { isCloudResetting } from './services/cloud/CloudMutationGate'
 import { EventHelper } from './util/EventHelper'
 
@@ -46,20 +46,24 @@ export function setFieldPathValue(config: ConfigJson, path: string[], value: Con
   current[path[path.length - 1]] = value
 }
 
-export function syncTopLevelField(configId: string, field: string, config: ConfigJson): boolean {
-  if (isCloudResetting()) {
+export function syncTopLevelField(configId: string | undefined, field: string | undefined, config: ConfigJson): boolean {
+  if (!configId || configId.length === 0 || !field || field.length === 0 || isCloudResetting()) {
+    return false
+  }
+  if (!canSyncEditingConfigField(configId, field)) {
     return false
   }
   const value: ConfigFieldValue = getTopLevelValue(config, field)
   const ok = easytier.setConfigField(configId, field, JSON.stringify(value ?? null))
   if (ok) {
+    markEditingConfigFieldDirty(configId, field)
     cacheEditingConfig(configId, config)
     EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
   }
   return ok
 }
 
-export function syncFieldPath(configId: string, path: string[], config: ConfigJson): boolean {
+export function syncFieldPath(configId: string | undefined, path: string[], config: ConfigJson): boolean {
   return syncTopLevelField(configId, path[0], config)
 }
 

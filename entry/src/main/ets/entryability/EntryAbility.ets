@@ -8,7 +8,6 @@ import { BusinessError, deviceInfo, emitter } from '@kit.BasicServicesKit';
 import easytier from 'easytier-ohrs';
 import { vpnExtension, socket } from '@kit.NetworkKit';
 import { JSON, url } from '@kit.ArkTS';
-import entry from 'libentry.so';
 import { BUILD_TIME } from '../util/info/BuildTime';
 import { WindowUtil } from '../WindowUtil';
 import { HMRouterMgr } from '@hadss/hmrouter';
@@ -17,7 +16,6 @@ import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
 import { sendToast } from '../ToastUtil';
 import { isIpAddr } from '../class/config/IP';
 import { BottomAnimator } from '../class/animator/BottomAnimator';
-import { configFieldRegistry } from '../config/fields/ConfigFieldRegistry';
 import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
 import { systemShare } from '@kit.ShareKit';
 import { rpc } from '@kit.IPCKit';
@@ -236,6 +234,8 @@ export default class EntryAbility extends UIAbility {
     this.deactivateMissionContinue();
     this.listenCardCall()
     CrashLogService.init(this.context.filesDir)
+    easytier.initLogManager(this.context.filesDir, 'ui')
+    easytier.configureLogManager(false, false)
     EventHelper.emitterListener("entry_sync_continuation_socket", () => {
       this.syncContinuationSocket()
     })
@@ -256,11 +256,6 @@ export default class EntryAbility extends UIAbility {
           this.readUri(url)
         }
       }
-      if (deviceInfo.productModel !== "emulator") {
-        entry.hilogInit()
-        easytier.hilogGlobalOptions(0, "fhl")
-        easytier_release.hilogGlobalOptions(0, "fhl")
-      }
       if (AppManager.uiState.inittedGitCore) {
         easytier.initPanicHook()
       }else {
@@ -272,7 +267,6 @@ export default class EntryAbility extends UIAbility {
   async initApp() {
     AppManager.uiState.init()
     AppManager.uiState.setSocketFilesDir(this.context.filesDir)
-    configFieldRegistry.init()
     try {
       await AppManager.preference.init(this.context)
     } catch (error) {
@@ -382,6 +376,7 @@ export default class EntryAbility extends UIAbility {
 
   onDestroy() {
     Logger.debug("onDestroy", this)
+    AppManager.easytier.destroy()
     this.stopContinuousTask()
     this.kernelClient?.close()
     this.continuationClient?.close()

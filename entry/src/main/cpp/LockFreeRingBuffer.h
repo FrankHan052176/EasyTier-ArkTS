@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <utility>
 
 template<size_t N>
 class LockFreeRingBuffer {
@@ -45,7 +46,8 @@ public:
         
         // 收集所有可读消息
         while (current_read != current_write) {
-            result.push_back(buffer_[current_read]);
+            result.push_back(std::move(buffer_[current_read]));
+            std::string().swap(buffer_[current_read]);
             current_read = (current_read + 1) % N;
         }
         

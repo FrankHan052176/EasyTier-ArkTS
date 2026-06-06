@@ -1,5 +1,5 @@
 import { common } from '@kit.AbilityKit'
-import { JSON, taskpool } from '@kit.ArkTS'
+import { JSON } from '@kit.ArkTS'
 import { fileIo } from '@kit.CoreFileKit'
 import hidebug from '@ohos.hidebug'
 import { LogLocate, Logger } from '../../shared/logging/Logger'
@@ -15,8 +15,7 @@ interface RuntimeStatsSnapshot {
   memoryPssKb: string
 }
 
-@Concurrent
-async function collectRuntimeMemoryPssKb(): Promise<string> {
+function collectRuntimeMemoryPssKb(): string {
   try {
     return hidebug.getAppNativeMemInfo().pss.toString()
   } catch (_) {
@@ -90,8 +89,6 @@ class RuntimeStatsRecorder {
   private filePath: string = ''
   private sessionId: string = ''
   private sessionNonce: number = 0
-  private sampling: boolean = false
-  private samplingSessionId: string = ''
 
   start(filesDir: string): void {
     this.stop()
@@ -113,24 +110,17 @@ class RuntimeStatsRecorder {
     this.filePath = ''
     this.startedAt = 0
     this.sessionId = ''
-    this.sampling = false
-    this.samplingSessionId = ''
   }
 
   private sampleAndPersist(): void {
-    if (this.sampling || this.filePath.length === 0 || this.startedAt <= 0 || this.sessionId.length === 0) {
+    if (this.filePath.length === 0 || this.startedAt <= 0 || this.sessionId.length === 0) {
       return
     }
-    this.sampling = true
     const currentSessionId = this.sessionId
     const currentFilePath = this.filePath
     const currentStartedAt = this.startedAt
-    this.samplingSessionId = currentSessionId
-    taskpool.execute(collectRuntimeMemoryPssKb).then((result) => {
-      if (this.sessionId !== currentSessionId || this.filePath !== currentFilePath || this.startedAt !== currentStartedAt) {
-        return
-      }
-      const memoryPssKb = String(result ?? '')
+    try {
+      const memoryPssKb = collectRuntimeMemoryPssKb()
       const now = Date.now()
       const snapshot: RuntimeStatsSnapshot = {
         sessionId: currentSessionId,
@@ -140,14 +130,12 @@ class RuntimeStatsRecorder {
         memoryPssKb
       }
       writeRuntimeStatsSnapshot(currentFilePath, snapshot)
-    }).catch((error: Error) => {
-      Logger.error(`RuntimeStatsRecorder sample error: ${JSON.stringify(error)}`, 'RuntimeStatsRecorder')
-    }).finally(() => {
-      if (this.samplingSessionId === currentSessionId) {
-        this.sampling = false
-        this.samplingSessionId = ''
+    } catch (error) {
+      if (this.sessionId !== currentSessionId || this.filePath !== currentFilePath || this.startedAt !== currentStartedAt) {
+        return
       }
-    })
+      Logger.error(`RuntimeStatsRecorder sample error: ${JSON.stringify(error)}`, 'RuntimeStatsRecorder')
+    }
   }
 }
 

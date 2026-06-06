@@ -25,11 +25,26 @@ export class ConfigField {
   name: string
   type: FieldType
   path: string[]
+  valueKind: string = ''
+  semanticType: string | undefined
+  isList: boolean = false
+  enumOptions: easytier.FieldOption[] = []
 
-  constructor(name: string, type: FieldType, path?: string[]) {
+  constructor(name: string, type: FieldType, path?: string[], schemaField?: easytier.NetworkConfigSchema) {
     this.name = name
     this.type = type
     this.path = path ?? [name]
+    if (schemaField) {
+      this.valueKind = schemaField.valueKind
+      this.semanticType = schemaField.semanticType
+      this.isList = schemaField.isList
+      this.enumOptions = schemaField.enumOptions ?? []
+    } else if (typeof type === 'string') {
+      this.valueKind = type.endsWith('[]') ? 'array' : type
+      this.isList = type.endsWith('[]')
+    } else {
+      this.valueKind = 'object'
+    }
   }
 }
 
@@ -80,12 +95,14 @@ export class ConfigFieldRegistry {
   flagField: ConfigField = new ConfigField('flags_switch', [])
   advancedFields: ConfigField[] = []
   otherFields: ConfigField[] = []
+  private schema: easytier.NetworkConfigSchema | undefined = undefined
+  private schemaChildrenByName: Map<string, easytier.NetworkConfigSchema> = new Map()
 
   init() {
     if (this.fieldList.length > 0) {
       return
     }
-    const schema = easytier.getNetworkConfigSchema()
+    const schema = this.getSchema()
     const added = new Set<string>()
     for (const schemaField of schema.children) {
       const fieldName = schemaField.name
@@ -106,9 +123,9 @@ export class ConfigFieldRegistry {
           added.add('flags')
           this.fieldList.push(this.flagField)
         }
-        ;(this.flagField.type as ConfigField[]).push(new ConfigField(fieldName, type, [fieldName]))
+        ;(this.flagField.type as ConfigField[]).push(new ConfigField(fieldName, type, [fieldName], schemaField))
       } else {
-        this.fieldList.push(new ConfigField(fieldName, type, [fieldName]))
+        this.fieldList.push(new ConfigField(fieldName, type, [fieldName], schemaField))
       }
       added.add(fieldName)
     }
@@ -148,7 +165,7 @@ export class ConfigFieldRegistry {
         result.push(new ConfigField(child, this.buildCombinedField(child)))
         continue
       }
-      const schemaField = easytier.getNetworkConfigSchema().children.find((value) => value.name === child)
+      const schemaField = this.getSchemaField(child)
       if (schemaField) {
         result.push(this.schemaFieldToConfigField(schemaField, []))
       }
@@ -156,9 +173,25 @@ export class ConfigFieldRegistry {
     return result
   }
 
+  private getSchema(): easytier.NetworkConfigSchema {
+    if (!this.schema) {
+      this.schema = easytier.getNetworkConfigSchema()
+      this.schemaChildrenByName.clear()
+      this.schema.children.forEach((field) => {
+        this.schemaChildrenByName.set(field.name, field)
+      })
+    }
+    return this.schema
+  }
+
+  private getSchemaField(fieldName: string): easytier.NetworkConfigSchema | undefined {
+    this.getSchema()
+    return this.schemaChildrenByName.get(fieldName)
+  }
+
   private schemaFieldToConfigField(field: easytier.NetworkConfigSchema, parentPath?: string[]): ConfigField {
     const path = [...(parentPath ?? []), field.name]
-    return new ConfigField(field.name, this.getFieldType(field, path), path)
+    return new ConfigField(field.name, this.getFieldType(field, path), path, field)
   }
 }
 

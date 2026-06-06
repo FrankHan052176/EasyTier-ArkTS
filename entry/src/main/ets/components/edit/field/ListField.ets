@@ -15,6 +15,7 @@ import { PortForward, setEditValue_PortForward } from '../../../class/config/Por
 import { getFieldPathValue, syncTopLevelField } from '../../../ConfigSyncUtil';
 import { ConfigFieldValue } from '../../../config/schema/SchemaConfig';
 import { Logger } from '../../../shared/logging/Logger';
+import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService';
 
 @ComponentV2
 export struct ListField {
@@ -24,6 +25,11 @@ export struct ListField {
   @Local items: (FieldValue | undefined)[] = []
   @Local item_height: number = 0
   private scroller: ListScroller = new ListScroller();
+  private fieldRefreshEvent: string = ''
+  private editRefreshEvent: string = ''
+  private fieldRefreshCallback = () => {
+    this.updateItems()
+  }
 
   @Computed
   get config() {
@@ -76,9 +82,21 @@ export struct ListField {
       }
     }
     this.updateItems()
-    EventHelper.emitterListener("edit_refresh_" + this.field, () => {
-      this.updateItems()
-    })
+    this.fieldRefreshEvent = getEditingConfigFieldRefreshEvent(this.field)
+    this.editRefreshEvent = "edit_refresh_" + this.field
+    EventHelper.emitterListener(this.fieldRefreshEvent, this.fieldRefreshCallback)
+    EventHelper.emitterListener(this.editRefreshEvent, this.fieldRefreshCallback)
+  }
+
+  aboutToDisappear(): void {
+    if (this.fieldRefreshEvent.length > 0) {
+      EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
+      this.fieldRefreshEvent = ''
+    }
+    if (this.editRefreshEvent.length > 0) {
+      EventHelper.emitterOff(this.editRefreshEvent, this.fieldRefreshCallback)
+      this.editRefreshEvent = ''
+    }
   }
 
   @Builder

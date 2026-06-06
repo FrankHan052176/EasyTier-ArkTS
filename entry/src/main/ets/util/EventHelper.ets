@@ -47,7 +47,11 @@ export class EventHelper {
     emitter.emit(event, data)
   }
 
-  public static emitterOff(event: string) {
+  public static emitterOff(event: string, callback?: Callback<emitter.EventData>) {
+    if (callback) {
+      emitter.off(event, callback)
+      return
+    }
     emitter.off(event)
   }
 }

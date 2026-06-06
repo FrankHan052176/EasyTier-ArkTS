@@ -426,22 +426,53 @@ export function Setting_Sheet() {
               .fontColor([$r("sys.color.font_primary")])
               .fontSize(16)
               .margin({ right: 5 })
-            Text("收集EasyTier日志")
+            Text("记录内核日志")
               .fontColor($r("sys.color.font_primary"))
               .fontSize(16)
               .margin({ right: 5 })
-            if (AppManager.uiState.inittedLog != AppManager.uiState.show_log) {
+            if (AppManager.uiState.inittedCoreLog != AppManager.uiState.core_log) {
               Text("重启后生效")
                 .fontColor($r("sys.color.font_secondary"))
                 .fontSize(14)
             }
           }
 
-          Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.show_log })
+          Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.core_log })
             .selectedColor($r('sys.color.brand'))
             .switchPointColor($r('sys.color.comp_background_list_card'))
             .onChange((isOn: boolean) => {
-              AppManager.uiState.show_log = isOn
+              AppManager.uiState.core_log = isOn
+            })
+            .height(29)
+            .width(52)
+        }
+        .height(49)
+        .borderRadius(18)
+        .alignItems(VerticalAlign.Center)
+        .justifyContent(FlexAlign.SpaceBetween)
+        .width('100%')
+        .backgroundColor($r("sys.color.background_primary"))
+        .padding(10)
+      }
+      .margin({ bottom: 10 })
+
+      ListItem() {
+        Row() {
+          Row() {
+            SymbolGlyph($r("sys.symbol.doc"))
+              .fontColor([$r("sys.color.font_primary")])
+              .fontSize(16)
+              .margin({ right: 5 })
+            Text("记录调试日志")
+              .fontColor($r("sys.color.font_primary"))
+              .fontSize(16)
+          }
+
+          Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.debug_log })
+            .selectedColor($r('sys.color.brand'))
+            .switchPointColor($r('sys.color.comp_background_list_card'))
+            .onChange((isOn: boolean) => {
+              AppManager.uiState.debug_log = isOn
             })
             .height(29)
             .width(52)

@@ -1,8 +1,6 @@
-import { ConfigField, configFieldRegistry } from '../../config/fields/ConfigFieldRegistry'
-import { FieldEdit } from '../../components/edit/FieldEdit'
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { deviceInfo } from '@kit.BasicServicesKit'
-import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationAttribute,
+import { HdsNavigation, HdsNavigationTitleMode,
   hdsMaterial,
   TitleBarStyleOptions} from '@kit.UIDesignKit'
 import { ComponentContent, LengthMetrics } from '@kit.ArkUI'
@@ -17,18 +15,26 @@ import { common } from '@kit.AbilityKit'
 import { buildShareData, buildShareUrl, buildTomlShareData } from '../../util/ShareUtil'
 import { EditPageParam } from '../../types/navigation/PageParam'
 import { ConfigJson } from '../../config/schema/SchemaConfig'
-import { clearEditingConfigCache, refreshEditingConfigAsync } from '../../services/config/storage/StoredConfigService'
+import {
+  clearEditingConfigCache,
+  ensureEditingFieldsAsync,
+  prepareEditingConfig
+} from '../../services/config/storage/StoredConfigService'
 import { generateBarcode, scanCore } from '@kit.ScanKit'
 import { image } from '@kit.ImageKit'
 import { DialogHub, DialogMode } from '@hadss/dialoghub'
 import { dlpAntiPeep } from '@kit.DeviceSecurityKit';
 import { QRImage } from '../../components/util/QRImage'
+import { buildEditRenderPlan, emptyEditRenderPlan } from '../../config/render/EditRenderResolver'
+import { EditRenderPlan, EditSectionRenderPlan } from '../../config/render/EditRenderNode'
+import { EditSectionView } from '../../components/edit/EditSectionView'
 
 @Builder
 function ShareMenu() {
   Menu() {
     MenuItem({content: "分享直达链接"}).onClick(() => {
-      let config: ConfigJson | undefined = AppManager.easytier.getEditingConfig()
+      const editingId = AppManager.uiState.editingInstance
+      let config: ConfigJson | undefined = editingId ? AppManager.easytier.getConfig(editingId) : undefined
       if (config) {
         buildShareData(config, (data) => {
           let controller: systemShare.ShareController = new systemShare.ShareController(data);
@@ -46,7 +52,8 @@ function ShareMenu() {
       }
     })
     MenuItem({content: "扫码直达"}).onClick(() => {
-      let config: ConfigJson | undefined = AppManager.easytier.getEditingConfig()
+      const editingId = AppManager.uiState.editingInstance
+      let config: ConfigJson | undefined = editingId ? AppManager.easytier.getConfig(editingId) : undefined
       if (config) {
         buildShareUrl(config, (content) => {
           let options: generateBarcode.CreateOptions = {
@@ -72,7 +79,8 @@ function ShareMenu() {
       }
     })
     MenuItem({content: "分享Toml文件"}).onClick(() => {
-      let config: ConfigJson | undefined = AppManager.easytier.getEditingConfig()
+      const editingId = AppManager.uiState.editingInstance
+      let config: ConfigJson | undefined = editingId ? AppManager.easytier.getConfig(editingId) : undefined
       if (config) {
         const configName: string | undefined = AppManager.easytier.getConfigName(config.instance_id)
         buildTomlShareData(config, (data) => {
@@ -93,62 +101,6 @@ function ShareMenu() {
   }
 }
 
-class EditPageSectionDataSource implements IDataSource {
-  private sections: string[] = ['basic', 'flags', 'advanced', 'other']
-  private listeners: DataChangeListener[] = []
-
-  totalCount(): number {
-    return this.sections.length
-  }
-
-  getData(index: number): string {
-    return this.sections[index]
-  }
-
-  registerDataChangeListener(listener: DataChangeListener): void {
-    if (this.listeners.indexOf(listener) < 0) {
-      this.listeners.push(listener)
-    }
-  }
-
-  unregisterDataChangeListener(listener: DataChangeListener): void {
-    const index = this.listeners.indexOf(listener)
-    if (index >= 0) {
-      this.listeners.splice(index, 1)
-    }
-  }
-}
-
-class ConfigFieldDataSource implements IDataSource {
-  private fields: ConfigField[] = []
-  private listeners: DataChangeListener[] = []
-
-  constructor(fields: ConfigField[]) {
-    this.fields = fields
-  }
-
-  totalCount(): number {
-    return this.fields.length
-  }
-
-  getData(index: number): ConfigField {
-    return this.fields[index]
-  }
-
-  registerDataChangeListener(listener: DataChangeListener): void {
-    if (this.listeners.indexOf(listener) < 0) {
-      this.listeners.push(listener)
-    }
-  }
-
-  unregisterDataChangeListener(listener: DataChangeListener): void {
-    const index = this.listeners.indexOf(listener)
-    if (index >= 0) {
-      this.listeners.splice(index, 1)
-    }
-  }
-}
-
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
 export struct EditPage {
@@ -161,12 +113,21 @@ export struct EditPage {
   @Local share_menu_id: string = "share_menu_id"
   @Local editingConfigReady: boolean = false
   @Local titleText: string = ""
-  private pageDataSource: EditPageSectionDataSource = new EditPageSectionDataSource()
-  private basicFieldDataSource: ConfigFieldDataSource = new ConfigFieldDataSource(configFieldRegistry.basicFields)
-  private advancedFieldDataSource: ConfigFieldDataSource = new ConfigFieldDataSource(configFieldRegistry.advancedFields)
-  private otherFieldDataSource: ConfigFieldDataSource = new ConfigFieldDataSource(configFieldRegistry.otherFields)
+  @Local activePageIndex: number = 0
+  private renderPlan: EditRenderPlan = emptyEditRenderPlan()
   private active: boolean = false
   private dlpRegistered: boolean = false
+  private loadedSectionKeys: Set<string> = new Set()
+  private loadingSectionKeys: Set<string> = new Set()
+  private sectionLoadQueue: number[] = []
+  private sectionLoadBusy: boolean = false
+  private sectionLoadTimer: number = -1
+  private sectionPreloadTimer: number = -1
+  private sectionPreloadQueued: boolean = false
+
+  private refreshTitle(): void {
+    this.titleText = AppManager.easytier.getConfigLabel(this.uuid, this.uuid ?? '')
+  }
 
   @Computed
   get name() {
@@ -187,20 +148,137 @@ export struct EditPage {
     }
   }
 
+  private resetSectionLoading(): void {
+    this.loadedSectionKeys.clear()
+    this.loadingSectionKeys.clear()
+    this.sectionLoadQueue = []
+    this.sectionLoadBusy = false
+    this.sectionPreloadQueued = false
+    if (this.sectionLoadTimer >= 0) {
+      clearTimeout(this.sectionLoadTimer)
+      this.sectionLoadTimer = -1
+    }
+    if (this.sectionPreloadTimer >= 0) {
+      clearTimeout(this.sectionPreloadTimer)
+      this.sectionPreloadTimer = -1
+    }
+  }
+
+  private isValidSectionIndex(index: number): boolean {
+    return index >= 0 && index < this.renderPlan.sections.length
+  }
+
+  private isSectionQueued(index: number): boolean {
+    return this.sectionLoadQueue.indexOf(index) >= 0
+  }
+
+  private enqueueSectionLoad(index: number, highPriority: boolean = false, delayMs: number = 0): void {
+    if (!this.isValidSectionIndex(index)) {
+      return
+    }
+    const section = this.renderPlan.sections[index]
+    if (this.loadedSectionKeys.has(section.key) || this.loadingSectionKeys.has(section.key) || this.isSectionQueued(index)) {
+      return
+    }
+    if (highPriority) {
+      this.sectionLoadQueue.unshift(index)
+    } else {
+      this.sectionLoadQueue.push(index)
+    }
+    this.scheduleSectionLoadDrain(delayMs)
+  }
+
+  private scheduleSectionLoadDrain(delayMs: number = 0): void {
+    if (!this.active || this.sectionLoadBusy || this.sectionLoadQueue.length === 0) {
+      return
+    }
+    if (this.sectionLoadTimer >= 0) {
+      clearTimeout(this.sectionLoadTimer)
+      this.sectionLoadTimer = -1
+    }
+    this.sectionLoadTimer = setTimeout(() => {
+      this.sectionLoadTimer = -1
+      this.drainSectionLoadQueue()
+    }, delayMs)
+  }
+
+  private takeNextSectionIndex(): number {
+    while (this.sectionLoadQueue.length > 0) {
+      const index = this.sectionLoadQueue.shift() as number
+      if (!this.isValidSectionIndex(index)) {
+        continue
+      }
+      const section = this.renderPlan.sections[index]
+      if (!this.loadedSectionKeys.has(section.key) && !this.loadingSectionKeys.has(section.key)) {
+        return index
+      }
+    }
+    return -1
+  }
+
+  private drainSectionLoadQueue(): void {
+    if (!this.active || this.sectionLoadBusy) {
+      return
+    }
+    const index = this.takeNextSectionIndex()
+    if (index < 0) {
+      return
+    }
+    const section = this.renderPlan.sections[index]
+    this.sectionLoadBusy = true
+    this.loadingSectionKeys.add(section.key)
+    ensureEditingFieldsAsync(this.uuid, section.topLevelFields).then(() => {
+      this.loadedSectionKeys.add(section.key)
+      if (index === 0) {
+        this.scheduleTrailingSectionPreload()
+      }
+    }).catch(() => {
+    }).finally(() => {
+      this.loadingSectionKeys.delete(section.key)
+      this.sectionLoadBusy = false
+      if (this.active && this.sectionLoadQueue.length > 0) {
+        this.scheduleSectionLoadDrain(120)
+      }
+    })
+  }
+
+  private scheduleTrailingSectionPreload(): void {
+    if (this.sectionPreloadQueued) {
+      return
+    }
+    this.sectionPreloadQueued = true
+    this.sectionPreloadTimer = setTimeout(() => {
+      this.sectionPreloadTimer = -1
+      if (!this.active) {
+        return
+      }
+      this.enqueueSectionLoad(this.activePageIndex, true)
+      for (let index = 1; index < this.renderPlan.sections.length; index++) {
+        this.enqueueSectionLoad(index, false)
+      }
+    }, 180)
+  }
+
   aboutToAppear(): void {
     this.active = true
     let param = HMRouterMgr.getCurrentParam() as EditPageParam;
     this.uuid = param.uuid
     this.unsafe = param.unsafe
-    this.titleText = this.uuid ?? ""
-    this.editingConfigReady = false
-    this.loadEditingConfig(this.uuid)
+    this.refreshTitle()
+    AppManager.uiState.editingInstance = this.uuid
+    this.activePageIndex = 0
+    this.resetSectionLoading()
+    prepareEditingConfig(this.uuid)
+    this.renderPlan = buildEditRenderPlan()
+    this.editingConfigReady = true
+    this.enqueueSectionLoad(0, true, 32)
     EventHelper.emitterListener("edit_open_sheet", (data) => {
       this.sheet_type = data.data!.type as string
       this.sheet = true
     })
     EventHelper.emitterListener("edit_close_sheet", () => {
       this.sheet = false
+      this.refreshTitle()
     })
     harmonyShare.on('knockShare', this.immersiveCallback);
     harmonyShare.on('gesturesShare', this.immersiveCallback);
@@ -238,22 +316,9 @@ export struct EditPage {
     }
   }
 
-  private loadEditingConfig(uuid: string | undefined): void {
-    refreshEditingConfigAsync(uuid).then(() => {
-      if (!this.active || this.uuid !== uuid) {
-        return
-      }
-      this.editingConfigReady = true
-    }).catch(() => {
-      if (!this.active || this.uuid !== uuid) {
-        return
-      }
-      this.editingConfigReady = true
-    })
-  }
-
   aboutToDisappear(): void {
     this.active = false
+    this.resetSectionLoading()
     EventHelper.emitterOff("edit_open_sheet")
     EventHelper.emitterOff("edit_close_sheet")
     harmonyShare.off('knockShare', this.immersiveCallback);
@@ -273,117 +338,9 @@ export struct EditPage {
   }
 
   @Builder
-  basicPage() {
-    List({ space: 20 }) {
-      ListItem()
-        .width('100%')
-        .height(56)
-      LazyForEach(this.basicFieldDataSource, (field: ConfigField) => {
-        ListItem() {
-          FieldEdit({ field: field })
-            .width('100%')
-        }
-      }, (field: ConfigField) => field.name)
-      ListItem()
-        .width('100%')
-        .height(150)
-    }
-    .width('100%')
-    .height('100%')
-    .scrollBar(BarState.Off)
-    .cachedCount(4)
-    .chainAnimation(true)
-    .edgeEffect(EdgeEffect.None)
-    .padding({ left: 20, right: 20 })
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-  }
-
-  @Builder
-  flagsPage() {
-    Scroll() {
-      Column({ space: 20 }) {
-        Row()
-          .width('100%')
-          .height(56)
-        FieldEdit({ field: configFieldRegistry.flagField })
-          .width('100%')
-        Row()
-          .width('100%')
-          .height(150)
-      }
-    }
-    .width('100%')
-    .height('100%')
-    .scrollBar(BarState.Off)
-    .edgeEffect(EdgeEffect.None)
-    .padding({ left: 20, right: 20 })
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-  }
-
-  @Builder
-  advancedPage() {
-    List({ space: 20 }) {
-      ListItem()
-        .width('100%')
-        .height(56)
-      LazyForEach(this.advancedFieldDataSource, (field: ConfigField) => {
-        ListItem() {
-          FieldEdit({ field: field })
-            .width('100%')
-        }
-      }, (field: ConfigField) => field.name)
-      ListItem()
-        .width('100%')
-        .height(150)
-    }
-    .width('100%')
-    .height('100%')
-    .scrollBar(BarState.Off)
-    .cachedCount(4)
-    .chainAnimation(true)
-    .edgeEffect(EdgeEffect.None)
-    .padding({ left: 20, right: 20 })
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-  }
-
-  @Builder
-  otherPage() {
-    List({ space: 20 }) {
-      ListItem()
-        .width('100%')
-        .height(56)
-      LazyForEach(this.otherFieldDataSource, (field: ConfigField) => {
-        ListItem() {
-          FieldEdit({ field: field })
-            .width('100%')
-        }
-      }, (field: ConfigField) => field.name)
-      ListItem()
-        .width('100%')
-        .height(150)
-    }
-    .width('100%')
-    .height('100%')
-    .scrollBar(BarState.Off)
-    .cachedCount(4)
-    .chainAnimation(true)
-    .edgeEffect(EdgeEffect.None)
-    .padding({ left: 20, right: 20 })
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
-  }
-
-  @Builder
-  pageContent(section: string) {
+  pageContent(section: EditSectionRenderPlan, index: number) {
     Column() {
-      if (section === 'basic') {
-        this.basicPage()
-      } else if (section === 'flags') {
-        this.flagsPage()
-      } else if (section === 'advanced') {
-        this.advancedPage()
-      } else {
-        this.otherPage()
-      }
+      EditSectionView({ section: section })
     }
     .width('100%')
     .height('100%')
@@ -392,18 +349,25 @@ export struct EditPage {
   @Builder
   content() {
     Swiper() {
-      LazyForEach(this.pageDataSource, (section: string) => {
-        this.pageContent(section)
-      }, (section: string) => section)
+      ForEach(this.renderPlan.sections, (section: EditSectionRenderPlan, index: number) => {
+        this.pageContent(section, index)
+      }, (section: EditSectionRenderPlan) => section.key)
     }
     .width('100%')
     .height('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .id("edit_content")
     .displayCount(WindowUtil.uiType / 2)
-    .cachedCount(3)
+    .cachedCount(0, false)
     .loop(false)
     .indicator(DotIndicator.dot().top(46))
+    .onAnimationStart((index: number, targetIndex: number) => {
+      this.enqueueSectionLoad(targetIndex, true)
+    })
+    .onAnimationEnd((index: number) => {
+      this.activePageIndex = index
+      this.enqueueSectionLoad(index, true)
+    })
   }
 
   @Builder
@@ -480,7 +444,7 @@ export struct EditPage {
 
   build() {
     HdsNavigation() {
-      if (this.editingConfigReady) {
+      if (this.editingConfigReady && this.renderPlan.sections.length > 0) {
         this.content()
       } else {
         this.loadingContent()

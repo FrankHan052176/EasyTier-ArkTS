@@ -1,11 +1,13 @@
 #include "napi/native_api.h"
-#include <iostream>
+#include <cstring>
 #include <string>
+#include <vector>
 #include "hilog/log.h"
 #include "LockFreeRingBuffer.h"
 
 LockFreeRingBuffer<100> appLog;
 LockFreeRingBuffer<100> nmLog;
+
 void MyHiLog(const LogType type, const LogLevel level, const unsigned int domain, const char *tag, const char *msg) {
     std::string finalMsg;
     if (level >= LOG_DEBUG && strcmp(tag, "fhl") == 0) {

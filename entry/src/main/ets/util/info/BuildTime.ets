@@ -1,4 +1,4 @@
-export const BUILD_TIME:string = "2026-05-31T16:23:10.825Z"
+export const BUILD_TIME:string = "2026-06-06T17:58:31.808Z"
 export const APP_VERSION:string = "2.1.0"
 export const APP_VERSION_CODE:string = "30000000"
 export const CORE_VERSION:string = "0.0.1"

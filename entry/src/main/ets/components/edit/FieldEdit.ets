@@ -13,6 +13,10 @@ import { AppManager } from '../../AppManager'
 import { NumberField } from './field/NumberField'
 import { userAuth } from '@kit.UserAuthenticationKit'
 import { BusinessError } from '@kit.BasicServicesKit'
+import { areEditingFieldsLoaded, ensureEditingFieldsAsync } from '../../services/config/storage/StoredConfigService'
+import { Logger } from '../../shared/logging/Logger'
+
+let fieldEditLoadSequence: number = 0
 
 export function getFieldI18Name(field: string): ResourceStr {
   return $r("app.string." + getFieldI18nKey(field))
@@ -22,6 +26,7 @@ export function getFieldI18Name(field: string): ResourceStr {
 export struct FieldEdit {
   @Param layer: number = 0
   @Param @Require field: ConfigField
+  @Param renderDelayMs: number = 0
   @Provider() field_width: number = 0
   @Local content_height: number = 0
   @Local hasEnableButton: boolean =
@@ -31,10 +36,17 @@ export struct FieldEdit {
   @Provider("field_edit_enable") enable: boolean = true
   @Local maskOpacity: number = 1;
   @Local blurRadius: number = 40;
+  @Local fieldReady: boolean = false
+  @Local visibleChildCount: number = 0
+  @Local skeletonOpacity: number = 0.44
   @Consumer("unsafe_status") unsafe: boolean = false
   @Consumer("peep_masked") peepMasked: boolean = false
   @Consumer("peep_dismissed") peepDismissed: boolean = false
   @Provider("lock_status") unlock: boolean = !isVaultField(this.getFieldName())
+  private active: boolean = false
+  private readyTimer: number = -1
+  private childTimer: number = -1
+  private skeletonTimer: number = -1
 
   @Computed
   get safe_show() {
@@ -88,6 +100,107 @@ export struct FieldEdit {
     return this.layer >= 1 || this.isLisType(this.field) || this.field.name === "flags_switch"
   }
 
+  aboutToAppear(): void {
+    this.active = true
+    this.stopSkeletonPulse()
+    this.fieldReady = true
+    this.visibleChildCount = this.getFields().length
+  }
+
+  aboutToDisappear(): void {
+    this.active = false
+    if (this.readyTimer >= 0) {
+      clearTimeout(this.readyTimer)
+      this.readyTimer = -1
+    }
+    if (this.childTimer >= 0) {
+      clearTimeout(this.childTimer)
+      this.childTimer = -1
+    }
+    this.stopSkeletonPulse()
+  }
+
+  private startSkeletonPulse(): void {
+    if (this.skeletonTimer >= 0) {
+      return
+    }
+    let bright = false
+    this.skeletonTimer = setInterval(() => {
+      if (!this.active || this.fieldReady) {
+        this.stopSkeletonPulse()
+        return
+      }
+      bright = !bright
+      animateToImmediately({ duration: 560, curve: Curve.EaseInOut }, () => {
+        this.skeletonOpacity = bright ? 0.78 : 0.44
+      })
+    }, 680)
+  }
+
+  private stopSkeletonPulse(): void {
+    if (this.skeletonTimer >= 0) {
+      clearInterval(this.skeletonTimer)
+      this.skeletonTimer = -1
+    }
+    this.skeletonOpacity = 0.44
+  }
+
+  private scheduleFieldReady(): void {
+    if (!this.active) {
+      return
+    }
+    if (this.readyTimer >= 0) {
+      clearTimeout(this.readyTimer)
+      this.readyTimer = -1
+    }
+    if (this.renderDelayMs <= 0) {
+      if (this.active) {
+        this.stopSkeletonPulse()
+        this.fieldReady = true
+        Logger.debug(`[FieldEditLoad] visible field=${this.field.name} delayMs=0`, 'FieldEdit')
+        this.scheduleChildReveal()
+      }
+      return
+    }
+    this.readyTimer = setTimeout(() => {
+      this.readyTimer = -1
+      if (this.active) {
+        this.stopSkeletonPulse()
+        this.fieldReady = true
+        Logger.debug(`[FieldEditLoad] visible field=${this.field.name} delayMs=${this.renderDelayMs}`, 'FieldEdit')
+        this.scheduleChildReveal()
+      }
+    }, this.renderDelayMs)
+  }
+
+  private scheduleChildReveal(): void {
+    if (!this.active || !Array.isArray(this.field.type)) {
+      this.visibleChildCount = this.getFields().length
+      return
+    }
+    const total = this.getFields().length
+    if (total <= 1) {
+      this.visibleChildCount = total
+      return
+    }
+    this.visibleChildCount = Math.max(this.visibleChildCount, 1)
+    if (this.visibleChildCount >= total) {
+      return
+    }
+    if (this.childTimer >= 0) {
+      clearTimeout(this.childTimer)
+    }
+    this.childTimer = setTimeout(() => {
+      this.childTimer = -1
+      if (!this.active) {
+        return
+      }
+      this.visibleChildCount = Math.min(this.visibleChildCount + 1, total)
+      Logger.debug(`[FieldEditLoad] child_visible field=${this.field.name} count=${this.visibleChildCount}/${total}`, 'FieldEdit')
+      this.scheduleChildReveal()
+    }, 16)
+  }
+
   @Computed
   get Padding() {
     return this.isSingleField ? 0 : 16
@@ -107,6 +220,29 @@ export struct FieldEdit {
     } else {
       return [this.field]
     }
+  }
+
+  getVisibleFields(): ConfigField[] {
+    const fields = this.getFields()
+    if (!Array.isArray(this.field.type) || !this.fieldReady) {
+      return fields
+    }
+    return fields.slice(0, Math.min(this.visibleChildCount, fields.length))
+  }
+
+  collectTopLevelFields(field: ConfigField): string[] {
+    if (Array.isArray(field.type)) {
+      const fields: string[] = []
+      field.type.forEach((child) => {
+        this.collectTopLevelFields(child).forEach((name) => {
+          if (fields.indexOf(name) < 0) {
+            fields.push(name)
+          }
+        })
+      })
+      return fields
+    }
+    return [field.path[0] ?? field.name]
   }
 
   isLisType(field: ConfigField): boolean {
@@ -129,9 +265,9 @@ export struct FieldEdit {
         Text(getFieldI18Name(this.getFieldName()))
           .fontSize(this.titleFontSize)
           .focusable(false)
-        if (this.hasEnableButton) {
+        if (this.hasEnableButton && this.fieldReady) {
           EnableField({ field: this.enableField, fieldPath: (this.field.type[0] as ConfigField).path })
-        } else if (this.isLisType(this.field)) {
+        } else if (this.isLisType(this.field) && this.fieldReady) {
           PrimaryButton({ text: "新增", fontSize: this.titleFontSize, fontColor: $r("sys.color.brand_font") })
             .clickEffect({
               level: ClickEffectLevel.MIDDLE
@@ -149,15 +285,45 @@ export struct FieldEdit {
   }
 
   @Builder
+  skeletonLine(widthValue: string, heightValue: number, radiusValue: number) {
+    Row()
+      .width(widthValue)
+      .height(heightValue)
+      .borderRadius(radiusValue)
+      .backgroundColor($r('sys.color.comp_background_secondary'))
+      .opacity(this.skeletonOpacity)
+  }
+
+  @Builder
+  loadingSkeleton() {
+    Column({ space: 8 }) {
+      Row() {
+        this.skeletonLine('38%', 8, 4)
+        Blank()
+        this.skeletonLine('18%', 8, 4)
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      this.skeletonLine('100%', 36, 12)
+    }
+    .width('100%')
+    .height(56)
+    .justifyContent(FlexAlign.Center)
+  }
+
+  @Builder
   content() {
-    if (!this.isHidden) {
+    if (!this.fieldReady) {
+      this.loadingSkeleton()
+    } else if (!this.isHidden) {
       Flex({
         wrap: FlexWrap.Wrap, space: {
           main: LengthMetrics.vp(10),
           cross: LengthMetrics.vp(10)
         }
       }) {
-        ForEach(this.getFields(), (field: ConfigField, index) => {
+        ForEach(this.getVisibleFields(), (field: ConfigField, index) => {
           if (field.type === "boolean") {
             BoolField({ field: field.name, fieldPath: field.path, text: getFieldI18Name(field.name) })
           } else {
@@ -189,7 +355,7 @@ export struct FieldEdit {
             })
           }
           if (this.isUseDivider) {
-            if (index < this.getFields().length - 1) {
+            if (index < this.getVisibleFields().length - 1) {
               Divider()
                 .color($r("sys.color.background_secondary"))
                 .width('100%')

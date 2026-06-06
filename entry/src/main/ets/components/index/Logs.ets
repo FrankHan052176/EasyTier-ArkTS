@@ -24,30 +24,14 @@ export struct Logs {
   }
 
   @Computed
-  get netCount(): number {
-    return AppManager.easytier.nmLogs.totalCount()
-  }
-
-  @Computed
-  get ohCount(): number {
-    return AppManager.easytier.ohLogs.totalCount()
-  }
-
-  @Computed
   get totalCount(): number {
-    return this.appCount + this.netCount
+    return this.appCount
   }
 
   @Computed
   get latestLog(): string {
     if (this.appCount > 0) {
       return AppManager.easytier.appLogs.getData(this.appCount - 1)
-    }
-    if (this.netCount > 0) {
-      return AppManager.easytier.nmLogs.getData(this.appCount - 1)
-    }
-    if (this.ohCount > 0) {
-      return AppManager.easytier.ohLogs.getData(this.appCount - 1)
     }
     return "暂无日志数据"
   }
@@ -115,11 +99,7 @@ export struct Logs {
         Tabs({ barPosition: BarPosition.Start, index: this.tab_index }) {
           TabContent() {
             this.LogList(AppManager.easytier.appLogs)
-          }.tabBar("App日志")
-
-          TabContent() {
-            this.LogList(AppManager.easytier.nmLogs)
-          }.tabBar("网络日志")
+          }.tabBar("运行日志")
         }
         .barMode(BarMode.Fixed)
         .width('100%')
@@ -282,7 +262,6 @@ export struct Logs {
 
         Row({ space: 16 }) {
           this.MiniStatItem($r('sys.symbol.house'), 0)
-          this.MiniStatItem($r('sys.symbol.wifi'), 1)
         }
       }
       .width('100%')
@@ -301,7 +280,7 @@ export struct Logs {
       SymbolGlyph(icon)
         .fontSize(20)
         .fontColor([$r('sys.color.font_secondary')])
-      Text((tabIdx === 0 ? this.appCount : (tabIdx === 1 ? this.netCount : this.ohCount)).toString())
+      Text(this.appCount.toString())
         .fontSize(14)
         .fontWeight(FontWeight.Medium)
         .fontColor($r('sys.color.font_primary'))
@@ -324,8 +303,7 @@ export struct Logs {
       .margin({ bottom: 8 })
 
       Column({ space: 8 }) {
-        this.ListStatItem("App", this.appCount, $r('sys.symbol.house'), 0)
-        this.ListStatItem("网络", this.netCount, $r('sys.symbol.wifi'), 1)
+        this.ListStatItem("运行日志", this.appCount, $r('sys.symbol.house'), 0)
       }
       .justifyContent(FlexAlign.Center)
       .height('100%')
@@ -380,8 +358,7 @@ export struct Logs {
       .margin({ bottom: 12 })
 
       Row({ space: 8 }) {
-        this.CardStatItem("App日志", $r('sys.symbol.house'), 0)
-        this.CardStatItem("网络日志", $r('sys.symbol.wifi'), 1)
+        this.CardStatItem("运行日志", $r('sys.symbol.house'), 0)
       }
       .width('100%')
       .justifyContent(FlexAlign.SpaceBetween)
@@ -420,7 +397,7 @@ export struct Logs {
         .fontSize(24)
         .fontColor([$r('sys.color.interactive_active')])
         .margin({ bottom: 4 })
-      Text((tabIdx === 0 ? this.appCount : (tabIdx === 1 ? this.netCount : this.ohCount)).toString())
+      Text(this.appCount.toString())
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
         .fontColor($r('sys.color.font_primary'))

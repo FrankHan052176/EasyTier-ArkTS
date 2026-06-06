@@ -14,7 +14,8 @@ export interface StartOrchestrationOptions {
   dns: string
   dev: boolean
   forceGlobal: boolean
-  showLog: boolean
+  coreLog: boolean
+  debugLog: boolean
   addNeedTun: (instanceId: string) => void
   connectToVpnExtension: (socketName: string) => void
   ensureContinuationSocket: () => void
@@ -50,7 +51,8 @@ export function orchestrateInstanceStart(options: StartOrchestrationOptions): bo
         dns: options.dns,
         dev: options.dev,
         force_global: options.forceGlobal,
-        show_log: options.showLog
+        core_log: options.coreLog,
+        debug_log: options.debugLog
       }
     }
     options.ensureContinuationSocket()

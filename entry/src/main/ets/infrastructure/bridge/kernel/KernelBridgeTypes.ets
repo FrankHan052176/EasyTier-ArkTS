@@ -19,8 +19,7 @@ export interface TunRequestPayload {
 }
 
 export interface VpnLogData {
-  appLogs: string[]
-  nmLogs: string[]
+  logs: string[]
 }
 
 export interface VpnContinueStateData {

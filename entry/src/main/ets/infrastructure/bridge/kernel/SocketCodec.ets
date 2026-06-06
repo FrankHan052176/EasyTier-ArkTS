@@ -2,6 +2,7 @@ import { JSON, buffer } from '@kit.ArkTS'
 import { KernelSocketMessage, VpnMessage } from './KernelBridgeTypes'
 
 const RUNTIME_SNAPSHOT_PREFIX = '{"messageType":"runtime_snapshot","payloadJson":'
+const MAX_SOCKET_REST_LENGTH = 4 * 1024 * 1024
 
 export interface SocketDrainResult {
   messages: string[]
@@ -10,16 +11,23 @@ export interface SocketDrainResult {
 
 export function decodeSocketChunk(currentBuffer: string, message: ArrayBuffer | Uint8Array | string): SocketDrainResult {
   const chunkText = typeof message === 'string' ? message : buffer.from(message).toString()
-  const parts = (currentBuffer + chunkText).split('\n')
+  const combined = (currentBuffer.length > MAX_SOCKET_REST_LENGTH ? '' : currentBuffer) + chunkText
   const messages: string[] = []
-  for (let i = 0; i < parts.length - 1; i++) {
-    if (parts[i].length > 0) {
-      messages.push(parts[i])
+  let start = 0
+  while (start < combined.length) {
+    const newlineIndex = combined.indexOf('\n', start)
+    if (newlineIndex < 0) {
+      break
     }
+    if (newlineIndex > start) {
+      messages.push(combined.substring(start, newlineIndex))
+    }
+    start = newlineIndex + 1
   }
+  const rest = combined.substring(start)
   return {
     messages,
-    rest: parts[parts.length - 1] ?? ''
+    rest: rest.length > MAX_SOCKET_REST_LENGTH ? '' : rest
   }
 }
 

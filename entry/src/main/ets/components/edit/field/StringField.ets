@@ -4,6 +4,8 @@ import { AppManager } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { TertiaryButton } from '../../util/TextButton';
 import { getHostname } from '../../../util/Conversion';
+import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService';
+import { EventHelper } from '../../../util/EventHelper';
 
 @Extend(TextInput)
 function fieldTextInput(onChange: EditableTextOnChangeCallback, inputType: InputType, enterKeyType: EnterKeyType,
@@ -32,6 +34,11 @@ export struct StringField {
   @Local isEdit: boolean = false;
   @Consumer("unsafe_status") unsafe: boolean = false
   @Consumer("lock_status") unlock: boolean = false
+  private fieldRefreshEvent: string = ''
+  private syncingFromConfig: boolean = false
+  private fieldRefreshCallback = () => {
+    this.updateFromConfig()
+  }
 
   @Computed
   get hasTopTitle() {
@@ -78,6 +85,36 @@ export struct StringField {
     return hasFieldTag(this.field, "useHostname")
   }
 
+  private topLevelField(): string {
+    return this.fieldPath.length > 0 ? this.fieldPath[0] : this.field
+  }
+
+  private updateFromConfig(): void {
+    if (!this.isEdit) {
+      const nextValue = (getFieldPathValue(this.config!, this.fieldPath) as string) || ""
+      if (this.value !== nextValue) {
+        this.syncingFromConfig = true
+        this.value = nextValue
+        setTimeout(() => {
+          this.syncingFromConfig = false
+        }, 0)
+      }
+    }
+  }
+
+  aboutToAppear(): void {
+    this.updateFromConfig()
+    this.fieldRefreshEvent = getEditingConfigFieldRefreshEvent(this.topLevelField())
+    EventHelper.emitterListener(this.fieldRefreshEvent, this.fieldRefreshCallback)
+  }
+
+  aboutToDisappear(): void {
+    if (this.fieldRefreshEvent.length > 0) {
+      EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
+      this.fieldRefreshEvent = ''
+    }
+  }
+
   build() {
     Row() {
       if (this.hasLeftTitle) {
@@ -114,8 +151,11 @@ export struct StringField {
           .focusable(false)
         }
         Row() {
-            TextInput({ text: this.value!!, controller: this.controller })
+            TextInput({ text: $$this.value, controller: this.controller })
               .fieldTextInput((value) => {
+                if (this.syncingFromConfig) {
+                  return
+                }
                 this.value = value
                 setFieldPathValue(this.config!, this.fieldPath, value)
                 syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)

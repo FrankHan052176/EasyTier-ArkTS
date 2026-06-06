@@ -1,9 +1,8 @@
-import { vpnExtension, VpnExtensionAbility, socket, connection } from '@kit.NetworkKit';
+import { vpnExtension, VpnExtensionAbility, socket } from '@kit.NetworkKit';
 import { Logger } from '../shared/logging/Logger';
 import Want from '@ohos.app.ability.Want';
 import { fileIo } from '@kit.CoreFileKit';
 import easytier from 'easytier-ohrs';
-import entry from 'libentry.so';
 import { buffer, JSON } from '@kit.ArkTS';
 import { stringArr2RouteArr } from '../util/Conversion';
 import { NetworkSegment } from '../models/network/NetworkSegment';
@@ -35,7 +34,8 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   dns: string = ""
   dev: boolean = false
   force_global: boolean = true
-  show_log: boolean = false
+  core_log: boolean = false
+  debug_log: boolean = false
   lastRoutesSignature: string = ""
   private tunCreateSeq: number = 0
   private lastTunTrigger: string = ""
@@ -59,14 +59,23 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   }
 
   onCreate(want: Want): void {
-    Logger.debug("VpnExtAbi create", "EasyTierAbility")
-    if (want.parameters == undefined) return;
+    if (want.parameters == undefined) {
+      easytier.initLogManager(this.context.filesDir, 'vpn')
+      easytier.configureLogManager(false, false)
+      Logger.debug("VpnExtAbi create without parameters", "EasyTierAbility")
+      return;
+    }
     const cfgParam = want.parameters["cfg"] as string | undefined
+    this.socketFilesDir = want.parameters["socket_files_dir"] as string ?? this.context.filesDir;
+    this.core_log = want.parameters["core_log"] as boolean ?? (want.parameters["show_log"] as boolean ?? false);
+    this.debug_log = want.parameters["debug_log"] as boolean ?? false;
+    easytier.initLogManager(this.socketFilesDir, 'vpn')
+    easytier.configureLogManager(this.core_log, this.debug_log)
+    Logger.debug("VpnExtAbi create", "EasyTierAbility")
     if (!cfgParam) {
       Logger.debug("VpnExtAbi create without cfg, likely permission probe", "EasyTierAbility")
       return
     }
-    this.socketFilesDir = want.parameters["socket_files_dir"] as string ?? this.context.filesDir;
     this.setupServer(want.parameters["socket"] as string);
     this.config = JSON.parse(cfgParam) as ConfigJson;
     this.instance_id = this.config.instance_id!!;
@@ -77,14 +86,11 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     this.dns = want.parameters["dns"] as string ?? "";
     this.dev = want.parameters["dev"] as boolean ?? false;
     this.force_global = want.parameters["force_global"] as boolean ?? true;
-    this.show_log = want.parameters["show_log"] as boolean ?? false;
     easytier.initConfigStore(this.socketFilesDir)
     easytier.setKernelSnapshotEnabled(false)
-    entry.hilogInit();
-    easytier.hilogGlobalOptions(0, "fhl")
     easytier.initPanicHook();
 
-    if (this.show_log) {
+    if (this.core_log) {
       easytier.initTracingSubscriber();
     }
     this.prepareVpnProtection().catch((err: Error) => {
@@ -185,13 +191,14 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       if (this.connections.size === 0) {
         return
       }
-      // Collect Logs
-      let appLogs = entry.getAppLog();
-      let nmLogs = entry.getNetworkManagerLog();
-      const logData: VpnLogData = { appLogs, nmLogs };
+      const logs = easytier.drainLogLines()
+      if (logs.length === 0) {
+        return
+      }
+      const logData: VpnLogData = { logs };
       const logMsg: VpnMessage = { type: "logs", data: logData };
       this.broadcast(logMsg);
-    }, 100);
+    }, 500);
   }
 
   private dropConnection(connection: socket.LocalSocketConnection): void {

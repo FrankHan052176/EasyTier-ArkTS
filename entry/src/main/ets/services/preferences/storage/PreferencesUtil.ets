@@ -169,7 +169,9 @@ export class PreferenceUtil {
       
       const s = AppManager.uiState;
       // 从磁盘加载值到 UIState
-      s.show_log = this.preferences.getSync("show_log", false).valueOf() as boolean;
+      s.core_log = this.preferences.getSync("core_log",
+        this.preferences.getSync("show_log", false).valueOf() as boolean).valueOf() as boolean;
+      s.debug_log = this.preferences.getSync("debug_log", false).valueOf() as boolean;
       s.vpn_routes = this.preferences.getSync("vpn_routes", false).valueOf() as boolean;
       s.dev = this.preferences.getSync("dev", false).valueOf() as boolean;
       s.force_global = this.preferences.getSync("force_global", true).valueOf() as boolean;
@@ -185,7 +187,8 @@ export class PreferenceUtil {
       s.help2 = this.preferences.getSync("help2", true).valueOf() as boolean;
 
       // 记录启动时内核相关的状态
-      s.inittedLog = s.show_log;
+      s.inittedCoreLog = s.core_log;
+      easytier.configureLogManager(s.core_log, s.debug_log)
 
       const preferredSelected = this.preferences!.getSync("selected", "").toString() || undefined
       const preferredFavorite = this.preferences!.getSync("favorite", "").toString() || undefined
@@ -223,7 +226,7 @@ export class PreferenceUtil {
       Logger.error("init error: " + JSON.stringify(e), this)
     }
 
-    if (AppManager.uiState.show_log) {
+    if (AppManager.uiState.core_log) {
       if (AppManager.uiState.inittedGitCore) {
         easytier.initTracingSubscriber()
       }else {
