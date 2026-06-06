@@ -1,11 +1,13 @@
-import { HdsNavigation, HdsNavigationMenuItemOptions, HdsNavigationTitleMode, hdsMaterial, TitleBarStyleOptions } from '@kit.UIDesignKit'
+import { HdsNavigation, HdsNavigationMenuItemOptions, HdsNavigationTitleMode, HdsNavDestination,
+  HdsNavDestinationTitleMode, hdsMaterial, TitleBarStyleOptions } from '@kit.UIDesignKit'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { LengthMetrics } from '@kit.ArkUI'
 import { HdsMenuButton } from '../../pages/Components'
 import { EventHelper } from '../../util/EventHelper'
 import { AppManager } from '../../AppManager'
 import { config_name, NewConfig_Content, setConfigName } from './NewConfig'
-import { Setting_Sheet } from './Settings'
+import { SettingAdvanced_Content, SettingAbout_Content, SettingCloudSync_Content, SettingLogs_Content,
+  SettingPermissions_Content, Setting_Sheet } from './Settings'
 import { UI_Content } from './UIModifier'
 import { BlackList_Content } from './BlackList'
 
@@ -17,8 +19,12 @@ export function HomeSheetContentBuilder(type: string) {
 @ComponentV2
 struct HomeSheetContent {
   @Param @Require type: string
+  private settingPathStack: NavPathStack = new NavPathStack()
 
   private closeSheet(): void {
+    if (this.type === 'setting') {
+      this.settingPathStack.clear(false)
+    }
     EventHelper.emitterPublish('home_close_sheet')
   }
 
@@ -70,14 +76,6 @@ struct HomeSheetContent {
       return [
         HdsMenuButton('切换', $r('sys.symbol.arrow_2_circlepath'), () => {
           AppManager.uiState.white_list = !AppManager.uiState.white_list
-          this.closeSheet()
-          setTimeout(() => {
-            EventHelper.emitterPublish('home_open_sheet', {
-              data: {
-                type: 'black_list'
-              }
-            })
-          }, 100)
         }),
         HdsMenuButton('关闭', $r('sys.symbol.xmark'), () => this.closeSheet())
       ]
@@ -140,11 +138,111 @@ struct HomeSheetContent {
     }
   }
 
+  private openSettingPage(page: string): void {
+    this.settingPathStack.pushPath(new NavPathInfo(page, null))
+  }
+
+  private settingDestinationTitle(page: string): string {
+    if (page === 'ui') {
+      return 'UI 设置'
+    }
+    if (page === 'black_list') {
+      return AppManager.uiState.white_list ? 'App 白名单' : 'App 黑名单'
+    }
+    if (page === 'cloud_sync') {
+      return '云空间同步'
+    }
+    if (page === 'logs') {
+      return '日志与调试'
+    }
+    if (page === 'permissions') {
+      return '权限'
+    }
+    if (page === 'advanced') {
+      return '高级设置'
+    }
+    if (page === 'about') {
+      return '关于与帮助'
+    }
+    return page
+  }
+
+  private settingDestinationMenus(page: string): HdsNavigationMenuItemOptions[] {
+    if (page === 'black_list') {
+      return [
+        HdsMenuButton('切换', $r('sys.symbol.arrow_2_circlepath'), () => {
+          AppManager.uiState.white_list = !AppManager.uiState.white_list
+        }),
+        HdsMenuButton('关闭', $r('sys.symbol.xmark'), () => this.closeSheet())
+      ]
+    }
+    return [HdsMenuButton('关闭', $r('sys.symbol.xmark'), () => this.closeSheet())]
+  }
+
+  @Builder
+  settingDestination(page: string, pageInfos: Object) {
+    HdsNavDestination() {
+      Column() {
+        if (page === 'ui') {
+          UI_Content()
+        } else if (page === 'black_list') {
+          BlackList_Content()
+        } else if (page === 'cloud_sync') {
+          SettingCloudSync_Content()
+        } else if (page === 'logs') {
+          SettingLogs_Content()
+        } else if (page === 'permissions') {
+          SettingPermissions_Content()
+        } else if (page === 'advanced') {
+          SettingAdvanced_Content()
+        } else if (page === 'about') {
+          SettingAbout_Content()
+        } else {
+          Text(page)
+        }
+      }
+    }
+    .titleBar({
+      style: this.navTitleStyle(),
+      content: {
+        title: {
+          mainTitle: this.settingDestinationTitle(page)
+        },
+        menu: {
+          value: this.settingDestinationMenus(page)
+        }
+      }
+    })
+    .titleMode(HdsNavDestinationTitleMode.MODAL)
+    .hideBackButton(false)
+    .hideTitleBar(false)
+    .backgroundColor($r("sys.color.background_secondary"))
+  }
+
   build() {
-    HdsNavigation() {
-      if (this.type === 'setting') {
-        Setting_Sheet()
-      } else {
+    if (this.type === 'setting') {
+      HdsNavigation(this.settingPathStack) {
+        Setting_Sheet((page: string) => this.openSettingPage(page))
+      }
+      .backgroundColor($r('sys.color.background_secondary'))
+      .titleBar({
+        style: this.navTitleStyle(),
+        content: {
+          title: {
+            mainTitle: this.titleText()
+          },
+          menu: {
+            value: this.titleMenus()
+          }
+        },
+      })
+      .navDestination(this.settingDestination)
+      .mode(NavigationMode.Stack)
+      .titleMode(HdsNavigationTitleMode.MODAL)
+      .hideBackButton(true)
+      .hideTitleBar(false)
+    } else {
+      HdsNavigation() {
         Column() {
           Column().height(64)
           if (this.type === 'new') {
@@ -158,21 +256,21 @@ struct HomeSheetContent {
           }
         }
       }
-    }
-    .backgroundColor($r('sys.color.background_secondary'))
-    .titleBar({
-      style: this.navTitleStyle(),
-      content: {
-        title: {
-          mainTitle: this.titleText()
+      .backgroundColor($r('sys.color.background_secondary'))
+      .titleBar({
+        style: this.navTitleStyle(),
+        content: {
+          title: {
+            mainTitle: this.titleText()
+          },
+          menu: {
+            value: this.titleMenus()
+          }
         },
-        menu: {
-          value: this.titleMenus()
-        }
-      },
-    })
-    .titleMode(HdsNavigationTitleMode.MODAL)
-    .hideBackButton(true)
-    .hideTitleBar(false)
+      })
+      .titleMode(HdsNavigationTitleMode.MODAL)
+      .hideBackButton(true)
+      .hideTitleBar(false)
+    }
   }
 }

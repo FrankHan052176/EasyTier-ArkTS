@@ -1,27 +1,9 @@
-import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
+import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { CLOUD_CONFIG_CHANGED_EVENT } from '../../ConfigSyncUtil'
 import { isCloudResetting } from '../../services/cloud/CloudMutationGate'
 import { EventHelper } from '../../util/EventHelper'
 import easytier from 'easytier-ohrs'
-
-@ComponentV2
-export struct Rename_Title {
-  build() {
-    EditableTitleBar({
-      leftIconStyle: EditableLeftIconType.Back,
-      title: '重命名',
-      contentMargin: {
-        start: LengthMetrics.vp(0),
-        end: LengthMetrics.vp(0),
-      },
-      isSaveIconRequired: false,
-      onCancel: () => {
-        EventHelper.emitterPublish("edit_close_sheet")
-      }
-    })
-  }
-}
 
 @Extend(Text)
 function tips() {

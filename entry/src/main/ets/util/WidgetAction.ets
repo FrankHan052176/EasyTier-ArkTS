@@ -14,17 +14,6 @@ export function startFavorite(component: Object) {
   });
 }
 
-export function instancesList(component: Object) {
-  postCardAction(component, {
-    action: 'router',
-    bundleName: 'top.frankhan.easytier',
-    abilityName: 'EntryAbility',
-    params: {
-      target: "instance_list"
-    }
-  });
-}
-
 export function sendFormId(component: Object, formId: string) {
   postCardAction(component, {
     action: 'call',

@@ -30,6 +30,7 @@ interface PendingImportRequest {
 }
 
 interface SnapshotApi extends ESObject {
+  resetConfigStore?: () => boolean
   exportConfigStoreSnapshot?: (targetPath: string) => boolean
   importConfigStoreSnapshot?: (sourcePath: string) => boolean
   importConfigStoreSnapshotWithResult?: (sourcePath: string) => SnapshotImportResult
@@ -92,41 +93,49 @@ export class CloudConfigSyncService {
       this.pendingImport = undefined
     }
   }
+  private readonly configChangedCallback = () => {
+    if (this.resettingSyncData || isCloudResetting()) {
+      return
+    }
+    this.touchLocalMeta(this.nowTs())
+    if (AppManager.uiState.cloud_auto_sync) {
+      this.scheduleAutoSync()
+    } else {
+      this.refreshMetaState()
+      this.lastSyncMessage = '本地配置已变更，等待上传或更新'
+    }
+  }
 
   async init(context: common.UIAbilityContext): Promise<void> {
     if (this.initialized) {
       return
     }
-    this.initialized = true
     this.context = context
     this.ensureLocalSyncDir()
     this.ensureCloudSyncDir()
-    this.fileSync.on('progress', this.fileSyncCallback)
-    this.cloudFileCache.on('progress', this.cacheProgressCallback)
-    EventHelper.emitterListener(CLOUD_CONFIG_CHANGED_EVENT, () => {
-      if (this.resettingSyncData || isCloudResetting()) {
-        return
-      }
-      this.touchLocalMeta(this.nowTs())
-      if (AppManager.uiState.cloud_auto_sync) {
-        this.scheduleAutoSync()
-      } else {
-        this.refreshMetaState()
-        this.lastSyncMessage = '本地配置已变更，等待上传或更新'
-      }
-    })
     if (this.readLocalMeta().updatedAt === '0') {
       const currentDbTs = this.collectLocalDbUpdatedAt()
       this.touchLocalMeta(currentDbTs)
     }
     this.refreshMetaState()
+    this.fileSync.on('progress', this.fileSyncCallback)
+    this.cloudFileCache.on('progress', this.cacheProgressCallback)
+    EventHelper.emitterListener(CLOUD_CONFIG_CHANGED_EVENT, this.configChangedCallback)
     if (AppManager.uiState.cloud_auto_sync) {
       this.safeStartFileSync('自动同步初始化')
     }
+    this.initialized = true
   }
 
   private snapshotApi(): SnapshotApi {
     return easytier as SnapshotApi
+  }
+
+  private requireContext(): common.UIAbilityContext {
+    if (!this.context || !this.context.filesDir || this.context.filesDir.length === 0) {
+      throw new Error('CloudConfigSyncService context.filesDir is not initialized')
+    }
+    return this.context
   }
 
   private nowTs(): string {
@@ -160,7 +169,7 @@ export class CloudConfigSyncService {
   }
 
   private ensureLocalSyncDir(): string {
-    const dir = `${this.context?.filesDir ?? ''}/${CLOUD_SYNC_DIR}`
+    const dir = `${this.requireContext().filesDir}/${CLOUD_SYNC_DIR}`
     this.ensureDir(dir)
     return dir
   }
@@ -239,8 +248,16 @@ export class CloudConfigSyncService {
   }
 
   private copyFileReplacing(src: string, dest: string): void {
-    this.removeFileIfExists(dest)
-    fileIo.copyFileSync(src, dest)
+    const tempDest = `${dest}.tmp`
+    this.removeFileIfExists(tempDest)
+    try {
+      fileIo.copyFileSync(src, tempDest)
+      this.removeFileIfExists(dest)
+      fileIo.renameSync(tempDest, dest)
+    } catch (error) {
+      this.removeFileIfExists(tempDest)
+      throw new Error(`copyFileReplacing failed: ${JSON.stringify(error)}`)
+    }
   }
 
   private writeTextFile(path: string, content: string): void {
@@ -380,26 +397,30 @@ export class CloudConfigSyncService {
   }
 
   private importSnapshotFromCloud(updatedAt: string): SnapshotImportResult {
+    const restoreGate = isCloudResetting()
+    setCloudResetting(true)
     const localSnapshotPath = this.localImportSnapshotPath()
-    this.removeFileIfExists(localSnapshotPath)
     try {
-      this.copyFileReplacing(this.cloudDbPath(), localSnapshotPath)
-    } catch (error) {
-      Logger.error(`importSnapshotFromCloud copy failed: ${JSON.stringify(error)}`, this)
       this.removeFileIfExists(localSnapshotPath)
-      return this.buildSnapshotImportResult(false, 'cloud_copy_failed', JSON.stringify(error))
+      this.copyFileReplacing(this.cloudDbPath(), localSnapshotPath)
+      const result = this.snapshotApi().importConfigStoreSnapshotWithResult?.(localSnapshotPath)
+        ?? this.buildSnapshotImportResult(this.snapshotApi().importConfigStoreSnapshot?.(localSnapshotPath) ?? false)
+      this.removeFileIfExists(localSnapshotPath)
+      if (!result.ok) {
+        return result
+      }
+      this.writeMeta(this.localMetaPath(), updatedAt)
+      AppManager.data.refreshConfigIds()
+      AppManager.preference.refreshFavoriteFromStore()
+      this.refreshMetaState()
+      return this.buildSnapshotImportResult(true)
+    } catch (error) {
+      Logger.error(`importSnapshotFromCloud failed: ${JSON.stringify(error)}`, this)
+      this.removeFileIfExists(localSnapshotPath)
+      return this.buildSnapshotImportResult(false, 'cloud_import_failed', JSON.stringify(error))
+    } finally {
+      setCloudResetting(restoreGate)
     }
-    const result = this.snapshotApi().importConfigStoreSnapshotWithResult?.(localSnapshotPath)
-      ?? this.buildSnapshotImportResult(this.snapshotApi().importConfigStoreSnapshot?.(localSnapshotPath) ?? false)
-    this.removeFileIfExists(localSnapshotPath)
-    if (!result.ok) {
-      return result
-    }
-    this.writeMeta(this.localMetaPath(), updatedAt)
-    AppManager.data.refreshConfigIds()
-    AppManager.preference.refreshFavoriteFromStore()
-    this.refreshMetaState()
-    return this.buildSnapshotImportResult(true)
   }
 
   private async resumePendingImport(request: PendingImportRequest): Promise<void> {
@@ -576,6 +597,7 @@ export class CloudConfigSyncService {
 
   async resetAllSyncData(): Promise<void> {
     await this.runExclusive(async () => {
+      const context = this.requireContext()
       this.resettingSyncData = true
       setCloudResetting(true)
       if (this.reconcileTimer !== undefined) {
@@ -591,10 +613,12 @@ export class CloudConfigSyncService {
         try {
           AppManager.easytier.stop()
         } catch (_) {}
-        if (this.context) {
-          await AppManager.preference.clearLegacyPreferenceSources(this.context)
-        }
+        await AppManager.preference.clearLegacyPreferenceSources(context)
 
+        const resetOk = this.snapshotApi().resetConfigStore?.() ?? false
+        if (!resetOk) {
+          throw new Error('resetConfigStore failed')
+        }
         this.removeFileIfExists(this.cloudDbPath())
         this.removeFileIfExists(`${this.cloudDbPath()}-wal`)
         this.removeFileIfExists(`${this.cloudDbPath()}-shm`)
@@ -602,16 +626,15 @@ export class CloudConfigSyncService {
         this.removeFileIfExists(this.localMetaPath())
         this.removeFileIfExists(this.localExportSnapshotPath())
         this.removeFileIfExists(this.localImportSnapshotPath())
-        this.removeFileIfExists(`${this.context?.filesDir ?? ''}/${CLOUD_DB_FILE}`)
-        this.removeFileIfExists(`${this.context?.filesDir ?? ''}/${CLOUD_DB_FILE}-wal`)
-        this.removeFileIfExists(`${this.context?.filesDir ?? ''}/${CLOUD_DB_FILE}-shm`)
 
         await this.safeStartFileSync('重置同步文件')
         const synced = await this.waitForSyncCompletion(5000)
         try {
           await this.fileSync.stop()
         } catch (_) {}
-        easytier.initConfigStore(this.context?.filesDir ?? '')
+        if (!easytier.initConfigStore(context.filesDir)) {
+          throw new Error('initConfigStore failed after reset')
+        }
         AppManager.data.refreshConfigIds()
         AppManager.uiState.selected = undefined
         AppManager.uiState.favorite = undefined

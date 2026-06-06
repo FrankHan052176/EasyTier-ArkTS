@@ -1,42 +1,14 @@
-import { EditableLeftIconType, EditableTitleBar, LengthMetrics, uiAppearance } from '@kit.ArkUI';
+import { uiAppearance } from '@kit.ArkUI';
 import { ToolButtonWithPaste } from '../util/ToolButtons';
 import { Logger } from '../../shared/logging/Logger';
 import { EventHelper } from '../../util/EventHelper';
 import { hdsEffect } from '@kit.UIDesignKit';
-import { deviceInfo } from '@kit.BasicServicesKit';
 import { AppManager, Spx2vp } from '../../AppManager';
 
 export let config_name: string | undefined
 
 export function setConfigName(value: string | undefined): void {
   config_name = value
-}
-
-@ComponentV2
-export struct NewConfig_Title {
-  build() {
-    EditableTitleBar({
-      leftIconStyle: EditableLeftIconType.Cancel,
-      title: '新建实例',
-      contentMargin: {
-        start: LengthMetrics.vp(0),
-        end: LengthMetrics.vp(0),
-      },
-      onCancel: () => {
-        config_name = undefined
-        EventHelper.emitterPublish("home_close_sheet")
-      },
-      onSave: () => {
-        if (config_name !== undefined && config_name.length > 0) {
-          AppManager.data.newConfig(config_name)
-          EventHelper.emitterPublish("home_close_sheet")
-          config_name = undefined
-        } else {
-          EventHelper.emitterPublish("new_config_popup")
-        }
-      }
-    })
-  }
 }
 
 @Extend(TextInput)

@@ -271,6 +271,7 @@ export default class EntryAbility extends UIAbility {
       await AppManager.preference.init(this.context)
     } catch (error) {
       Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
+      return
     }
     await AppManager.data.init()
     if (deviceInfo.productModel !== "emulator") {

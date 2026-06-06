@@ -1,9 +1,6 @@
-import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from "@kit.ArkUI"
-import { EventHelper } from "../../util/EventHelper"
 import { AppManager } from "../../AppManager"
 import { Logger } from "../../shared/logging/Logger"
 import { ToolButton } from "../util/ToolButtons"
-import { deviceInfo } from "@kit.BasicServicesKit"
 
 export class AppInfo {
   pkgName: string
@@ -19,112 +16,54 @@ export class AppInfo {
 }
 
 @ComponentV2
-export struct BlackList_Title {
-  @Local menu: boolean = false
+export struct BlackList_Content {
   @Local text: string = ""
-  @Local title: string = AppManager.uiState.white_list?'App 白名单':'App 黑名单'
 
-  @Monitor("menu")
-  addApp() {
-    if (!this.menu) {
-      if (this.text.length > 0) {
-        Logger.debug("text: "+this.text)
-        AppManager.web.getAppInfo(this.text, (name, icon) => {
-          AppManager.preference.setAppInfo(this.text, name, icon)
-          this.text = ""
-        })
-      }else {
-        this.text = ""
-      }
+  private addApp(): void {
+    const pkgName = this.text.trim()
+    if (pkgName.length <= 0) {
+      this.text = ""
+      return
     }
+    Logger.debug("text: " + pkgName)
+    AppManager.web.getAppInfo(pkgName, (name, icon) => {
+      AppManager.preference.setAppInfo(pkgName, name, icon)
+      this.text = ""
+    })
   }
 
   @Builder
-  pkgInput() {
-    TextInput({text: this.text})
-      .id("pkgName_input")
-      .backgroundColor($r("sys.color.background_primary"))
-      .borderRadius(0)
-      .onEditChange((isEdit) => {
-        if (!isEdit) {
-          this.menu = false
-        }
-      })
-      .onChange((value) => {
-        this.text = value
-      })
-  }
-
-  build() {
-    Stack({alignContent: Alignment.End}) {
-      EditableTitleBar({
-        leftIconStyle: EditableLeftIconType.Back,
-        title: this.title,
-        contentMargin: {
-          start: LengthMetrics.vp(0), end: LengthMetrics.vp(0),
-        },
-        isSaveIconRequired: false,
-        onCancel: () => {
-          EventHelper.emitterPublish("home_close_sheet")
-        }
-      })
-      if (deviceInfo.sdkApiVersion >= 22) {
-        ToolButton({
-          symbol: $r("sys.symbol.arrow_2_circlepath"),
-          buttonSize: 40,
-          bgColor: $r("sys.color.background_secondary"),
-          symbolColor: [$r("sys.color.font_primary")]
-        })
-          .onClick(() => {
-            AppManager.uiState.white_list = !AppManager.uiState.white_list
-            EventHelper.emitterPublish("home_close_sheet")
-            setTimeout(() => {
-              EventHelper.emitterPublish("home_open_sheet", {
-                data: {
-                  type: "black_list"
-                }
-              })
-            }, 100)
+  addRow() {
+    ListItem() {
+      Row({ space: 8 }) {
+        TextInput({ text: this.text, placeholder: "输入 App 包名" })
+          .id("pkgName_input")
+          .layoutWeight(1)
+          .height(38)
+          .padding({ left: 10, right: 10 })
+          .backgroundColor($r("sys.color.comp_background_tertiary"))
+          .borderRadius(12)
+          .onChange((value) => {
+            this.text = value
           })
-          .offset({
-            x: -50
+        Button("添加", { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
+          .borderRadius(13)
+          .onClick(() => {
+            this.addApp()
           })
       }
-      ToolButton({
-        symbol: $r("sys.symbol.plus"),
-        buttonSize: 40,
-        bgColor: $r("sys.color.background_secondary"),
-        symbolColor: [$r("sys.color.font_primary")]
+      .width('100%')
+      .height(54)
+      .padding({ left: 10, right: 10, top: 7, bottom: 7 })
+      .borderRadius(18)
+      .backgroundColor($r("sys.color.comp_background_primary"))
+      .shadow({
+        radius: 7,
+        color: '#1F000000'
       })
-        .rotate({
-          angle: this.menu?45:0
-        })
-        .animation({
-          duration: 300,
-          curve: Curve.Friction
-        })
-        .onClick(() => {
-          this.menu = !this.menu
-          if (this.menu) {
-            setTimeout(() => {
-              try {
-                this.getUIContext().getFocusController().requestFocus("pkgName_input");
-              } catch (e) {
-                Logger.error("requestFocus error: " + JSON.stringify(e), "BlackList_Title")
-              }
-            }, 50)
-          }
-        })
-        .bindContextMenu(this.menu!!, this.pkgInput(), {
-          placement: Placement.BottomRight,
-          backgroundColor: $r("sys.color.background_primary")
-        })
     }
   }
-}
 
-@ComponentV2
-export struct BlackList_Content {
   @Builder
   rightButton(pkgName: string) {
     Row() {
@@ -145,6 +84,11 @@ export struct BlackList_Content {
   }
   build() {
     List({space: 8}) {
+      ListItem()
+        .height(64)
+
+      this.addRow()
+
       ForEach(Array.from(AppManager.preference.black_list_apps.keys()), (app: string) => {
         ListItem() {
           BlackListItem({ app: app })

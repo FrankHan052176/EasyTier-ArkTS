@@ -1,24 +1,6 @@
-import { EditableLeftIconType, EditableTitleBar, LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { EventHelper } from '../../util/EventHelper'
 import { LayoutManager } from 'desktop_layout'
-
-@ComponentV2
-export struct UI_Title {
-  build() {
-    EditableTitleBar({
-      leftIconStyle: EditableLeftIconType.Back,
-      title: 'UI 设置',
-      contentMargin: {
-        start: LengthMetrics.vp(0), end: LengthMetrics.vp(0),
-      },
-      isSaveIconRequired: false,
-      onCancel: () => {
-        EventHelper.emitterPublish("home_close_sheet")
-      }
-    })
-  }
-}
 
 @ComponentV2
 struct PostureDemo {
@@ -60,7 +42,6 @@ struct PostureDemo {
   build() {
     Column() {
       Stack() {
-        // Hands simulation
         Row() {
           if (this.leftHandOpacity === 1) {
             SymbolGlyph($r('sys.symbol.hand_thumbsup_fill'))
@@ -79,14 +60,13 @@ struct PostureDemo {
               .transition(TransitionEffect.move(TransitionEdge.BOTTOM))
           }
         }
-        .width('40%')
+        .width('62%')
         .height(48)
         .padding({ left: 12, right: 12 })
         .alignItems(VerticalAlign.Center)
         .hitTestBehavior(HitTestMode.Transparent)
         .zIndex(2)
 
-        // Bar container
         Row() {
           Row() {
             Circle({ width: 8, height: 8 }).fill($r('sys.color.font_tertiary'))
@@ -99,7 +79,7 @@ struct PostureDemo {
           .borderRadius(14)
           .shadow(ShadowStyle.OUTER_DEFAULT_XS)
         }
-        .width('40%')
+        .width('62%')
         .justifyContent(this.alignItem)
         .height(48)
         .backgroundColor($r('sys.color.background_tertiary'))
@@ -110,14 +90,127 @@ struct PostureDemo {
       }
     }
     .width('100%')
-    .padding({
-      left: 16,
-      right: 16,
-      top: 12,
-      bottom: 12
-    })
+    .height(64)
     .clip(true)
   }
+}
+
+@Builder
+function uiGroupHeader(title: string) {
+  Text(title)
+    .width('100%')
+    .fontSize(14)
+    .fontColor($r('sys.color.font_secondary'))
+    .padding({ top: 10, left: 5, bottom: 3 })
+}
+
+@Builder
+function uiSwitchRow(symbol: Resource, title: string, subtitle: string, isOn: boolean,
+  onChange: (isOn: boolean) => void) {
+  ListItem() {
+    Row() {
+      Row() {
+        SymbolGlyph(symbol)
+          .fontSize(20)
+          .fontColor([$r('sys.color.font_primary')])
+          .margin({ right: 10 })
+        Column() {
+          Text(title)
+            .fontSize(16)
+            .fontColor($r('sys.color.font_primary'))
+            .fontWeight(FontWeight.Medium)
+            .maxLines(1)
+          Text(subtitle)
+            .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+            .maxLines(1)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .margin({ top: 3 })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+      }
+      .layoutWeight(1)
+
+      Toggle({ type: ToggleType.Switch, isOn: isOn })
+        .selectedColor($r('sys.color.brand'))
+        .switchPointColor($r('sys.color.comp_background_list_card'))
+        .height(29)
+        .width(52)
+        .onChange(onChange)
+    }
+    .width('100%')
+    .height(64)
+    .padding({ left: 12, right: 10, top: 8, bottom: 8 })
+    .borderRadius(18)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .shadow({
+      radius: 7,
+      color: '#1F000000'
+    })
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.SpaceBetween)
+  }
+  .margin({ bottom: 10 })
+}
+
+@Builder
+function postureSwitchCard(isOn: boolean, onChange: (isOn: boolean) => void) {
+  ListItem() {
+    Column() {
+      Row() {
+        Row() {
+          SymbolGlyph($r('sys.symbol.hand_thumbsup_fill'))
+            .fontSize(20)
+            .fontColor([$r('sys.color.font_primary')])
+            .margin({ right: 10 })
+          Column() {
+            Text('适人握持')
+              .fontSize(16)
+              .fontColor($r('sys.color.font_primary'))
+              .fontWeight(FontWeight.Medium)
+              .maxLines(1)
+            Text('单手布局优化')
+              .fontSize(12)
+              .fontColor($r('sys.color.font_secondary'))
+              .maxLines(1)
+              .margin({ top: 3 })
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
+        }
+        .layoutWeight(1)
+
+        Toggle({ type: ToggleType.Switch, isOn: isOn })
+          .selectedColor($r('sys.color.brand'))
+          .switchPointColor($r('sys.color.comp_background_list_card'))
+          .height(29)
+          .width(52)
+          .onChange(onChange)
+      }
+      .height(52)
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+
+      Divider()
+        .strokeWidth(1)
+        .opacity(0.1)
+        .color($r('sys.color.font_secondary'))
+        .margin({ left: 30, right: 30 })
+
+      PostureDemo()
+        .margin({ top: 6 })
+    }
+    .width('100%')
+    .padding({ left: 12, right: 10, top: 8, bottom: 12 })
+    .borderRadius(18)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .shadow({
+      radius: 7,
+      color: '#1F000000'
+    })
+  }
+  .margin({ bottom: 10 })
 }
 
 @ComponentV2
@@ -159,125 +252,94 @@ export struct UI_Content {
     return $r('sys.symbol.square')
   }
 
-  build() {
-    Column() {
-      PostureDemo()
+  @Builder
+  componentRow(type: string) {
+    ListItem() {
       Row() {
+        SymbolGlyph(this.getIcon(type))
+          .fontSize(22)
+          .fontColor([$r('sys.color.font_primary')])
+          .margin({ right: 12 })
+
         Column() {
-          Text('适人握持')
+          Text(this.getLabel(type))
             .fontSize(16)
+            .fontColor($r('sys.color.font_primary'))
             .fontWeight(FontWeight.Medium)
-          Text('根据设备握持姿态优化布局，方便单手操作')
+            .maxLines(1)
+          Text(this.layout!.comp_sequence.includes(type) ? '显示在主页' : '已隐藏')
             .fontSize(12)
             .fontColor($r('sys.color.font_secondary'))
-            .margin({ top: 4 })
+            .maxLines(1)
+            .margin({ top: 3 })
         }
         .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
 
-        Blank()
-        Toggle({ type: ToggleType.Switch, isOn: this.isPosture })
+        Toggle({ type: ToggleType.Switch, isOn: this.layout!.comp_sequence.includes(type) })
           .selectedColor($r('sys.color.brand'))
           .switchPointColor($r('sys.color.comp_background_list_card'))
           .height(29)
           .width(52)
           .onChange((isOn) => {
+            if (isOn) {
+              this.layout!.addComponent(type)
+            } else {
+              this.layout!.removeComponent(type)
+            }
+          })
+      }
+      .width('100%')
+      .height(64)
+      .padding({ left: 12, right: 10, top: 8, bottom: 8 })
+      .borderRadius(18)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .shadow({
+        radius: 7,
+        color: '#1F000000'
+      })
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+    }
+    .margin({ bottom: 10 })
+  }
+
+  build() {
+    List() {
+      ListItem()
+        .height(64)
+
+      ListItemGroup({ header: uiGroupHeader('布局') }) {
+        postureSwitchCard(this.isPosture, (isOn: boolean) => {
             this.isPosture = isOn
             AppManager.uiState.holding_detector = isOn
             if (!isOn) {
-              EventHelper.emitterPublish("reset_holding_detector")
+              EventHelper.emitterPublish('reset_holding_detector')
             }
           })
       }
-      .width('100%')
-      .padding({
-        left: 16,
-        right: 16,
-        top: 12,
-        bottom: 12
-      })
-      Divider()
-        .strokeWidth(1)
-        .opacity(0.1)
-        .color($r('sys.color.font_secondary'))
-        .padding({ left: 16, right: 16 })
-      Row() {
-        Column() {
-          Text('隐私模式')
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-          Text('编辑配置时将遮罩部分隐私信息')
-            .fontSize(12)
-            .fontColor($r('sys.color.font_secondary'))
-            .margin({ top: 4 })
-        }
-        .alignItems(HorizontalAlign.Start)
 
-        Blank()
-        Toggle({ type: ToggleType.Switch, isOn: AppManager.uiState.vault_mode })
-          .selectedColor($r('sys.color.brand'))
-          .switchPointColor($r('sys.color.comp_background_list_card'))
-          .height(29)
-          .width(52)
-          .onChange((isOn) => {
+      ListItemGroup({ header: uiGroupHeader('隐私') }) {
+        uiSwitchRow($r('sys.symbol.lock_fill'), '隐私模式', '编辑配置时遮罩敏感信息',
+          AppManager.uiState.vault_mode, (isOn: boolean) => {
             AppManager.uiState.vault_mode = isOn
           })
       }
-      .width('100%')
-      .padding({
-        left: 16,
-        right: 16,
-        top: 12,
-        bottom: 12
-      })
-      Divider()
-        .strokeWidth(1)
-        .opacity(0.1)
-        .color($r('sys.color.font_secondary'))
-        .padding({ left: 16, right: 16 })
-      Text('组件管理')
-        .fontSize(14)
-        .fontColor($r('sys.color.font_secondary'))
-        .width('100%')
-        .padding({ left: 16, top: 12, bottom: 4 })
+
       if (this.layout) {
-        List() {
+        ListItemGroup({ header: uiGroupHeader('主页组件') }) {
           ForEach(this.layout.comp_types, (type: string) => {
-            ListItem() {
-              Row() {
-                SymbolGlyph(this.getIcon(type))
-                  .fontSize(24)
-                  .fontColor([$r('sys.color.font_primary')])
-                  .margin({ right: 12 })
-                Text(this.getLabel(type))
-                  .fontSize(16)
-                  .fontWeight(FontWeight.Regular)
-                Blank()
-                Toggle({ type: ToggleType.Switch, isOn: this.layout!.comp_sequence.includes(type) })
-                  .selectedColor($r('sys.color.brand'))
-                  .switchPointColor($r('sys.color.comp_background_list_card'))
-                  .height(29)
-                  .width(52)
-                  .onChange((isOn) => {
-                    if (isOn) {
-                      this.layout!.addComponent(type)
-                    } else {
-                      this.layout!.removeComponent(type)
-                    }
-                  })
-              }
-              .width('100%')
-              .padding({
-                left: 16,
-                right: 16,
-                top: 12,
-                bottom: 12
-              })
-            }
+            this.componentRow(type)
           }, (type: string) => type)
-        }.width('100%').layoutWeight(1)
+        }
       }
-    }.height('100%')
+
+      ListItem()
+        .height(100)
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+    .padding({ left: 15, right: 15, bottom: 12 })
   }
 }
-
-  

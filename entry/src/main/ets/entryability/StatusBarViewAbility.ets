@@ -7,7 +7,9 @@ import { AppManager } from '../AppManager';
 export default class StatusBarViewAbility extends StatusBarViewExtensionAbility {
   onCreate() {
     Logger.debug("onCreate", this)
-    AppManager.preference.init(this.context)
+    AppManager.preference.init(this.context).catch((error: Error) => {
+      Logger.error(`PreferenceUtil failed to init: ${JSON.stringify(error)}`, this)
+    })
   }
 
   onSessionCreate(want: Want, session: UIExtensionContentSession) {

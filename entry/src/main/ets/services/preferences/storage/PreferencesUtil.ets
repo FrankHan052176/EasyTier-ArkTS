@@ -161,10 +161,15 @@ export class PreferenceUtil {
     if (this.initialized) {
       return
     }
-    this.initialized = true
     this.isInit = true
+    let completed = false
     try {
-      easytier.initConfigStore(context.filesDir)
+      if (!context.filesDir || context.filesDir.length === 0) {
+        throw new Error('context.filesDir is empty')
+      }
+      if (!easytier.initConfigStore(context.filesDir)) {
+        throw new Error(`initConfigStore failed filesDir=${context.filesDir}`)
+      }
       this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
       
       const s = AppManager.uiState;
@@ -221,25 +226,31 @@ export class PreferenceUtil {
       this.black_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierBlackListApp' })
       this.updateBlackListApps()
       this.card_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierCardList' })
+      this.initialized = true
+      completed = true
       
     } catch (e) {
       Logger.error("init error: " + JSON.stringify(e), this)
+      if (e instanceof Error) {
+        throw e
+      }
+      throw new Error(`PreferenceUtil init error: ${JSON.stringify(e)}`)
+    } finally {
+      setTimeout(() => {
+        this.isInit = false
+        if (completed && !AppManager.uiState.noOldData) {
+          AppManager.uiState.noOldData = true
+        }
+      }, 100)
     }
 
-    if (AppManager.uiState.core_log) {
+    if (completed && AppManager.uiState.core_log) {
       if (AppManager.uiState.inittedGitCore) {
         easytier.initTracingSubscriber()
       }else {
         easytier_release.initTracingSubscriber()
       }
     }
-
-    setTimeout(() => {
-      this.isInit = false
-      if (!AppManager.uiState.noOldData) {
-        AppManager.uiState.noOldData = true
-      }
-    }, 100)
   }
 
   updateSequence(sequence: string) {

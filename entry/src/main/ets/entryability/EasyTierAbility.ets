@@ -86,7 +86,10 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     this.dns = want.parameters["dns"] as string ?? "";
     this.dev = want.parameters["dev"] as boolean ?? false;
     this.force_global = want.parameters["force_global"] as boolean ?? true;
-    easytier.initConfigStore(this.socketFilesDir)
+    if (!easytier.initConfigStore(this.socketFilesDir)) {
+      Logger.error(`initConfigStore failed filesDir=${this.socketFilesDir}`, "EasyTierAbility")
+      return
+    }
     easytier.setKernelSnapshotEnabled(false)
     easytier.initPanicHook();
 

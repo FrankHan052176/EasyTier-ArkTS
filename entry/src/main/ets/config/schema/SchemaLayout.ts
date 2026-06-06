@@ -12,7 +12,8 @@ export const IGNORED_CONFIG_FIELDS: ReadonlySet<string> = new Set([
   'credential_file',
   'acl',
   'ipv6_public_addr_prefix',
-  'secure_mode'
+  'secure_mode',
+  'socket_mark'
 ])
 
 export const COMBINED_CONFIG_FIELDS: Record<string, string[]> = {
