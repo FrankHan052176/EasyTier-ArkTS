@@ -6,6 +6,9 @@ import { deviceInfo } from '@kit.BasicServicesKit'
 import { sendToast } from '../../ToastUtil'
 import { cloudSync } from '@kit.CoreFileKit'
 import { common } from '@kit.AbilityKit'
+import { LogFileEntry } from '../../types/logging/LogFileTypes'
+import { hdsMaterial, HdsNavigation, HdsNavigationTitleMode, IconStyleMode, TitleBarStyleOptions } from '@kit.UIDesignKit'
+import { LengthMetrics } from '@kit.ArkUI'
 
 const CORE_REPOSITORY_URL = 'https://github.com/EasyTier/EasyTier'
 const SHELL_REPOSITORY_URL =
@@ -30,6 +33,33 @@ function formatSyncTime(raw: string): string {
   const mi = String(date.getMinutes()).padStart(2, '0')
   const ss = String(date.getSeconds()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`
+}
+
+function formatLogTime(raw: number): string {
+  if (raw <= 0) {
+    return '未知时间'
+  }
+  const date = new Date(raw)
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mi = String(date.getMinutes()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
+}
+
+function formatBytes(size: number): string {
+  if (size >= 1024 * 1024) {
+    return `${(size / 1024 / 1024).toFixed(1)} MB`
+  }
+  if (size >= 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+  return `${size} B`
+}
+
+function logFileSubtitle(log: LogFileEntry): string {
+  return `${formatLogTime(log.modifiedMs)} · ${formatBytes(log.sizeBytes)}`
 }
 
 function formatSyncState(state: cloudSync.SyncState): string {
@@ -139,6 +169,61 @@ function openLinkUrl(url: string): void {
   (AppManager.content.context as common.UIAbilityContext).openLink(url).catch(() => {
     sendToast('打开链接失败', $r("sys.symbol.exclamationmark_circle"), 1)
   })
+}
+
+function settingNavTitleStyle(): TitleBarStyleOptions {
+  if (deviceInfo.distributionOSApiVersion >= 60100 && hdsMaterial.getSystemMaterialTypes().length > 0) {
+    return {
+      scrollEffectOpts: {
+        enableScrollEffect: true,
+        scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+        blurEffectiveStartOffset: LengthMetrics.vp(0),
+        blurEffectiveEndOffset: LengthMetrics.vp(20),
+      },
+      originalStyle: {
+        contentStyle: {
+          titleStyle: {
+            mainTitleColor: $r('sys.color.font_primary'),
+            subTitleColor: $r('sys.color.font_secondary')
+          },
+          menuStyle: {
+            iconColor: $r('sys.color.font_primary')
+          },
+          backIconStyle: {
+            iconColor: $r('sys.color.font_primary')
+          }
+        }
+      },
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.ADAPTIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      }
+    }
+  }
+  return {
+    scrollEffectOpts: {
+      enableScrollEffect: true,
+      scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
+      blurEffectiveStartOffset: LengthMetrics.vp(0),
+      blurEffectiveEndOffset: LengthMetrics.vp(20),
+    },
+    originalStyle: {
+      contentStyle: {
+        titleStyle: {
+          mainTitleColor: $r('sys.color.font_primary'),
+          subTitleColor: $r('sys.color.font_secondary')
+        },
+        menuStyle: {
+          iconColor: $r('sys.color.font_primary'),
+          backgroundColor: $r('sys.color.background_primary')
+        },
+        backIconStyle: {
+          iconColor: $r('sys.color.font_primary'),
+          backgroundColor: $r('sys.color.background_primary')
+        }
+      }
+    }
+  }
 }
 
 @Builder
@@ -324,6 +409,152 @@ function settingButtonRow(symbol: Resource, title: string, buttonText: string, o
     })
   }
   .margin({ bottom: 10 })
+}
+
+@ComponentV2
+struct LogSharePickerRow {
+  @Local showSheet: boolean = false
+  @Local logs: LogFileEntry[] = []
+
+  private openPicker(): void {
+    this.logs = AppManager.easytier.listLogFiles()
+    if (this.logs.length === 0) {
+      sendToast('暂无日志文件', $r('sys.symbol.doc'), 1)
+      return
+    }
+    this.showSheet = true
+  }
+
+  private share(log: LogFileEntry): void {
+    this.showSheet = false
+    AppManager.easytier.writeAndShareLogFile(log.fileName)
+  }
+
+  @Builder
+  private LogPickerSheet() {
+    HdsNavigation() {
+      List() {
+        ForEach(this.logs, (log: LogFileEntry) => {
+          ListItem() {
+            Row() {
+              Row() {
+                SymbolGlyph(log.active ? $r('sys.symbol.clock') : $r('sys.symbol.doc'))
+                  .fontSize(18)
+                  .fontColor([log.active ? $r('sys.color.interactive_active') : $r('sys.color.font_secondary')])
+                  .margin({ right: 10 })
+                Column() {
+                  Text(log.active ? '当前启动日志' : log.displayName)
+                    .fontSize(16)
+                    .fontColor($r('sys.color.font_primary'))
+                    .maxLines(1)
+                  Text(logFileSubtitle(log))
+                    .fontSize(12)
+                    .fontColor($r('sys.color.font_secondary'))
+                    .maxLines(1)
+                    .margin({ top: 3 })
+                }
+                .alignItems(HorizontalAlign.Start)
+              }
+              .layoutWeight(1)
+
+              Button('分享', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
+                .borderRadius(13)
+                .onClick(() => {
+                  this.share(log)
+                })
+            }
+            .height(62)
+            .width('100%')
+            .padding({ left: 12, right: 8 })
+            .backgroundColor($r('sys.color.comp_background_primary'))
+            .shadow({
+              radius: 7,
+              color: '#1F000000'
+            })
+            .borderRadius(18)
+          }
+          .margin({ bottom: 10 })
+        }, (log: LogFileEntry) => log.fileName)
+      }
+      .width('100%')
+      .height('100%')
+      .padding({ left: 15, right: 15, top: 12, bottom: 12 })
+      .scrollBar(BarState.Auto)
+    }
+    .width('100%')
+    .height('100%')
+    .titleBar({
+      style: settingNavTitleStyle(),
+      content: {
+        title: {
+          mainTitle: '选择日志'
+        },
+        menu: {
+          value: [{
+            content: {
+              icon: $r('sys.symbol.xmark'),
+              type: IconStyleMode.NORMAL,
+              action: () => {
+                this.showSheet = false
+              }
+            }
+          }]
+        }
+      },
+      enableComponentSafeArea: true
+    })
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MODAL)
+    .hideBackButton(true)
+    .hideTitleBar(false)
+    .backgroundColor($r("sys.color.background_secondary"))
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+  }
+
+  build() {
+    ListItem() {
+      Row() {
+        Row() {
+          SymbolGlyph($r("sys.symbol.doc"))
+            .fontColor([$r("sys.color.font_primary")])
+            .fontSize(16)
+            .margin({ right: 5 })
+          Text("分享日志")
+            .fontColor($r("sys.color.font_primary"))
+            .fontSize(16)
+        }
+
+        Button("选择", { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
+          .borderRadius(13)
+          .onClick(() => {
+            this.openPicker()
+          })
+      }
+      .height(49)
+      .borderRadius(18)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .backgroundColor($r("sys.color.comp_background_primary"))
+      .shadow({
+        radius: 7,
+        color: '#1F000000'
+      })
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
+    }
+    .margin({ bottom: 10 })
+    .bindSheet($$this.showSheet, this.LogPickerSheet(), {
+      height: SheetSize.MEDIUM,
+      preferType: SheetType.CENTER,
+      showClose: false,
+      dragBar: false
+    })
+  }
 }
 
 @Builder
@@ -522,9 +753,7 @@ export function SettingLogs_Content() {
       settingButtonRow($r("sys.symbol.doc"), "分享崩溃日志", "分享", () => {
         AppManager.easytier.writeAndShareCrashLog()
       })
-      settingButtonRow($r("sys.symbol.doc"), "分享日志", "分享", () => {
-        AppManager.easytier.writeAndShareLogs()
-      })
+      LogSharePickerRow()
     }
   }
   .width('100%')
