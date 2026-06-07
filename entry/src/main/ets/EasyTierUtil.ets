@@ -26,7 +26,7 @@ import { connectVpnExtensionSocket } from './infrastructure/bridge/kernel/VpnExt
 import { orchestrateInstanceStart } from './services/easytier/runtime/StartOrchestrationService'
 import { getHostname } from './util/Conversion'
 import { CrashLogService } from './services/crash/CrashLogService'
-
+import { LogFileEntry } from './types/logging/LogFileTypes'
 
 @LogLocate("EasyTierUtil")
 @ObservedV2
@@ -424,6 +424,31 @@ export class EasyTierUtil {
     return listStoredConfigEntries()
   }
 
+  public listLogFiles(): LogFileEntry[] {
+    try {
+      return easytier.listLogFiles() as LogFileEntry[]
+    } catch (error) {
+      Logger.error(`listLogFiles failed: ${JSON.stringify(error)}`, this)
+      return []
+    }
+  }
+
+  public readLogFileLines(fileName: string): string[] {
+    try {
+      const content = easytier.readLogFile(fileName)
+      if (!content) {
+        return []
+      }
+      return content
+        .split('\n')
+        .map((line: string) => line.endsWith('\r') ? line.substring(0, line.length - 1) : line)
+        .filter((line: string) => line.length > 0)
+    } catch (error) {
+      Logger.error(`readLogFileLines failed file=${fileName} err=${JSON.stringify(error)}`, this)
+      return []
+    }
+  }
+
   public getEditingInstance() {
     return AppManager.uiState.editingInstance
   }
@@ -471,6 +496,49 @@ export class EasyTierUtil {
         } catch (_) {}
       }
       Logger.error(`日志文件写入失败. Code: ${err.code}, message: ${err.message}`, this)
+    }
+  }
+
+  public writeAndShareLogFile(fileName: string) {
+    const context = AppManager.content.context! as common.UIAbilityContext
+    const safeName = fileName
+      .split('')
+      .map((ch: string) => {
+        const code = ch.charCodeAt(0)
+        const isDigit = code >= 48 && code <= 57
+        const isUpper = code >= 65 && code <= 90
+        const isLower = code >= 97 && code <= 122
+        return isDigit || isUpper || isLower || ch === '-' || ch === '_' || ch === '.' ? ch : '-'
+      })
+      .join('')
+    const targetPath = `${context.filesDir}/share-${safeName.length > 0 ? safeName : 'easytier.log'}`
+    try {
+      fileIo.unlinkSync(targetPath)
+    } catch (_) {
+    }
+
+    try {
+      if (!easytier.exportLogFile(fileName, targetPath)) {
+        sendToast('日志导出失败', $r('sys.symbol.exclamationmark_circle'), 1)
+        return
+      }
+
+      let shareData: systemShare.SharedData = new systemShare.SharedData({
+        utd: uniformTypeDescriptor.UniformDataType.FILE,
+        uri: fileUri.getUriFromPath(targetPath),
+        title: '分享日志'
+      });
+      let controller: systemShare.ShareController = new systemShare.ShareController(shareData);
+      controller.show(context, {
+        selectionMode: systemShare.SelectionMode.SINGLE,
+        previewMode: systemShare.SharePreviewMode.DEFAULT,
+        excludedAbilities: [systemShare.ShareAbilityType.PRINT,
+          systemShare.ShareAbilityType.SAVE_TO_SUPERHUB]
+      }).catch(() => {
+        Logger.error(`systemShareLogFile::An unexpected error occurred.`, this);
+      })
+    } catch (err) {
+      Logger.error(`日志分享失败. Code: ${err.code}, message: ${err.message}`, this)
     }
   }
 
