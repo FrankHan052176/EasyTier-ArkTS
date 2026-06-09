@@ -1,5 +1,5 @@
 import { AppManager } from '../AppManager';
-import { Logger, LogLocate } from '../shared/logging/Logger';
+import { LogLocate } from '../shared/logging/Logger';
 import { FieldValue } from './config/Basic';
 
 @LogLocate("FieldValueDataSource")
@@ -33,6 +33,11 @@ export class FieldValueDataSource implements IDataSource {
     if (pos >= 0) {
       this.listeners.splice(pos, 1);
     }
+  }
+
+  dispose(): void {
+    this.listeners = []
+    this.values = []
   }
 
   notifyDataReload(): void {
@@ -82,7 +87,9 @@ export class FieldValueDataSource implements IDataSource {
 
   add(value: FieldValue): boolean {
     if (!this.has(value)) {
-      this.notifyDataAdd(this.values.push(value))
+      const index = this.values.length
+      this.values.push(value)
+      this.notifyDataAdd(index)
       AppManager.preference.globalConfigs?.putSync(this.type, this.values.map((value) => value.toString()))
       AppManager.preference.globalConfigs?.flushSync()
       return true
@@ -93,7 +100,10 @@ export class FieldValueDataSource implements IDataSource {
 
   del(value: FieldValue): boolean {
     if (this.has(value)) {
-      let index = this.values.indexOf(value)
+      let index = this.values.findIndex((item) => item.toString() === value.toString())
+      if (index < 0) {
+        return false
+      }
       this.values.splice(index, 1)
       AppManager.preference.globalConfigs?.putSync(this.type, this.values.map((value) => value.toString()))
       AppManager.preference.globalConfigs?.flushSync()

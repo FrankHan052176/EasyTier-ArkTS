@@ -2,6 +2,7 @@ import { ValueType } from '@kit.ArkData';
 import { AppManager } from '../../AppManager';
 import { Logger, LogLocate } from '../../shared/logging/Logger';
 import easytier from 'easytier-ohrs';
+import { MemoryDiagnosticsService } from '../../services/runtime/MemoryDiagnosticsService';
 
 const DEFAULT_SEQUENCE = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
 
@@ -72,6 +73,9 @@ export class UIState {
         AppManager.preference.preferences?.flushSync();
         if (path === 'core_log' || path === 'debug_log') {
           easytier.configureLogManager(this.core_log, this.debug_log)
+          if (path === 'debug_log') {
+            MemoryDiagnosticsService.enableSystemLeakWatcher(this.debug_log)
+          }
         }
       } catch (error) {
         Logger.error(`UIState: Failed to save ${path}.\n${error}`, this);

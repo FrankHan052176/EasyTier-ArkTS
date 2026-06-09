@@ -59,6 +59,8 @@ export struct PortField {
       EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
       this.fieldRefreshEvent = ''
     }
+    this.isEdit = false
+    this.value = ''
   }
 
   insert(value: InsertValue): boolean {

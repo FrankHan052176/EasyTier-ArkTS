@@ -142,6 +142,7 @@ export class ConfigFieldRegistry {
           break
       }
     })
+    this.releaseSchemaCache()
   }
 
   private getFieldType(field: easytier.NetworkConfigSchema, path: string[]): FieldType {
@@ -192,6 +193,11 @@ export class ConfigFieldRegistry {
   private schemaFieldToConfigField(field: easytier.NetworkConfigSchema, parentPath?: string[]): ConfigField {
     const path = [...(parentPath ?? []), field.name]
     return new ConfigField(field.name, this.getFieldType(field, path), path, field)
+  }
+
+  private releaseSchemaCache(): void {
+    this.schema = undefined
+    this.schemaChildrenByName.clear()
   }
 }
 

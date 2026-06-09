@@ -18,6 +18,7 @@ let editingConfigCacheId: string | undefined = undefined
 let editingConfigCache: ConfigJson | undefined = undefined
 let editingConfigRevision: number = 0
 let editingConfigDirtyFields: Set<string> = new Set()
+const DEFAULT_CONFIG_FALLBACK: ConfigJson = getDefaultConfig('')
 
 export const EDITING_CONFIG_REFRESH_EVENT = 'editing_config_refresh'
 export const EDITING_CONFIG_FIELD_REFRESH_EVENT_PREFIX = 'editing_config_field_refresh:'
@@ -197,8 +198,20 @@ function setEditingFieldValue(field: string, value: ConfigFieldValue): void {
   if (!editingConfigCache) {
     editingConfigCache = getDefaultConfig('')
   }
-  const fallback: ConfigJson = getDefaultConfig('')
-  editingConfigCache[field] = value === undefined ? fallback[field] as ConfigFieldValue : value
+  editingConfigCache[field] = value === undefined
+    ? cloneConfigFieldValue(DEFAULT_CONFIG_FALLBACK[field] as ConfigFieldValue)
+    : value
+}
+
+function cloneConfigFieldValue(value: ConfigFieldValue): ConfigFieldValue {
+  if (value === undefined || value === null || typeof value !== 'object') {
+    return value
+  }
+  try {
+    return JSON.parse(JSON.stringify(value)) as ConfigFieldValue
+  } catch (_) {
+    return undefined
+  }
 }
 
 export function areEditingFieldsLoaded(editingId: string | undefined, fields: string[]): boolean {

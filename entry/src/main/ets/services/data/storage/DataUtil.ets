@@ -11,7 +11,6 @@ import { Cidr } from '../../../class/config/Cidr';
 import { PortForward } from '../../../class/config/PortForward';
 import { NetworkName } from '../../../class/config/NetworkName';
 import { IP } from '../../../class/config/IP';
-import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
 import { HMRouterMgr } from '@hadss/hmrouter';
 import easytier from 'easytier-ohrs';
 import { ConfigJson } from '../../../config/schema/SchemaConfig';
@@ -103,6 +102,7 @@ export class DataUtil {
         }
       }
     }
+    this.globalDataMap.get(type)?.dispose()
     let dataSource = new FieldValueDataSource(type, values)
     this.globalDataMap.set(type, dataSource)
   }
@@ -136,10 +136,9 @@ export class DataUtil {
       return config
     }
     this.refreshConfigIds()
-    const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
     AppManager.uiState.selected = config.instance_id
     AppManager.uiState.editingInstance = config.instance_id
-    HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid:config.instance_id, unsafe: false}, animator: animator });
+    HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid:config.instance_id, unsafe: false} });
     return config
   }
 
@@ -229,10 +228,9 @@ export class DataUtil {
       return false
     }
     this.refreshConfigIds()
-    const animator = HMRouterTransitions.cardLongTake("instance_card_" + config.instance_id, "edit_content");
     AppManager.uiState.selected = config.instance_id
     AppManager.uiState.editingInstance = config.instance_id
-    HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid:config.instance_id, unsafe: false}, animator: animator });
+    HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid:config.instance_id, unsafe: false} });
     return true
   }
 

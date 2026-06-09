@@ -1,7 +1,7 @@
 import { EditRenderNode, EditSectionRenderPlan } from '../../config/render/EditRenderNode'
 import { RecursiveJsonEditor } from './RecursiveJsonEditor'
 import { BoolField } from './field/BoolField'
-import { getFieldI18Name } from './FieldEdit'
+import { getFieldI18Name } from './FieldLabel'
 
 class EditRenderNodeDataSource implements IDataSource {
   private nodes: EditRenderNode[] = []
@@ -10,6 +10,11 @@ class EditRenderNodeDataSource implements IDataSource {
   setNodes(nodes: EditRenderNode[]): void {
     this.nodes = nodes
     this.notifyDataReload()
+  }
+
+  dispose(): void {
+    this.nodes = []
+    this.listeners = []
   }
 
   totalCount(): number {
@@ -53,6 +58,11 @@ class FlagRowDataSource implements IDataSource {
     this.notifyDataReload()
   }
 
+  dispose(): void {
+    this.rows = []
+    this.listeners = []
+  }
+
   totalCount(): number {
     return this.rows.length
   }
@@ -90,6 +100,11 @@ export struct EditSectionView {
 
   aboutToAppear(): void {
     this.updateDataSource()
+  }
+
+  aboutToDisappear(): void {
+    this.dataSource.dispose()
+    this.flagRowDataSource.dispose()
   }
 
   private flagNodes(): EditRenderNode[] {
@@ -205,7 +220,7 @@ export struct EditSectionView {
     .width('100%')
     .height('100%')
     .scrollBar(BarState.Off)
-    .cachedCount(4)
+    .cachedCount(1, false)
     .chainAnimation(true)
     .edgeEffect(EdgeEffect.None)
     .padding({ left: 20, right: 20 })

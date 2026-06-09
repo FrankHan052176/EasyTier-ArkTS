@@ -60,6 +60,7 @@ export struct BoolField {
       EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
       this.fieldRefreshEvent = ''
     }
+    this.button = false
   }
 
   build() {

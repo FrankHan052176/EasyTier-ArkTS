@@ -216,11 +216,19 @@ export class EasyTierUtil {
     const shouldSubscribe = this.runtimeSnapshotSubscriptionCount > 0 && this.runtimeSnapshotForeground
     if (shouldSubscribe === this.runtimeSnapshotSubscribed) {
       if (forceResend && shouldSubscribe) {
-        this.sendRuntimeSnapshotSubscription()
+        if (AppManager.uiState.ext_mode) {
+          this.sendRuntimeSnapshotSubscription()
+        } else {
+          easytier.setKernelSnapshotEnabled(true)
+        }
       }
       return
     }
     this.runtimeSnapshotSubscribed = shouldSubscribe
+    if (!AppManager.uiState.ext_mode) {
+      easytier.setKernelSnapshotEnabled(shouldSubscribe)
+      return
+    }
     this.sendRuntimeSnapshotSubscription()
   }
 

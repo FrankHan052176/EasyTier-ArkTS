@@ -4,7 +4,9 @@ import { Logger } from '../shared/logging/Logger';
 export class EventHelper {
   public static bundleName = "top.frankhan.easytier"
 
-  public static commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void) {
+  public static commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void): () => void {
+    let subscriber: commonEventManager.CommonEventSubscriber | undefined = undefined
+    let cancelled: boolean = false
     let subscribeInfo: commonEventManager.CommonEventSubscribeInfo = {
       events: [event]
     };
@@ -14,6 +16,10 @@ export class EventHelper {
           Logger.error(err.message, "EventHelper")
           return;
         }
+        if (cancelled) {
+          return
+        }
+        subscriber = data
         commonEventManager.subscribe(data, (err, data: commonEventManager.CommonEventData) => {
           if (err) {
             Logger.error(err.message, "EventHelper")
@@ -22,6 +28,15 @@ export class EventHelper {
           callback(data)
         })
       })
+    return () => {
+      cancelled = true
+      if (!subscriber) {
+        return
+      }
+      commonEventManager.unsubscribe(subscriber, () => {
+      })
+      subscriber = undefined
+    }
   }
 
   public static commonPublish(event: string) {

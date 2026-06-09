@@ -12,7 +12,6 @@ import { BUILD_TIME } from '../util/info/BuildTime';
 import { WindowUtil } from '../WindowUtil';
 import { HMRouterMgr } from '@hadss/hmrouter';
 import { AppManager } from '../AppManager';
-import { HMRouterTransitions } from '@hadss/hmrouter-transitions';
 import { sendToast } from '../ToastUtil';
 import { isIpAddr } from '../class/config/IP';
 import { BottomAnimator } from '../class/animator/BottomAnimator';
@@ -28,6 +27,7 @@ import { RuntimeAggregateState } from '../types/runtime/RuntimeTypes';
 import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnContinueStateData } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
 import { decodeSocketChunk, parseKernelSocketMessage, parseVpnBridgeMessage } from '../infrastructure/bridge/kernel/SocketCodec'
 import { CrashLogService } from '../services/crash/CrashLogService'
+import { MemoryDiagnosticsService } from '../services/runtime/MemoryDiagnosticsService'
 
 const easytier_release = easytier
 
@@ -40,6 +40,56 @@ export default class EntryAbility extends UIAbility {
   continuationClient: socket.LocalSocket | undefined
   continuationMessageBuffer: string = ''
   continuationSocketConnected: boolean = false
+  private entrySyncContinuationSocketCallback = () => {
+    this.syncContinuationSocket()
+  }
+  private startBgCallback = (data: emitter.EventData) => {
+    let shouldProtect = false
+    const cfg = data.data?.cfg as string | undefined
+    try {
+      if (cfg) {
+        const config: ESObject = JSON.parse(cfg)
+        shouldProtect = this.shouldProtectProcessNet(config)
+      }
+    } catch (error) {
+    }
+    this.prepare_vpn(shouldProtect, () => {
+      Logger.info("start_bg_task", this)
+      this.connectToKernelSocket(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
+      this.startContinuousTask(cfg ?? '', data.data?.uuid, data.data?.name);
+    })
+  }
+  private stopBgCallback = () => {
+    Logger.info("stop_bg_task", this)
+    this.stopContinuousTask()
+    this.kernelClient?.close()
+    this.kernelClient = undefined
+    this.kernelSocketConnected = false
+    this.kernelMessageBuffer = ''
+  }
+  private setupTunCallback = (data: emitter.EventData) => {
+    Logger.info("setup_tun", this)
+    let ip = data.data!.ip as string
+    let mask = data.data!.mask as number
+    let magicDNS = data.data!.magicDNS as boolean
+    let inst_id = data.data!.id as string
+    let needExitNode = data.data!.needExitNode as boolean
+    let routes = data.data!.routes as string[] | undefined
+    this.setup_tun(ip, mask, magicDNS, inst_id, needExitNode, routes)
+  }
+  private changeIpv4Callback = (data: emitter.EventData) => {
+    Logger.info("change_ipv4", this)
+    this.vpnConnection?.destroy().catch(() => {
+    }).then(() => {
+      let ip = data.data!.ip as string
+      let mask = data.data!.mask as number
+      let magicDNS = data.data!.magicDNS as boolean
+      let inst_id = data.data!.id as string
+      let needExitNode = data.data!.needExitNode as boolean
+      let routes = data.data!.routes as string[] | undefined
+      this.setup_tun(ip, mask, magicDNS, inst_id, needExitNode, routes)
+    })
+  }
 
   private shouldProtectProcessNet(config?: ConfigJson): boolean {
     return deviceInfo.sdkApiVersion >= 22 && AppManager.uiState.force_global && (config?.exit_nodes?.length ?? 0) > 0
@@ -236,9 +286,7 @@ export default class EntryAbility extends UIAbility {
     CrashLogService.init(this.context.filesDir)
     easytier.initLogManager(this.context.filesDir, 'ui')
     easytier.configureLogManager(false, false)
-    EventHelper.emitterListener("entry_sync_continuation_socket", () => {
-      this.syncContinuationSocket()
-    })
+    EventHelper.emitterListener("entry_sync_continuation_socket", this.entrySyncContinuationSocketCallback)
     HMRouterMgr.openLog("INFO")
     HMRouterMgr.init({
       context: this.context
@@ -273,9 +321,19 @@ export default class EntryAbility extends UIAbility {
       Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
       return
     }
+    if (AppManager.uiState.debug_log) {
+      MemoryDiagnosticsService.enableSystemLeakWatcher(true)
+      MemoryDiagnosticsService.markDelayed('EntryAbility.preference.init')
+    }
     await AppManager.data.init()
+    if (AppManager.uiState.debug_log) {
+      MemoryDiagnosticsService.markDelayed('EntryAbility.data.init')
+    }
     if (deviceInfo.productModel !== "emulator") {
       AppManager.easytier.init()
+    }
+    if (AppManager.uiState.debug_log) {
+      MemoryDiagnosticsService.markDelayed('EntryAbility.easytier.init')
     }
     this.syncContinuationSocket()
   }
@@ -377,11 +435,16 @@ export default class EntryAbility extends UIAbility {
 
   onDestroy() {
     Logger.debug("onDestroy", this)
+    MemoryDiagnosticsService.enableSystemLeakWatcher(false)
     AppManager.easytier.destroy()
     this.stopContinuousTask()
     this.kernelClient?.close()
     this.continuationClient?.close()
-    EventHelper.emitterOff("entry_sync_continuation_socket")
+    EventHelper.emitterOff("entry_sync_continuation_socket", this.entrySyncContinuationSocketCallback)
+    EventHelper.emitterOff("start_bg", this.startBgCallback)
+    EventHelper.emitterOff("stop_bg", this.stopBgCallback)
+    EventHelper.emitterOff("setup_tun", this.setupTunCallback)
+    EventHelper.emitterOff("change_ipv4", this.changeIpv4Callback)
     this.callee.off("send_card_id")
     this.callee.off("start_favorite")
   }
@@ -406,64 +469,18 @@ export default class EntryAbility extends UIAbility {
 
   start_bg_Listener() {
     Logger.debug("start_bg_Listener", this)
-    EventHelper.emitterListener("start_bg", (data) => {
-      let shouldProtect = false
-      const cfg = data.data?.cfg as string | undefined
-      try {
-        if (cfg) {
-          const config: ESObject = JSON.parse(cfg)
-          shouldProtect = this.shouldProtectProcessNet(config)
-        }
-      } catch (error) {
-      }
-      this.prepare_vpn(shouldProtect, () => {
-        Logger.info("start_bg_task", this)
-        this.connectToKernelSocket(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
-        this.startContinuousTask(cfg ?? '', data.data?.uuid, data.data?.name);
-      })
-    })
+    EventHelper.emitterListener("start_bg", this.startBgCallback)
   }
 
   stop_bg_Listener() {
     Logger.debug("stop_bg_Listener", this)
-    EventHelper.emitterListener("stop_bg", () => {
-      Logger.info("stop_bg_task", this)
-      this.stopContinuousTask()
-      this.kernelClient?.close()
-      this.kernelClient = undefined
-      this.kernelSocketConnected = false
-      this.kernelMessageBuffer = ''
-    })
+    EventHelper.emitterListener("stop_bg", this.stopBgCallback)
   }
 
   setup_tun_Listener() {
     Logger.debug("setup_tun_Listener", this)
-    EventHelper.emitterListener("setup_tun", (data) => {
-      Logger.info("setup_tun", this)
-      let ip = data.data!.ip as string
-      let mask = data.data!.mask as number
-      let magicDNS = data.data!.magicDNS as boolean
-      let inst_id = data.data!.id as string
-      let needExitNode = data.data!.needExitNode as boolean
-      let routes = data.data!.routes as string[] | undefined
-      this.setup_tun(ip, mask, magicDNS, inst_id, needExitNode, routes)
-    })
-    let restart = (data: emitter.EventData) => {
-      this.vpnConnection?.destroy().catch(() => {
-      }).then(() => {
-        let ip = data.data!.ip as string
-        let mask = data.data!.mask as number
-        let magicDNS = data.data!.magicDNS as boolean
-        let inst_id = data.data!.id as string
-        let needExitNode = data.data!.needExitNode as boolean
-        let routes = data.data!.routes as string[] | undefined
-        this.setup_tun(ip, mask, magicDNS, inst_id, needExitNode, routes)
-      })
-    }
-    EventHelper.emitterListener("change_ipv4", (data) => {
-      Logger.info("change_ipv4", this)
-      restart(data)
-    })
+    EventHelper.emitterListener("setup_tun", this.setupTunCallback)
+    EventHelper.emitterListener("change_ipv4", this.changeIpv4Callback)
   }
 
   safeDns(): string {
@@ -549,7 +566,6 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
-    HMRouterTransitions.init(windowStage);
     try {
       windowStage.getMainWindowSync().on('windowSizeChange', (data) => {
         WindowUtil.update(data.width, data.height)

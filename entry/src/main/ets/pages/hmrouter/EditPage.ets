@@ -1,5 +1,5 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
-import { deviceInfo } from '@kit.BasicServicesKit'
+import { deviceInfo, emitter } from '@kit.BasicServicesKit'
 import { HdsNavigation, HdsNavigationTitleMode,
   hdsMaterial,
   TitleBarStyleOptions} from '@kit.UIDesignKit'
@@ -28,6 +28,8 @@ import { QRImage } from '../../components/util/QRImage'
 import { buildEditRenderPlan, emptyEditRenderPlan } from '../../config/render/EditRenderResolver'
 import { EditRenderPlan, EditSectionRenderPlan } from '../../config/render/EditRenderNode'
 import { EditSectionView } from '../../components/edit/EditSectionView'
+import { clearEditValue } from '../../class/config/Basic'
+import { MemoryDiagnosticsService } from '../../services/runtime/MemoryDiagnosticsService'
 
 @Builder
 function ShareMenu() {
@@ -114,6 +116,7 @@ export struct EditPage {
   @Local editingConfigReady: boolean = false
   @Local titleText: string = ""
   @Local activePageIndex: number = 0
+  @Local animationTargetIndex: number = -1
   private renderPlan: EditRenderPlan = emptyEditRenderPlan()
   private active: boolean = false
   private dlpRegistered: boolean = false
@@ -124,6 +127,17 @@ export struct EditPage {
   private sectionLoadTimer: number = -1
   private sectionPreloadTimer: number = -1
   private sectionPreloadQueued: boolean = false
+  private sectionLoadGeneration: number = 0
+  private gesturesShareRegistered: boolean = false
+  private shareMenuContent: ComponentContent<Object> | undefined = undefined
+  private editOpenSheetCallback = (data: emitter.EventData) => {
+    this.sheet_type = data.data!.type as string
+    this.sheet = true
+  }
+  private editCloseSheetCallback = () => {
+    this.sheet = false
+    this.refreshTitle()
+  }
 
   private refreshTitle(): void {
     this.titleText = AppManager.easytier.getConfigLabel(this.uuid, this.uuid ?? '')
@@ -149,6 +163,7 @@ export struct EditPage {
   }
 
   private resetSectionLoading(): void {
+    this.sectionLoadGeneration += 1
     this.loadedSectionKeys.clear()
     this.loadingSectionKeys.clear()
     this.sectionLoadQueue = []
@@ -225,15 +240,22 @@ export struct EditPage {
       return
     }
     const section = this.renderPlan.sections[index]
+    const generation = this.sectionLoadGeneration
     this.sectionLoadBusy = true
     this.loadingSectionKeys.add(section.key)
     ensureEditingFieldsAsync(this.uuid, section.topLevelFields).then(() => {
+      if (!this.active || generation !== this.sectionLoadGeneration) {
+        return
+      }
       this.loadedSectionKeys.add(section.key)
       if (index === 0) {
         this.scheduleTrailingSectionPreload()
       }
     }).catch(() => {
     }).finally(() => {
+      if (generation !== this.sectionLoadGeneration) {
+        return
+      }
       this.loadingSectionKeys.delete(section.key)
       this.sectionLoadBusy = false
       if (this.active && this.sectionLoadQueue.length > 0) {
@@ -252,39 +274,103 @@ export struct EditPage {
       if (!this.active) {
         return
       }
-      this.enqueueSectionLoad(this.activePageIndex, true)
-      for (let index = 1; index < this.renderPlan.sections.length; index++) {
-        this.enqueueSectionLoad(index, false)
-      }
+      this.enqueueNearbySectionLoads(this.activePageIndex)
     }, 180)
+  }
+
+  private enqueueNearbySectionLoads(index: number): void {
+    this.enqueueSectionLoad(index, true)
+    this.enqueueSectionLoad(index - 1, false)
+    this.enqueueSectionLoad(index + 1, false)
+  }
+
+  private visiblePageCount(): number {
+    return Math.max(1, Math.floor(WindowUtil.uiType / 2))
+  }
+
+  private isPageInWindow(index: number, start: number): boolean {
+    const count = this.visiblePageCount()
+    return index >= start && index < start + count
+  }
+
+  private shouldMountSection(index: number): boolean {
+    if (this.isPageInWindow(index, this.activePageIndex)) {
+      return true
+    }
+    return this.animationTargetIndex >= 0 && this.isPageInWindow(index, this.animationTargetIndex)
+  }
+
+  private updateSwipeTarget(targetIndex: number): void {
+    this.animationTargetIndex = this.isValidSectionIndex(targetIndex) ? targetIndex : -1
   }
 
   aboutToAppear(): void {
     this.active = true
+    if (AppManager.uiState.debug_log) {
+      MemoryDiagnosticsService.watchObject(this, 'EditPage')
+      MemoryDiagnosticsService.markDelayed('EditPage.aboutToAppear')
+    }
     let param = HMRouterMgr.getCurrentParam() as EditPageParam;
     this.uuid = param.uuid
     this.unsafe = param.unsafe
     this.refreshTitle()
     AppManager.uiState.editingInstance = this.uuid
     this.activePageIndex = 0
+    this.animationTargetIndex = -1
     this.resetSectionLoading()
     prepareEditingConfig(this.uuid)
     this.renderPlan = buildEditRenderPlan()
     this.editingConfigReady = true
     this.enqueueSectionLoad(0, true, 32)
-    EventHelper.emitterListener("edit_open_sheet", (data) => {
-      this.sheet_type = data.data!.type as string
-      this.sheet = true
-    })
-    EventHelper.emitterListener("edit_close_sheet", () => {
-      this.sheet = false
-      this.refreshTitle()
-    })
+    EventHelper.emitterListener("edit_open_sheet", this.editOpenSheetCallback)
+    EventHelper.emitterListener("edit_close_sheet", this.editCloseSheetCallback)
     harmonyShare.on('knockShare', this.immersiveCallback);
-    harmonyShare.on('gesturesShare', this.immersiveCallback);
+    if (deviceInfo.sdkApiVersion >= 20) {
+      harmonyShare.on('gesturesShare', this.immersiveCallback);
+      this.gesturesShareRegistered = true
+    }
     setTimeout(() => {
       this.initDlpAntiPeep()
     }, 0)
+  }
+
+  private closeShareMenu(): void {
+    const content: ComponentContent<Object> | undefined = this.shareMenuContent
+    if (!content) {
+      return
+    }
+    this.shareMenuContent = undefined
+    try {
+      this.getUIContext().getPromptAction().closeMenu(content).catch(() => {
+      }).finally(() => {
+        content.dispose()
+      })
+    } catch (_) {
+      content.dispose()
+    }
+  }
+
+  private disposeShareMenuContent(content: ComponentContent<Object>): void {
+    if (this.shareMenuContent !== content) {
+      return
+    }
+    this.shareMenuContent = undefined
+    try {
+      content.dispose()
+    } catch (_) {
+    }
+  }
+
+  private clearSheetState(): void {
+    if (this.sheet_type.startsWith('add_')) {
+      const addInfo = this.sheet_type.substring(4).split('|')
+      clearEditValue(addInfo[0])
+    } else if (this.sheet_type.startsWith('edit_')) {
+      const editInfo = this.sheet_type.substring(5).split('|')
+      clearEditValue(editInfo[0])
+    }
+    this.sheet = false
+    this.sheet_type = ''
   }
 
   private async initDlpAntiPeep(): Promise<void> {
@@ -317,16 +403,24 @@ export struct EditPage {
   }
 
   aboutToDisappear(): void {
+    if (AppManager.uiState.debug_log) {
+      MemoryDiagnosticsService.markDelayed('EditPage.aboutToDisappear')
+    }
     this.active = false
+    this.closeShareMenu()
+    this.clearSheetState()
     this.resetSectionLoading()
-    EventHelper.emitterOff("edit_open_sheet")
-    EventHelper.emitterOff("edit_close_sheet")
+    EventHelper.emitterOff("edit_open_sheet", this.editOpenSheetCallback)
+    EventHelper.emitterOff("edit_close_sheet", this.editCloseSheetCallback)
     harmonyShare.off('knockShare', this.immersiveCallback);
-    if (deviceInfo.sdkApiVersion >= 20) {
+    if (this.gesturesShareRegistered) {
       harmonyShare.off('gesturesShare', this.immersiveCallback);
+      this.gesturesShareRegistered = false
     }
     AppManager.uiState.editingInstance = undefined
     clearEditingConfigCache(this.uuid)
+    this.renderPlan = emptyEditRenderPlan()
+    this.editingConfigReady = false
     if (this.dlpRegistered && canIUse("SystemCapability.Security.DlpAntiPeep")) {
       try {
         dlpAntiPeep.off('dlpAntiPeep', this.onStatusChange);
@@ -335,12 +429,21 @@ export struct EditPage {
         console.error(`Failed to off DlpAntiPeep. Code: ${error.code}, message: ${error.message}`);
       }
     }
+    if (AppManager.uiState.debug_log) {
+      MemoryDiagnosticsService.checkLeaksDelayed('EditPage.afterDisappear')
+    }
   }
 
   @Builder
   pageContent(section: EditSectionRenderPlan, index: number) {
     Column() {
-      EditSectionView({ section: section })
+      if (this.shouldMountSection(index)) {
+        EditSectionView({ section: section })
+      } else {
+        Blank()
+          .width('100%')
+          .height('100%')
+      }
     }
     .width('100%')
     .height('100%')
@@ -357,16 +460,18 @@ export struct EditPage {
     .height('100%')
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .id("edit_content")
-    .displayCount(WindowUtil.uiType / 2)
+    .displayCount(this.visiblePageCount())
     .cachedCount(0, false)
     .loop(false)
     .indicator(DotIndicator.dot().top(46))
     .onAnimationStart((index: number, targetIndex: number) => {
-      this.enqueueSectionLoad(targetIndex, true)
+      this.updateSwipeTarget(targetIndex)
+      this.enqueueNearbySectionLoads(targetIndex)
     })
     .onAnimationEnd((index: number) => {
       this.activePageIndex = index
-      this.enqueueSectionLoad(index, true)
+      this.animationTargetIndex = -1
+      this.enqueueNearbySectionLoads(index)
     })
   }
 
@@ -465,13 +570,22 @@ export struct EditPage {
               }),
             HdsMenuButton($r("app.string.i18_share"), $r("sys.symbol.rectangle_and_arrowshape_turn_up_right_fill"),
               async () => {
+                this.closeShareMenu()
                 let uiContext = this.getUIContext();
                 let promptAction = uiContext.getPromptAction();
-                let contentNode = new ComponentContent(uiContext, wrapBuilder(ShareMenu));
+                let contentNode: ComponentContent<Object> = new ComponentContent(uiContext, wrapBuilder(ShareMenu));
+                this.shareMenuContent = contentNode
                 promptAction.openMenu(
                   contentNode,
-                  { id: this.share_menu_id }
-                ).catch(() => {})
+                  { id: this.share_menu_id },
+                  {
+                    onDisappear: () => {
+                      this.disposeShareMenuContent(contentNode)
+                    }
+                  }
+                ).catch(() => {
+                  this.disposeShareMenuContent(contentNode)
+                })
               }, this.share_menu_id),
             HdsMenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), () => {
               HMRouterMgr.pop()
@@ -503,7 +617,7 @@ export struct EditPage {
       onWillDismiss: (action) => {
         if (action.reason != DismissReason.SLIDE_DOWN) {
           action.dismiss()
-          this.sheet = false
+          this.clearSheetState()
         }
       }
     })

@@ -17,7 +17,7 @@ import { NumberField } from './field/NumberField'
 import { PortField } from './field/PortField'
 import { StringField } from './field/StringField'
 import { UnsupportedField } from './field/UnsupportedField'
-import { getFieldI18Name } from './FieldEdit'
+import { getFieldI18Name } from './FieldLabel'
 import { PrimaryButton } from '../util/TextButton'
 
 @ComponentV2
@@ -38,6 +38,10 @@ export struct RecursiveJsonEditor {
   private fieldRefreshCallback = () => {
     this.updateNodeReady()
   }
+  private userAuthInstance: userAuth.UserAuthInstance | undefined = undefined
+  private userAuthCallback: userAuth.IAuthCallback | undefined = undefined
+  private topLevelFieldNames: string[] = []
+  private contentNodeCache: EditRenderNode[] = []
 
   @Computed
   get safe_show() {
@@ -90,9 +94,16 @@ export struct RecursiveJsonEditor {
 
   private contentNodes(): EditRenderNode[] {
     if (this.hasEnableButton) {
-      return this.node.children.slice(1)
+      if (this.contentNodeCache.length === 0 && this.node.children.length > 1) {
+        this.contentNodeCache = this.node.children.slice(1)
+      }
+      return this.contentNodeCache
     }
     return this.node.children
+  }
+
+  private contentNodeCount(): number {
+    return this.hasEnableButton ? Math.max(0, this.node.children.length - 1) : this.node.children.length
   }
 
   private isListNode(node: EditRenderNode): boolean {
@@ -100,7 +111,10 @@ export struct RecursiveJsonEditor {
   }
 
   private topLevelFields(): string[] {
-    return collectTopLevelFields(this.node)
+    if (this.topLevelFieldNames.length === 0) {
+      this.topLevelFieldNames = collectTopLevelFields(this.node)
+    }
+    return this.topLevelFieldNames
   }
 
   private updateNodeReady(): void {
@@ -130,6 +144,11 @@ export struct RecursiveJsonEditor {
 
   aboutToDisappear(): void {
     this.unbindFieldRefreshEvents()
+    this.cancelUserAuth()
+    this.topLevelFieldNames = []
+    this.contentNodeCache = []
+    this.content_height = 0
+    this.field_width = 0
   }
 
   @Styles
@@ -239,10 +258,10 @@ export struct RecursiveJsonEditor {
                 left: this.Padding,
                 right: this.Padding,
                 top: (this.isUseDivider && index > 0) ? 6 : 0,
-                bottom: (this.isUseDivider && index < this.contentNodes().length - 1) ? 6 : 0
+                bottom: (this.isUseDivider && index < this.contentNodeCount() - 1) ? 6 : 0
               })
             }
-            if (this.isUseDivider && index < this.contentNodes().length - 1) {
+            if (this.isUseDivider && index < this.contentNodeCount() - 1) {
               Divider()
                 .color($r("sys.color.background_secondary"))
                 .width('100%')
@@ -260,7 +279,23 @@ export struct RecursiveJsonEditor {
     }
   }
 
+  private cancelUserAuth(): void {
+    if (this.userAuthInstance && this.userAuthCallback) {
+      try {
+        this.userAuthInstance.off('result', this.userAuthCallback)
+      } catch (_) {
+      }
+      try {
+        this.userAuthInstance.cancel()
+      } catch (_) {
+      }
+    }
+    this.userAuthInstance = undefined
+    this.userAuthCallback = undefined
+  }
+
   private requestUnlock() {
+    this.cancelUserAuth()
     const authParam: userAuth.AuthParam = {
       challenge: new Uint8Array([49, 50, 51, 52, 53, 54]),
       authType: [userAuth.UserAuthType.FACE, userAuth.UserAuthType.FINGERPRINT, userAuth.UserAuthType.PIN],
@@ -271,8 +306,14 @@ export struct RecursiveJsonEditor {
     }
     try {
       const userAuthInstance = userAuth.getUserAuthInstance(authParam, widgetParam)
-      userAuthInstance.on('result', {
+      const authCallback: userAuth.IAuthCallback = {
         onResult: (result) => {
+          try {
+            userAuthInstance.off('result', authCallback)
+          } catch (_) {
+          }
+          this.userAuthInstance = undefined
+          this.userAuthCallback = undefined
           if (result.result === userAuth.UserAuthResultCode.SUCCESS) {
             animateToImmediately({
               duration: 500, curve: Curve.EaseOut, onFinish: () => {
@@ -288,9 +329,13 @@ export struct RecursiveJsonEditor {
             })
           }
         }
-      })
+      }
+      this.userAuthInstance = userAuthInstance
+      this.userAuthCallback = authCallback
+      userAuthInstance.on('result', authCallback)
       userAuthInstance.start()
     } catch (error) {
+      this.cancelUserAuth()
       console.error(`auth catch error: ${(error as BusinessError).code} ${(error as BusinessError).message}`)
     }
   }

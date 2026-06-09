@@ -24,11 +24,17 @@ export struct InstanceSelector {
   }
 
   @Event onSelect: (uuid: string) => void = () => {}
+  private resizeOffCallback = () => {
+    this.isSelecting = false
+  }
 
   aboutToAppear(): void {
-    EventHelper.emitterListener("resize_off", () => {
-      this.isSelecting = false
-    })
+    EventHelper.emitterListener("resize_off", this.resizeOffCallback)
+  }
+
+  aboutToDisappear(): void {
+    EventHelper.emitterOff("resize_off", this.resizeOffCallback)
+    this.isSelecting = false
   }
 
   @Builder

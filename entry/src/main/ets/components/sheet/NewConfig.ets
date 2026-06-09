@@ -1,9 +1,7 @@
-import { uiAppearance } from '@kit.ArkUI';
 import { ToolButtonWithPaste } from '../util/ToolButtons';
 import { Logger } from '../../shared/logging/Logger';
 import { EventHelper } from '../../util/EventHelper';
-import { hdsEffect } from '@kit.UIDesignKit';
-import { AppManager, Spx2vp } from '../../AppManager';
+import { AppManager } from '../../AppManager';
 
 export let config_name: string | undefined
 
@@ -12,7 +10,7 @@ export function setConfigName(value: string | undefined): void {
 }
 
 @Extend(TextInput)
-function fieldTextInput(onChange: EditableTextOnChangeCallback, editChange: Callback<boolean, void>) {
+function fieldTextInput(onChange: EditableTextOnChangeCallback) {
   .padding({
     top: 8,
     bottom: 8,
@@ -23,74 +21,33 @@ function fieldTextInput(onChange: EditableTextOnChangeCallback, editChange: Call
   .borderRadius(12)
   .onChange(onChange)
   .width('100%')
-  .onEditChange(editChange)
 }
 
 @ComponentV2
 export struct NewConfig_Content {
   @Local pastePopup: boolean = false
-  @Local intensity: number = 0;
-  controller: TextInputController = new TextInputController()
-  @Local offsetX: number = 0;
-  comp_height: number = 0;
-
-  @Builder
-  LightPoint() {
-    Flex()
-      .width(1)
-      .height(1)
-      .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER,
-        options: {
-          color: uiAppearance.getDarkMode() === 0 ? "#FFFFFF" : "#0a59f7",
-          intensity: this.intensity,
-          height: this.comp_height * 2
-        }
-      }).buildEffect())
-      .animation({
-        curve: Curve.Ease,
-        duration: 300
-      })
+  private popupCallback = () => {
+    this.pastePopup = true
   }
 
   aboutToAppear(): void {
-    EventHelper.emitterListener("new_config_popup", () => {
-      this.pastePopup = true
-    })
+    EventHelper.emitterListener("new_config_popup", this.popupCallback)
+  }
+
+  aboutToDisappear(): void {
+    EventHelper.emitterOff("new_config_popup", this.popupCallback)
+    this.pastePopup = false
   }
 
   build() {
     Column() {
       Column() {
-        TextInput({ placeholder: '请输入实例名称', text: config_name, controller: this.controller })
+        TextInput({ placeholder: '请输入实例名称', text: config_name })
           .backgroundColor($r("sys.color.comp_background_tertiary"))
           .borderRadius(8)
           .padding(10)
           .fieldTextInput((value) => {
             config_name = value
-          }, (isOn) => {
-            this.intensity = isOn ? 1 : 0
-          })
-          .overlay(this.LightPoint(), {
-            align: Alignment.Start,
-            offset: {
-              x: this.offsetX
-            }
-          })
-          .onSecurityStateChange(() => {
-            setTimeout(() => {
-              this.offsetX = Spx2vp(this.controller.getCaretOffset().x)
-            }, 10)
-          })
-          .onTextSelectionChange(() => {
-            setTimeout(() => {
-              this.offsetX = Spx2vp(this.controller.getCaretOffset().x)
-            }, 10)
-          })
-          .onContentScroll(() => {
-            setTimeout(() => {
-              this.offsetX = Spx2vp(this.controller.getCaretOffset().x)
-            }, 10)
           })
       }
       .width('100%')
@@ -105,9 +62,6 @@ export struct NewConfig_Content {
             this.pastePopup = false;
           }
         }
-      })
-      .onAreaChange((_a, b) => {
-        this.comp_height = b.height.valueOf() as number
       })
       .padding({top: 9, left: 9, right: 9})
 

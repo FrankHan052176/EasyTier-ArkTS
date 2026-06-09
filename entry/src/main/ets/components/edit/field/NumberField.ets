@@ -1,5 +1,5 @@
 import { hasFieldTag } from '../../../config/fields/ConfigFieldUi';
-import { getFieldI18Name } from '../FieldEdit';
+import { getFieldI18Name } from '../FieldLabel';
 import { AppManager } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService';
@@ -23,7 +23,6 @@ export struct NumberField {
   @Consumer("field_edit_enable") enable: boolean = true
   @Local value: string = "" + (getFieldPathValue(this.config!, this.fieldPath) ?? "");
   @Local intensity: number = 0;
-  controller: TextInputController = new TextInputController()
   @Local offsetX: number = 0;
   @Local isEdit: boolean = false;
   private fieldRefreshEvent: string = ''
@@ -67,6 +66,8 @@ export struct NumberField {
       EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
       this.fieldRefreshEvent = ''
     }
+    this.isEdit = false
+    this.value = ''
   }
 
   build() {
@@ -74,7 +75,7 @@ export struct NumberField {
       Text(getFieldI18Name(this.field))
         .focusable(false)
       Row() {
-        TextInput({ text: this.value!!, controller: this.controller })
+        TextInput({ text: this.value!! })
           .fieldTextInput()
           .onChange((value) => {
             if (value.length == 0) {

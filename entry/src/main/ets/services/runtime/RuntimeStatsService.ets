@@ -1,11 +1,12 @@
 import { common } from '@kit.AbilityKit'
 import { JSON } from '@kit.ArkTS'
 import { fileIo } from '@kit.CoreFileKit'
-import hidebug from '@ohos.hidebug'
+import { hidebug } from '@kit.PerformanceAnalysisKit'
 import { LogLocate, Logger } from '../../shared/logging/Logger'
 
 const RUNTIME_STATS_FILE = 'easytier-runtime-stats.json'
-const SAMPLE_INTERVAL_MS = 1000
+const MEMORY_SAMPLE_INTERVAL_MS = 10000
+const LIVE_REFRESH_INTERVAL_MS = 1000
 
 interface RuntimeStatsSnapshot {
   sessionId: string
@@ -15,11 +16,15 @@ interface RuntimeStatsSnapshot {
   memoryPssKb: string
 }
 
-function collectRuntimeMemoryPssKb(): string {
+async function collectRuntimeMemoryPssKb(): Promise<string> {
   try {
-    return hidebug.getAppNativeMemInfo().pss.toString()
+    return (await hidebug.getAppNativeMemInfoAsync()).pss.toString()
   } catch (_) {
-    return ''
+    try {
+      return hidebug.getAppNativeMemInfoWithCache().pss.toString()
+    } catch (_) {
+      return ''
+    }
   }
 }
 
@@ -89,6 +94,8 @@ class RuntimeStatsRecorder {
   private filePath: string = ''
   private sessionId: string = ''
   private sessionNonce: number = 0
+  private sampleInFlight: boolean = false
+  private lastMemoryPssKb: string = ''
 
   start(filesDir: string): void {
     this.stop()
@@ -96,13 +103,27 @@ class RuntimeStatsRecorder {
     this.startedAt = Date.now()
     this.sessionNonce += 1
     this.sessionId = `${this.startedAt}-${this.sessionNonce}`
+    this.lastMemoryPssKb = ''
     this.sampleAndPersist()
     this.timer = setInterval(() => {
       this.sampleAndPersist()
-    }, SAMPLE_INTERVAL_MS)
+    }, MEMORY_SAMPLE_INTERVAL_MS)
   }
 
   stop(): void {
+    if (this.filePath.length > 0 && this.startedAt > 0 && this.sessionId.length > 0) {
+      try {
+        const now = Date.now()
+        writeRuntimeStatsSnapshot(this.filePath, {
+          sessionId: this.sessionId,
+          startedAt: this.startedAt,
+          updatedAt: now,
+          runningMs: now - this.startedAt,
+          memoryPssKb: this.lastMemoryPssKb
+        })
+      } catch (_) {
+      }
+    }
     if (this.timer !== undefined) {
       clearInterval(this.timer)
       this.timer = undefined
@@ -110,17 +131,24 @@ class RuntimeStatsRecorder {
     this.filePath = ''
     this.startedAt = 0
     this.sessionId = ''
+    this.sampleInFlight = false
+    this.lastMemoryPssKb = ''
   }
 
-  private sampleAndPersist(): void {
-    if (this.filePath.length === 0 || this.startedAt <= 0 || this.sessionId.length === 0) {
+  private async sampleAndPersist(): Promise<void> {
+    if (this.sampleInFlight || this.filePath.length === 0 || this.startedAt <= 0 || this.sessionId.length === 0) {
       return
     }
+    this.sampleInFlight = true
     const currentSessionId = this.sessionId
     const currentFilePath = this.filePath
     const currentStartedAt = this.startedAt
     try {
-      const memoryPssKb = collectRuntimeMemoryPssKb()
+      const memoryPssKb = await collectRuntimeMemoryPssKb()
+      if (this.sessionId !== currentSessionId || this.filePath !== currentFilePath || this.startedAt !== currentStartedAt) {
+        return
+      }
+      this.lastMemoryPssKb = memoryPssKb
       const now = Date.now()
       const snapshot: RuntimeStatsSnapshot = {
         sessionId: currentSessionId,
@@ -135,6 +163,10 @@ class RuntimeStatsRecorder {
         return
       }
       Logger.error(`RuntimeStatsRecorder sample error: ${JSON.stringify(error)}`, 'RuntimeStatsRecorder')
+    } finally {
+      if (this.sessionId === currentSessionId && this.filePath === currentFilePath && this.startedAt === currentStartedAt) {
+        this.sampleInFlight = false
+      }
     }
   }
 }
@@ -169,7 +201,7 @@ export class RuntimeStatsService {
     }
     this.refreshTimer = setInterval(() => {
       this.refreshFromDisk()
-    }, 100)
+    }, LIVE_REFRESH_INTERVAL_MS)
     this.refreshFromDisk()
   }
 
@@ -178,6 +210,8 @@ export class RuntimeStatsService {
       clearInterval(this.refreshTimer)
       this.refreshTimer = undefined
     }
+    this.runtimeDurationText = 'N/A'
+    this.memoryUsageText = 'N/A'
   }
 
   refreshFromDisk(): void {
@@ -187,7 +221,11 @@ export class RuntimeStatsService {
       this.memoryUsageText = 'N/A'
       return
     }
-    this.runtimeDurationText = formatDuration(snapshot.runningMs)
+    const now = Date.now()
+    const liveRunningMs = now - snapshot.updatedAt <= MEMORY_SAMPLE_INTERVAL_MS * 2 ?
+      Math.max(snapshot.runningMs, now - snapshot.startedAt) :
+      snapshot.runningMs
+    this.runtimeDurationText = formatDuration(liveRunningMs)
     this.memoryUsageText = formatMemory(snapshot.memoryPssKb)
   }
 }

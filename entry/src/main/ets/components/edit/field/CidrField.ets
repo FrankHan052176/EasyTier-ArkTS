@@ -120,6 +120,10 @@ export struct CidrField {
       EventHelper.emitterOff(this.maskRefreshEvent, this.maskRefreshCallback)
       this.maskRefreshEvent = ''
     }
+    this.editIP = false
+    this.editMask = false
+    this.value_ip = ''
+    this.value_mask = ''
   }
 
   build() {

@@ -1,15 +1,9 @@
 import { AppManager } from '../../AppManager'
 import { sendToast } from '../../ToastUtil'
-import { LightModifier } from '../../class/modifier/SymbolLight'
-import { StackLightModifier } from '../../class/modifier/BackgroundLight'
-import { hdsEffect } from '@kit.UIDesignKit'
 
 @ComponentV2
 export struct Favorite {
   @Local trigger: number = 0
-  @Local lightMod: LightModifier = new LightModifier('rgba(255,200,50,1)')
-  @Local lightMod2: LightModifier = new LightModifier('rgba(255,200,50,1)', 1, 48)
-  @Local bgMode: StackLightModifier = new StackLightModifier()
   readonly brandColor: string = 'rgba(255,200,50,1)'
   @Consumer("w") w: number = 1
   @Consumer("h") h: number = 1
@@ -67,27 +61,10 @@ export struct Favorite {
   }
 
   @Builder
-  point() {
-    Column()
-      .size({ width: 1, height: 1 })
-      .attributeModifier(this.lightMod)
-  }
-
-  @Builder
-  point2() {
-    Column()
-      .size({ width: 1, height: 1 })
-      .attributeModifier(this.lightMod2)
-  }
-
-  @Builder
   Logo() {
     SymbolGlyph($r('sys.symbol.star_fill'))
       .fontSize(24)
       .fontColor([this.brandColor])
-      .overlay(this.point, {
-        align: Alignment.Center
-      })
   }
 
   @Builder
@@ -111,9 +88,6 @@ export struct Favorite {
               .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
               .onClick(() => this.toggle())
           }
-          .overlay(this.point2, {
-            align: Alignment.Center
-          })
 
           Text(this.favoriteName)
             .fontSize(14)
@@ -318,14 +292,10 @@ export struct Favorite {
     .width('100%')
     .height('100%')
     .borderRadius(18)
-    .attributeModifier(this.bgMode)
     .backgroundColor($r("sys.color.comp_background_primary"))
     .shadow({
       radius: 7,
       color: '#1F000000'
     })
-    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
-    }).buildEffect())
   }
 }

@@ -35,16 +35,24 @@ export struct HMRouterIndex {
   compPos: Position | undefined
   dragType: string | undefined
   onlyDrag: boolean = false
+  private privacyStateUnsubscribe: (() => void) | undefined = undefined
+  private active: boolean = false
+  private appearGeneration: number = 0
 
   async aboutToAppear(): Promise<void> {
+    this.active = true
+    const generation = ++this.appearGeneration
     DialogHub.init(this.getUIContext(), DialogMode.CUSTOM_DIALOG);
     try {
       await AppManager.init(this.getUIContext())
     } catch (error) {
       Logger.error(`AppManager init failed: ${JSON.stringify(error)}`, 'HMRouterIndex')
     }
-    if (canIUse("SystemCapability.BundleManager.AppLinking.DeferredLink")) {
-      EventHelper.commonListener("usual.event.PRIVACY_STATE_CHANGED", () => {
+    if (!this.active || generation !== this.appearGeneration) {
+      return
+    }
+    if (canIUse("SystemCapability.BundleManager.AppLinking.DeferredLink") && !this.privacyStateUnsubscribe) {
+      this.privacyStateUnsubscribe = EventHelper.commonListener("usual.event.PRIVACY_STATE_CHANGED", () => {
         deferredLink.popDeferredLink().then(async (link: string) => {
           if (link) {
             try {
@@ -56,6 +64,13 @@ export struct HMRouterIndex {
         })
       })
     }
+  }
+
+  aboutToDisappear(): void {
+    this.active = false
+    this.appearGeneration += 1
+    this.privacyStateUnsubscribe?.()
+    this.privacyStateUnsubscribe = undefined
   }
 
   build() {

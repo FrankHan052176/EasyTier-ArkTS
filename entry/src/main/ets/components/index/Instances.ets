@@ -1,15 +1,9 @@
 import { AppManager } from '../../AppManager'
 import { HMRouterMgr } from '@hadss/hmrouter'
-import { HMRouterTransitions } from '@hadss/hmrouter-transitions'
 import { InstanceSelector } from '../util/InstanceSelector'
-import { LightModifier } from '../../class/modifier/SymbolLight'
-import { StackLightModifier } from '../../class/modifier/BackgroundLight'
-import { hdsEffect } from '@kit.UIDesignKit'
 
 @ComponentV2
 export struct Instances {
-  @Local lightMod: LightModifier = new LightModifier($r('sys.color.brand'))
-  @Local bgMode: StackLightModifier = new StackLightModifier()
   @Consumer("w") w: number = 1
   @Consumer("h") h: number = 1
 
@@ -55,16 +49,8 @@ export struct Instances {
   }
 
   toEdit(uuid: string) {
-    const animator = HMRouterTransitions.cardLongTake("instance_card_" + uuid, "edit_content");
     AppManager.uiState.editingInstance = uuid
-    HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid: uuid, unsafe: true}, animator: animator});
-  }
-
-  @Builder
-  point() {
-    Column()
-      .size({ width: 1, height: 1 })
-      .attributeModifier(this.lightMod)
+    HMRouterMgr.push({ pageUrl: 'EditPage', param: {uuid: uuid, unsafe: true}});
   }
 
   @Builder
@@ -72,9 +58,6 @@ export struct Instances {
     SymbolGlyph($r('sys.symbol.key_shield'))
       .fontSize(24)
       .fontColor([$r('sys.color.brand')])
-      .overlay(this.point, {
-        align: Alignment.Center
-      })
   }
 
   @Builder
@@ -345,14 +328,10 @@ export struct Instances {
     .width('100%')
     .height('100%')
     .borderRadius(18)
-    .attributeModifier(this.bgMode)
     .backgroundColor($r("sys.color.comp_background_primary"))
     .shadow({
       radius: 7,
       color: '#1F000000'
     })
-    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
-    }).buildEffect())
   }
 }

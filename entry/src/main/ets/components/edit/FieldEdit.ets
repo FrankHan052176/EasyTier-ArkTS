@@ -1,5 +1,5 @@
 import { ConfigField } from '../../config/fields/ConfigFieldRegistry'
-import { getFieldI18nKey, hasFieldTag, isVaultField } from '../../config/fields/ConfigFieldUi'
+import { hasFieldTag, isVaultField } from '../../config/fields/ConfigFieldUi'
 import { BoolField } from './field/BoolField'
 import { LengthMetrics } from '@kit.ArkUI'
 import { StringField } from './field/StringField'
@@ -15,12 +15,9 @@ import { userAuth } from '@kit.UserAuthenticationKit'
 import { BusinessError } from '@kit.BasicServicesKit'
 import { areEditingFieldsLoaded, ensureEditingFieldsAsync } from '../../services/config/storage/StoredConfigService'
 import { Logger } from '../../shared/logging/Logger'
+import { getFieldI18Name } from './FieldLabel'
 
 let fieldEditLoadSequence: number = 0
-
-export function getFieldI18Name(field: string): ResourceStr {
-  return $r("app.string." + getFieldI18nKey(field))
-}
 
 @ComponentV2
 export struct FieldEdit {
@@ -47,6 +44,8 @@ export struct FieldEdit {
   private readyTimer: number = -1
   private childTimer: number = -1
   private skeletonTimer: number = -1
+  private userAuthInstance: userAuth.UserAuthInstance | undefined = undefined
+  private userAuthCallback: userAuth.IAuthCallback | undefined = undefined
 
   @Computed
   get safe_show() {
@@ -118,6 +117,7 @@ export struct FieldEdit {
       this.childTimer = -1
     }
     this.stopSkeletonPulse()
+    this.cancelUserAuth()
   }
 
   private startSkeletonPulse(): void {
@@ -373,7 +373,23 @@ export struct FieldEdit {
     }
   }
 
+  private cancelUserAuth(): void {
+    if (this.userAuthInstance && this.userAuthCallback) {
+      try {
+        this.userAuthInstance.off('result', this.userAuthCallback)
+      } catch (_) {
+      }
+      try {
+        this.userAuthInstance.cancel()
+      } catch (_) {
+      }
+    }
+    this.userAuthInstance = undefined
+    this.userAuthCallback = undefined
+  }
+
   private requestUnlock() {
+    this.cancelUserAuth()
     const authParam: userAuth.AuthParam = {
       challenge: new Uint8Array([49, 50, 51, 52, 53, 54]),
       authType: [userAuth.UserAuthType.FACE, userAuth.UserAuthType.FINGERPRINT, userAuth.UserAuthType.PIN],
@@ -384,8 +400,14 @@ export struct FieldEdit {
     };
     try {
       const userAuthInstance = userAuth.getUserAuthInstance(authParam, widgetParam);
-      userAuthInstance.on('result', {
+      const authCallback: userAuth.IAuthCallback = {
         onResult: (result) => {
+          try {
+            userAuthInstance.off('result', authCallback)
+          } catch (_) {
+          }
+          this.userAuthInstance = undefined
+          this.userAuthCallback = undefined
           if (result.result === userAuth.UserAuthResultCode.SUCCESS) {
             animateToImmediately({
               duration: 500, curve: Curve.EaseOut, onFinish: () => {
@@ -401,9 +423,13 @@ export struct FieldEdit {
             })
           }
         }
-      });
+      };
+      this.userAuthInstance = userAuthInstance
+      this.userAuthCallback = authCallback
+      userAuthInstance.on('result', authCallback);
       userAuthInstance.start();
     } catch (error) {
+      this.cancelUserAuth()
       console.error(`auth catch error: ${(error as BusinessError).code} ${(error as BusinessError).message}`);
     }
   }

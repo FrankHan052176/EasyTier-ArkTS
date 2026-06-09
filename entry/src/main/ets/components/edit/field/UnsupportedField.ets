@@ -1,7 +1,7 @@
 import { AppManager } from '../../../AppManager'
 import { ConfigFieldValue, ConfigJson } from '../../../config/schema/SchemaConfig'
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil'
-import { getFieldI18Name } from '../FieldEdit'
+import { getFieldI18Name } from '../FieldLabel'
 
 @ComponentV2
 export struct UnsupportedField {
@@ -19,6 +19,11 @@ export struct UnsupportedField {
   aboutToAppear(): void {
     const raw: ConfigFieldValue = getFieldPathValue(this.config!, this.fieldPath)
     this.value = JSON.stringify(raw ?? null)
+  }
+
+  aboutToDisappear(): void {
+    this.value = ''
+    this.parseError = false
   }
 
   private commit(): void {

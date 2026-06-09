@@ -1,5 +1,5 @@
 import { hasFieldTag } from '../../../config/fields/ConfigFieldUi';
-import { getFieldI18Name } from '../FieldEdit';
+import { getFieldI18Name } from '../FieldLabel';
 import { AppManager } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { TertiaryButton } from '../../util/TextButton';
@@ -29,13 +29,14 @@ export struct StringField {
   @Local value: string = (getFieldPathValue(this.config!, this.fieldPath) as string) || "";
   @Consumer("field_edit_enable") enable: boolean = true
   @Local intensity: number = 0;
-  controller: TextInputController = new TextInputController()
   @Local offsetX: number = 0;
   @Local isEdit: boolean = false;
   @Consumer("unsafe_status") unsafe: boolean = false
   @Consumer("lock_status") unlock: boolean = false
   private fieldRefreshEvent: string = ''
   private syncingFromConfig: boolean = false
+  private syncResetTimer: number = -1
+  private active: boolean = false
   private fieldRefreshCallback = () => {
     this.updateFromConfig()
   }
@@ -95,7 +96,12 @@ export struct StringField {
       if (this.value !== nextValue) {
         this.syncingFromConfig = true
         this.value = nextValue
-        setTimeout(() => {
+        if (this.syncResetTimer >= 0) {
+          clearTimeout(this.syncResetTimer)
+          this.syncResetTimer = -1
+        }
+        this.syncResetTimer = setTimeout(() => {
+          this.syncResetTimer = -1
           this.syncingFromConfig = false
         }, 0)
       }
@@ -103,16 +109,25 @@ export struct StringField {
   }
 
   aboutToAppear(): void {
+    this.active = true
     this.updateFromConfig()
     this.fieldRefreshEvent = getEditingConfigFieldRefreshEvent(this.topLevelField())
     EventHelper.emitterListener(this.fieldRefreshEvent, this.fieldRefreshCallback)
   }
 
   aboutToDisappear(): void {
+    this.active = false
     if (this.fieldRefreshEvent.length > 0) {
       EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
       this.fieldRefreshEvent = ''
     }
+    if (this.syncResetTimer >= 0) {
+      clearTimeout(this.syncResetTimer)
+      this.syncResetTimer = -1
+    }
+    this.syncingFromConfig = false
+    this.isEdit = false
+    this.value = ''
   }
 
   build() {
@@ -136,6 +151,9 @@ export struct StringField {
                 })
                 .onClick(() => {
                   AppManager.permission.requestDistributePerm(false).then(() => {
+                    if (!this.active) {
+                      return
+                    }
                     let value: string = getHostname()
                     this.value = value
                     setFieldPathValue(this.config!, this.fieldPath, value)
@@ -151,7 +169,7 @@ export struct StringField {
           .focusable(false)
         }
         Row() {
-            TextInput({ text: $$this.value, controller: this.controller })
+            TextInput({ text: $$this.value })
               .fieldTextInput((value) => {
                 if (this.syncingFromConfig) {
                   return

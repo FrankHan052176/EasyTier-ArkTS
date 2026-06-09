@@ -1,5 +1,5 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
-import { deviceInfo } from '@kit.BasicServicesKit';
+import { deviceInfo, emitter } from '@kit.BasicServicesKit';
 import {
   HdsNavigation,
   HdsNavigationTitleMode,
@@ -11,6 +11,7 @@ import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.A
 import { AppManager } from '../../AppManager';
 import { EventHelper } from '../../util/EventHelper';
 import { HomeSheetContentBuilder } from '../../components/sheet/HomeSheet';
+import { setConfigName } from '../../components/sheet/NewConfig';
 import { ActionBarButton, ActionBarStyle, HdsActionBar, hdsMaterial } from '@kit.UIDesignKit';
 import { sendToast } from '../../ToastUtil';
 import { BottomAnimator } from '../../class/animator/BottomAnimator';
@@ -66,45 +67,59 @@ export struct HomePage {
   @Local tips: string | undefined = ""
   @Local actionText: string | undefined = ""
   @Local hand: number = 0
+  private homeOpenSheetCallback = (data: emitter.EventData) => {
+    this.sheet_type = data.data!.type as string
+    this.sheet = true
+  }
+  private homeCloseSheetCallback = () => {
+    this.closeHomeSheet()
+  }
+  private resetHoldingDetectorCallback = () => {
+    this.hand = 0
+  }
+  private holdingHandChangedCallback = (data: motion.HoldingHandStatus) => {
+    switch (data) {
+      case motion.HoldingHandStatus.LEFT_HAND_HELD:
+      case motion.HoldingHandStatus.RIGHT_HAND_HELD: {
+        if (AppManager.uiState.holding_detector) {
+          animateToImmediately({
+            duration: 300,
+            curve: curves.springMotion(0.5, 0.6, 0)
+          }, () => {
+            this.hand = data
+          })
+        }
+        break;
+      }
+      default: {
+        animateToImmediately({
+          duration: 300,
+          curve: curves.springMotion(0.5, 0.6, 0)
+        }, () => {
+          this.hand = 0
+        })
+      }
+    }
+  }
+  private holdingHandRegistered: boolean = false
+
+  private closeHomeSheet(): void {
+    if (this.sheet_type === 'new') {
+      setConfigName(undefined)
+    }
+    this.sheet = false
+    this.sheet_type = ''
+  }
 
   aboutToAppear(): void {
-    EventHelper.emitterListener("home_open_sheet", (data) => {
-      this.sheet_type = data.data!.type as string
-      this.sheet = true
-    })
-    EventHelper.emitterListener("home_close_sheet", () => {
-      this.sheet = false
-    })
-    EventHelper.emitterListener("reset_holding_detector", () => {
-      this.hand = 0
-    })
+    EventHelper.emitterListener("home_open_sheet", this.homeOpenSheetCallback)
+    EventHelper.emitterListener("home_close_sheet", this.homeCloseSheetCallback)
+    EventHelper.emitterListener("reset_holding_detector", this.resetHoldingDetectorCallback)
     if (canIUse("SystemCapability.MultimodalAwareness.Motion")) {
       if (deviceInfo.sdkApiVersion >= 20) {
         try {
-          motion.on('holdingHandChanged', (data: motion.HoldingHandStatus) => {
-            switch (data) {
-              case motion.HoldingHandStatus.LEFT_HAND_HELD:
-              case motion.HoldingHandStatus.RIGHT_HAND_HELD: {
-                if (AppManager.uiState.holding_detector) {
-                  animateToImmediately({
-                    duration: 300,
-                    curve: curves.springMotion(0.5, 0.6, 0)
-                  }, () => {
-                    this.hand = data
-                  })
-                }
-                break;
-              }
-              default: {
-                animateToImmediately({
-                  duration: 300,
-                  curve: curves.springMotion(0.5, 0.6, 0)
-                }, () => {
-                  this.hand = 0
-                })
-              }
-            }
-          })
+          motion.on('holdingHandChanged', this.holdingHandChangedCallback)
+          this.holdingHandRegistered = true
         } catch (_) {
         }
       }
@@ -119,10 +134,17 @@ export struct HomePage {
   }
 
   aboutToDisappear(): void {
-    EventHelper.emitterOff("home_open_sheet")
-    EventHelper.emitterOff("home_close_sheet")
-    EventHelper.emitterOff("reset_holding_detector")
+    EventHelper.emitterOff("home_open_sheet", this.homeOpenSheetCallback)
+    EventHelper.emitterOff("home_close_sheet", this.homeCloseSheetCallback)
+    EventHelper.emitterOff("reset_holding_detector", this.resetHoldingDetectorCallback)
     harmonyShare.off('knockShare', this.immersiveCallback);
+    if (this.holdingHandRegistered) {
+      try {
+        motion.off('holdingHandChanged', this.holdingHandChangedCallback)
+      } catch (_) {
+      }
+      this.holdingHandRegistered = false
+    }
   }
 
   startAndStop() {
@@ -436,7 +458,7 @@ export struct HomePage {
       onWillDismiss: (action) => {
         if (action.reason != DismissReason.SLIDE_DOWN) {
           action.dismiss()
-          this.sheet = false
+          this.closeHomeSheet()
         }
       }
     })

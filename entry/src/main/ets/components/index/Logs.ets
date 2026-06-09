@@ -1,9 +1,7 @@
 import { AppManager } from '../../AppManager'
 import { logColor } from '../../util/Conversion'
-import { LightModifier } from '../../class/modifier/SymbolLight'
-import { StackLightModifier } from '../../class/modifier/BackgroundLight'
 import { LogDataSource } from '../../class/data_source/LogDataSource'
-import { hdsEffect, hdsMaterial, HdsNavigation, HdsNavigationTitleMode,
+import { hdsMaterial, HdsNavigation, HdsNavigationTitleMode,
   IconStyleMode,
   TitleBarStyleOptions } from '@kit.UIDesignKit'
 import { deviceInfo } from '@kit.BasicServicesKit'
@@ -387,8 +385,6 @@ export struct Logs {
   @Local logFiles: LogFileEntry[] = []
   @Local selectedLogFileName: string = ''
   @Local selectedFileLines: string[] = []
-  @Local lightMod: LightModifier = new LightModifier($r('sys.color.font_primary'))
-  @Local bgMode: StackLightModifier = new StackLightModifier()
   @Consumer("w") w: number = 1
   @Consumer("h") h: number = 1
 
@@ -693,20 +689,10 @@ export struct Logs {
   }
 
   @Builder
-  point() {
-    Column()
-      .size({ width: 1, height: 1 })
-      .attributeModifier(this.lightMod)
-  }
-
-  @Builder
   Logo() {
     SymbolGlyph($r('sys.symbol.list_bullet_square'))
       .fontSize(24)
       .fontColor([$r('sys.color.font_primary')])
-      .overlay(this.point, {
-        align: Alignment.Center
-      })
   }
 
   @Builder
@@ -942,14 +928,10 @@ export struct Logs {
       showClose: false,
       dragBar: false
     })
-    .attributeModifier(this.bgMode)
     .backgroundColor($r("sys.color.comp_background_primary"))
     .shadow({
       radius: 7,
       color: '#1F000000'
     })
-    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
-    }).buildEffect())
   }
 }

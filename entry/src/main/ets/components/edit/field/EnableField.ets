@@ -1,6 +1,6 @@
 import { curves } from '@kit.ArkUI';
 import { hasFieldTag } from '../../../config/fields/ConfigFieldUi';
-import { getFieldI18Name } from '../FieldEdit';
+import { getFieldI18Name } from '../FieldLabel';
 import { AppManager, Svp2fp } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService';
@@ -52,6 +52,7 @@ export struct EnableField {
       EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
       this.fieldRefreshEvent = ''
     }
+    this.button = false
   }
 
   updateEnable() {

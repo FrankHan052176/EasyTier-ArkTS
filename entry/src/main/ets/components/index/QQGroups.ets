@@ -2,23 +2,23 @@ import { AppManager } from '../../AppManager'
 import { common } from '@kit.AbilityKit'
 import { Logger } from '../../shared/logging/Logger'
 import { EventHelper } from '../../util/EventHelper'
-import { LightModifier } from '../../class/modifier/SymbolLight'
-import { StackLightModifier } from '../../class/modifier/BackgroundLight'
-import { hdsEffect } from '@kit.UIDesignKit'
 
 @ComponentV2
 export struct QQGroups {
   @Local groups: string[] = []
-  @Local lightMod: LightModifier = new LightModifier('#0052d9')
-  @Local bgMode: StackLightModifier = new StackLightModifier()
   @Consumer("w") w: number = 1
   @Consumer("h") h: number = 1
+  private updateCallback = (data: ESObject) => {
+    this.groups = data.data!.groups as string[]
+  }
 
   aboutToAppear(): void {
     AppManager.web.updateQQGroups()
-    EventHelper.emitterListener("update_qqgroups", (data) => {
-      this.groups = data.data!.groups as string[]
-    })
+    EventHelper.emitterListener("update_qqgroups", this.updateCallback)
+  }
+
+  aboutToDisappear(): void {
+    EventHelper.emitterOff("update_qqgroups", this.updateCallback)
   }
 
   openGroup(qqgroup: string) {
@@ -64,20 +64,10 @@ export struct QQGroups {
   }
 
   @Builder
-  point() {
-    Column()
-      .size({ width: 1, height: 1 })
-      .attributeModifier(this.lightMod)
-  }
-
-  @Builder
   Logo() {
     SymbolGlyph($r('sys.symbol.message_on_message'))
       .fontSize(24)
       .fontColor(['#0052d9'])
-      .overlay(this.point, {
-        align: Alignment.Center
-      })
   }
 
   @Builder
@@ -186,14 +176,10 @@ export struct QQGroups {
     .width('100%')
     .height('100%')
     .borderRadius(18)
-    .attributeModifier(this.bgMode)
     .backgroundColor($r("sys.color.comp_background_primary"))
     .shadow({
       radius: 7,
       color: '#1F000000'
     })
-    .visualEffect(new hdsEffect.HdsEffectBuilder().pointLight({
-      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
-    }).buildEffect())
   }
 }

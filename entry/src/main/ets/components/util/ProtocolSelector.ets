@@ -13,6 +13,18 @@ export struct ProtocolSelector {
   @Local scrollerMoveTimer: number = 0
   @Local comp_height: number = 0
 
+  private clearMoveTimer(): void {
+    if (this.scrollerMoveTimer !== 0) {
+      clearInterval(this.scrollerMoveTimer)
+      this.scrollerMoveTimer = 0
+    }
+  }
+
+  aboutToDisappear(): void {
+    this.clearMoveTimer()
+    this.isSelecting = false
+  }
+
   @Computed
   get scrollWidth() {
     let availableWidth = Math.floor(WindowUtil.width * 0.85)
@@ -85,6 +97,7 @@ export struct ProtocolSelector {
         this.isSelecting = true
       } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
         this.isSelecting = false
+        this.clearMoveTimer()
       }
     })
     .gesture(
@@ -115,8 +128,7 @@ export struct ProtocolSelector {
                   this.scroller.scrollToIndex(newIndex, true, ScrollAlign.END)
                   this.newSelected = this.selectorProtocols[newIndex]
                 } else {
-                  clearInterval(this.scrollerMoveTimer)
-                  this.scrollerMoveTimer = 0
+                  this.clearMoveTimer()
                 }
               }
               move()
@@ -130,23 +142,24 @@ export struct ProtocolSelector {
                   this.scroller.scrollToIndex(newIndex, true, ScrollAlign.START)
                   this.newSelected = this.selectorProtocols[newIndex]
                 } else {
-                  clearInterval(this.scrollerMoveTimer)
-                  this.scrollerMoveTimer = 0
+                  this.clearMoveTimer()
                 }
               }
               move()
               this.scrollerMoveTimer = setInterval(move, 300)
             }
           } else {
-            clearInterval(this.scrollerMoveTimer)
-            this.scrollerMoveTimer = 0
+            this.clearMoveTimer()
           }
         })
         .onActionEnd(() => {
           this.isSelecting = false
           this.onChange(this.newSelected)
-          clearInterval(this.scrollerMoveTimer)
-          this.scrollerMoveTimer = 0
+          this.clearMoveTimer()
+        })
+        .onActionCancel(() => {
+          this.isSelecting = false
+          this.clearMoveTimer()
         })
     )
     .bindPopup(this.isSelecting, {

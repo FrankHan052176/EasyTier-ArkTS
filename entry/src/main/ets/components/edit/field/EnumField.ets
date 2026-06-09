@@ -1,7 +1,7 @@
 import { AppManager } from '../../../AppManager'
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil'
 import { EditRenderOption } from '../../../config/render/EditRenderNode'
-import { getFieldI18Name } from '../FieldEdit'
+import { getFieldI18Name } from '../FieldLabel'
 import { LengthMetrics } from '@kit.ArkUI'
 import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService'
 import { EventHelper } from '../../../util/EventHelper'
@@ -42,6 +42,7 @@ export struct EnumField {
       EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
       this.fieldRefreshEvent = ''
     }
+    this.selectedValue = ''
   }
 
   private optionValue(raw: string): string | number {
