@@ -18,6 +18,10 @@ export class PeerInfoDataSource implements IDataSource {
     return [...this.idArray]
   }
 
+  get(peerId: number): PeerInfo | undefined {
+    return this.values.get(peerId)
+  }
+
   registerDataChangeListener(listener: DataChangeListener): void {
     if (this.listeners.indexOf(listener) < 0) {
       this.listeners.push(listener);
@@ -67,12 +71,12 @@ export class PeerInfoDataSource implements IDataSource {
     });
   }
 
-  set(peer: PeerInfo) {
+  set(peer: PeerInfo, includeTraffic: boolean = true) {
     if (this.values.has(peer.peerId)) {
       let index = this.idArray.indexOf(peer.peerId)
       let info = this.values.get(peer.peerId)
       if (info) {
-        info.update(peer)
+        info.update(peer, includeTraffic)
         this.notifyDataChange(index)
       }
     } else {

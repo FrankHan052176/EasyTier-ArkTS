@@ -1,35 +1,38 @@
- import { notificationManager } from '@kit.NotificationKit';
+import { notificationManager } from '@kit.NotificationKit';
 import { BusinessError } from '@kit.BasicServicesKit';
 import { Logger } from '../shared/logging/Logger';
 import { InstanceInfo } from '../class/InstanceInfo';
 import { AppManager } from '../AppManager';
 
+function buildLiveViewRequest(instanceName: string, text: string, progressValue: number): notificationManager.NotificationRequest {
+  const downLoadTemplate: notificationManager.NotificationTemplate = {
+    name: 'downloadTemplate',
+    data: {
+      title: "已启动实例 " + instanceName,
+      fileName: text,
+      progressValue
+    }
+  }
+  return {
+    content: {
+      notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_SYSTEM_LIVE_VIEW,
+      systemLiveView: {
+        typeCode: 8,
+        title: "已启动实例 " + instanceName,
+        text,
+      }
+    },
+    id: AppManager.uiState.notificationId ?? -1,
+    notificationSlotType: notificationManager.SlotType.LIVE_VIEW,
+    template: downLoadTemplate
+  }
+}
+
 export function publishTextNotification(instance_name: string): void {
-  AppManager.permission.requestNotificationPerm(false).then(async (data) => {
-    if (!data) {
-      Logger.error(`未授予通知权限`, "NoticeHelper")
-      return
+  notificationManager.publish(buildLiveViewRequest(instance_name, `0 ↑ 0 ↓`, 0), (err: BusinessError) => {
+    if (err) {
+      Logger.error(`实况窗通知发布失败, nid: ${AppManager.uiState.notificationId}, code: ${err.code}, message:${err.message}`, "NoticeHelper")
     }
-    if (AppManager.uiState.notificationId == undefined) {
-      AppManager.uiState.notificationId = Date.now()
-    }
-    const request: notificationManager.NotificationRequest = {
-      id: AppManager.uiState.notificationId ?? -1,
-      content: {
-        notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
-        normal: {
-          title: "已启动实例 "+instance_name,
-          text: `0/s ↑ 0/s ↓`,
-          additionalText: ''
-        }
-      }
-    };
-    notificationManager.publish(request, (err: BusinessError) => {
-      if (err) {
-        Logger.error(`通知发出失败, nid: ${AppManager.uiState.notificationId}, code: ${err.code}, message:${err.message}`, "NoticeHelper")
-        return;
-      }
-    });
   })
 }
 
@@ -37,30 +40,12 @@ export async function updateTextNotification(instance_name: string, instanceInfo
   if (AppManager.uiState.notificationId == undefined) {
     return
   }
-  const updateRequest: notificationManager.NotificationRequest = {
-    id: AppManager.uiState.notificationId ?? -1,
-    content: {
-      notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
-      normal: {
-        title: "已启动实例 "+instance_name,
-        text: `${instanceInfo.getUploadRate().toFixed(1)}${instanceInfo.getUploadRateUnit()} ↑ ${instanceInfo.getDownloadRate().toFixed(1)}${instanceInfo.getDownloadRateUnit()} ↓`,
-        additionalText: ''
-      }
-    },
-    updateOnly: true,
-  };
+  const text = `${instanceInfo.getUploadRate().toFixed(1)}${instanceInfo.getUploadRateUnit()} ↑ ${instanceInfo.getDownloadRate().toFixed(1)}${instanceInfo.getDownloadRateUnit()} ↓`
+  const progressValue = Math.min(100, Math.max(0, (instanceInfo.getUploadRate() / (instanceInfo.getUploadRate() + 10)) * 100))
+  const updateRequest = buildLiveViewRequest(instance_name, text, progressValue)
   notificationManager.publish(updateRequest, (err: BusinessError) => {
     if (err) {
-      Logger.debug(`通知更新失败, nid: ${AppManager.uiState.notificationId}, code: ${err.code}, message:${err.message}`, "NoticeHelper")
-      publishTextNotification(instance_name)
-      return;
+      Logger.error(`实况窗通知更新失败, nid: ${AppManager.uiState.notificationId}, code: ${err.code}, message:${err.message}`, "NoticeHelper")
     }
-  });
-}
-
-export async function cancelNotification(): Promise<void> {
-  try {
-    notificationManager.cancel(AppManager.uiState.notificationId ?? -1).catch(() => {});
-    AppManager.uiState.notificationId = undefined
-  } catch (_) {}
+  })
 }

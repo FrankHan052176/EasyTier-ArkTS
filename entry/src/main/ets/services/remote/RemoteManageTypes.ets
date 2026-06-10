@@ -50,8 +50,6 @@ export interface RemoteSettingsState {
   core_log: boolean
   debug_log: boolean
   distributePerm: boolean
-  locPerm: boolean
-  notificationPerm: boolean
 }
 
 export interface RemoteSummary {

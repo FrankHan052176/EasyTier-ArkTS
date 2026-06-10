@@ -9,7 +9,9 @@ export interface RuntimeRouteView {
   ipv4Cidr?: string
   ipv6Cidr?: string
   proxyCidrs: string[]
+  nextHopPeerId?: number
   cost?: number
+  pathLatency?: number
 }
 
 export interface RuntimePeerConnStats {
@@ -20,17 +22,26 @@ export interface RuntimePeerConnStats {
 
 export interface RuntimePeerConnInfo {
   connId?: string
+  myPeerId?: number
+  peerId?: number
+  features?: string[]
   tunnelType?: string
   localAddr?: string
   remoteAddr?: string
   resolvedRemoteAddr?: string
   lossRate?: number
   stats?: RuntimePeerConnStats
+  isClient?: boolean
+  networkName?: string
+  isClosed?: boolean
+  secureAuthLevel?: number
+  peerIdentityType?: number
 }
 
 export interface RuntimePeerInfo {
   peerId: number
   defaultConnId?: string
+  directlyConnectedConns?: string[]
   conns: RuntimePeerConnInfo[]
 }
 

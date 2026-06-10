@@ -13,6 +13,8 @@ import { getDefaultConfig } from '../../../config/defaults/ConfigDefaults';
 import { ConfigFieldValue, ConfigJson } from '../../../config/schema/SchemaConfig';
 import { stringArr2RouteArr } from '../../../util/Conversion';
 import { release } from '../../../util/info/ArtifactsType';
+import { EventHelper } from '../../../util/EventHelper';
+import { FAVORITE_CARD_REFRESH_EVENT } from '../../form/FavoriteCardState';
 
 const easytier_release = easytier
 
@@ -259,6 +261,7 @@ export class PreferenceUtil {
 
   refreshFavoriteFromStore(): void {
     AppManager.uiState.favorite = this.getStoredFavoriteConfigId()
+    EventHelper.emitterPublish(FAVORITE_CARD_REFRESH_EVENT)
   }
 
   getAppInfo(pkgName: string): AppInfo | undefined {
@@ -341,7 +344,7 @@ export class PreferenceUtil {
         list.forEach((value) => {
           let index = formList.indexOf(value)
           if (index > -1) {
-            formList.splice(index)
+            formList.splice(index, 1)
           }
         })
         this.card_list_preference.putSync("card_list", formList)

@@ -18,8 +18,8 @@ import { uniformTypeDescriptor } from '@kit.ArkData'
 import { socket, vpnExtension } from '@kit.NetworkKit'
 import { syncWholeConfig } from './ConfigSyncUtil'
 import { ConfigJson } from './config/schema/SchemaConfig'
-import { RuntimeAggregateState, RuntimeInstanceState } from './types/runtime/RuntimeTypes'
-import { VpnLogData } from './infrastructure/bridge/kernel/KernelBridgeTypes'
+import { RuntimeAggregateState, RuntimeInstanceState, RuntimePeerConnInfo, RuntimePeerInfo } from './types/runtime/RuntimeTypes'
+import { RuntimePeerEventPayload, TrafficStatsPayload, VpnLogData } from './infrastructure/bridge/kernel/KernelBridgeTypes'
 import { routeSignature } from './infrastructure/bridge/kernel/RouteStore'
 import { getEditingConfig as getEditingStoredConfig, getStoredConfig, getStoredConfigLabel, getStoredConfigName, listStoredConfigs as listStoredConfigEntries, StoredConfigMetaLite } from './services/config/storage/StoredConfigService'
 import { connectVpnExtensionSocket } from './infrastructure/bridge/kernel/VpnExtensionSocketBridge'
@@ -31,6 +31,11 @@ import { RemoteManageService } from './services/remote/RemoteManageService'
 
 const OPTIMISTIC_RUNTIME_GRACE_MS = 10000
 
+interface RuntimeStateRef {
+  key: string
+  state: RuntimeInstanceState
+}
+
 @LogLocate("EasyTierUtil")
 @ObservedV2
 export class EasyTierUtil {
@@ -41,17 +46,25 @@ export class EasyTierUtil {
   @Trace temporaryConfigIds: Set<string> = new Set()
   private logTimer: number | undefined
   client: socket.LocalSocket | undefined
-  vpnMessageBuffer: string = ''
   private isVpnConnected: boolean = false
-  private runtimeSnapshotSubscriptionCount: number = 0
-  private runtimeSnapshotSubscribed: boolean = false
-  private runtimeSnapshotForeground: boolean = true
   private runtimeNotifySignature: string = ''
+  private favoriteCardSignature: string = ''
+  private runtimeTrafficStatsActiveUntil: number = 0
   private optimisticRunningUntil: Map<string, number> = new Map()
   private initialized: boolean = false
-  private kernelRuntimeSnapshotCallback: Callback<emitter.EventData> = (event: emitter.EventData) => {
+  private kernelRuntimeTopologyCallback: Callback<emitter.EventData> = (event: emitter.EventData) => {
     if (event?.data?.snapshot) {
-      this.processRuntimeSnapshot(event.data.snapshot as RuntimeAggregateState, false)
+      this.processRuntimeSnapshot(event.data.snapshot as RuntimeAggregateState, false, false)
+    }
+  }
+  private kernelRuntimePeerEventCallback: Callback<emitter.EventData> = (event: emitter.EventData) => {
+    if (event?.data?.peerEvent) {
+      this.processRuntimePeerEvent(event.data.peerEvent as RuntimePeerEventPayload, false)
+    }
+  }
+  private kernelTrafficStatsCallback: Callback<emitter.EventData> = (event: emitter.EventData) => {
+    if (event?.data?.stats) {
+      this.processTrafficStats(event.data.stats as TrafficStatsPayload, false)
     }
   }
 
@@ -60,7 +73,9 @@ export class EasyTierUtil {
       return
     }
     this.initialized = true
-    EventHelper.emitterListener("kernel_runtime_snapshot", this.kernelRuntimeSnapshotCallback)
+    EventHelper.emitterListener("kernel_runtime_topology", this.kernelRuntimeTopologyCallback)
+    EventHelper.emitterListener("kernel_runtime_peer_event", this.kernelRuntimePeerEventCallback)
+    EventHelper.emitterListener("kernel_traffic_stats", this.kernelTrafficStatsCallback)
 
     this.logTimer = setInterval(() => {
       this.processLogs(easytier.drainLogLines())
@@ -76,17 +91,20 @@ export class EasyTierUtil {
       return
     }
     this.initialized = false
-    EventHelper.emitterOff("kernel_runtime_snapshot", this.kernelRuntimeSnapshotCallback)
+    EventHelper.emitterOff("kernel_runtime_topology", this.kernelRuntimeTopologyCallback)
+    EventHelper.emitterOff("kernel_runtime_peer_event", this.kernelRuntimePeerEventCallback)
+    EventHelper.emitterOff("kernel_traffic_stats", this.kernelTrafficStatsCallback)
     if (this.logTimer !== undefined) {
       clearInterval(this.logTimer)
       this.logTimer = undefined
     }
-    this.resetRuntimeSnapshotSubscription()
     this.runningNetworks.clear()
     this.instanceInfos.clear()
     this.needTUN.clear()
     this.optimisticRunningUntil.clear()
     this.runtimeNotifySignature = ''
+    this.favoriteCardSignature = ''
+    this.runtimeTrafficStatsActiveUntil = 0
     this.client?.close()
     this.client = undefined
     this.isVpnConnected = false
@@ -119,6 +137,10 @@ export class EasyTierUtil {
     return Array.from(this.runningNetworks.values())
       .map((instance) => {
         const instanceId = this.getValidInstanceId(instance) ?? ''
+        let connCount = 0
+        for (const peer of instance.peers ?? []) {
+          connCount += peer.conns?.length ?? 0
+        }
         return [
           instanceId,
           instance.configId ?? '',
@@ -126,6 +148,7 @@ export class EasyTierUtil {
           instance.tunAttached ? '1' : '0',
           instance.myNodeInfo?.virtualIpv4 ?? '',
           `${instance.peers.length}`,
+          `${connCount}`,
           `${instance.routes.length}`
         ].join(':')
       })
@@ -136,10 +159,31 @@ export class EasyTierUtil {
   private notifyRemoteRuntimeChanged(): void {
     const signature = this.buildRuntimeNotifySignature()
     if (signature === this.runtimeNotifySignature) {
+      this.notifyFavoriteCardChanged()
       return
     }
     this.runtimeNotifySignature = signature
     RemoteManageService.notifyHostSummaryDirty()
+    this.notifyFavoriteCardChanged()
+  }
+
+  private buildFavoriteCardSignature(): string {
+    const favoriteUuid = AppManager.uiState.favorite ?? ''
+    const favoriteName = favoriteUuid.length > 0 ? this.getConfigName(favoriteUuid) ?? favoriteUuid : ''
+    return [
+      favoriteUuid,
+      favoriteName,
+      this.isFavoritesRunning() ? '1' : '0'
+    ].join(':')
+  }
+
+  public notifyFavoriteCardChanged(force: boolean = false): void {
+    const signature = this.buildFavoriteCardSignature()
+    if (!force && signature === this.favoriteCardSignature) {
+      return
+    }
+    this.favoriteCardSignature = signature
+    updateFavorite()
   }
 
   private isOptimisticRunningActive(instanceId: string | undefined): boolean {
@@ -164,11 +208,177 @@ export class EasyTierUtil {
     this.optimisticRunningUntil.delete(instanceId)
   }
 
-  private processRuntimeSnapshot(snapshot: RuntimeAggregateState, fromVpn: boolean = true): void {
+  private findRuntimeStateRef(instanceId: string | undefined, configId: string | undefined): RuntimeStateRef | undefined {
+    const directKeys: string[] = []
+    if (instanceId && instanceId.length > 0) {
+      directKeys.push(instanceId)
+    }
+    if (configId && configId.length > 0 && configId !== instanceId) {
+      directKeys.push(configId)
+    }
+    for (const key of directKeys) {
+      const state = this.runningNetworks.get(key)
+      if (state) {
+        return { key, state }
+      }
+    }
+    for (const key of Array.from(this.runningNetworks.keys())) {
+      const state = this.runningNetworks.get(key)
+      if (!state) {
+        continue
+      }
+      const instanceMatches = !!instanceId && (state.instanceId === instanceId || state.configId === instanceId)
+      const configMatches = !!configId && (state.instanceId === configId || state.configId === configId)
+      if (instanceMatches || configMatches) {
+        return { key, state }
+      }
+    }
+    return undefined
+  }
+
+  private ensureInstanceInfo(instanceId: string): InstanceInfo {
+    if (!this.instanceInfos.has(instanceId)) {
+      this.instanceInfos.set(instanceId, new InstanceInfo())
+    }
+    return this.instanceInfos.get(instanceId)!
+  }
+
+  private ensureRuntimePeer(state: RuntimeInstanceState, peerId: number): RuntimePeerInfo {
+    state.peers = state.peers ?? []
+    let peer = state.peers.find((item) => item.peerId === peerId)
+    if (!peer) {
+      peer = {
+        peerId,
+        conns: []
+      }
+      state.peers.push(peer)
+    }
+    return peer
+  }
+
+  private normalizePeerConn(peerId: number, conn: RuntimePeerConnInfo | undefined): RuntimePeerConnInfo | undefined {
+    if (!conn) {
+      return undefined
+    }
+    if (conn.peerId === undefined) {
+      conn.peerId = peerId
+    }
+    return conn
+  }
+
+  private updateDirectConnIds(peer: RuntimePeerInfo, connId: string | undefined, add: boolean): void {
+    if (!connId || connId.length === 0) {
+      return
+    }
+    const ids = peer.directlyConnectedConns ?? []
+    if (add) {
+      if (ids.indexOf(connId) < 0) {
+        ids.push(connId)
+      }
+      peer.directlyConnectedConns = ids
+      return
+    }
+    peer.directlyConnectedConns = ids.filter((id) => id !== connId)
+  }
+
+  private applyPeerConnDelta(peer: RuntimePeerInfo, rawConn: RuntimePeerConnInfo | undefined, add: boolean): void {
+    peer.conns = peer.conns ?? []
+    const conn = this.normalizePeerConn(peer.peerId, rawConn)
+    if (!conn) {
+      return
+    }
+    const connId = conn.connId
+    if (add) {
+      if (connId && connId.length > 0) {
+        const index = peer.conns.findIndex((item) => item.connId === connId)
+        if (index >= 0) {
+          peer.conns[index] = conn
+        } else {
+          peer.conns.push(conn)
+        }
+        if (!peer.defaultConnId || peer.defaultConnId.length === 0) {
+          peer.defaultConnId = connId
+        }
+        this.updateDirectConnIds(peer, connId, true)
+      } else {
+        peer.conns.push(conn)
+      }
+      return
+    }
+    if (connId && connId.length > 0) {
+      peer.conns = peer.conns.filter((item) => item.connId !== connId)
+      if (peer.defaultConnId === connId) {
+        peer.defaultConnId = peer.conns.length > 0 ? peer.conns[0].connId : undefined
+      }
+      this.updateDirectConnIds(peer, connId, false)
+    } else {
+      peer.conns = peer.conns.filter((item) => item.peerId !== peer.peerId)
+      peer.defaultConnId = peer.conns.length > 0 ? peer.conns[0].connId : undefined
+      peer.directlyConnectedConns = []
+    }
+  }
+
+  private processRuntimePeerEvent(peerEvent: RuntimePeerEventPayload, fromVpn: boolean = true): void {
+    if (!fromVpn && AppManager.uiState.ext_mode && this.isVpnConnected) {
+      return
+    }
+    const peerId = peerEvent.peerId
+    if (typeof peerId !== 'number') {
+      return
+    }
+    const runtimeRef = this.findRuntimeStateRef(peerEvent.instanceId, peerEvent.configId)
+    const instanceId = runtimeRef?.state.instanceId ?? peerEvent.instanceId ?? peerEvent.configId
+    if (!instanceId || instanceId.length === 0) {
+      return
+    }
+    const instanceInfo = this.ensureInstanceInfo(instanceId)
+
+    if (peerEvent.event === 'peer_added') {
+      if (runtimeRef) {
+        this.ensureRuntimePeer(runtimeRef.state, peerId)
+        this.runningNetworks.set(runtimeRef.key, runtimeRef.state)
+      }
+      instanceInfo.addPeer(peerId)
+      this.updateNotification(instanceId)
+      this.notifyRemoteRuntimeChanged()
+      return
+    }
+
+    if (peerEvent.event === 'peer_removed') {
+      if (runtimeRef) {
+        runtimeRef.state.peers = (runtimeRef.state.peers ?? []).filter((peer) => peer.peerId !== peerId)
+        runtimeRef.state.routes = (runtimeRef.state.routes ?? []).filter((route) => route.peerId !== peerId)
+        this.runningNetworks.set(runtimeRef.key, runtimeRef.state)
+      }
+      instanceInfo.removePeer(peerId)
+      this.updateNotification(instanceId)
+      this.notifyRemoteRuntimeChanged()
+      return
+    }
+
+    let peer: RuntimePeerInfo = {
+      peerId,
+      conns: []
+    }
+    const route = runtimeRef?.state.routes?.find((item) => item.peerId === peerId)
+    if (runtimeRef) {
+      peer = this.ensureRuntimePeer(runtimeRef.state, peerId)
+    }
+    this.applyPeerConnDelta(peer, peerEvent.conn, peerEvent.event === 'peer_conn_added')
+    if (runtimeRef) {
+      this.runningNetworks.set(runtimeRef.key, runtimeRef.state)
+    }
+    instanceInfo.updatePeer(peer, route, false)
+    this.updateNotification(instanceId)
+    this.notifyRemoteRuntimeChanged()
+  }
+
+  private processRuntimeSnapshot(snapshot: RuntimeAggregateState, fromVpn: boolean = true, includeTraffic: boolean = true): void {
     if (!fromVpn && AppManager.uiState.ext_mode && this.isVpnConnected) {
       return
     }
 
+    const shouldUpdateTraffic = includeTraffic && Date.now() > this.runtimeTrafficStatsActiveUntil
     const instances = snapshot.instances ?? []
     const activeIds = new Set<string>()
     instances.forEach((instance) => {
@@ -193,7 +403,7 @@ export class EasyTierUtil {
       if (!this.instanceInfos.has(instanceId)) {
         this.instanceInfos.set(instanceId, new InstanceInfo())
       }
-      this.instanceInfos.get(instanceId)!.update(instance)
+      this.instanceInfos.get(instanceId)!.update(instance, shouldUpdateTraffic)
       this.updateNotification(instanceId)
     })
 
@@ -251,109 +461,56 @@ export class EasyTierUtil {
     })
   }
 
+  processTrafficStats(stats: TrafficStatsPayload, fromVpn: boolean = true): void {
+    if (!fromVpn && AppManager.uiState.ext_mode && this.isVpnConnected) {
+      return
+    }
+
+    this.runtimeTrafficStatsActiveUntil = Date.now() + 3000
+    for (const instanceStats of stats.instances ?? []) {
+      const instanceId = instanceStats.instanceId
+      const configId = instanceStats.configId
+      const state = this.runningNetworks.get(instanceId) ??
+        this.runningNetworks.get(configId) ??
+        Array.from(this.runningNetworks.values()).find((instance) => {
+          return instance.instanceId === instanceId || instance.configId === configId
+        })
+      const key = state?.instanceId ?? instanceId ?? configId
+      if (!key || key.length === 0) {
+        continue
+      }
+      if (!this.instanceInfos.has(key)) {
+        this.instanceInfos.set(key, new InstanceInfo())
+      }
+      this.instanceInfos.get(key)!.updateTraffic(instanceStats)
+      this.updateNotification(key)
+    }
+  }
+
   private connectToVpnExtension(socketName: string) {
     this.client = connectVpnExtensionSocket(socketName, this.client, {
       isExtMode: () => AppManager.uiState.ext_mode,
       getSocketPath: (name: string) => AppManager.uiState.getSocketPath(name),
       onConnected: () => {
         this.isVpnConnected = true
-        this.sendRuntimeSnapshotSubscription()
       },
       onDisconnected: () => {
         this.isVpnConnected = false
       },
-      onSnapshot: (snapshot: RuntimeAggregateState) => {
-        Logger.debug(`VpnExtension runtime_snapshot received instances=${snapshot.instances?.length ?? 0}`, this)
-        this.processRuntimeSnapshot(snapshot, true)
+      onTopology: (snapshot: RuntimeAggregateState) => {
+        Logger.debug(`VpnExtension runtime_topology received instances=${snapshot.instances?.length ?? 0}`, this)
+        this.processRuntimeSnapshot(snapshot, true, false)
+      },
+      onPeerEvent: (peerEvent: RuntimePeerEventPayload) => {
+        this.processRuntimePeerEvent(peerEvent, true)
+      },
+      onTrafficStats: (stats: TrafficStatsPayload) => {
+        this.processTrafficStats(stats, true)
       },
       onLogs: (logData: VpnLogData) => {
         this.processLogs(logData.logs)
       }
     })
-  }
-
-  public requestRuntimeSnapshotSubscription(enabled: boolean): void {
-    if (enabled) {
-      this.runtimeSnapshotSubscriptionCount += 1
-    } else {
-      this.runtimeSnapshotSubscriptionCount = Math.max(0, this.runtimeSnapshotSubscriptionCount - 1)
-    }
-    this.updateRuntimeSnapshotSubscription(enabled)
-  }
-
-  private resetRuntimeSnapshotSubscription(): void {
-    const wasSubscribed = this.runtimeSnapshotSubscribed
-    this.runtimeSnapshotSubscriptionCount = 0
-    this.runtimeSnapshotSubscribed = false
-    this.runtimeSnapshotForeground = true
-    if (!wasSubscribed) {
-      return
-    }
-    if (AppManager.uiState.ext_mode) {
-      this.sendRuntimeSnapshotSubscription()
-    } else {
-      try {
-        easytier.setKernelSnapshotEnabled(false)
-      } catch (_) {
-      }
-    }
-  }
-
-  public setRuntimeSnapshotForeground(active: boolean): void {
-    if (this.runtimeSnapshotForeground === active) {
-      return
-    }
-    this.runtimeSnapshotForeground = active
-    this.updateRuntimeSnapshotSubscription(false)
-  }
-
-  private updateRuntimeSnapshotSubscription(forceResend: boolean): void {
-    const shouldSubscribe = this.runtimeSnapshotSubscriptionCount > 0 && this.runtimeSnapshotForeground
-    if (shouldSubscribe === this.runtimeSnapshotSubscribed) {
-      if (forceResend && shouldSubscribe) {
-        if (AppManager.uiState.ext_mode) {
-          this.sendRuntimeSnapshotSubscription()
-        } else {
-          easytier.setKernelSnapshotEnabled(true)
-        }
-      }
-      return
-    }
-    this.runtimeSnapshotSubscribed = shouldSubscribe
-    if (!AppManager.uiState.ext_mode) {
-      easytier.setKernelSnapshotEnabled(shouldSubscribe)
-      return
-    }
-    this.sendRuntimeSnapshotSubscription()
-  }
-
-  private sendRuntimeSnapshotSubscription(): void {
-    if (!this.client || !this.isVpnConnected || !AppManager.uiState.ext_mode) {
-      return
-    }
-    const rawMessage = JSON.stringify({
-      type: 'snapshot_subscription',
-      data: { enabled: this.runtimeSnapshotSubscribed }
-    }) + '\n'
-    try {
-      this.client.send({ data: rawMessage }).catch((error: object) => {
-        Logger.error(`send snapshot subscription failed: ${JSON.stringify(error)}`, this)
-      })
-    } catch (error) {
-      Logger.error(`send snapshot subscription threw: ${JSON.stringify(error)}`, this)
-    }
-  }
-
-  public syncRuntimeSnapshotFromNative(): void {
-    if (AppManager.uiState.ext_mode) {
-      return
-    }
-    try {
-      const snapshot = easytier.getRuntimeSnapshot() as RuntimeAggregateState
-      this.processRuntimeSnapshot(snapshot, false)
-    } catch (error) {
-      Logger.error(`syncRuntimeSnapshotFromNative failed: ${JSON.stringify(error)}`, this)
-    }
   }
 
   public start(uuid: string | undefined = AppManager.uiState.selected, byCard: boolean = false): boolean {
@@ -387,7 +544,6 @@ export class EasyTierUtil {
           requestVpnPerm: (callback: () => void) => {
             AppManager.permission.requestVpnPerm(callback)
           },
-          requestLocPerm: () => AppManager.permission.requestLocPerm(),
           publishStartBg: (cfg: string, startId: string | undefined, startName: string) => {
             EventHelper.emitterPublish("start_bg", {
               data: {
@@ -404,6 +560,7 @@ export class EasyTierUtil {
         if (started) {
           this.markOptimisticRunning(config, this.getConfigName(uuid) ?? uuid)
           AppManager.runtimeStats.startLiveRefresh(true)
+          this.notifyFavoriteCardChanged()
         }
         return started
       } else {
@@ -446,7 +603,6 @@ export class EasyTierUtil {
         requestVpnPerm: (callback: () => void) => {
           AppManager.permission.requestVpnPerm(callback)
         },
-        requestLocPerm: () => AppManager.permission.requestLocPerm(),
         publishStartBg: (cfg: string, uuid: string | undefined, startName: string) => {
           EventHelper.emitterPublish("start_bg", {
             data: {
@@ -466,6 +622,7 @@ export class EasyTierUtil {
       } else {
         this.markOptimisticRunning(config, name)
         AppManager.runtimeStats.startLiveRefresh(true)
+        this.notifyFavoriteCardChanged()
       }
       return started
     } else {
@@ -502,9 +659,7 @@ export class EasyTierUtil {
     this.optimisticRunningUntil.clear()
     this.notifyRemoteRuntimeChanged()
 
-    setTimeout(() => {
-      updateFavorite()
-    }, 100)
+    this.notifyFavoriteCardChanged(true)
     temporaryRunningIds.forEach((configId) => {
       AppManager.data.delConfig(configId)
       this.temporaryConfigIds.delete(configId)
@@ -537,9 +692,7 @@ export class EasyTierUtil {
       AppManager.runtimeStats.stopLiveRefresh()
       EventHelper.emitterPublish("stop_bg")
     }
-    setTimeout(() => {
-      updateFavorite()
-    }, 100)
+    this.notifyFavoriteCardChanged(true)
     let stack = HMRouterMgr.getPathStack("MainNavigation")!.getAllPathName()
     if (stack[stack.length-1] == "StatusPage") {
       HMRouterMgr.pop()

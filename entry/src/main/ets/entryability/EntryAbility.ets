@@ -1,6 +1,5 @@
 import { AbilityConstant, Configuration, UIAbility, Want, WantAgent, wantAgent, wantConstant } from '@kit.AbilityKit';
 import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
-import { geoLocationManager } from '@kit.LocationKit';
 import { window } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
 import { Logger, LogLocate } from '../shared/logging/Logger';
@@ -21,14 +20,15 @@ import { rpc } from '@kit.IPCKit';
 import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../services/runtime/RuntimeStatsService';
 import { buildShareUrlSync, unwrapUrl } from '../util/ShareUtil';
 import { updateFavorite } from '../services/form/CommunicationUtil';
-import { cancelNotification, publishTextNotification } from '../util/NoticeHelper';
+import { publishTextNotification } from '../util/NoticeHelper';
 import { ConfigFieldValue, ConfigJson } from '../config/schema/SchemaConfig';
 import { RuntimeAggregateState, RuntimeInstanceState } from '../types/runtime/RuntimeTypes';
-import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnContinueStateData } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
+import { KERNEL_SOCKET_NAME, RuntimePeerEventPayload, TrafficStatsPayload, TunRequestPayload, VpnContinueStateData } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
 import { decodeSocketChunk, parseKernelSocketMessage, parseVpnBridgeMessage } from '../infrastructure/bridge/kernel/SocketCodec'
 import { CrashLogService } from '../services/crash/CrashLogService'
 import { MemoryDiagnosticsService } from '../services/runtime/MemoryDiagnosticsService'
 import { RemoteManageService } from '../services/remote/RemoteManageService'
+import { FAVORITE_CARD_REFRESH_EVENT } from '../services/form/FavoriteCardState'
 import {
   RemoteConfigMeta,
   RemoteCreateDefaultConfigResult,
@@ -145,9 +145,11 @@ export default class EntryAbility extends UIAbility {
   continuationMessageBuffer: string = ''
   continuationSocketConnected: boolean = false
   private appReadyPromise: Promise<void> = Promise.resolve()
-  private remoteManageSnapshotSessionCount: number = 0
   private entrySyncContinuationSocketCallback = () => {
     this.syncContinuationSocket()
+  }
+  private favoriteCardRefreshCallback = () => {
+    updateFavorite()
   }
   private startBgCallback = (data: emitter.EventData) => {
     let shouldProtect = false
@@ -278,8 +280,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined) {
-    if (!AppManager.permission.isGetLocPerm() ||
-      !canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
+    if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
       if (!easytier.runNetworkInstance(cfg)) {
         sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
         Logger.error("启动失败", this)
@@ -307,16 +308,10 @@ export default class EntryAbility extends UIAbility {
       requestCode: 0,
       actionFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
     };
-    let request: geoLocationManager.LocationRequest = {
-      priority: geoLocationManager.LocationRequestPriority.LOW_POWER,
-      timeInterval: 7200,
-      distanceInterval: 10000,
-      maxAccuracy: 1000
-    };
     try {
       wantAgent.getWantAgent(wantAgentInfo).then((wantAgentObj: WantAgent) => {
         try {
-          backgroundTaskManager.startBackgroundRunning(this.context, ["location"], wantAgentObj).then(() => {
+          backgroundTaskManager.startBackgroundRunning(this.context, ["dataTransfer"], wantAgentObj).then((res: backgroundTaskManager.ContinuousTaskNotification) => {
             if (AppManager.uiState.inittedGitCore?easytier.runNetworkInstance(cfg):easytier_release.runNetworkInstance(cfg)) {
               startRuntimeStatsRecording(this.context.filesDir)
               try {
@@ -328,6 +323,7 @@ export default class EntryAbility extends UIAbility {
               }
               setTimeout(() => {
                 updateFavorite()
+                AppManager.uiState.notificationId = res.notificationId
                 publishTextNotification(name ?? "N/A")
               }, 300)
               if (uuid) {
@@ -336,7 +332,6 @@ export default class EntryAbility extends UIAbility {
                   .withAnimator(new BottomAnimator())
                   .pushAsync()
               }
-              geoLocationManager.on('locationChange', request, () => {});
             } else {
               sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
               Logger.error("启动失败", this)
@@ -363,11 +358,6 @@ export default class EntryAbility extends UIAbility {
       return;
     }
     Logger.info("stop background alive", this)
-    try {
-      geoLocationManager.off("locationChange")
-    } catch (error) {
-      Logger.error(`off locationChange error: ${JSON.stringify(error)}`, this)
-    }
     const destroyVpn = () => {
       if (this.vpnConnection) {
         this.vpnConnection.destroy().then(() => {
@@ -382,7 +372,6 @@ export default class EntryAbility extends UIAbility {
       Logger.error(`stopBackgroundRunning failed: ${err.code}, ${err.message}`, this)
     }).finally(() => {
       destroyVpn()
-      cancelNotification()
     });
   }
 
@@ -394,6 +383,7 @@ export default class EntryAbility extends UIAbility {
     easytier.initLogManager(this.context.filesDir, 'ui')
     easytier.configureLogManager(false, false)
     EventHelper.emitterListener("entry_sync_continuation_socket", this.entrySyncContinuationSocketCallback)
+    EventHelper.emitterListener(FAVORITE_CARD_REFRESH_EVENT, this.favoriteCardRefreshCallback)
     HMRouterMgr.openLog("INFO")
     HMRouterMgr.init({
       context: this.context
@@ -406,6 +396,7 @@ export default class EntryAbility extends UIAbility {
     this.appReadyPromise = this.initApp()
     this.appReadyPromise.then(() => {
       this.readSharedData(want)
+      updateFavorite()
       if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
         if (want.parameters !== undefined) {
           let url = want.parameters.data as string
@@ -435,26 +426,9 @@ export default class EntryAbility extends UIAbility {
   }
 
   remoteManageConnected(): void {
-    if (this.remoteManageSnapshotSessionCount === 0) {
-      try {
-        AppManager.easytier.requestRuntimeSnapshotSubscription(true)
-      } catch (_) {
-      }
-    }
-    this.remoteManageSnapshotSessionCount += 1
   }
 
   remoteManageDisconnected(): void {
-    if (this.remoteManageSnapshotSessionCount <= 0) {
-      return
-    }
-    this.remoteManageSnapshotSessionCount -= 1
-    if (this.remoteManageSnapshotSessionCount === 0) {
-      try {
-        AppManager.easytier.requestRuntimeSnapshotSubscription(false)
-      } catch (_) {
-      }
-    }
   }
 
   private remoteSafeUUID(): string {
@@ -533,14 +507,11 @@ export default class EntryAbility extends UIAbility {
       dns: AppManager.uiState.dns,
       core_log: AppManager.uiState.core_log,
       debug_log: AppManager.uiState.debug_log,
-      distributePerm: AppManager.permission.isGetDistributePerm(),
-      locPerm: AppManager.permission.isGetLocPerm(),
-      notificationPerm: AppManager.permission.isGetNotificationPerm()
+      distributePerm: AppManager.permission.isGetDistributePerm()
     }
   }
 
   remoteSummary(): RemoteSummary {
-    AppManager.easytier.syncRuntimeSnapshotFromNative()
     return {
 	      appVersion: APP_VERSION,
 	      coreVersion: CORE_VERSION,
@@ -712,10 +683,6 @@ export default class EntryAbility extends UIAbility {
   async remoteRequestPermission(kind: string): Promise<RemoteSettingsState> {
     if (kind === 'distributed') {
       await AppManager.permission.requestDistributePerm()
-    } else if (kind === 'location') {
-      await AppManager.permission.requestLocPerm()
-    } else if (kind === 'notification') {
-      await AppManager.permission.requestNotificationPerm()
     }
     await AppManager.permission.updatePermStatus()
     return this.remoteSettings()
@@ -765,6 +732,7 @@ export default class EntryAbility extends UIAbility {
         const obj = JSON.parse(indata.readString()) as object
         const formId = obj['formId'] as string
         AppManager.preference.addCardId(formId)
+        updateFavorite([formId])
       } catch (error) {
         Logger.error(`send_card_id parse error: ${JSON.stringify(error)}`, this)
       }
@@ -781,6 +749,7 @@ export default class EntryAbility extends UIAbility {
           AppManager.easytier.start(AppManager.uiState.favorite, true)
         }
       }
+      updateFavorite()
       return null
     })
   }
@@ -851,6 +820,7 @@ export default class EntryAbility extends UIAbility {
     this.kernelClient?.close()
     this.continuationClient?.close()
     EventHelper.emitterOff("entry_sync_continuation_socket", this.entrySyncContinuationSocketCallback)
+    EventHelper.emitterOff(FAVORITE_CARD_REFRESH_EVENT, this.favoriteCardRefreshCallback)
     EventHelper.emitterOff("start_bg", this.startBgCallback)
     EventHelper.emitterOff("stop_bg", this.stopBgCallback)
     EventHelper.emitterOff("setup_tun", this.setupTunCallback)
@@ -1003,13 +973,11 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     WindowUtil.foreground()
-    AppManager.easytier.setRuntimeSnapshotForeground(true)
     this.syncContinuationSocket()
   }
 
   onBackground(): void {
     WindowUtil.background()
-    AppManager.easytier.setRuntimeSnapshotForeground(false)
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {
@@ -1058,11 +1026,25 @@ export default class EntryAbility extends UIAbility {
         this.kernelMessageBuffer = decoded.rest
         for (const rawMessage of decoded.messages) {
           const msg = parseKernelSocketMessage(rawMessage)
-          if (msg.messageType === 'runtime_snapshot') {
+          if (msg.messageType === 'runtime_topology') {
             const snapshot = typeof msg.payloadJson === 'string' ? JSON.parse(msg.payloadJson) as RuntimeAggregateState : msg.payloadJson as RuntimeAggregateState
-            EventHelper.emitterPublish("kernel_runtime_snapshot", {
+            EventHelper.emitterPublish("kernel_runtime_topology", {
               data: {
                 snapshot
+              }
+            })
+          } else if (msg.messageType === 'runtime_peer_event') {
+            const peerEvent = typeof msg.payloadJson === 'string' ? JSON.parse(msg.payloadJson) as RuntimePeerEventPayload : msg.payloadJson as RuntimePeerEventPayload
+            EventHelper.emitterPublish("kernel_runtime_peer_event", {
+              data: {
+                peerEvent
+              }
+            })
+          } else if (msg.messageType === 'traffic_stats') {
+            const stats = typeof msg.payloadJson === 'string' ? JSON.parse(msg.payloadJson) as TrafficStatsPayload : msg.payloadJson as TrafficStatsPayload
+            EventHelper.emitterPublish("kernel_traffic_stats", {
+              data: {
+                stats
               }
             })
           } else if (msg.messageType === 'tun_request') {

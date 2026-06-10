@@ -1,16 +1,30 @@
-import { formBindingData, FormExtensionAbility, formInfo } from '@kit.FormKit';
+import { FormExtensionAbility, formInfo, formProvider } from '@kit.FormKit';
 import { Want } from '@kit.AbilityKit';
-import { preferences } from '@kit.ArkData';
+import { BusinessError } from '@kit.BasicServicesKit';
+import {
+  addFavoriteCardId,
+  createFavoriteCardBinding,
+  readFavoriteCardSnapshot,
+  removeFavoriteCardId
+} from '../services/form/FavoriteCardState';
+
+function parseFormDimension(raw: Object | undefined): number {
+  if (typeof raw === 'number') {
+    return raw
+  }
+  if (typeof raw === 'string') {
+    const parsed = Number(raw)
+    return Number.isNaN(parsed) ? 1 : parsed
+  }
+  return 1
+}
 
 export default class EntryFormAbility extends FormExtensionAbility {
   onAddForm(want: Want) {
-    // Called to return a FormBindingData object.
     const formId = want.parameters![formInfo.FormParam.IDENTITY_KEY] as string;
-    const dim = want.parameters![formInfo.FormParam.DIMENSION_KEY] as string;
-    return formBindingData.createFormBindingData({
-      formId,
-      dim
-    });
+    const dim = parseFormDimension(want.parameters![formInfo.FormParam.DIMENSION_KEY]);
+    addFavoriteCardId(this.context, formId)
+    return createFavoriteCardBinding(readFavoriteCardSnapshot(this.context), formId, dim);
   }
 
   onCastToNormalForm(formId: string) {
@@ -19,7 +33,10 @@ export default class EntryFormAbility extends FormExtensionAbility {
   }
 
   onUpdateForm(formId: string) {
-    // Called to notify the form provider to update a specified form.
+    const formInfo = createFavoriteCardBinding(readFavoriteCardSnapshot(this.context), formId)
+    formProvider.updateForm(formId, formInfo).catch((error: BusinessError) => {
+      console.error(`onUpdateForm error: ${JSON.stringify(error)}`)
+    })
   }
 
   onFormEvent(formId: string, message: string) {
@@ -28,11 +45,7 @@ export default class EntryFormAbility extends FormExtensionAbility {
 
   onRemoveForm(formId: string) {
     try {
-      const store = preferences.getPreferencesSync(this.context, { name: 'EasyTierCardList' })
-      let list = store.getSync('card_list', []) as string[]
-      list = list.filter(id => id !== formId)
-      store.putSync('card_list', list)
-      store.flushSync()
+      removeFavoriteCardId(this.context, formId)
     } catch (e) {
       // Form ability might not have Logger initialized or accessible easily, or just ignore.
       console.error(`onRemoveForm error: ${JSON.stringify(e)}`)

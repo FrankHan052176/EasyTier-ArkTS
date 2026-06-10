@@ -23,7 +23,7 @@
         "label": "$string:EntryAbility_label",
         "startWindowIcon": "$media:easytier_256",
         "backgroundModes": [
-          "location"
+          "dataTransfer"
         ],
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
@@ -124,26 +124,6 @@
     "requestPermissions": [
       {
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING"
-      },
-      {
-        "name": "ohos.permission.APPROXIMATELY_LOCATION",
-        "reason": "$string:location_reason",
-        "usedScene": {
-          "abilities": [
-            "EntryAbility"
-          ],
-          "when": "inuse"
-        }
-      },
-      {
-        "name": "ohos.permission.LOCATION_IN_BACKGROUND",
-        "reason": "$string:location_reason",
-        "usedScene": {
-          "abilities": [
-            "EntryAbility"
-          ],
-          "when": "inuse"
-        }
       },
       {
         "name": "ohos.permission.INTERNET",

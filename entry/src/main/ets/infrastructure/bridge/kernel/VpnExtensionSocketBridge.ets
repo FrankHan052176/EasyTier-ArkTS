@@ -1,7 +1,7 @@
 import { socket } from '@kit.NetworkKit'
 import { Logger } from '../../../shared/logging/Logger'
 import { RuntimeAggregateState } from '../../../types/runtime/RuntimeTypes'
-import { VpnLogData } from './KernelBridgeTypes'
+import { RuntimePeerEventPayload, TrafficStatsPayload, VpnLogData } from './KernelBridgeTypes'
 import { decodeSocketChunk, parseVpnBridgeMessage } from './SocketCodec'
 
 export interface VpnExtensionSocketBridgeCallbacks {
@@ -9,7 +9,9 @@ export interface VpnExtensionSocketBridgeCallbacks {
   getSocketPath: (socketName: string) => string
   onConnected: () => void
   onDisconnected: () => void
-  onSnapshot: (snapshot: RuntimeAggregateState) => void
+  onTopology: (snapshot: RuntimeAggregateState) => void
+  onTrafficStats: (stats: TrafficStatsPayload) => void
+  onPeerEvent: (event: RuntimePeerEventPayload) => void
   onLogs: (logs: VpnLogData) => void
 }
 
@@ -51,8 +53,12 @@ export function connectVpnExtensionSocket(
       messageBuffer = decoded.rest
       for (const rawMessage of decoded.messages) {
         const msg = parseVpnBridgeMessage(rawMessage)
-        if (msg.type === 'runtime_snapshot') {
-          callbacks.onSnapshot(msg.data as RuntimeAggregateState)
+        if (msg.type === 'runtime_topology') {
+          callbacks.onTopology(msg.data as RuntimeAggregateState)
+        } else if (msg.type === 'traffic_stats') {
+          callbacks.onTrafficStats(msg.data as TrafficStatsPayload)
+        } else if (msg.type === 'runtime_peer_event') {
+          callbacks.onPeerEvent(msg.data as RuntimePeerEventPayload)
         } else if (msg.type === 'logs') {
           callbacks.onLogs(msg.data as VpnLogData)
         }

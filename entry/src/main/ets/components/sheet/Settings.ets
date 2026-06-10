@@ -145,17 +145,7 @@ function boolText(value: boolean): string {
 }
 
 function permissionSummary(): string {
-  let count = 0
-  if (AppManager.permission.isGetLocPerm()) {
-    count++
-  }
-  if (AppManager.permission.isGetDistributePerm()) {
-    count++
-  }
-  if (AppManager.permission.isGetNotificationPerm()) {
-    count++
-  }
-  return `${count}/3 已授权`
+  return AppManager.permission.isGetDistributePerm() ? '1/1 已授权' : '0/1 已授权'
 }
 
 function appCoreVersionSummary(): string {
@@ -1028,51 +1018,6 @@ export function SettingPermissions_Content() {
       ListItem() {
         Row() {
           Row() {
-            SymbolGlyph($r("sys.symbol.local_and_rectangle"))
-              .fontColor([$r("sys.color.font_primary")])
-              .fontSize(16)
-              .margin({ right: 5 })
-            Text("定位权限")
-              .fontColor($r("sys.color.font_primary"))
-              .fontSize(16)
-          }
-
-          if (AppManager.permission.isGetLocPerm()) {
-            Text("已授权")
-              .fontColor($r("sys.color.font_primary"))
-              .fontSize(16)
-              .margin({ right: 5 })
-          } else {
-            Button('授权',
-              { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
-              .borderRadius(13)
-              .onClick(() => {
-                AppManager.permission.requestLocPerm()
-              })
-          }
-        }
-        .height(49)
-        .borderRadius(18)
-        .alignItems(VerticalAlign.Center)
-        .justifyContent(FlexAlign.SpaceBetween)
-        .width('100%')
-        .backgroundColor($r("sys.color.comp_background_primary"))
-        .shadow({
-          radius: 7,
-          color: '#1F000000'
-        })
-        .padding({
-          left: 10,
-          right: 5,
-          top: 5,
-          bottom: 5
-        })
-      }
-      .margin({ bottom: 10 })
-
-      ListItem() {
-        Row() {
-          Row() {
             SymbolGlyph($r("sys.symbol.protein"))
               .fontColor([$r("sys.color.font_primary")])
               .fontSize(16)
@@ -1115,50 +1060,6 @@ export function SettingPermissions_Content() {
       }
       .margin({ bottom: 10 })
 
-      ListItem() {
-        Row() {
-          Row() {
-            SymbolGlyph($r("sys.symbol.local_and_rectangle"))
-              .fontColor([$r("sys.color.font_primary")])
-              .fontSize(16)
-              .margin({ right: 5 })
-            Text("通知权限")
-              .fontColor($r("sys.color.font_primary"))
-              .fontSize(16)
-          }
-
-          if (AppManager.permission.isGetNotificationPerm()) {
-            Text("已授权")
-              .fontColor($r("sys.color.font_primary"))
-              .fontSize(16)
-              .margin({ right: 5 })
-          } else {
-            Button('授权',
-              { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
-              .borderRadius(13)
-              .onClick(() => {
-                AppManager.permission.requestNotificationPerm(true)
-              })
-          }
-        }
-        .height(49)
-        .borderRadius(18)
-        .alignItems(VerticalAlign.Center)
-        .justifyContent(FlexAlign.SpaceBetween)
-        .width('100%')
-        .backgroundColor($r("sys.color.comp_background_primary"))
-        .shadow({
-          radius: 7,
-          color: '#1F000000'
-        })
-        .padding({
-          left: 10,
-          right: 5,
-          top: 5,
-          bottom: 5
-        })
-      }
-      .margin({ bottom: 10 })
     }
   }
   .width('100%')

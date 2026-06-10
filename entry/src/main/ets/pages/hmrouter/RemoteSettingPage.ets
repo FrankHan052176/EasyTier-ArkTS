@@ -320,9 +320,7 @@ export struct RemoteSettingPage {
   @Builder
   private permissionsContent() {
     ListItemGroup({ header: remoteSettingHeader('权限') }) {
-      this.permissionRow('定位权限', this.settings?.locPerm ?? false, 'location')
       this.permissionRow('分布式权限', this.settings?.distributePerm ?? false, 'distributed')
-      this.permissionRow('通知权限', this.settings?.notificationPerm ?? false, 'notification')
     }
   }
 

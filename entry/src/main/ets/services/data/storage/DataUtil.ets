@@ -18,6 +18,7 @@ import { CLOUD_CONFIG_CHANGED_EVENT, syncWholeConfig } from '../../../ConfigSync
 import { isCloudResetting } from '../../cloud/CloudMutationGate';
 import { clearEditingConfigCache } from '../../config/storage/StoredConfigService';
 import { EventHelper } from '../../../util/EventHelper';
+import { FAVORITE_CARD_REFRESH_EVENT } from '../../form/FavoriteCardState';
 
 interface StoredConfigMetaLite {
   configId: string
@@ -38,11 +39,13 @@ export class DataUtil {
       }
       if (AppManager.uiState.favorite && !this.configIds.includes(AppManager.uiState.favorite)) {
         AppManager.uiState.favorite = undefined
+        EventHelper.emitterPublish(FAVORITE_CARD_REFRESH_EVENT)
       }
     } catch (_) {
       this.configIds = []
       AppManager.uiState.selected = undefined
       AppManager.uiState.favorite = undefined
+      EventHelper.emitterPublish(FAVORITE_CARD_REFRESH_EVENT)
     }
   }
 
@@ -70,6 +73,7 @@ export class DataUtil {
       AppManager.uiState.favorite = uuid
     }
     EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
+    EventHelper.emitterPublish(FAVORITE_CARD_REFRESH_EVENT)
   }
 
   public initDataSource(type: string, arr: string[]) {
@@ -240,6 +244,7 @@ export class DataUtil {
     }
     if (AppManager.uiState.favorite === uuid) {
       AppManager.uiState.favorite = undefined
+      EventHelper.emitterPublish(FAVORITE_CARD_REFRESH_EVENT)
     }
     if (AppManager.uiState.selected === uuid) {
       AppManager.uiState.selected = undefined

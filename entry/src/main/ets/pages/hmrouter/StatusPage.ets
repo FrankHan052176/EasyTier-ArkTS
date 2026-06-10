@@ -37,7 +37,6 @@ export struct StatusPage {
   @Local rx_unit: string = "B/s"
   @Local tx_unit: string = "B/s"
   @Local updateTimer: number = -1
-  private runtimeSnapshotSubscribed: boolean = false
   private knockShareRegistered: boolean = false
   private gesturesShareRegistered: boolean = false
 
@@ -47,7 +46,6 @@ export struct StatusPage {
   }
 
   aboutToAppear(): void {
-    this.subscribeRuntimeSnapshot()
     this.uuid = HMRouterMgr.getCurrentParam() as string;
     this.name = AppManager.easytier.getConfigName(this.uuid) ?? "临时配置"
     this.config = AppManager.easytier.getConfig(this.uuid) ?? null
@@ -57,7 +55,6 @@ export struct StatusPage {
   }
 
   aboutToDisappear(): void {
-    this.unsubscribeRuntimeSnapshot()
     this.stopUpdateTimer()
     this.unregisterShareCallbacks()
   }
@@ -82,26 +79,6 @@ export struct StatusPage {
       harmonyShare.off('gesturesShare', this.immersiveCallback);
       this.gesturesShareRegistered = false
     }
-  }
-
-  private subscribeRuntimeSnapshot(): void {
-    if (this.runtimeSnapshotSubscribed) {
-      return
-    }
-    try {
-      AppManager.easytier.requestRuntimeSnapshotSubscription(true)
-      this.runtimeSnapshotSubscribed = true
-    } catch (_) {}
-  }
-
-  private unsubscribeRuntimeSnapshot(): void {
-    if (!this.runtimeSnapshotSubscribed) {
-      return
-    }
-    this.runtimeSnapshotSubscribed = false
-    try {
-      AppManager.easytier.requestRuntimeSnapshotSubscription(false)
-    } catch (_) {}
   }
 
   private startUpdateTimer(): void {

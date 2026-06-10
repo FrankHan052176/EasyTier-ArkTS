@@ -20,7 +20,6 @@ export interface StartOrchestrationOptions {
   connectToVpnExtension: (socketName: string) => void
   ensureContinuationSocket: () => void
   requestVpnPerm: (callback: () => void) => void
-  requestLocPerm: () => Promise<boolean>
   publishStartBg: (cfg: string, uuid: string | undefined, name: string) => void
   sendInvalidConfigToast: () => void
 }
@@ -61,9 +60,7 @@ export function orchestrateInstanceStart(options: StartOrchestrationOptions): bo
       options.connectToVpnExtension('easytier_vpn_socket')
     })
   } else {
-    options.requestLocPerm().then(() => {
-      options.publishStartBg(cfgStr, options.config.instance_id, options.name)
-    })
+    options.publishStartBg(cfgStr, options.config.instance_id, options.name)
   }
 
   return true

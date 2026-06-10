@@ -7,6 +7,7 @@ import { CLOUD_CONFIG_CHANGED_EVENT } from '../../ConfigSyncUtil'
 import { isCloudResetting, setCloudResetting } from './CloudMutationGate'
 import { EventHelper } from '../../util/EventHelper'
 import { Logger, LogLocate } from '../../shared/logging/Logger'
+import { FAVORITE_CARD_REFRESH_EVENT } from '../form/FavoriteCardState'
 
 const CLOUD_SYNC_DIR = 'easytier-sync'
 const CLOUD_DB_FILE = 'easytier-config-store.db'
@@ -638,6 +639,7 @@ export class CloudConfigSyncService {
         AppManager.data.refreshConfigIds()
         AppManager.uiState.selected = undefined
         AppManager.uiState.favorite = undefined
+        EventHelper.emitterPublish(FAVORITE_CARD_REFRESH_EVENT)
         this.refreshMetaState()
         this.resetMetaState()
         this.syncState = cloudSync.SyncState.STOPPED

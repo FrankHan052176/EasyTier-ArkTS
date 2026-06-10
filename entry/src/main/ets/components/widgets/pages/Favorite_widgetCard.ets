@@ -7,13 +7,21 @@ const localStorage = new LocalStorage()
 struct Favorite_widgetCard {
   @Watch("updateFormId") @LocalStorageProp('formId') formId: string = 'formId'
   @LocalStorageProp('dim') dim: number = 1
-  @LocalStorageProp('favorite_name') favorite_name: string = 'Name'
-  @LocalStorageProp('favorite_uuid') favorite_uuid: string = 'UUID'
+  @LocalStorageProp('favorite_name') favorite_name: string = ''
+  @LocalStorageProp('favorite_uuid') favorite_uuid: string = ''
   @LocalStorageProp('favorite_running') favorite_running: boolean = false
+  @LocalStorageProp('favorite_updated_at') favorite_updated_at: number = 0
   readonly brandColor: string = 'rgba(255,200,50,1)'
 
   updateFormId() {
     sendFormId(this, this.formId)
+  }
+
+  private startFavoriteFromCard(): void {
+    if (this.favorite_uuid.length > 0) {
+      this.favorite_running = !this.favorite_running
+    }
+    startFavorite(this)
   }
 
   @Builder
@@ -39,7 +47,7 @@ struct Favorite_widgetCard {
             .fontSize(48)
             .fontColor([this.brandColor])
             .onClick(() => {
-              startFavorite(this)
+              this.startFavoriteFromCard()
             })
         }
 
@@ -88,7 +96,7 @@ struct Favorite_widgetCard {
           .fontSize(48)
           .fontColor([this.brandColor])
           .onClick(() => {
-            startFavorite(this)
+            this.startFavoriteFromCard()
           })
       }
       .justifyContent(FlexAlign.Center)
@@ -102,7 +110,7 @@ struct Favorite_widgetCard {
 
   build() {
     Column() {
-      if (this.favorite_uuid != "UUID") {
+      if (this.favorite_uuid.length > 0) {
         if (this.favorite_name) {
           if (this.dim === 1) {
             this.Size1x2()
@@ -121,7 +129,7 @@ struct Favorite_widgetCard {
         }
       } else {
         Column() {
-          Text("打开app刷新")
+          Text("未收藏实例")
             .fontColor($r('sys.color.font_secondary'))
             .fontSize(14)
         }

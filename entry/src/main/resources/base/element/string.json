@@ -13,10 +13,6 @@
       "value": "EasyTier"
     },
     {
-      "name": "location_reason",
-      "value": "Keep instance alive when app is background"
-    },
-    {
       "name": "data_reason",
       "value": "Share configs with other devices and get the device name"
     },

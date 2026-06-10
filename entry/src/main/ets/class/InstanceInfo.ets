@@ -1,7 +1,8 @@
 import { convertToProtocol, Protocol } from '../util/Conversion'
 import { CircleArray } from './container/CircleArray'
 import { PeerInfoDataSource } from './data_source/PeerInfoDataSource'
-import { NatTypeValue, RuntimeInstanceState, RuntimePeerConnInfo, RuntimePeerInfo } from '../types/runtime/RuntimeTypes'
+import { NatTypeValue, RuntimeInstanceState, RuntimePeerConnInfo, RuntimePeerInfo, RuntimeRouteView } from '../types/runtime/RuntimeTypes'
+import { InstanceTrafficStats } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
 
 function tunnelTypeToProtocol(tunnelType: string): Protocol {
   const normalized = tunnelType.toLowerCase()
@@ -96,7 +97,7 @@ export class PeerInfo {
     return rateUnit(this.byte_rate)
   }
 
-  update(newInfo: PeerInfo) {
+  update(newInfo: PeerInfo, includeTraffic: boolean = true) {
     this.hostname = newInfo.hostname
     this.cost = newInfo.cost
     this.ip = newInfo.ip
@@ -104,7 +105,17 @@ export class PeerInfo {
     this.protocol = newInfo.protocol
     this.loss = newInfo.loss
     this.resolvedRemoteAddr = newInfo.resolvedRemoteAddr
-    this.push(newInfo.last_bytes)
+    if (includeTraffic) {
+      this.push(newInfo.last_bytes)
+    }
+  }
+
+  updateTraffic(totalBytes: number, latencyUs: number, lossRate: number) {
+    if (latencyUs >= 0) {
+      this.latency_us = latencyUs
+    }
+    this.loss = lossRate
+    this.push(totalBytes)
   }
 }
 
@@ -121,10 +132,104 @@ export class InstanceInfo {
   @Trace tcp_nat: NatTypeValue = NatTypeValue.Unknown
   @Trace ip: string = "waiting"
 
-  update(info: RuntimeInstanceState) {
+  private buildPeerInfo(peerId: number, route?: RuntimeRouteView, peer?: RuntimePeerInfo): PeerInfo {
+    const peerInfo = new PeerInfo(peerId, route?.hostname ?? "N/A", route?.cost ?? 0, route?.ipv4 ?? "waiting")
+    let bytes = 0
+    let loss = 0
+    let latency_us = 99999999999
+    let protocols: Protocol[] = []
+    let resolvedRemoteAddr = ''
+    const peerConns = peer?.conns ?? []
+    for (const conn of peerConns) {
+      if (conn.stats) {
+        bytes += conn.stats.rxBytes + conn.stats.txBytes
+        latency_us = Math.min(conn.stats.latencyUs, latency_us)
+      }
+      loss = Math.max(conn.lossRate ?? 0, loss)
+    }
+    const primaryConn = pickPrimaryConn(peerConns, peer?.defaultConnId)
+    if (primaryConn?.tunnelType) {
+      const protocol = tunnelTypeToProtocol(primaryConn.tunnelType)
+      if (protocol !== Protocol.UNKNOWN) {
+        protocols = [protocol]
+      }
+      if (protocolNeedsResolvedRemoteAddr(protocol) && primaryConn.resolvedRemoteAddr) {
+        resolvedRemoteAddr = primaryConn.resolvedRemoteAddr
+      }
+    }
+    peerInfo.latency_us = latency_us
+    peerInfo.loss = loss
+    peerInfo.protocol = protocols
+    peerInfo.resolvedRemoteAddr = resolvedRemoteAddr
+    peerInfo.last_bytes = bytes
+    return peerInfo
+  }
+
+  update(info: RuntimeInstanceState, includeTraffic: boolean = true) {
     //      下载  上传
     let sum = [0, 0]
     const activePeerIds: Set<number> = new Set()
+    const routesByPeerId: Map<number, RuntimeRouteView> = new Map()
+    for (const route of info.routes ?? []) {
+      if (route) {
+        routesByPeerId.set(route.peerId, route)
+        activePeerIds.add(route.peerId)
+      }
+    }
+    const peersByPeerId: Map<number, RuntimePeerInfo> = new Map()
+    for (const peer of info.peers ?? []) {
+      if (peer) {
+        peersByPeerId.set(peer.peerId, peer)
+        activePeerIds.add(peer.peerId)
+      }
+    }
+    activePeerIds.forEach((peerId) => {
+      this.peers.set(this.buildPeerInfo(peerId, routesByPeerId.get(peerId), peersByPeerId.get(peerId)), includeTraffic)
+    })
+    this.peers.getIds().forEach((peerId) => {
+      if (!activePeerIds.has(peerId)) {
+        this.peers.del(peerId)
+      }
+    })
+    for (const peer of (info.peers ?? [])) {
+      for (const conn of (peer.conns ?? [])) {
+        if (conn.stats) {
+          sum[0] += conn.stats.rxBytes
+          sum[1] += conn.stats.txBytes
+        }
+      }
+    }
+    if (includeTraffic) {
+      this.updateTrafficCounters(sum[0], sum[1])
+    }
+
+    if (info.myNodeInfo?.virtualIpv4) {
+      let convertedIp = info.myNodeInfo.virtualIpv4 as string
+      if (this.ip !== convertedIp) {
+        this.ip = convertedIp
+      }
+    } else {
+      this.ip = "waiting"
+    }
+    this.udp_nat = info.myNodeInfo?.udpNatType ?? NatTypeValue.Unknown
+    this.tcp_nat = info.myNodeInfo?.tcpNatType ?? NatTypeValue.Unknown
+  }
+
+  updatePeer(peer: RuntimePeerInfo, route?: RuntimeRouteView, includeTraffic: boolean = false): void {
+    this.peers.set(this.buildPeerInfo(peer.peerId, route, peer), includeTraffic)
+  }
+
+  addPeer(peerId: number): void {
+    if (!this.peers.get(peerId)) {
+      this.peers.set(new PeerInfo(peerId, "N/A", 0, "waiting"), false)
+    }
+  }
+
+  removePeer(peerId: number): void {
+    this.peers.del(peerId)
+  }
+
+  /*
     for (const route of info.routes ?? []) {
       if (route) {
         let ip = "waiting"
@@ -162,7 +267,7 @@ export class InstanceInfo {
         peerInfo.protocol = protocols
         peerInfo.resolvedRemoteAddr = resolvedRemoteAddr
         peerInfo.last_bytes = bytes
-        this.peers.set(peerInfo)
+        this.peers.set(peerInfo, includeTraffic)
       }
     }
     this.peers.getIds().forEach((peerId) => {
@@ -178,22 +283,8 @@ export class InstanceInfo {
         }
       }
     }
-    if (this.last_download < 0) {
-      this.last_download = sum[0]
-    } else {
-      const deltaDownload = Math.max(0, sum[0] - this.last_download)
-      this.download_arr.push(deltaDownload)
-      this.download_rate = this.download_arr.sum
-      this.last_download = sum[0]
-    }
-
-    if (this.last_upload < 0) {
-      this.last_upload = sum[1]
-    } else {
-      const deltaUpload = Math.max(0, sum[1] - this.last_upload)
-      this.upload_arr.push(deltaUpload)
-      this.upload_rate = this.upload_arr.sum
-      this.last_upload = sum[1]
+    if (includeTraffic) {
+      this.updateTrafficCounters(sum[0], sum[1])
     }
 
     if (info.myNodeInfo?.virtualIpv4) {
@@ -206,6 +297,35 @@ export class InstanceInfo {
     }
     this.udp_nat = info.myNodeInfo?.udpNatType ?? NatTypeValue.Unknown
     this.tcp_nat = info.myNodeInfo?.tcpNatType ?? NatTypeValue.Unknown
+  }
+  */
+
+  updateTraffic(stats: InstanceTrafficStats) {
+    this.updateTrafficCounters(stats.rxBytes, stats.txBytes)
+    for (const peer of stats.peers ?? []) {
+      const peerInfo = this.peers.get(peer.peerId)
+      peerInfo?.updateTraffic(peer.totalBytes, peer.latencyUs, peer.lossRate)
+    }
+  }
+
+  private updateTrafficCounters(rxBytes: number, txBytes: number): void {
+    if (this.last_download < 0) {
+      this.last_download = rxBytes
+    } else {
+      const deltaDownload = Math.max(0, rxBytes - this.last_download)
+      this.download_arr.push(deltaDownload)
+      this.download_rate = this.download_arr.sum
+      this.last_download = rxBytes
+    }
+
+    if (this.last_upload < 0) {
+      this.last_upload = txBytes
+    } else {
+      const deltaUpload = Math.max(0, txBytes - this.last_upload)
+      this.upload_arr.push(deltaUpload)
+      this.upload_rate = this.upload_arr.sum
+      this.last_upload = txBytes
+    }
   }
 
   getDownloadRate(): number {
