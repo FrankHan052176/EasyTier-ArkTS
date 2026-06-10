@@ -10,9 +10,40 @@ import { deviceInfo, BusinessError } from '@kit.BasicServicesKit';
 import { ConfigJson } from '../config/schema/SchemaConfig';
 import { KERNEL_SOCKET_NAME, TunRequestPayload, VpnContinueStateData, VpnLogData, VpnMessage, VpnSnapshotSubscriptionData } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
 import { buildVpnRuntimeSnapshotMessage, decodeSocketChunk, isRuntimeSnapshotMessage, parseKernelSocketMessage, parseVpnBridgeMessage } from '../infrastructure/bridge/kernel/SocketCodec'
-import { routeSignature } from '../infrastructure/bridge/kernel/RouteStore'
+import { normalizeRouteStrings, routeSignature } from '../infrastructure/bridge/kernel/RouteStore'
 import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../services/runtime/RuntimeStatsService'
 import { AppManager } from '../AppManager'
+
+const VPN_LOG_FORWARD_MAX_LINES = 80
+const VPN_LOG_FORWARD_MAX_CHARS = 12000
+const TUN_REQUEST_DEBOUNCE_MS = 500
+
+interface PendingTunSetup {
+  ip: string
+  mask: number
+  magicDNS: boolean
+  needExitNode: boolean
+  routes: string[]
+  signature: string
+  trigger: string
+}
+
+function trimForwardLogs(logs: string[]): string[] {
+  if (logs.length <= VPN_LOG_FORWARD_MAX_LINES) {
+    return logs
+  }
+  const result: string[] = []
+  let chars = 0
+  for (let index = logs.length - 1; index >= 0 && result.length < VPN_LOG_FORWARD_MAX_LINES; index--) {
+    const line = logs[index]
+    chars += line.length
+    if (chars > VPN_LOG_FORWARD_MAX_CHARS && result.length > 0) {
+      break
+    }
+    result.unshift(line)
+  }
+  return result
+}
 
 export default class EasyTierAbility extends VpnExtensionAbility {
   server: socket.LocalSocketServer | undefined
@@ -39,6 +70,10 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   lastRoutesSignature: string = ""
   private tunCreateSeq: number = 0
   private lastTunTrigger: string = ""
+  private currentTunSignature: string = ""
+  private pendingTunSetup: PendingTunSetup | undefined = undefined
+  private tunSetupTimer: number | undefined = undefined
+  private tunSetupInFlight: boolean = false
   private continuationActive: boolean = false
   private snapshotSubscribers: Set<number> = new Set()
 
@@ -113,6 +148,10 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     this.stopKernel();
     this.kernelClient?.close();
     this.server?.close();
+    if (this.tunSetupTimer !== undefined) {
+      clearTimeout(this.tunSetupTimer)
+      this.tunSetupTimer = undefined
+    }
     this.vpnConnection?.destroy();
   }
 
@@ -191,14 +230,11 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   private startCollecting() {
     this.connectToKernelSocket(this.socketFilesDir + '/' + KERNEL_SOCKET_NAME)
     this.timer = setInterval(() => {
-      if (this.connections.size === 0) {
-        return
-      }
       const logs = easytier.drainLogLines()
-      if (logs.length === 0) {
+      if (logs.length === 0 || this.connections.size === 0) {
         return
       }
-      const logData: VpnLogData = { logs };
+      const logData: VpnLogData = { logs: trimForwardLogs(logs) };
       const logMsg: VpnMessage = { type: "logs", data: logData };
       this.broadcast(logMsg);
     }, 500);
@@ -243,6 +279,14 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     });
   }
 
+  private broadcastRawToSnapshotSubscribers(rawMessage: string) {
+    this.connections.forEach(conn => {
+      if (this.snapshotSubscribers.has(conn.clientId)) {
+        this.sendRawBridgeMessage(conn, rawMessage)
+      }
+    });
+  }
+
   private publishContinuationState(active: boolean): void {
     this.continuationActive = active
     this.broadcast({
@@ -279,8 +323,8 @@ export default class EasyTierAbility extends VpnExtensionAbility {
         this.kernelMessageBuffer = decoded.rest
         for (const rawMessage of decoded.messages) {
           if (isRuntimeSnapshotMessage(rawMessage)) {
-            if (this.connections.size > 0) {
-              this.broadcastRaw(buildVpnRuntimeSnapshotMessage(rawMessage))
+            if (this.snapshotSubscribers.size > 0) {
+              this.broadcastRawToSnapshotSubscribers(buildVpnRuntimeSnapshotMessage(rawMessage))
             }
             continue
           }
@@ -303,15 +347,85 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     const cidr = payload.virtualIpv4Cidr ?? ''
     const ip = payload.virtualIpv4 ?? cidr.split('/')[0]
     const mask = Number(cidr.split('/')[1] ?? '24')
-    const routes = payload.aggregatedRoutes ?? []
+    const routes = normalizeRouteStrings(payload.aggregatedRoutes ?? [])
+    const signature = this.buildTunSignature(ip, mask, payload.magicDnsEnabled, payload.needExitNode, routes)
     this.lastRoutesSignature = routeSignature(routes)
-    Logger.debug(`setupTunFromPayload instance=${this.instance_id} trigger=${this.lastTunTrigger} sig=${this.lastRoutesSignature} cidr=${cidr} ip=${ip} routes=${JSON.stringify(routes)}`, "EasyTierAbility")
-    this.setupTunWithRoutes(ip, mask, payload.magicDnsEnabled, payload.needExitNode, routes)
+    Logger.debug(`setupTunFromPayload instance=${this.instance_id} trigger=${this.lastTunTrigger} sig=${signature} routeSig=${this.lastRoutesSignature} cidr=${cidr} ip=${ip} routes=${JSON.stringify(routes)}`, "EasyTierAbility")
+    this.scheduleTunSetup({
+      ip,
+      mask,
+      magicDNS: payload.magicDnsEnabled,
+      needExitNode: payload.needExitNode,
+      routes,
+      signature,
+      trigger: this.lastTunTrigger
+    })
   }
 
-  private async setupTunWithRoutes(ip: string, mask: number, magicDNS: boolean, needExitNode: boolean, routes: string[]) {
+  private buildTunSignature(ip: string, mask: number, magicDNS: boolean, needExitNode: boolean, routes: string[]): string {
+    return JSON.stringify({
+      ip,
+      mask,
+      magicDNS,
+      needExitNode,
+      forceGlobal: this.force_global,
+      whiteList: this.white_list,
+      blackList: [...this.black_list].sort(),
+      dns: this.dns,
+      dev: this.dev,
+      routes: normalizeRouteStrings(routes)
+    })
+  }
+
+  private scheduleTunSetup(request: PendingTunSetup): void {
+    if (request.signature === this.currentTunSignature && !this.tunSetupInFlight) {
+      this.pendingTunSetup = undefined
+      if (this.tunSetupTimer !== undefined) {
+        clearTimeout(this.tunSetupTimer)
+        this.tunSetupTimer = undefined
+      }
+      Logger.debug(`Skip equivalent TUN setup trigger=${request.trigger} sig=${request.signature}`, "EasyTierAbility")
+      return
+    }
+    this.pendingTunSetup = request
+    if (this.currentTunSignature.length === 0 && !this.tunSetupInFlight) {
+      this.flushPendingTunSetup()
+      return
+    }
+    if (this.tunSetupTimer !== undefined) {
+      clearTimeout(this.tunSetupTimer)
+    }
+    this.tunSetupTimer = setTimeout(() => {
+      this.tunSetupTimer = undefined
+      this.flushPendingTunSetup()
+    }, TUN_REQUEST_DEBOUNCE_MS)
+    Logger.debug(`Queued TUN setup trigger=${request.trigger} sig=${request.signature}`, "EasyTierAbility")
+  }
+
+  private flushPendingTunSetup(): void {
+    if (this.tunSetupInFlight || !this.pendingTunSetup) {
+      return
+    }
+    const request = this.pendingTunSetup
+    this.pendingTunSetup = undefined
+    if (request.signature === this.currentTunSignature) {
+      Logger.debug(`Drop equivalent pending TUN setup trigger=${request.trigger} sig=${request.signature}`, "EasyTierAbility")
+      return
+    }
+    this.setupTunWithRoutes(request).catch((err: Error) => {
+      Logger.error(`setupTunWithRoutes failed: ${JSON.stringify(err)}`, "EasyTierAbility")
+    })
+  }
+
+  private async setupTunWithRoutes(request: PendingTunSetup): Promise<void> {
+    const ip = request.ip
+    const mask = request.mask
+    const magicDNS = request.magicDNS
+    const needExitNode = request.needExitNode
+    const routes = request.routes
     this.tunCreateSeq++
-    Logger.info(`Setting up TUN #${this.tunCreateSeq} for ${ip}/${mask} trigger=${this.lastTunTrigger} sig=${this.lastRoutesSignature}`, "EasyTierAbility");
+    this.tunSetupInFlight = true
+    Logger.info(`Setting up TUN #${this.tunCreateSeq} for ${ip}/${mask} trigger=${request.trigger} sig=${request.signature}`, "EasyTierAbility");
 
     let appList = [
       deviceInfo.sdkApiVersion >= 22 ? "" : "top.frankhan.easytier",
@@ -344,16 +458,21 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     }
     Logger.debug("VpnConfig: "+JSON.stringify(vpnConfig, undefined, 2), "EasyTierAbility")
 
-    Logger.info(`setupTunWithRoutes calling create seq=${this.tunCreateSeq} trigger=${this.lastTunTrigger}`, "EasyTierAbility")
-    await this.vpnConnection.destroy()
-    this.vpnConnection.create(vpnConfig).then((fd) => {
-      Logger.info(`vpnConnection.create success instance=${this.instance_id} fd=${fd} seq=${this.tunCreateSeq} trigger=${this.lastTunTrigger}`, "EasyTierAbility")
+    Logger.info(`setupTunWithRoutes calling create seq=${this.tunCreateSeq} trigger=${request.trigger}`, "EasyTierAbility")
+    try {
+      await this.vpnConnection.destroy()
+      const fd = await this.vpnConnection.create(vpnConfig)
+      this.currentTunSignature = request.signature
+      Logger.info(`vpnConnection.create success instance=${this.instance_id} fd=${fd} seq=${this.tunCreateSeq} trigger=${request.trigger}`, "EasyTierAbility")
       this.publishContinuationState(true)
       easytier.setTunFd(this.instance_id, fd);
       Logger.debug(`setTunFd sent instance=${this.instance_id}`, "EasyTierAbility")
-    }).catch((err: Error) => {
+    } catch (err) {
       this.publishContinuationState(false)
       Logger.error(`vpnConnection create failed: ${JSON.stringify(err)}`, "EasyTierAbility");
-    });
+    } finally {
+      this.tunSetupInFlight = false
+      this.flushPendingTunSetup()
+    }
   }
 }

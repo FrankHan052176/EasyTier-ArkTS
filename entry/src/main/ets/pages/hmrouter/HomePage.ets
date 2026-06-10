@@ -7,7 +7,7 @@ import {
   TitleBarStyleOptions
 } from '@hms.hds.hdsBaseComponent';
 import { HdsMenuButton } from '../Components';
-import { ColorMetrics, curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
+import { ColorMetrics, curves, LengthMetrics } from '@kit.ArkUI';
 import { AppManager } from '../../AppManager';
 import { EventHelper } from '../../util/EventHelper';
 import { HomeSheetContentBuilder } from '../../components/sheet/HomeSheet';
@@ -18,7 +18,7 @@ import { BottomAnimator } from '../../class/animator/BottomAnimator';
 import { motion } from '@kit.MultimodalAwarenessKit';
 import { harmonyShare } from '@kit.ShareKit';
 import { WindowUtil } from '../../WindowUtil';
-import { buildShareData, buildShareUrl } from '../../util/ShareUtil';
+import { buildShareData, buildShareUrlSync } from '../../util/ShareUtil';
 import { ConfigJson } from '../../config/schema/SchemaConfig';
 import { Instances } from '../../components/index/Instances';
 import { Favorite } from '../../components/index/Favorite';
@@ -27,16 +27,8 @@ import { QQGroups } from '../../components/index/QQGroups';
 import { SharedPeers } from '../../components/index/SharedPeers'
 import { CompSizeWithPos, DesktopLayout } from 'desktop_layout';
 import { generateBarcode, scanCore } from '@kit.ScanKit';
-import { DialogHub, DialogMode } from '@hadss/dialoghub';
 import { image } from '@kit.ImageKit';
-import { QRImage } from '../../components/util/QRImage';
-
-export function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
-  let result = new SymbolGlyphModifier(symbol)
-  result.fontSize(size)
-  result.fontColor([$r("sys.color.font_primary")])
-  return result
-}
+import { QRDialog } from '../../components/util/QRImage';
 
 @Builder
 function buildComp(type: string) {
@@ -67,6 +59,10 @@ export struct HomePage {
   @Local tips: string | undefined = ""
   @Local actionText: string | undefined = ""
   @Local hand: number = 0
+  private qrPixelMap: image.PixelMap | undefined = undefined
+  private qrDialogController: CustomDialogController | null = null
+  private active: boolean = false
+  private qrRequestId: number = 0
   private homeOpenSheetCallback = (data: emitter.EventData) => {
     this.sheet_type = data.data!.type as string
     this.sheet = true
@@ -112,6 +108,7 @@ export struct HomePage {
   }
 
   aboutToAppear(): void {
+    this.active = true
     EventHelper.emitterListener("home_open_sheet", this.homeOpenSheetCallback)
     EventHelper.emitterListener("home_close_sheet", this.homeCloseSheetCallback)
     EventHelper.emitterListener("reset_holding_detector", this.resetHoldingDetectorCallback)
@@ -134,6 +131,8 @@ export struct HomePage {
   }
 
   aboutToDisappear(): void {
+    this.active = false
+    this.closeQrDialog()
     EventHelper.emitterOff("home_open_sheet", this.homeOpenSheetCallback)
     EventHelper.emitterOff("home_close_sheet", this.homeCloseSheetCallback)
     EventHelper.emitterOff("reset_holding_detector", this.resetHoldingDetectorCallback)
@@ -145,6 +144,52 @@ export struct HomePage {
       }
       this.holdingHandRegistered = false
     }
+  }
+
+  private releaseQrPixelMap(): void {
+    const pixelMap = this.qrPixelMap
+    this.qrPixelMap = undefined
+    if (pixelMap) {
+      pixelMap.release().catch(() => {
+      })
+    }
+  }
+
+  private resetQrDialog(): void {
+    const controller = this.qrDialogController
+    this.qrDialogController = null
+    if (controller) {
+      try {
+        controller.close()
+      } catch (_) {
+      }
+    }
+    this.releaseQrPixelMap()
+  }
+
+  private closeQrDialog(): void {
+    this.qrRequestId++
+    this.resetQrDialog()
+  }
+
+  private openQrDialog(pixelMap: image.PixelMap): void {
+    const controller: CustomDialogController = new CustomDialogController({
+      builder: QRDialog({ pixelMap }),
+      autoCancel: true,
+      alignment: DialogAlignment.Center,
+      customStyle: true,
+      isModal: true,
+      maskColor: 'rgba(0,0,0,0.35)',
+      cancel: () => {
+        if (this.qrDialogController === controller) {
+          this.qrDialogController = null
+        }
+        this.releaseQrPixelMap()
+      }
+    })
+    this.qrPixelMap = pixelMap
+    this.qrDialogController = controller
+    controller.open()
   }
 
   startAndStop() {
@@ -172,119 +217,76 @@ export struct HomePage {
     }
   }
 
-  qr() {
+  async qr(): Promise<void> {
     if (!AppManager.uiState.selected) {
       return
     }
     let config: ConfigJson | undefined = AppManager.easytier.getConfig(AppManager.uiState.selected)
-    if (config) {
-      buildShareUrl(config, (content) => {
-        let options: generateBarcode.CreateOptions = {
-          scanType: scanCore.ScanType.QR_CODE,
-          height: 400,
-          width: 400
-        }
-        try {
-          generateBarcode.createBarcode(content, options).then((pixelMap: image.PixelMap) => {
-            DialogHub.getCustomDialog()
-              .setOperableContent(wrapBuilder(QRImage), () => {
-                return pixelMap
-              })
-              .setStyle({
-                radius: 18,
-              })
-              .setConfig({ dialogBehavior: { isModal: true, autoDismiss: true, passThroughGesture: false }, dialogMode: DialogMode.CUSTOM_DIALOG })
-              .build()
-              .show();
-          }).catch((error: BusinessError) => {})
-        } catch (error) {}
-      }, true)
+    if (!config) {
+      return
+    }
+    const requestId = ++this.qrRequestId
+    this.resetQrDialog()
+    try {
+      const content = await buildShareUrlSync(config, true)
+      if (!this.active || requestId !== this.qrRequestId) {
+        return
+      }
+      if (content.length === 0) {
+        sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
+        return
+      }
+      let options: generateBarcode.CreateOptions = {
+        scanType: scanCore.ScanType.QR_CODE,
+        height: 400,
+        width: 400
+      }
+      const pixelMap = await generateBarcode.createBarcode(content, options)
+      if (!this.active || requestId !== this.qrRequestId) {
+        pixelMap.release().catch(() => {
+        })
+        return
+      }
+      this.openQrDialog(pixelMap)
+    } catch (_) {
+      if (!this.active || requestId !== this.qrRequestId) {
+        return
+      }
+      sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
     }
   }
 
   @Builder
   actionBar() {
     Column() {
-      if (deviceInfo.sdkApiVersion >= 20) {
-        HdsActionBar({
-          startButtons: [new ActionBarButton({
-            baseIcon: $r('sys.symbol.thumbnails'),
-            onClick: () => {
-              this.status()
-            }
-          })],
-          endButtons: [new ActionBarButton({
-            baseIcon: $r('sys.symbol.qrcode'),
-            onClick: () => {
-              this.qr()
-            }
-          })],
-          primaryButton: new ActionBarButton({
-            baseIcon: $r('sys.symbol.play_fill'),
-            altIcon: $r('sys.symbol.pause_fill'),
-            onClick: () => {
-              this.startAndStop()
-            },
-            hoverTips: '启停'
-          }),
-          actionBarStyle: new ActionBarStyle({
-            backgroundBlurStyle: BlurStyle.COMPONENT_ULTRA_THIN,
-            isPrimaryIconChanged: AppManager.easytier.runningNetworks.size > 0,
-            backgroundColor: ColorMetrics.resourceColor($r("sys.color.interactive_select"))
-          }),
-          isExpand: AppManager.easytier.runningNetworks.size > 0
-        })
-      } else {
-        Row() {
-          if (AppManager.easytier.runningNetworks.size > 0) {
-            Button({ type: ButtonType.Circle }) {
-              SymbolGlyph($r('sys.symbol.thumbnails'))
-                .fontSize(24)
-                .fontColor([$r("sys.color.font_primary")])
-            }
-            .width(48)
-            .height(48)
-            .backgroundColor(Color.Transparent)
-            .onClick(() => {
-              this.status()
-            })
+      HdsActionBar({
+        startButtons: [new ActionBarButton({
+          baseIcon: $r('sys.symbol.thumbnails'),
+          onClick: () => {
+            this.status()
           }
-
-          Button({ type: ButtonType.Circle }) {
-            SymbolGlyph(AppManager.easytier.runningNetworks.size > 0 ? $r('sys.symbol.pause_fill') :
-              $r('sys.symbol.play_fill'))
-              .fontSize(28)
-              .fontColor([$r("sys.color.font_primary")])
+        })],
+        endButtons: [new ActionBarButton({
+          baseIcon: $r('sys.symbol.qrcode'),
+          onClick: () => {
+            this.qr()
           }
-          .width(56)
-          .height(56)
-          .backgroundColor(Color.Transparent)
-          .onClick(() => {
+        })],
+        primaryButton: new ActionBarButton({
+          baseIcon: $r('sys.symbol.play_fill'),
+          altIcon: $r('sys.symbol.pause_fill'),
+          onClick: () => {
             this.startAndStop()
-          })
-
-          if (AppManager.easytier.runningNetworks.size > 0) {
-            Button({ type: ButtonType.Circle }) {
-              SymbolGlyph($r('sys.symbol.qrcode'))
-                .fontSize(24)
-                .fontColor([$r("sys.color.font_primary")])
-            }
-            .width(48)
-            .height(48)
-            .backgroundColor(Color.Transparent)
-            .onClick(() => {
-              this.qr()
-            })
-          }
-        }
-        .padding(8)
-        .backgroundColor($r("sys.color.interactive_select"))
-        .backgroundBlurStyle(BlurStyle.COMPONENT_ULTRA_THIN)
-        .borderRadius(36)
-        .margin({ bottom: 12 })
-        .shadow(ShadowStyle.OUTER_DEFAULT_SM)
-        .animation({ duration: 300, curve: Curve.Friction })
-      }
+          },
+          hoverTips: '启停'
+        }),
+        actionBarStyle: new ActionBarStyle({
+          backgroundBlurStyle: BlurStyle.COMPONENT_ULTRA_THIN,
+          isPrimaryIconChanged: AppManager.easytier.runningNetworks.size > 0,
+          backgroundColor: ColorMetrics.resourceColor($r("sys.color.interactive_select"))
+        }),
+        isExpand: AppManager.easytier.runningNetworks.size > 0
+      })
     }
     .alignItems(this.hand === 1 ? HorizontalAlign.Start :
       (this.hand === 2 ? HorizontalAlign.End : HorizontalAlign.Center))

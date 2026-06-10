@@ -12,27 +12,40 @@ import { WindowUtil } from '../../WindowUtil'
 import { harmonyShare, systemShare } from '@kit.ShareKit'
 import { Logger } from '../../shared/logging/Logger'
 import { common } from '@kit.AbilityKit'
-import { buildShareData, buildShareUrl, buildTomlShareData } from '../../util/ShareUtil'
+import { buildShareData, buildShareUrlSync, buildTomlShareData } from '../../util/ShareUtil'
 import { EditPageParam } from '../../types/navigation/PageParam'
 import { ConfigJson } from '../../config/schema/SchemaConfig'
 import {
   clearEditingConfigCache,
   ensureEditingFieldsAsync,
-  prepareEditingConfig
+  getStoredConfigLabel,
+  getStoredConfigName,
+  prepareEditingConfig,
+  resetEditingConfigStoreRef,
+  setEditingConfigStoreRef
 } from '../../services/config/storage/StoredConfigService'
 import { generateBarcode, scanCore } from '@kit.ScanKit'
 import { image } from '@kit.ImageKit'
-import { DialogHub, DialogMode } from '@hadss/dialoghub'
 import { dlpAntiPeep } from '@kit.DeviceSecurityKit';
-import { QRImage } from '../../components/util/QRImage'
+import { QRDialog } from '../../components/util/QRImage'
 import { buildEditRenderPlan, emptyEditRenderPlan } from '../../config/render/EditRenderResolver'
 import { EditRenderPlan, EditSectionRenderPlan } from '../../config/render/EditRenderNode'
 import { EditSectionView } from '../../components/edit/EditSectionView'
 import { clearEditValue } from '../../class/config/Basic'
 import { MemoryDiagnosticsService } from '../../services/runtime/MemoryDiagnosticsService'
+import { RemoteManageService } from '../../services/remote/RemoteManageService'
+import { sendToast } from '../../ToastUtil'
+
+class ShareMenuParam {
+  onQrClick: () => void
+
+  constructor(onQrClick: () => void) {
+    this.onQrClick = onQrClick
+  }
+}
 
 @Builder
-function ShareMenu() {
+function ShareMenu(param: ShareMenuParam) {
   Menu() {
     MenuItem({content: "分享直达链接"}).onClick(() => {
       const editingId = AppManager.uiState.editingInstance
@@ -54,31 +67,7 @@ function ShareMenu() {
       }
     })
     MenuItem({content: "扫码直达"}).onClick(() => {
-      const editingId = AppManager.uiState.editingInstance
-      let config: ConfigJson | undefined = editingId ? AppManager.easytier.getConfig(editingId) : undefined
-      if (config) {
-        buildShareUrl(config, (content) => {
-          let options: generateBarcode.CreateOptions = {
-            scanType: scanCore.ScanType.QR_CODE,
-            height: 400,
-            width: 400
-          }
-          try {
-            generateBarcode.createBarcode(content, options).then((pixelMap: image.PixelMap) => {
-              DialogHub.getCustomDialog()
-                .setOperableContent(wrapBuilder(QRImage), () => {
-                  return pixelMap
-                })
-                .setStyle({
-                  radius: 18,
-                })
-                .setConfig({ dialogBehavior: { isModal: true, autoDismiss: true, passThroughGesture: false }, dialogMode: DialogMode.CUSTOM_DIALOG })
-                .build()
-                .show();
-            }).catch((error: BusinessError) => {})
-          } catch (error) {}
-        }, true)
-      }
+      param.onQrClick()
     })
     MenuItem({content: "分享Toml文件"}).onClick(() => {
       const editingId = AppManager.uiState.editingInstance
@@ -115,8 +104,13 @@ export struct EditPage {
   @Local share_menu_id: string = "share_menu_id"
   @Local editingConfigReady: boolean = false
   @Local titleText: string = ""
+  @Local remoteEditing: boolean = false
+  @Local remoteDeviceName: string = ""
+  @Local remoteSessionId: string = ""
   @Local activePageIndex: number = 0
   @Local animationTargetIndex: number = -1
+  private qrPixelMap: image.PixelMap | undefined = undefined
+  private qrDialogController: CustomDialogController | null = null
   private renderPlan: EditRenderPlan = emptyEditRenderPlan()
   private active: boolean = false
   private dlpRegistered: boolean = false
@@ -124,12 +118,15 @@ export struct EditPage {
   private loadingSectionKeys: Set<string> = new Set()
   private sectionLoadQueue: number[] = []
   private sectionLoadBusy: boolean = false
-  private sectionLoadTimer: number = -1
-  private sectionPreloadTimer: number = -1
-  private sectionPreloadQueued: boolean = false
-  private sectionLoadGeneration: number = 0
-  private gesturesShareRegistered: boolean = false
+	  private sectionLoadTimer: number = -1
+	  private sectionPreloadTimer: number = -1
+	  private sectionPreloadQueued: boolean = false
+	  private sectionLoadGeneration: number = 0
+	  private sectionLoadFailureCounts: Map<string, number> = new Map()
+	  private gesturesShareRegistered: boolean = false
+  private knockShareRegistered: boolean = false
   private shareMenuContent: ComponentContent<Object> | undefined = undefined
+  private qrRequestId: number = 0
   private editOpenSheetCallback = (data: emitter.EventData) => {
     this.sheet_type = data.data!.type as string
     this.sheet = true
@@ -140,13 +137,13 @@ export struct EditPage {
   }
 
   private refreshTitle(): void {
-    this.titleText = AppManager.easytier.getConfigLabel(this.uuid, this.uuid ?? '')
+    this.titleText = getStoredConfigLabel(this.uuid, this.uuid ?? '')
   }
 
   @Computed
   get name() {
     if (this.uuid) {
-      return AppManager.easytier.getConfigName(this.uuid)
+      return getStoredConfigName(this.uuid) ?? ''
     }
     return ""
   }
@@ -166,9 +163,10 @@ export struct EditPage {
     this.sectionLoadGeneration += 1
     this.loadedSectionKeys.clear()
     this.loadingSectionKeys.clear()
-    this.sectionLoadQueue = []
-    this.sectionLoadBusy = false
-    this.sectionPreloadQueued = false
+	    this.sectionLoadQueue = []
+	    this.sectionLoadBusy = false
+	    this.sectionPreloadQueued = false
+	    this.sectionLoadFailureCounts.clear()
     if (this.sectionLoadTimer >= 0) {
       clearTimeout(this.sectionLoadTimer)
       this.sectionLoadTimer = -1
@@ -239,28 +237,44 @@ export struct EditPage {
     if (index < 0) {
       return
     }
-    const section = this.renderPlan.sections[index]
-    const generation = this.sectionLoadGeneration
-    this.sectionLoadBusy = true
-    this.loadingSectionKeys.add(section.key)
-    ensureEditingFieldsAsync(this.uuid, section.topLevelFields).then(() => {
-      if (!this.active || generation !== this.sectionLoadGeneration) {
-        return
-      }
-      this.loadedSectionKeys.add(section.key)
-      if (index === 0) {
-        this.scheduleTrailingSectionPreload()
-      }
-    }).catch(() => {
-    }).finally(() => {
-      if (generation !== this.sectionLoadGeneration) {
-        return
-      }
-      this.loadingSectionKeys.delete(section.key)
-      this.sectionLoadBusy = false
-      if (this.active && this.sectionLoadQueue.length > 0) {
-        this.scheduleSectionLoadDrain(120)
-      }
+	    const section = this.renderPlan.sections[index]
+	    const generation = this.sectionLoadGeneration
+	    let retryDelay = -1
+	    this.sectionLoadBusy = true
+	    this.loadingSectionKeys.add(section.key)
+	    ensureEditingFieldsAsync(this.uuid, section.topLevelFields).then(() => {
+	      if (!this.active || generation !== this.sectionLoadGeneration) {
+	        return
+	      }
+	      this.sectionLoadFailureCounts.delete(section.key)
+	      this.loadedSectionKeys.add(section.key)
+	      if (index === 0) {
+	        this.scheduleTrailingSectionPreload()
+	      }
+	    }).catch(() => {
+	      if (!this.active || generation !== this.sectionLoadGeneration) {
+	        return
+	      }
+	      const failureCount = this.sectionLoadFailureCounts.get(section.key) ?? 0
+	      if (failureCount < 2) {
+	        this.sectionLoadFailureCounts.set(section.key, failureCount + 1)
+	        retryDelay = 800
+	      } else {
+	        sendToast('读取配置字段失败', $r('sys.symbol.exclamationmark_circle'), 1)
+	      }
+	    }).finally(() => {
+	      if (generation !== this.sectionLoadGeneration) {
+	        return
+	      }
+	      this.loadingSectionKeys.delete(section.key)
+	      this.sectionLoadBusy = false
+	      if (this.active && retryDelay >= 0) {
+	        this.enqueueSectionLoad(index, true, retryDelay)
+	        return
+	      }
+	      if (this.active && this.sectionLoadQueue.length > 0) {
+	        this.scheduleSectionLoadDrain(120)
+	      }
     })
   }
 
@@ -313,6 +327,24 @@ export struct EditPage {
     let param = HMRouterMgr.getCurrentParam() as EditPageParam;
     this.uuid = param.uuid
     this.unsafe = param.unsafe
+    this.remoteEditing = param.source === 'remote'
+    this.remoteDeviceName = param.remoteDeviceName ?? ''
+    this.remoteSessionId = param.remoteSessionId ?? ''
+    if (this.remoteEditing && (!this.remoteSessionId || !RemoteManageService.isCurrentSession(this.remoteSessionId))) {
+      this.active = false
+      sendToast('远端连接已变化，请重新进入编辑', $r('sys.symbol.exclamationmark_circle'), 1)
+      setTimeout(() => {
+        HMRouterMgr.pop()
+      }, 0)
+      return
+    }
+    setEditingConfigStoreRef(this.remoteEditing ? {
+      source: 'remote',
+      remoteSessionId: this.remoteSessionId,
+      remoteDeviceName: param.remoteDeviceName
+    } : {
+      source: 'local'
+    })
     this.refreshTitle()
     AppManager.uiState.editingInstance = this.uuid
     this.activePageIndex = 0
@@ -324,8 +356,11 @@ export struct EditPage {
     this.enqueueSectionLoad(0, true, 32)
     EventHelper.emitterListener("edit_open_sheet", this.editOpenSheetCallback)
     EventHelper.emitterListener("edit_close_sheet", this.editCloseSheetCallback)
-    harmonyShare.on('knockShare', this.immersiveCallback);
-    if (deviceInfo.sdkApiVersion >= 20) {
+    if (!this.remoteEditing) {
+      harmonyShare.on('knockShare', this.immersiveCallback);
+      this.knockShareRegistered = true
+    }
+    if (!this.remoteEditing && deviceInfo.sdkApiVersion >= 20) {
       harmonyShare.on('gesturesShare', this.immersiveCallback);
       this.gesturesShareRegistered = true
     }
@@ -358,6 +393,89 @@ export struct EditPage {
     try {
       content.dispose()
     } catch (_) {
+    }
+  }
+
+  private releaseQrPixelMap(): void {
+    const pixelMap = this.qrPixelMap
+    this.qrPixelMap = undefined
+    if (pixelMap) {
+      pixelMap.release().catch(() => {
+      })
+    }
+  }
+
+  private resetQrDialog(): void {
+    const controller = this.qrDialogController
+    this.qrDialogController = null
+    if (controller) {
+      try {
+        controller.close()
+      } catch (_) {
+      }
+    }
+    this.releaseQrPixelMap()
+  }
+
+  private closeQrDialog(): void {
+    this.qrRequestId++
+    this.resetQrDialog()
+  }
+
+  private openQrDialog(pixelMap: image.PixelMap): void {
+    const controller: CustomDialogController = new CustomDialogController({
+      builder: QRDialog({ pixelMap }),
+      autoCancel: true,
+      alignment: DialogAlignment.Center,
+      customStyle: true,
+      isModal: true,
+      maskColor: 'rgba(0,0,0,0.35)',
+      cancel: () => {
+        if (this.qrDialogController === controller) {
+          this.qrDialogController = null
+        }
+        this.releaseQrPixelMap()
+      }
+    })
+    this.qrPixelMap = pixelMap
+    this.qrDialogController = controller
+    controller.open()
+  }
+
+  private async showQr(): Promise<void> {
+    const editingId = this.uuid
+    let config: ConfigJson | undefined = editingId ? AppManager.easytier.getConfig(editingId) : undefined
+    if (!config) {
+      return
+    }
+    const requestId = ++this.qrRequestId
+    this.resetQrDialog()
+    try {
+      const content = await buildShareUrlSync(config, true)
+      if (!this.active || requestId !== this.qrRequestId) {
+        return
+      }
+      if (content.length === 0) {
+        sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
+        return
+      }
+      let options: generateBarcode.CreateOptions = {
+        scanType: scanCore.ScanType.QR_CODE,
+        height: 400,
+        width: 400
+      }
+      const pixelMap = await generateBarcode.createBarcode(content, options)
+      if (!this.active || requestId !== this.qrRequestId) {
+        pixelMap.release().catch(() => {
+        })
+        return
+      }
+      this.openQrDialog(pixelMap)
+    } catch (_) {
+      if (!this.active || requestId !== this.qrRequestId) {
+        return
+      }
+      sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
     }
   }
 
@@ -408,17 +526,22 @@ export struct EditPage {
     }
     this.active = false
     this.closeShareMenu()
+    this.closeQrDialog()
     this.clearSheetState()
     this.resetSectionLoading()
     EventHelper.emitterOff("edit_open_sheet", this.editOpenSheetCallback)
     EventHelper.emitterOff("edit_close_sheet", this.editCloseSheetCallback)
-    harmonyShare.off('knockShare', this.immersiveCallback);
+    if (this.knockShareRegistered) {
+      harmonyShare.off('knockShare', this.immersiveCallback);
+      this.knockShareRegistered = false
+    }
     if (this.gesturesShareRegistered) {
       harmonyShare.off('gesturesShare', this.immersiveCallback);
       this.gesturesShareRegistered = false
     }
     AppManager.uiState.editingInstance = undefined
     clearEditingConfigCache(this.uuid)
+    resetEditingConfigStoreRef()
     this.renderPlan = emptyEditRenderPlan()
     this.editingConfigReady = false
     if (this.dlpRegistered && canIUse("SystemCapability.Security.DlpAntiPeep")) {
@@ -560,10 +683,33 @@ export struct EditPage {
       content: {
         title: {
           mainTitle: this.titleText,
-          subTitle: this.uuid!
+          subTitle: this.remoteEditing && this.remoteDeviceName.length > 0 ? this.remoteDeviceName : this.uuid!
         },
         menu: {
-          value: [
+          value: this.remoteEditing ? [
+	            HdsMenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), async () => {
+	              const configId = this.uuid!
+	              try {
+	                const ok = await RemoteManageService.deleteConfig(configId, this.remoteSessionId)
+	                if (ok) {
+	                  sendToast('远端配置已删除', $r('sys.symbol.checkmark_circle'), 0)
+	                  HMRouterMgr.pop()
+	                } else {
+	                  sendToast('删除失败', $r('sys.symbol.exclamationmark_circle'), 1)
+	                }
+	              } catch (error) {
+	                Logger.error(`[RemoteEditSession] remote delete failed: ${(error as Error).message}`, 'EditPage')
+	                sendToast('删除失败', $r('sys.symbol.exclamationmark_circle'), 1)
+	              }
+	            }),
+            HdsMenuButton($r("app.string.i18_rename"), $r("sys.symbol.pencil_line_1"), () => {
+              EventHelper.emitterPublish("edit_open_sheet", {
+                data: {
+                  type: "rename"
+                }
+              })
+            })
+          ] : [
             HdsMenuButton($r("app.string.i18_favorite"),
               AppManager.data.isFavorite(this.uuid!) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"), () => {
                 AppManager.data.changeFavorite(this.uuid!)
@@ -573,7 +719,11 @@ export struct EditPage {
                 this.closeShareMenu()
                 let uiContext = this.getUIContext();
                 let promptAction = uiContext.getPromptAction();
-                let contentNode: ComponentContent<Object> = new ComponentContent(uiContext, wrapBuilder(ShareMenu));
+                let contentNode: ComponentContent<ShareMenuParam> = new ComponentContent(uiContext, wrapBuilder(ShareMenu),
+                  new ShareMenuParam(() => {
+                    this.closeShareMenu()
+                    this.showQr()
+                  }));
                 this.shareMenuContent = contentNode
                 promptAction.openMenu(
                   contentNode,
@@ -623,8 +773,11 @@ export struct EditPage {
     })
   }
 
-  immersiveCallback = (sharableTarget: harmonyShare.SharableTarget) => {
-    let config: ConfigJson | undefined = this.uuid ? AppManager.easytier.getConfig(this.uuid) : undefined
+	  immersiveCallback = (sharableTarget: harmonyShare.SharableTarget) => {
+	    if (this.remoteEditing) {
+	      return
+	    }
+	    let config: ConfigJson | undefined = this.uuid ? AppManager.easytier.getConfig(this.uuid) : undefined
     if (config) {
       buildShareData(config, (data) => {
         sharableTarget.share(data);

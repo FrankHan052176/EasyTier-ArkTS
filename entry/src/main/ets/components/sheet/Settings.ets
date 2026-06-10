@@ -9,6 +9,7 @@ import { common } from '@kit.AbilityKit'
 import { LogFileEntry } from '../../types/logging/LogFileTypes'
 import { hdsMaterial, HdsNavigation, HdsNavigationTitleMode, IconStyleMode, TitleBarStyleOptions } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
+import { RuntimeStatsService } from '../../services/runtime/RuntimeStatsService'
 
 const CORE_REPOSITORY_URL = 'https://github.com/EasyTier/EasyTier'
 const SHELL_REPOSITORY_URL =
@@ -286,45 +287,51 @@ function settingMenuRow(symbol: Resource, title: string, subtitle: string, onCli
   .margin({ bottom: 10 })
 }
 
-@Builder
-function settingValueRow(symbol: Resource, title: string, value: string) {
-  ListItem() {
-    Row() {
+@ComponentV2
+struct SettingValueRow {
+  @Param @Require symbol: Resource
+  @Param @Require title: string
+  @Param @Require value: string
+
+  build() {
+    ListItem() {
       Row() {
-        SymbolGlyph(symbol)
-          .fontColor([$r("sys.color.font_primary")])
-          .fontSize(16)
-          .margin({ right: 5 })
-        Text(title)
+        Row() {
+          SymbolGlyph(this.symbol)
+            .fontColor([$r("sys.color.font_primary")])
+            .fontSize(16)
+            .margin({ right: 5 })
+          Text(this.title)
+            .fontColor($r("sys.color.font_primary"))
+            .fontSize(16)
+        }
+
+        Text(this.value)
           .fontColor($r("sys.color.font_primary"))
           .fontSize(16)
+          .margin({ right: 5 })
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
       }
-
-      Text(value)
-        .fontColor($r("sys.color.font_primary"))
-        .fontSize(16)
-        .margin({ right: 5 })
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      .height(49)
+      .borderRadius(18)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .backgroundColor($r("sys.color.comp_background_primary"))
+      .shadow({
+        radius: 7,
+        color: '#1F000000'
+      })
+      .padding({
+        left: 10,
+        right: 5,
+        top: 5,
+        bottom: 5
+      })
     }
-    .height(49)
-    .borderRadius(18)
-    .alignItems(VerticalAlign.Center)
-    .justifyContent(FlexAlign.SpaceBetween)
-    .width('100%')
-    .backgroundColor($r("sys.color.comp_background_primary"))
-    .shadow({
-      radius: 7,
-      color: '#1F000000'
-    })
-    .padding({
-      left: 10,
-      right: 5,
-      top: 5,
-      bottom: 5
-    })
+    .margin({ bottom: 10 })
   }
-  .margin({ bottom: 10 })
 }
 
 @Builder
@@ -677,58 +684,86 @@ function settingSponsorQrCard() {
   .margin({ bottom: 10 })
 }
 
+@ComponentV2
+struct SettingHomeSheet {
+  @Event onNavigate: (page: string) => void = () => {}
+
+  aboutToAppear(): void {
+    AppManager.runtimeStats.refreshFromDisk()
+    if (AppManager.easytier.runningNetworks.size > 0) {
+      AppManager.runtimeStats.startLiveRefresh(false)
+    }
+  }
+
+  build() {
+    List() {
+      ListItem()
+        .height(64)
+
+      ListItemGroup({ header: settingGroupHeader("常用") }) {
+        settingMenuRow($r("sys.symbol.disconnect"), "UI 设置", "布局、握持姿态与主页模块", () => {
+          this.onNavigate('ui')
+        })
+        settingMenuRow($r("sys.symbol.list_xmark"), AppManager.uiState.white_list ? "App 白名单" : "App 黑名单",
+          "控制 App 过滤列表", () => {
+            this.onNavigate('black_list')
+          })
+      }
+
+      ListItemGroup({ header: settingGroupHeader("运行") }) {
+        SettingValueRow({
+          symbol: $r("sys.symbol.timer"),
+          title: "内核运行时长",
+          value: AppManager.runtimeStats.runtimeDurationText
+        })
+        SettingValueRow({
+          symbol: $r("sys.symbol.clock"),
+          title: "内核内存占用",
+          value: AppManager.runtimeStats.memoryUsageText
+        })
+        settingSwitchRow($r("sys.symbol.house_fill"), "子进程模式",
+          AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "",
+          AppManager.uiState.ext_mode, AppManager.easytier.runningNetworks.size == 0, (isOn: boolean) => {
+            AppManager.uiState.ext_mode = isOn
+          })
+        settingMenuRow($r("sys.symbol.cloud"), "云空间同步", formatSyncState(AppManager.cloudSync.syncState), () => {
+          this.onNavigate('cloud_sync')
+        })
+        settingMenuRow($r("sys.symbol.doc"), "日志与调试",
+          `内核日志${boolText(AppManager.uiState.core_log)}，调试日志${boolText(AppManager.uiState.debug_log)}`, () => {
+            this.onNavigate('logs')
+          })
+      }
+
+      ListItemGroup({ header: settingGroupHeader("系统") }) {
+        settingMenuRow($r("sys.symbol.local_and_rectangle"), "跨端控制", "管理组网设备上的 EasyTier", () => {
+          EventHelper.emitterPublish("home_close_sheet")
+          HMRouterMgr.push({ pageUrl: 'RemoteControlPage' })
+        })
+        settingMenuRow($r("sys.symbol.local_and_rectangle"), "权限", permissionSummary(), () => {
+          this.onNavigate('permissions')
+        })
+        settingMenuRow($r("sys.symbol.person"), "高级设置", "路由表、DNS 与高级选项", () => {
+          this.onNavigate('advanced')
+        })
+        settingMenuRow($r("sys.symbol.info_circle"), "关于与帮助", appCoreVersionSummary(), () => {
+          this.onNavigate('about')
+        })
+      }
+
+      ListItem()
+        .height(100)
+    }
+    .width('100%')
+    .height('100%')
+    .scrollBar(BarState.Off)
+    .padding({ left: 15, right: 15 })
+  }
+}
+
 @Builder
 function SettingHome_Sheet(onNavigate: (page: string) => void) {
-  List() {
-    ListItem()
-      .height(64)
-
-    ListItemGroup({ header: settingGroupHeader("常用") }) {
-      settingMenuRow($r("sys.symbol.disconnect"), "UI 设置", "布局、握持姿态与主页模块", () => {
-        onNavigate('ui')
-      })
-      settingMenuRow($r("sys.symbol.list_xmark"), AppManager.uiState.white_list ? "App 白名单" : "App 黑名单",
-        "控制 App 过滤列表", () => {
-          onNavigate('black_list')
-        })
-    }
-
-    ListItemGroup({ header: settingGroupHeader("运行") }) {
-      settingValueRow($r("sys.symbol.timer"), "内核运行时长", AppManager.runtimeStats.runtimeDurationText)
-      settingValueRow($r("sys.symbol.clock"), "内核内存占用", AppManager.runtimeStats.memoryUsageText)
-      settingSwitchRow($r("sys.symbol.house_fill"), "子进程模式",
-        AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "",
-        AppManager.uiState.ext_mode, AppManager.easytier.runningNetworks.size == 0, (isOn: boolean) => {
-          AppManager.uiState.ext_mode = isOn
-        })
-      settingMenuRow($r("sys.symbol.cloud"), "云空间同步", formatSyncState(AppManager.cloudSync.syncState), () => {
-        onNavigate('cloud_sync')
-      })
-      settingMenuRow($r("sys.symbol.doc"), "日志与调试",
-        `内核日志${boolText(AppManager.uiState.core_log)}，调试日志${boolText(AppManager.uiState.debug_log)}`, () => {
-          onNavigate('logs')
-        })
-    }
-
-    ListItemGroup({ header: settingGroupHeader("系统") }) {
-      settingMenuRow($r("sys.symbol.local_and_rectangle"), "权限", permissionSummary(), () => {
-        onNavigate('permissions')
-      })
-      settingMenuRow($r("sys.symbol.person"), "高级设置", "路由表、DNS 与高级选项", () => {
-        onNavigate('advanced')
-      })
-      settingMenuRow($r("sys.symbol.info_circle"), "关于与帮助", appCoreVersionSummary(), () => {
-        onNavigate('about')
-      })
-    }
-
-    ListItem()
-      .height(100)
-  }
-  .width('100%')
-  .height('100%')
-  .scrollBar(BarState.Off)
-  .padding({ left: 15, right: 15 })
+  SettingHomeSheet({ onNavigate })
 }
 
 @Builder
@@ -1139,9 +1174,21 @@ export function SettingAbout_Content() {
       .height(64)
 
     ListItemGroup({ header: settingGroupHeader("版本") }) {
-      settingValueRow($r("sys.symbol.square_fill_grid_2x2"), "APP版本", APP_VERSION + "(" + APP_VERSION_CODE + ")")
-      settingValueRow($r("sys.symbol.square_fill_grid_2x2"), "编译时间", BUILD_TIME)
-      settingValueRow($r("sys.symbol.house"), "内核版本", CORE_VERSION)
+      SettingValueRow({
+        symbol: $r("sys.symbol.square_fill_grid_2x2"),
+        title: "APP版本",
+        value: APP_VERSION + "(" + APP_VERSION_CODE + ")"
+      })
+      SettingValueRow({
+        symbol: $r("sys.symbol.square_fill_grid_2x2"),
+        title: "编译时间",
+        value: BUILD_TIME
+      })
+      SettingValueRow({
+        symbol: $r("sys.symbol.house"),
+        title: "内核版本",
+        value: CORE_VERSION
+      })
     }
 
     ListItemGroup({ header: settingGroupHeader("帮助") }) {

@@ -37,6 +37,9 @@ export struct StatusPage {
   @Local rx_unit: string = "B/s"
   @Local tx_unit: string = "B/s"
   @Local updateTimer: number = -1
+  private runtimeSnapshotSubscribed: boolean = false
+  private knockShareRegistered: boolean = false
+  private gesturesShareRegistered: boolean = false
 
   @Computed
   get instanceInfo() {
@@ -44,44 +47,97 @@ export struct StatusPage {
   }
 
   aboutToAppear(): void {
-    try {
-      AppManager.easytier.requestRuntimeSnapshotSubscription(true)
-    } catch (_) {}
+    this.subscribeRuntimeSnapshot()
     this.uuid = HMRouterMgr.getCurrentParam() as string;
     this.name = AppManager.easytier.getConfigName(this.uuid) ?? "临时配置"
     this.config = AppManager.easytier.getConfig(this.uuid) ?? null
     this.ip = this.config?.dhcp ? "waiting" : (this.config?.virtual_ipv4 ?? "N/A")
-    this.updateTimer = setInterval(() => {
-      let instanceInfo = AppManager.easytier.instanceInfos.get(this.uuid)
-      if (instanceInfo) {
-        if (instanceInfo.getDownloadRate() >= 0) {
-          this.rx_rate = instanceInfo.getDownloadRate()
-          this.rx_unit = instanceInfo.getDownloadRateUnit()
-        }
-        if (instanceInfo.getUploadRate() >= 0) {
-          this.tx_rate = instanceInfo.getUploadRate()
-          this.tx_unit = instanceInfo.getUploadRateUnit()
-        }
-        this.udp_nat = instanceInfo.udp_nat
-        this.tcp_nat = instanceInfo.tcp_nat
-        this.ip = instanceInfo.ip
-      }
-    }, 1000)
-    harmonyShare.on('knockShare', this.immersiveCallback);
-    if (deviceInfo.sdkApiVersion >= 20) {
-      harmonyShare.on('gesturesShare', this.immersiveCallback);
-    }
+    this.startUpdateTimer()
+    this.registerShareCallbacks()
   }
 
   aboutToDisappear(): void {
+    this.unsubscribeRuntimeSnapshot()
+    this.stopUpdateTimer()
+    this.unregisterShareCallbacks()
+  }
+
+  private registerShareCallbacks(): void {
+    if (!this.knockShareRegistered) {
+      harmonyShare.on('knockShare', this.immersiveCallback);
+      this.knockShareRegistered = true
+    }
+    if (!this.gesturesShareRegistered && deviceInfo.sdkApiVersion >= 20) {
+      harmonyShare.on('gesturesShare', this.immersiveCallback);
+      this.gesturesShareRegistered = true
+    }
+  }
+
+  private unregisterShareCallbacks(): void {
+    if (this.knockShareRegistered) {
+      harmonyShare.off('knockShare', this.immersiveCallback);
+      this.knockShareRegistered = false
+    }
+    if (this.gesturesShareRegistered) {
+      harmonyShare.off('gesturesShare', this.immersiveCallback);
+      this.gesturesShareRegistered = false
+    }
+  }
+
+  private subscribeRuntimeSnapshot(): void {
+    if (this.runtimeSnapshotSubscribed) {
+      return
+    }
+    try {
+      AppManager.easytier.requestRuntimeSnapshotSubscription(true)
+      this.runtimeSnapshotSubscribed = true
+    } catch (_) {}
+  }
+
+  private unsubscribeRuntimeSnapshot(): void {
+    if (!this.runtimeSnapshotSubscribed) {
+      return
+    }
+    this.runtimeSnapshotSubscribed = false
     try {
       AppManager.easytier.requestRuntimeSnapshotSubscription(false)
     } catch (_) {}
-    harmonyShare.off('knockShare', this.immersiveCallback);
-    if (deviceInfo.sdkApiVersion >= 20) {
-      harmonyShare.off('gesturesShare', this.immersiveCallback);
+  }
+
+  private startUpdateTimer(): void {
+    if (this.updateTimer >= 0) {
+      return
+    }
+    this.updateRuntimeDisplay()
+    this.updateTimer = setInterval(() => {
+      this.updateRuntimeDisplay()
+    }, 1000)
+  }
+
+  private stopUpdateTimer(): void {
+    if (this.updateTimer < 0) {
+      return
     }
     clearInterval(this.updateTimer)
+    this.updateTimer = -1
+  }
+
+  private updateRuntimeDisplay(): void {
+    let instanceInfo = AppManager.easytier.instanceInfos.get(this.uuid)
+    if (!instanceInfo) {
+      return
+    }
+    if (instanceInfo.getDownloadRate() >= 0) {
+      this.rx_rate = instanceInfo.getDownloadRate()
+      this.rx_unit = instanceInfo.getDownloadRateUnit()
+    }
+    if (instanceInfo.getUploadRate() >= 0) {
+      this.tx_rate = instanceInfo.getUploadRate()
+      this.tx_unit = instanceInfo.getUploadRateUnit()
+    }
+    this.udp_nat = instanceInfo.udp_nat
+    this.tcp_nat = instanceInfo.tcp_nat
+    this.ip = instanceInfo.ip
   }
 
   getRouteCost(cost: number): string {

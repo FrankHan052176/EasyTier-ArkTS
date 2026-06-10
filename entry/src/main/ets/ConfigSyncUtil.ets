@@ -1,10 +1,26 @@
 import easytier from 'easytier-ohrs'
 import { ConfigJson, ConfigFieldValue } from './config/schema/SchemaConfig'
-import { cacheEditingConfig, canSyncEditingConfigField, markEditingConfigFieldDirty } from './services/config/storage/StoredConfigService'
+import {
+  cacheEditingConfig,
+  canSyncEditingConfigField,
+  isEditingConfigTarget,
+  getEditingConfigStoreRef,
+  isEditingRemoteConfig,
+  markEditingConfigFieldDirty
+} from './services/config/storage/StoredConfigService'
 import { isCloudResetting } from './services/cloud/CloudMutationGate'
 import { EventHelper } from './util/EventHelper'
+import { RemoteManageService } from './services/remote/RemoteManageService'
 
 export const CLOUD_CONFIG_CHANGED_EVENT = 'cloud_config_changed'
+
+function canUseRemoteEditingStore(configId: string | undefined): boolean {
+  if (!isEditingRemoteConfig() || !isEditingConfigTarget(configId)) {
+    return false
+  }
+  const storeRef = getEditingConfigStoreRef()
+  return !!storeRef.remoteSessionId && RemoteManageService.isCurrentSession(storeRef.remoteSessionId)
+}
 
 function getTopLevelValue(config: ConfigJson, field: string): ConfigFieldValue {
   return config[field] as ConfigFieldValue
@@ -47,13 +63,25 @@ export function setFieldPathValue(config: ConfigJson, path: string[], value: Con
 }
 
 export function syncTopLevelField(configId: string | undefined, field: string | undefined, config: ConfigJson): boolean {
-  if (!configId || configId.length === 0 || !field || field.length === 0 || isCloudResetting()) {
+  const remoteEditing = canUseRemoteEditingStore(configId)
+  if (!configId || configId.length === 0 || !field || field.length === 0 || (!remoteEditing && isCloudResetting())) {
+    return false
+  }
+  if (isEditingRemoteConfig() && isEditingConfigTarget(configId) && !remoteEditing) {
     return false
   }
   if (!canSyncEditingConfigField(configId, field)) {
     return false
   }
   const value: ConfigFieldValue = getTopLevelValue(config, field)
+  if (remoteEditing) {
+    const storeRef = getEditingConfigStoreRef()
+    markEditingConfigFieldDirty(configId, field)
+    cacheEditingConfig(configId, config)
+    RemoteManageService.setConfigFieldQueued(configId, field, value, storeRef.remoteSessionId)
+    EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
+    return true
+  }
   const ok = easytier.setConfigField(configId, field, JSON.stringify(value ?? null))
   if (ok) {
     markEditingConfigFieldDirty(configId, field)
@@ -78,6 +106,18 @@ export function ensureKernelConfig(configId: string, displayName: string): boole
 }
 
 export function syncWholeConfig(configId: string, displayName: string, config: ConfigJson): boolean {
+  if (canUseRemoteEditingStore(configId)) {
+    const storeRef = getEditingConfigStoreRef()
+    cacheEditingConfig(configId, config)
+    RemoteManageService.saveConfig(configId, displayName, config, storeRef.remoteSessionId).catch((error: Error) => {
+      console.error(`remote saveConfig failed: ${error.message}`)
+    })
+    EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
+    return true
+  }
+  if (isEditingRemoteConfig() && isEditingConfigTarget(configId)) {
+    return false
+  }
   if (isCloudResetting()) {
     return false
   }

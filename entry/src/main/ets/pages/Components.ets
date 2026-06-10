@@ -1,6 +1,12 @@
 import { SymbolGlyphModifier } from '@kit.ArkUI'
 import { HdsNavigationMenuItemOptions, IconStyleMode } from '@kit.UIDesignKit'
-import { symbolWithSize } from './hmrouter/HomePage'
+
+function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
+  let result = new SymbolGlyphModifier(symbol)
+  result.fontSize(size)
+  result.fontColor([$r("sys.color.font_primary")])
+  return result
+}
 
 export function MenuButton(value: string | Resource, symbol: Resource, callback: () => void): NavigationMenuItem {
   return {

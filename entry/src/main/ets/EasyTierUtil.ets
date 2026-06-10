@@ -27,6 +27,9 @@ import { orchestrateInstanceStart } from './services/easytier/runtime/StartOrche
 import { getHostname } from './util/Conversion'
 import { CrashLogService } from './services/crash/CrashLogService'
 import { LogFileEntry } from './types/logging/LogFileTypes'
+import { RemoteManageService } from './services/remote/RemoteManageService'
+
+const OPTIMISTIC_RUNTIME_GRACE_MS = 10000
 
 @LogLocate("EasyTierUtil")
 @ObservedV2
@@ -43,6 +46,8 @@ export class EasyTierUtil {
   private runtimeSnapshotSubscriptionCount: number = 0
   private runtimeSnapshotSubscribed: boolean = false
   private runtimeSnapshotForeground: boolean = true
+  private runtimeNotifySignature: string = ''
+  private optimisticRunningUntil: Map<string, number> = new Map()
   private initialized: boolean = false
   private kernelRuntimeSnapshotCallback: Callback<emitter.EventData> = (event: emitter.EventData) => {
     if (event?.data?.snapshot) {
@@ -76,8 +81,15 @@ export class EasyTierUtil {
       clearInterval(this.logTimer)
       this.logTimer = undefined
     }
+    this.resetRuntimeSnapshotSubscription()
+    this.runningNetworks.clear()
+    this.instanceInfos.clear()
+    this.needTUN.clear()
+    this.optimisticRunningUntil.clear()
+    this.runtimeNotifySignature = ''
     this.client?.close()
     this.client = undefined
+    this.isVpnConnected = false
   }
 
   version() {
@@ -103,6 +115,55 @@ export class EasyTierUtil {
     return instanceId
   }
 
+  private buildRuntimeNotifySignature(): string {
+    return Array.from(this.runningNetworks.values())
+      .map((instance) => {
+        const instanceId = this.getValidInstanceId(instance) ?? ''
+        return [
+          instanceId,
+          instance.configId ?? '',
+          instance.running ? '1' : '0',
+          instance.tunAttached ? '1' : '0',
+          instance.myNodeInfo?.virtualIpv4 ?? '',
+          `${instance.peers.length}`,
+          `${instance.routes.length}`
+        ].join(':')
+      })
+      .sort()
+      .join('|')
+  }
+
+  private notifyRemoteRuntimeChanged(): void {
+    const signature = this.buildRuntimeNotifySignature()
+    if (signature === this.runtimeNotifySignature) {
+      return
+    }
+    this.runtimeNotifySignature = signature
+    RemoteManageService.notifyHostSummaryDirty()
+  }
+
+  private isOptimisticRunningActive(instanceId: string | undefined): boolean {
+    if (!instanceId) {
+      return false
+    }
+    const until = this.optimisticRunningUntil.get(instanceId) ?? 0
+    if (until <= Date.now()) {
+      this.optimisticRunningUntil.delete(instanceId)
+      return false
+    }
+    return true
+  }
+
+  private removeRunningInstance(instanceId: string | undefined): void {
+    if (!instanceId) {
+      return
+    }
+    this.runningNetworks.delete(instanceId)
+    this.instanceInfos.delete(instanceId)
+    this.needTUN.delete(instanceId)
+    this.optimisticRunningUntil.delete(instanceId)
+  }
+
   private processRuntimeSnapshot(snapshot: RuntimeAggregateState, fromVpn: boolean = true): void {
     if (!fromVpn && AppManager.uiState.ext_mode && this.isVpnConnected) {
       return
@@ -116,10 +177,18 @@ export class EasyTierUtil {
         Logger.error(`processRuntimeSnapshot skip invalid instanceId: ${JSON.stringify(instance)}`, this)
         return
       }
-      activeIds.add(instanceId)
       if (!(instance.running as boolean)) {
         return
       }
+      activeIds.add(instanceId)
+      if (instance.configId && instance.configId.length > 0) {
+        activeIds.add(instance.configId)
+      }
+      if (instance.configId && instance.configId !== instanceId) {
+        this.removeRunningInstance(instance.configId)
+      }
+      this.optimisticRunningUntil.delete(instanceId)
+      this.optimisticRunningUntil.delete(instance.configId)
       this.runningNetworks.set(instanceId, instance)
       if (!this.instanceInfos.has(instanceId)) {
         this.instanceInfos.set(instanceId, new InstanceInfo())
@@ -129,13 +198,19 @@ export class EasyTierUtil {
     })
 
     for (const uuid of Array.from(this.runningNetworks.keys())) {
-      if (!activeIds.has(uuid)) {
+      const state = this.runningNetworks.get(uuid)
+      const configId = state?.configId
+      const isActive = activeIds.has(uuid) || (!!configId && activeIds.has(configId))
+      const keepOptimistic = this.isOptimisticRunningActive(uuid) || this.isOptimisticRunningActive(configId)
+      if (!isActive && !keepOptimistic) {
         this.runningNetworks.delete(uuid)
         this.instanceInfos.delete(uuid)
         this.needTUN.delete(uuid)
+        this.optimisticRunningUntil.delete(uuid)
       }
     }
 
+    this.notifyRemoteRuntimeChanged()
   }
 
   private markOptimisticRunning(config: ConfigJson, displayName: string): void {
@@ -162,10 +237,12 @@ export class EasyTierUtil {
       peers: []
     }
     this.runningNetworks.set(instanceId, state)
+    this.optimisticRunningUntil.set(instanceId, Date.now() + OPTIMISTIC_RUNTIME_GRACE_MS)
     if (!this.instanceInfos.has(instanceId)) {
       this.instanceInfos.set(instanceId, new InstanceInfo())
     }
     this.instanceInfos.get(instanceId)!.update(state)
+    this.notifyRemoteRuntimeChanged()
   }
 
   processLogs(logs: string[]) {
@@ -202,6 +279,24 @@ export class EasyTierUtil {
       this.runtimeSnapshotSubscriptionCount = Math.max(0, this.runtimeSnapshotSubscriptionCount - 1)
     }
     this.updateRuntimeSnapshotSubscription(enabled)
+  }
+
+  private resetRuntimeSnapshotSubscription(): void {
+    const wasSubscribed = this.runtimeSnapshotSubscribed
+    this.runtimeSnapshotSubscriptionCount = 0
+    this.runtimeSnapshotSubscribed = false
+    this.runtimeSnapshotForeground = true
+    if (!wasSubscribed) {
+      return
+    }
+    if (AppManager.uiState.ext_mode) {
+      this.sendRuntimeSnapshotSubscription()
+    } else {
+      try {
+        easytier.setKernelSnapshotEnabled(false)
+      } catch (_) {
+      }
+    }
   }
 
   public setRuntimeSnapshotForeground(active: boolean): void {
@@ -246,6 +341,18 @@ export class EasyTierUtil {
       })
     } catch (error) {
       Logger.error(`send snapshot subscription threw: ${JSON.stringify(error)}`, this)
+    }
+  }
+
+  public syncRuntimeSnapshotFromNative(): void {
+    if (AppManager.uiState.ext_mode) {
+      return
+    }
+    try {
+      const snapshot = easytier.getRuntimeSnapshot() as RuntimeAggregateState
+      this.processRuntimeSnapshot(snapshot, false)
+    } catch (error) {
+      Logger.error(`syncRuntimeSnapshotFromNative failed: ${JSON.stringify(error)}`, this)
     }
   }
 
@@ -296,7 +403,7 @@ export class EasyTierUtil {
         })
         if (started) {
           this.markOptimisticRunning(config, this.getConfigName(uuid) ?? uuid)
-          AppManager.runtimeStats.startLiveRefresh()
+          AppManager.runtimeStats.startLiveRefresh(true)
         }
         return started
       } else {
@@ -358,7 +465,7 @@ export class EasyTierUtil {
         this.temporaryConfigIds.delete(config.instance_id!)
       } else {
         this.markOptimisticRunning(config, name)
-        AppManager.runtimeStats.startLiveRefresh()
+        AppManager.runtimeStats.startLiveRefresh(true)
       }
       return started
     } else {
@@ -391,6 +498,9 @@ export class EasyTierUtil {
     // 显式清理 UI 状态
     this.runningNetworks.clear()
     this.instanceInfos.clear()
+    this.needTUN.clear()
+    this.optimisticRunningUntil.clear()
+    this.notifyRemoteRuntimeChanged()
 
     setTimeout(() => {
       updateFavorite()
@@ -405,11 +515,63 @@ export class EasyTierUtil {
     }
   }
 
-  public isRunning(uuid?: string): boolean {
-    if (uuid) {
-      return this.runningNetworks.has(uuid)
+  public stopConfig(uuid: string | undefined): boolean {
+    const running = this.getRunningInstance(uuid)
+    if (!uuid || !running) {
+      return false
     }
-    return false
+    if (AppManager.uiState.ext_mode) {
+      this.stop()
+      return true
+    }
+    const stopId = running.configId || running.instanceId || uuid
+    easytier.stopKernel(stopId)
+    this.removeRunningInstance(running.instanceId)
+    this.removeRunningInstance(running.configId)
+    this.removeRunningInstance(uuid)
+    if (this.temporaryConfigIds.has(uuid)) {
+      AppManager.data.delConfig(uuid)
+      this.temporaryConfigIds.delete(uuid)
+    }
+    if (this.runningNetworks.size === 0) {
+      AppManager.runtimeStats.stopLiveRefresh()
+      EventHelper.emitterPublish("stop_bg")
+    }
+    setTimeout(() => {
+      updateFavorite()
+    }, 100)
+    let stack = HMRouterMgr.getPathStack("MainNavigation")!.getAllPathName()
+    if (stack[stack.length-1] == "StatusPage") {
+      HMRouterMgr.pop()
+    }
+    this.notifyRemoteRuntimeChanged()
+    return true
+  }
+
+  public isRunning(uuid?: string): boolean {
+    return this.getRunningInstance(uuid) !== undefined
+  }
+
+  public getRunningInstance(uuid?: string): RuntimeInstanceState | undefined {
+    if (!uuid || uuid.length === 0) {
+      return undefined
+    }
+    const direct = this.runningNetworks.get(uuid)
+    if (direct) {
+      return direct
+    }
+    return Array.from(this.runningNetworks.values()).find((instance) => {
+      return instance.configId === uuid || instance.instanceId === uuid
+    })
+  }
+
+  public getRunningInstances(): RuntimeInstanceState[] {
+    const dedup = new Map<string, RuntimeInstanceState>()
+    Array.from(this.runningNetworks.values()).forEach((instance) => {
+      const key = instance.configId && instance.configId.length > 0 ? instance.configId : instance.instanceId
+      dedup.set(key, instance)
+    })
+    return Array.from(dedup.values())
   }
 
   public getConfig(uuid: string): ConfigJson | undefined {

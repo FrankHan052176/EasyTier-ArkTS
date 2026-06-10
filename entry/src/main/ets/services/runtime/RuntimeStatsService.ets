@@ -186,17 +186,24 @@ export function stopRuntimeStatsRecording(): void {
 export class RuntimeStatsService {
   @Trace runtimeDurationText: string = 'N/A'
   @Trace memoryUsageText: string = 'N/A'
+  @Trace refreshTick: number = 0
 
   private filePath: string = ''
   private refreshTimer: number | undefined = undefined
+  private ignoreSnapshotsBeforeMs: number = 0
 
   async init(context: common.UIAbilityContext): Promise<void> {
     this.filePath = runtimeStatsFilePath(context.filesDir)
     this.refreshFromDisk()
   }
 
-  startLiveRefresh(): void {
-    if (this.refreshTimer !== undefined) {
+  startLiveRefresh(resetForNewRun: boolean = false): void {
+    const alreadyRefreshing = this.refreshTimer !== undefined
+    if (resetForNewRun && !alreadyRefreshing) {
+      this.ignoreSnapshotsBeforeMs = Date.now()
+      this.clearDisplay()
+    }
+    if (alreadyRefreshing) {
       return
     }
     this.refreshTimer = setInterval(() => {
@@ -210,22 +217,35 @@ export class RuntimeStatsService {
       clearInterval(this.refreshTimer)
       this.refreshTimer = undefined
     }
+  }
+
+  private clearDisplay(): void {
     this.runtimeDurationText = 'N/A'
     this.memoryUsageText = 'N/A'
   }
 
+  private markRefreshed(): void {
+    this.refreshTick = (this.refreshTick + 1) % 1000000
+  }
+
   refreshFromDisk(): void {
     const snapshot = readRuntimeStatsSnapshot(this.filePath)
-    if (!snapshot) {
-      this.runtimeDurationText = 'N/A'
-      this.memoryUsageText = 'N/A'
+    if (!snapshot || snapshot.updatedAt < this.ignoreSnapshotsBeforeMs) {
+      if (this.ignoreSnapshotsBeforeMs > 0) {
+        this.clearDisplay()
+      } else if (!snapshot) {
+        this.clearDisplay()
+      }
+      this.markRefreshed()
       return
     }
+    this.ignoreSnapshotsBeforeMs = 0
     const now = Date.now()
     const liveRunningMs = now - snapshot.updatedAt <= MEMORY_SAMPLE_INTERVAL_MS * 2 ?
       Math.max(snapshot.runningMs, now - snapshot.startedAt) :
       snapshot.runningMs
     this.runtimeDurationText = formatDuration(liveRunningMs)
     this.memoryUsageText = formatMemory(snapshot.memoryPssKb)
+    this.markRefreshed()
   }
 }
