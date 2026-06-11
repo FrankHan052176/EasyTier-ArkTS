@@ -4,17 +4,15 @@ import easytier from 'easytier-ohrs';
 import { AppManager } from '../../../AppManager';
 import { Logger, LogLocate } from '../../../shared/logging/Logger';
 import { JSON, util } from '@kit.ArkTS';
-import { NetworkSegment } from '../../../models/network/NetworkSegment';
 import { AppInfo } from '../../../components/sheet/BlackList';
-import { deviceInfo } from '@kit.BasicServicesKit';
 import { connection } from '@kit.NetworkKit';
 import { syncWholeConfig } from '../../../ConfigSyncUtil';
 import { getDefaultConfig } from '../../../config/defaults/ConfigDefaults';
 import { ConfigFieldValue, ConfigJson } from '../../../config/schema/SchemaConfig';
-import { stringArr2RouteArr } from '../../../util/Conversion';
 import { release } from '../../../util/info/ArtifactsType';
 import { EventHelper } from '../../../util/EventHelper';
 import { FAVORITE_CARD_REFRESH_EVENT } from '../../form/FavoriteCardState';
+import { buildTunRoutes, shouldBuildPreferenceVpnRoutes } from '../../tun/TunConfigBuilder';
 
 const easytier_release = easytier
 
@@ -387,8 +385,12 @@ export class PreferenceUtil {
   }
 
   getVpnCfgRoutes(ip: string, magicDNS: boolean, needExitNode: boolean, customRoutes?: string[]): connection.RouteInfo[] | undefined {
-		const routes = customRoutes?.map((value) => new NetworkSegment(value))
-		return AppManager.uiState.vpn_routes || deviceInfo.sdkApiVersion >= 20 ? stringArr2RouteArr(ip, magicDNS, needExitNode,
-      routes) : undefined;
+    return buildTunRoutes({
+      ip,
+      magicDNS,
+      needExitNode,
+      routeStrings: customRoutes,
+      enabled: shouldBuildPreferenceVpnRoutes(AppManager.uiState.vpn_routes)
+    }).routes
 	}
 }

@@ -1,203 +1,83 @@
-import { AbilityConstant, Configuration, UIAbility, Want, WantAgent, wantAgent, wantConstant } from '@kit.AbilityKit';
-import { backgroundTaskManager } from '@kit.BackgroundTasksKit';
+import { AbilityConstant, Configuration, UIAbility, Want, wantConstant } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
 import { Logger, LogLocate } from '../shared/logging/Logger';
-import { BusinessError, deviceInfo, emitter } from '@kit.BasicServicesKit';
+import { deviceInfo, emitter } from '@kit.BasicServicesKit';
 import easytier from 'easytier-ohrs';
-import { vpnExtension, socket } from '@kit.NetworkKit';
-import { JSON, url, util } from '@kit.ArkTS';
-import { APP_VERSION, BUILD_TIME, CORE_VERSION } from '../util/info/BuildTime';
+import { JSON } from '@kit.ArkTS';
+import { BUILD_TIME } from '../util/info/BuildTime';
 import { WindowUtil } from '../WindowUtil';
 import { HMRouterMgr } from '@hadss/hmrouter';
 import { AppManager } from '../AppManager';
-import { sendToast } from '../ToastUtil';
-import { isIpAddr } from '../class/config/IP';
-import { BottomAnimator } from '../class/animator/BottomAnimator';
-import { fileUri, fileIo as fs } from '@kit.CoreFileKit';
-import { systemShare } from '@kit.ShareKit';
-import { rpc } from '@kit.IPCKit';
-import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../services/runtime/RuntimeStatsService';
-import { buildShareUrlSync, unwrapUrl } from '../util/ShareUtil';
-import { updateFavorite } from '../services/form/CommunicationUtil';
-import { publishTextNotification } from '../util/NoticeHelper';
+import { buildShareUrlSync } from '../util/ShareUtil';
+import { FavoriteCardActionService } from '../services/form/FavoriteCardActionService';
 import { ConfigFieldValue, ConfigJson } from '../config/schema/SchemaConfig';
-import { RuntimeAggregateState, RuntimeInstanceState } from '../types/runtime/RuntimeTypes';
-import { KERNEL_SOCKET_NAME, RuntimePeerEventPayload, TrafficStatsPayload, TunRequestPayload, VpnContinueStateData } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
-import { decodeSocketChunk, parseKernelSocketMessage, parseVpnBridgeMessage } from '../infrastructure/bridge/kernel/SocketCodec'
+import { RuntimeInstanceState } from '../types/runtime/RuntimeTypes';
+import {
+  KERNEL_SOCKET_NAME
+} from '../infrastructure/bridge/kernel/KernelBridgeTypes'
+import { ContinuationSocketClient } from '../infrastructure/bridge/kernel/ContinuationSocketClient'
 import { CrashLogService } from '../services/crash/CrashLogService'
 import { MemoryDiagnosticsService } from '../services/runtime/MemoryDiagnosticsService'
+import { EntryBackgroundTaskService } from '../services/runtime/EntryBackgroundTaskService'
+import { EntryAppBootstrapService } from '../services/runtime/EntryAppBootstrapService'
+import { EntryRuntimeEventService } from '../services/runtime/EntryRuntimeEventService'
+import { EntryKernelSocketService } from '../services/runtime/EntryKernelSocketService'
 import { RemoteManageService } from '../services/remote/RemoteManageService'
-import { FAVORITE_CARD_REFRESH_EVENT } from '../services/form/FavoriteCardState'
+import { EntryVpnConnectionService } from '../services/tun/EntryVpnConnectionService'
+import { EntryVpnSetupRequestBuilder } from '../services/tun/EntryVpnSetupRequestBuilder'
 import {
   RemoteConfigMeta,
   RemoteCreateDefaultConfigResult,
-  RemoteFieldValueResult,
   RemoteGetConfigResult,
   RemoteGetFieldsResult,
   RemoteHostHandler,
-  RemoteRuntimeInstanceLite,
-  RemoteRuntimeSummary,
   RemoteSettingsState,
   RemoteSummary
 } from '../services/remote/RemoteManageTypes'
-import { getDefaultConfig } from '../config/defaults/ConfigDefaults'
-import { getHostname } from '../util/Conversion'
-import { CLOUD_CONFIG_CHANGED_EVENT } from '../ConfigSyncUtil'
+import { EntryRemoteHostDelegate, EntryRemoteHostService } from '../services/remote/EntryRemoteHostService'
+import { EntryRemoteHostDomainService } from '../services/remote/EntryRemoteHostDomainService'
+import {
+  UPDATE_COLOR_MODE_EVENT
+} from '../types/events/RuntimeEventTypes'
+import { SharedIntentImportService } from '../services/share/SharedIntentImportService'
 
 const easytier_release = easytier
 
-class EntryRemoteHostHandler implements RemoteHostHandler {
-  private ability: EntryAbility
-
-  constructor(ability: EntryAbility) {
-    this.ability = ability
-  }
-
-  async waitReady(): Promise<void> {
-    await this.ability.remoteWaitReady()
-  }
-
-  onRemoteManageConnected(): void {
-    this.ability.remoteManageConnected()
-  }
-
-  onRemoteManageDisconnected(): void {
-    this.ability.remoteManageDisconnected()
-  }
-
-  summary(): RemoteSummary {
-    return this.ability.remoteSummary()
-  }
-
-  listConfigs(): RemoteConfigMeta[] {
-    return this.ability.remoteConfigList()
-  }
-
-  getConfig(configId: string): RemoteGetConfigResult | undefined {
-    return this.ability.remoteGetConfig(configId)
-  }
-
-  getRuntimeInstance(configId: string): RuntimeInstanceState | undefined {
-    return this.ability.remoteGetRuntimeInstance(configId)
-  }
-
-  getConfigFields(configId: string, fields: string[]): RemoteGetFieldsResult {
-    return this.ability.remoteGetConfigFields(configId, fields)
-  }
-
-  setConfigField(configId: string, field: string, value: ConfigFieldValue): boolean {
-    return this.ability.remoteSetConfigField(configId, field, value)
-  }
-
-  saveConfig(configId: string, displayName: string, config: ConfigJson): boolean {
-    return this.ability.remoteSaveConfig(configId, displayName, config)
-  }
-
-  createDefaultConfig(displayName: string): RemoteCreateDefaultConfigResult | undefined {
-    return this.ability.remoteCreateDefaultConfig(displayName)
-  }
-
-  importConfig(config: ConfigJson, displayName: string): RemoteCreateDefaultConfigResult | undefined {
-    return this.ability.remoteImportConfig(config, displayName)
-  }
-
-  deleteConfig(configId: string): boolean {
-    return this.ability.remoteDeleteConfig(configId)
-  }
-
-  renameConfig(configId: string, displayName: string): boolean {
-    return this.ability.remoteRenameConfig(configId, displayName)
-  }
-
-  startConfig(configId: string): boolean {
-    return AppManager.easytier.start(configId)
-  }
-
-  stopConfig(configId: string): boolean {
-    return AppManager.easytier.stopConfig(configId)
-  }
-
-  exportToml(configId: string): string | undefined {
-    return easytier.exportToml(configId) ?? undefined
-  }
-
-  getSettings(): RemoteSettingsState {
-    return this.ability.remoteSettings()
-  }
-
-  setSetting(key: string, value: boolean | string): RemoteSettingsState {
-    return this.ability.remoteSetSetting(key, value)
-  }
-
-  async requestPermission(kind: string): Promise<RemoteSettingsState> {
-    return this.ability.remoteRequestPermission(kind)
-  }
-}
-
 @LogLocate("EntryAbility")
-export default class EntryAbility extends UIAbility {
-  vpnConnection: vpnExtension.VpnConnection | undefined
-  kernelClient: socket.LocalSocket | undefined
-  kernelMessageBuffer: string = ''
-  kernelSocketConnected: boolean = false
-  continuationClient: socket.LocalSocket | undefined
-  continuationMessageBuffer: string = ''
-  continuationSocketConnected: boolean = false
-  private appReadyPromise: Promise<void> = Promise.resolve()
-  private entrySyncContinuationSocketCallback = () => {
-    this.syncContinuationSocket()
-  }
-  private favoriteCardRefreshCallback = () => {
-    updateFavorite()
-  }
-  private startBgCallback = (data: emitter.EventData) => {
-    let shouldProtect = false
-    const cfg = data.data?.cfg as string | undefined
-    try {
-      if (cfg) {
-        const config: ESObject = JSON.parse(cfg)
-        shouldProtect = this.shouldProtectProcessNet(config)
+export default class EntryAbility extends UIAbility implements EntryRemoteHostDelegate {
+  private entryVpnService: EntryVpnConnectionService | undefined = undefined
+  private entryKernelSocketService: EntryKernelSocketService | undefined = undefined
+  private entryBackgroundTaskService: EntryBackgroundTaskService | undefined = undefined
+  private entryAppBootstrapService: EntryAppBootstrapService | undefined = undefined
+  private entryRuntimeEventService: EntryRuntimeEventService | undefined = undefined
+  private continuationSocketClient: ContinuationSocketClient = new ContinuationSocketClient({
+    socketName: 'easytier_vpn_socket',
+    logTarget: 'EntryAbility',
+    isExtMode: () => AppManager.uiState.ext_mode,
+    getSocketPath: (name: string) => AppManager.uiState.getSocketPath(name),
+    onContinueState: (active: boolean) => {
+      if (active) {
+        this.activateMissionContinue()
+      } else {
+        this.deactivateMissionContinue()
       }
-    } catch (error) {
     }
-    this.prepare_vpn(shouldProtect, () => {
-      Logger.info("start_bg_task", this)
-      this.connectToKernelSocket(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
-      this.startContinuousTask(cfg ?? '', data.data?.uuid, data.data?.name);
-    })
-  }
-  private stopBgCallback = () => {
-    Logger.info("stop_bg_task", this)
-    this.stopContinuousTask()
-    this.kernelClient?.close()
-    this.kernelClient = undefined
-    this.kernelSocketConnected = false
-    this.kernelMessageBuffer = ''
-  }
-  private setupTunCallback = (data: emitter.EventData) => {
-    Logger.info("setup_tun", this)
-    let ip = data.data!.ip as string
-    let mask = data.data!.mask as number
-    let magicDNS = data.data!.magicDNS as boolean
-    let inst_id = data.data!.id as string
-    let needExitNode = data.data!.needExitNode as boolean
-    let routes = data.data!.routes as string[] | undefined
-    this.setup_tun(ip, mask, magicDNS, inst_id, needExitNode, routes)
-  }
-  private changeIpv4Callback = (data: emitter.EventData) => {
-    Logger.info("change_ipv4", this)
-    this.vpnConnection?.destroy().catch(() => {
-    }).then(() => {
-      let ip = data.data!.ip as string
-      let mask = data.data!.mask as number
-      let magicDNS = data.data!.magicDNS as boolean
-      let inst_id = data.data!.id as string
-      let needExitNode = data.data!.needExitNode as boolean
-      let routes = data.data!.routes as string[] | undefined
-      this.setup_tun(ip, mask, magicDNS, inst_id, needExitNode, routes)
-    })
-  }
+  })
+  private appReadyPromise: Promise<void> = Promise.resolve()
+  private remoteHostDomain: EntryRemoteHostDomainService = new EntryRemoteHostDomainService()
+  private favoriteCardActions: FavoriteCardActionService = new FavoriteCardActionService()
+  private vpnSetupRequestBuilder: EntryVpnSetupRequestBuilder = new EntryVpnSetupRequestBuilder({
+    getRuntimeSettings: () => {
+      return {
+        vpnRoutes: AppManager.uiState.vpn_routes,
+        whiteList: AppManager.uiState.white_list,
+        blackList: AppManager.preference.getBlackList(),
+        dev: AppManager.uiState.dev,
+        dns: AppManager.uiState.dns
+      }
+    }
+  })
 
   private shouldProtectProcessNet(config?: ConfigJson): boolean {
     return deviceInfo.sdkApiVersion >= 22 && AppManager.uiState.force_global && (config?.exit_nodes?.length ?? 0) > 0
@@ -212,191 +92,129 @@ export default class EntryAbility extends UIAbility {
   }
 
   private syncContinuationSocket(): void {
-    if (!AppManager.uiState.ext_mode) {
-      this.continuationClient?.close()
-      this.continuationClient = undefined
-      this.continuationMessageBuffer = ''
-      this.continuationSocketConnected = false
-      return
-    }
-    if (this.continuationSocketConnected) {
-      return
-    }
-    const socketPath = AppManager.uiState.getSocketPath('easytier_vpn_socket')
-    this.continuationClient?.close()
-    const client = socket.constructLocalSocketInstance()
-    this.continuationClient = client
-    this.continuationMessageBuffer = ''
-    const address: socket.LocalConnectOptions = {
-      address: {
-        address: socketPath
-      }
-    }
-
-    const reconnect = () => {
-      if (!AppManager.uiState.ext_mode || this.continuationSocketConnected) {
-        return
-      }
-      setTimeout(() => {
-        this.syncContinuationSocket()
-      }, 500)
-    }
-
-    client.connect(address).then(() => {
-      this.continuationSocketConnected = true
-      Logger.info('Connected to continuation socket', this)
-    }).catch((error: BusinessError) => {
-      Logger.debug(`continuation socket retry code=${error.code} message=${error.message}`, this)
-      reconnect()
-    })
-
-    client.on('message', (value: socket.LocalSocketMessageInfo) => {
-      try {
-        const decoded = decodeSocketChunk(this.continuationMessageBuffer, value.message)
-        this.continuationMessageBuffer = decoded.rest
-        for (const rawMessage of decoded.messages) {
-          const msg = parseVpnBridgeMessage(rawMessage)
-          if (msg.type === 'continue_state') {
-            const state = msg.data as VpnContinueStateData
-            if (state.active) {
-              this.activateMissionContinue()
-            } else {
-              this.deactivateMissionContinue()
-            }
-          }
-        }
-      } catch (error) {
-        Logger.error(`continuation socket message error: ${JSON.stringify(error)}`, this)
-      }
-    })
-
-    client.on('close', () => {
-      this.continuationSocketConnected = false
-      this.continuationClient = undefined
-      this.continuationMessageBuffer = ''
-      this.deactivateMissionContinue()
-      reconnect()
-    })
+    this.continuationSocketClient.sync()
   }
 
   startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined) {
-    if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
-      if (!easytier.runNetworkInstance(cfg)) {
-        sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
-        Logger.error("启动失败", this)
-      } else {
-        startRuntimeStatsRecording(this.context.filesDir)
-        try {
-          const config: ConfigJson = JSON.parse(cfg)
-          if (config.no_tun) {
-            this.activateMissionContinue()
-          }
-        } catch (_) {
-        }
-      }
-      return
-    }
-    Logger.info("start background alive", this)
-    let wantAgentInfo: wantAgent.WantAgentInfo = {
-      wants: [
-        {
-          bundleName: "top.frankhan.easytier",
-          abilityName: "EntryAbility"
-        }
-      ],
-      actionType: wantAgent.OperationType.START_ABILITY,
-      requestCode: 0,
-      actionFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
-    };
-    try {
-      wantAgent.getWantAgent(wantAgentInfo).then((wantAgentObj: WantAgent) => {
-        try {
-          backgroundTaskManager.startBackgroundRunning(this.context, ["dataTransfer"], wantAgentObj).then((res: backgroundTaskManager.ContinuousTaskNotification) => {
-            if (AppManager.uiState.inittedGitCore?easytier.runNetworkInstance(cfg):easytier_release.runNetworkInstance(cfg)) {
-              startRuntimeStatsRecording(this.context.filesDir)
-              try {
-                const config: ConfigJson = JSON.parse(cfg)
-                if (config.no_tun) {
-                  this.activateMissionContinue()
-                }
-              } catch (_) {
-              }
-              setTimeout(() => {
-                updateFavorite()
-                AppManager.uiState.notificationId = res.notificationId
-                publishTextNotification(name ?? "N/A")
-              }, 300)
-              if (uuid) {
-                HMRouterMgr.to('StatusPage')
-                  .withParam(uuid)
-                  .withAnimator(new BottomAnimator())
-                  .pushAsync()
-              }
-            } else {
-              sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
-              Logger.error("启动失败", this)
-              this.stopContinuousTask()
-            }
-          }).catch((err: BusinessError) => {
-            Logger.error(`startBackgroundRunning failed: ${err.code}, ${err.message}`, this)
-          });
-        } catch (error) {
-          Logger.error(`startBackgroundRunning error: ${JSON.stringify(error)}`, this)
-        }
-      }).catch((err: BusinessError) => {
-        Logger.error(`getWantAgent failed: ${err.code}, ${err.message}`, this)
-      });
-    } catch (error) {
-      Logger.error(`getWantAgent error: ${JSON.stringify(error)}`, this)
-    }
+    this.entryBackgroundTaskService?.startContinuousTask(cfg, uuid, name)
   }
 
   stopContinuousTask() {
-    this.deactivateMissionContinue();
-    stopRuntimeStatsRecording()
-    if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
-      return;
-    }
-    Logger.info("stop background alive", this)
-    const destroyVpn = () => {
-      if (this.vpnConnection) {
-        this.vpnConnection.destroy().then(() => {
-          Logger.info("vpnConnection destroyed", this)
-          this.vpnConnection = undefined
-        }).catch((err: BusinessError) => {
-          Logger.error(`vpnConnection destroy failed: ${err.code}, ${err.message}`, this)
-        })
-      }
-    }
-    backgroundTaskManager.stopBackgroundRunning(this.context).catch((err: BusinessError) => {
-      Logger.error(`stopBackgroundRunning failed: ${err.code}, ${err.message}`, this)
-    }).finally(() => {
-      destroyVpn()
-    });
+    void this.entryBackgroundTaskService?.stopContinuousTask()
   }
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     this.deactivateMissionContinue();
+    this.entryVpnService = new EntryVpnConnectionService({
+      context: this.context,
+      logTarget: this,
+      requestVpnPerm: (callback: () => void) => {
+        AppManager.permission.requestVpnPerm(callback)
+      },
+      activateMissionContinue: () => {
+        this.activateMissionContinue()
+      },
+      setTunFd: (instanceId: string, fd: number) => {
+        if (AppManager.uiState.inittedGitCore) {
+          easytier.setTunFd(instanceId, fd)
+          Logger.info(`setTunFd sent to git_core instance=${instanceId}`, this)
+        } else {
+          easytier_release.setTunFd(instanceId, fd)
+          Logger.info(`setTunFd sent to release instance=${instanceId}`, this)
+        }
+      }
+    })
+    this.entryKernelSocketService = new EntryKernelSocketService({
+      logTarget: this,
+      shouldConnect: () => !AppManager.uiState.ext_mode,
+      buildTunSetupRequest: (payload) => {
+        return this.vpnSetupRequestBuilder.buildFromKernelPayload(payload)
+      },
+      setupTun: (request) => {
+        void this.entryVpnService?.setupTun(request)
+      }
+    })
+    this.entryBackgroundTaskService = new EntryBackgroundTaskService({
+      context: this.context,
+      logTarget: this,
+      runNetworkInstance: (cfg: string) => {
+        return AppManager.uiState.inittedGitCore ? easytier.runNetworkInstance(cfg) : easytier_release.runNetworkInstance(cfg)
+      },
+      activateMissionContinue: () => {
+        this.activateMissionContinue()
+      },
+      deactivateMissionContinue: () => {
+        this.deactivateMissionContinue()
+      },
+      refreshFavoriteCard: () => {
+        this.favoriteCardActions.refresh()
+      },
+      setNotificationId: (notificationId: number) => {
+        AppManager.uiState.notificationId = notificationId
+      },
+      destroyVpnConnection: () => {
+        if (this.entryVpnService) {
+          return this.entryVpnService.destroyVpnConnection()
+        }
+        return Promise.resolve()
+      }
+    })
+    this.entryAppBootstrapService = new EntryAppBootstrapService({
+      context: this.context,
+      logTarget: this,
+      syncContinuationSocket: () => {
+        this.syncContinuationSocket()
+      }
+    })
+    this.entryRuntimeEventService = new EntryRuntimeEventService({
+      logTarget: this,
+      syncContinuationSocket: () => {
+        this.syncContinuationSocket()
+      },
+      prepareVpn: (shouldProtect: boolean, callback: () => void) => {
+        this.entryVpnService?.prepareVpn(shouldProtect, callback)
+      },
+      shouldProtectProcessNet: (config?: ConfigJson) => {
+        return this.shouldProtectProcessNet(config)
+      },
+      getKernelSocketPath: () => {
+        return AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME)
+      },
+      connectToKernelSocket: (socketPath: string) => {
+        this.entryKernelSocketService?.connect(socketPath)
+      },
+      startContinuousTask: (cfg: string, uuid: string | undefined, name: string | undefined) => {
+        this.startContinuousTask(cfg, uuid, name)
+      },
+      stopContinuousTask: () => {
+        this.stopContinuousTask()
+      },
+      closeKernelSocket: () => {
+        this.entryKernelSocketService?.close()
+      },
+      buildTunSetupRequest: (data: emitter.EventData) => {
+        return this.vpnSetupRequestBuilder.buildFromEventData(data)
+      },
+      setupTun: (request) => {
+        void this.entryVpnService?.setupTun(request)
+      }
+    })
     RemoteManageService.setHostHandlerProvider(() => this.createRemoteHostHandler())
-    this.listenCardCall()
+    this.favoriteCardActions.start(this.callee)
     CrashLogService.init(this.context.filesDir)
     easytier.initLogManager(this.context.filesDir, 'ui')
     easytier.configureLogManager(false, false)
-    EventHelper.emitterListener("entry_sync_continuation_socket", this.entrySyncContinuationSocketCallback)
-    EventHelper.emitterListener(FAVORITE_CARD_REFRESH_EVENT, this.favoriteCardRefreshCallback)
+    this.entryRuntimeEventService.start()
     HMRouterMgr.openLog("INFO")
     HMRouterMgr.init({
       context: this.context
     })
     Logger.info("BuildTime:" + BUILD_TIME, this)
-    this.start_bg_Listener()
-    this.stop_bg_Listener()
-    this.setup_tun_Listener()
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
     this.appReadyPromise = this.initApp()
     this.appReadyPromise.then(() => {
       this.readSharedData(want)
-      updateFavorite()
+      this.favoriteCardActions.refresh()
       if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
         if (want.parameters !== undefined) {
           let url = want.parameters.data as string
@@ -418,7 +236,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   private createRemoteHostHandler(): RemoteHostHandler {
-    return new EntryRemoteHostHandler(this)
+    return EntryRemoteHostService.createHandler(this)
   }
 
   remoteWaitReady(): Promise<void> {
@@ -431,293 +249,70 @@ export default class EntryAbility extends UIAbility {
   remoteManageDisconnected(): void {
   }
 
-  private remoteSafeUUID(): string {
-    let uuid = util.generateRandomUUID()
-    while (easytier.getConfig(uuid)) {
-      uuid = util.generateRandomUUID()
-    }
-    return uuid
-  }
-
-  private remotePublishConfigChanged(): void {
-    AppManager.data.refreshConfigIds()
-    EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
-    updateFavorite()
-    RemoteManageService.notifyHostSummaryDirty()
-  }
-
   remoteConfigList(): RemoteConfigMeta[] {
-    try {
-      const entries = JSON.parse(easytier.listConfigs()) as RemoteConfigMeta[]
-      return (entries ?? []).map((entry) => {
-        const configId = entry.configId
-        const displayName = entry.displayName ?? configId
-        return {
-          configId,
-          displayName,
-          favorite: entry.favorite,
-          running: AppManager.easytier.isRunning(configId)
-        } as RemoteConfigMeta
-      }).filter((entry) => entry.configId.length > 0)
-    } catch (_) {
-      return []
-    }
-  }
-
-  private runtimeDisplayName(instance: RuntimeInstanceState): string {
-    const configId = instance.configId
-    const instanceId = instance.instanceId
-    if (instance.displayName && instance.displayName.length > 0 &&
-      instance.displayName !== configId && instance.displayName !== instanceId) {
-      return instance.displayName
-    }
-    return AppManager.easytier.getConfigName(configId) ?? AppManager.easytier.getConfigName(instanceId) ?? '未命名实例'
-  }
-
-  private runtimeLite(instance: RuntimeInstanceState): RemoteRuntimeInstanceLite {
-    return {
-      configId: instance.configId,
-      instanceId: instance.instanceId,
-      displayName: this.runtimeDisplayName(instance),
-      running: instance.running,
-      myNodeInfo: instance.myNodeInfo,
-      peerCount: instance.peers?.length ?? 0,
-      routeCount: instance.routes?.length ?? 0
-    }
-  }
-
-  remoteRuntimeSummary(): RemoteRuntimeSummary {
-    const configs = this.remoteConfigList()
-    const runningConfigs = AppManager.easytier.getRunningInstances()
-    return {
-      configCount: configs.length,
-      runningCount: runningConfigs.length,
-      runningConfigs: runningConfigs.map((instance) => this.runtimeLite(instance)),
-      runtimeDurationText: AppManager.runtimeStats.runtimeDurationText,
-      memoryUsageText: AppManager.runtimeStats.memoryUsageText
-    }
+    return this.remoteHostDomain.remoteConfigList()
   }
 
   remoteSettings(): RemoteSettingsState {
-    return {
-      ext_mode: AppManager.uiState.ext_mode,
-      dev: AppManager.uiState.dev,
-      vpn_routes: AppManager.uiState.vpn_routes,
-      force_global: AppManager.uiState.force_global,
-      dns: AppManager.uiState.dns,
-      core_log: AppManager.uiState.core_log,
-      debug_log: AppManager.uiState.debug_log,
-      distributePerm: AppManager.permission.isGetDistributePerm()
-    }
+    return this.remoteHostDomain.remoteSettings()
   }
 
   remoteSummary(): RemoteSummary {
-    return {
-	      appVersion: APP_VERSION,
-	      coreVersion: CORE_VERSION,
-	      deviceName: deviceInfo.productModel,
-	      sdkApiVersion: deviceInfo.sdkApiVersion,
-	      configs: this.remoteConfigList(),
-	      runtime: this.remoteRuntimeSummary(),
-	      settings: this.remoteSettings()
-    }
+    return this.remoteHostDomain.remoteSummary()
   }
 
   remoteGetConfig(configId: string): RemoteGetConfigResult | undefined {
-    if (!configId) {
-      return undefined
-    }
-    const raw = easytier.getConfig(configId)
-    if (!raw) {
-      return undefined
-    }
-    try {
-      const rawText: string = raw as string
-      const config: ConfigJson = JSON.parse(rawText) as ConfigJson
-      return {
-        configId,
-        displayName: easytier.getConfigDisplayNameById(configId) ?? configId,
-        config
-      }
-    } catch (_) {
-      return undefined
-    }
+    return this.remoteHostDomain.remoteGetConfig(configId)
   }
 
   remoteGetRuntimeInstance(configId: string): RuntimeInstanceState | undefined {
-    if (!configId) {
-      return undefined
-    }
-    const instance = AppManager.easytier.getRunningInstance(configId)
-    if (!instance) {
-      return undefined
-    }
-    return {
-      configId: instance.configId,
-      instanceId: instance.instanceId,
-      displayName: this.runtimeDisplayName(instance),
-      running: instance.running,
-      tunRequired: instance.tunRequired,
-      tunAttached: instance.tunAttached,
-      magicDnsEnabled: instance.magicDnsEnabled,
-      needExitNode: instance.needExitNode,
-      myNodeInfo: instance.myNodeInfo,
-      routes: instance.routes ?? [],
-      peers: instance.peers ?? []
-    }
+    return this.remoteHostDomain.remoteGetRuntimeInstance(configId)
   }
 
   remoteGetConfigFields(configId: string, fields: string[]): RemoteGetFieldsResult {
-    return {
-      values: fields.map((field) => {
-        const rawValue = easytier.getConfigField(configId, field)
-        const result: RemoteFieldValueResult = {
-          field,
-          rawValue: rawValue ?? undefined,
-          found: rawValue !== null && rawValue !== undefined
-        }
-        return result
-      })
-    }
+    return this.remoteHostDomain.remoteGetConfigFields(configId, fields)
   }
 
   remoteSetConfigField(configId: string, field: string, value: ConfigFieldValue): boolean {
-    if (!configId || !field) {
-      return false
-    }
-    const ok = easytier.setConfigField(configId, field, JSON.stringify(value ?? null))
-    if (ok) {
-      this.remotePublishConfigChanged()
-    }
-    return ok
+    return this.remoteHostDomain.remoteSetConfigField(configId, field, value)
   }
 
   remoteSaveConfig(configId: string, displayName: string, config: ConfigJson): boolean {
-    if (!configId || !config) {
-      return false
-    }
-    const ok = easytier.saveConfig(configId, displayName || configId, JSON.stringify(config))
-    if (ok) {
-      this.remotePublishConfigChanged()
-    }
-    return ok
+    return this.remoteHostDomain.remoteSaveConfig(configId, displayName, config)
   }
 
   remoteCreateDefaultConfig(displayName: string): RemoteCreateDefaultConfigResult | undefined {
-    const config: ConfigJson = getDefaultConfig(getHostname())
-    const configId = this.remoteSafeUUID()
-    config.instance_id = configId
-    const name = displayName && displayName.length > 0 ? displayName : 'EasyTier'
-    if (!this.remoteSaveConfig(configId, name, config)) {
-      return undefined
-    }
-    return { configId, displayName: name, config }
+    return this.remoteHostDomain.remoteCreateDefaultConfig(displayName)
   }
 
   remoteImportConfig(config: ConfigJson, displayName: string): RemoteCreateDefaultConfigResult | undefined {
-    try {
-      const configText: string = JSON.stringify(config)
-      const imported: ConfigJson = JSON.parse(configText) as ConfigJson
-      const configId = this.remoteSafeUUID()
-      imported.instance_id = configId
-      const name = displayName && displayName.length > 0 ? displayName : configId
-      if (!this.remoteSaveConfig(configId, name, imported)) {
-        return undefined
-      }
-      return { configId, displayName: name, config: imported }
-    } catch (_) {
-      return undefined
-    }
+    return this.remoteHostDomain.remoteImportConfig(config, displayName)
   }
 
   remoteDeleteConfig(configId: string): boolean {
-    const ok = AppManager.data.delConfig(configId)
-    if (ok) {
-      this.remotePublishConfigChanged()
-    }
-    return ok
+    return this.remoteHostDomain.remoteDeleteConfig(configId)
   }
 
   remoteRenameConfig(configId: string, displayName: string): boolean {
-    if (!configId || !displayName) {
-      return false
-    }
-    const ok = easytier.renameStoredConfig(configId, displayName)
-    if (ok) {
-      this.remotePublishConfigChanged()
-    }
-    return ok
+    return this.remoteHostDomain.remoteRenameConfig(configId, displayName)
   }
 
   remoteSetSetting(key: string, value: boolean | string): RemoteSettingsState {
-    switch (key) {
-      case 'ext_mode':
-        if (AppManager.easytier.runningNetworks.size === 0) {
-          AppManager.uiState.ext_mode = Boolean(value)
-        }
-        break
-      case 'dev':
-        AppManager.uiState.dev = Boolean(value)
-        break
-      case 'vpn_routes':
-        AppManager.uiState.vpn_routes = Boolean(value)
-        break
-      case 'force_global':
-        AppManager.uiState.force_global = Boolean(value)
-        break
-      case 'core_log':
-        AppManager.uiState.core_log = Boolean(value)
-        break
-      case 'debug_log':
-        AppManager.uiState.debug_log = Boolean(value)
-        break
-      case 'dns':
-        if (typeof value === 'string') {
-          AppManager.uiState.dns = value
-        }
-        break
-    }
-    return this.remoteSettings()
+    return this.remoteHostDomain.remoteSetSetting(key, value)
   }
 
   async remoteRequestPermission(kind: string): Promise<RemoteSettingsState> {
-    if (kind === 'distributed') {
-      await AppManager.permission.requestDistributePerm()
-    }
-    await AppManager.permission.updatePermStatus()
-    return this.remoteSettings()
+    return this.remoteHostDomain.remoteRequestPermission(kind)
   }
 
   async initApp() {
-    AppManager.uiState.init()
-    AppManager.uiState.setSocketFilesDir(this.context.filesDir)
-    try {
-      await AppManager.preference.init(this.context)
-    } catch (error) {
-      Logger.error(`PreferenceUtil failed to init.\n${error}`, AppManager)
-      return
-    }
-    if (AppManager.uiState.debug_log) {
-      MemoryDiagnosticsService.enableSystemLeakWatcher(true)
-      MemoryDiagnosticsService.markDelayed('EntryAbility.preference.init')
-    }
-    await AppManager.data.init()
-    if (AppManager.uiState.debug_log) {
-      MemoryDiagnosticsService.markDelayed('EntryAbility.data.init')
-    }
-    if (deviceInfo.productModel !== "emulator") {
-      AppManager.easytier.init()
-    }
-    if (AppManager.uiState.debug_log) {
-      MemoryDiagnosticsService.markDelayed('EntryAbility.easytier.init')
-    }
-    this.syncContinuationSocket()
+    await this.entryAppBootstrapService?.initialize()
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam) {
     Logger.debug("onNetWant", this)
     this.readSharedData(want)
-    updateFavorite()
+    this.favoriteCardActions.refresh()
     if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
       if (want.parameters !== undefined) {
         let url = want.parameters.data as string
@@ -726,107 +321,24 @@ export default class EntryAbility extends UIAbility {
     }
   }
 
-  listenCardCall() {
-    this.callee.on("send_card_id", (indata: rpc.MessageSequence) => {
-      try {
-        const obj = JSON.parse(indata.readString()) as object
-        const formId = obj['formId'] as string
-        AppManager.preference.addCardId(formId)
-        updateFavorite([formId])
-      } catch (error) {
-        Logger.error(`send_card_id parse error: ${JSON.stringify(error)}`, this)
-      }
-      return null
-    })
-    this.callee.on("start_favorite", () => {
-      if (AppManager.uiState.favorite) {
-        if (AppManager.easytier.isFavoritesRunning()) {
-          AppManager.easytier.stop()
-        } else {
-          if (AppManager.easytier.runningNetworks.size > 0) {
-            AppManager.easytier.stop()
-          }
-          AppManager.easytier.start(AppManager.uiState.favorite, true)
-        }
-      }
-      updateFavorite()
-      return null
-    })
-  }
-
   readUri(uri: string | undefined) {
-    Logger.info("get uri:" + uri, this)
-    try {
-      let urlObject = url.URL.parseURL(uri);
-      unwrapUrl(urlObject)
-    } catch (err) {
-      let error = err as BusinessError;
-      Logger.error(`readUri error, code: ${error.code}, mesage: ${error.message}`, this);
-    }
+    SharedIntentImportService.readUri(uri)
   }
 
   async readSharedData(want: Want) {
-    let uri = want.uri;
-    if (uri && uri.length > 0) {
-      this.readUri(uri)
-    } else {
-      systemShare.getSharedData(want)
-        .then((data: systemShare.SharedData) => {
-          data?.getRecords()?.forEach(async (record: systemShare.SharedRecord) => {
-            if (record.uri && record.uri.length > 0) {
-              Logger.debug("read shared file: " + JSON.stringify(record), this)
-              try {
-                let cfg = ""
-                try {
-                  cfg = fs.readTextSync(new fileUri.FileUri(record.uri).path)
-                } catch (e) {
-                   Logger.error("fs read error: " + JSON.stringify(e), this)
-                }
-                if (cfg) {
-                  AppManager.data.importToml(cfg)
-                }
-              } catch (error) {
-                Logger.debug("read file error: " + JSON.stringify(error), this)
-              }
-            } else if (record.content && record.content.length > 0) {
-              let urlObject = url.URL.parseURL(record.content);
-              let hostname = urlObject.hostname
-              switch (hostname) {
-                case "appgallery.huawei.com": {
-                  let app = urlObject.params.get("id")
-                  Logger.debug("get AppId: " + app, this)
-                  AppManager.web.getAppInfo(app!, (name, icon) => {
-                    AppManager.preference.setAppInfo(app!, name, icon)
-                  })
-                  break;
-                }
-                case "easytier.cn": {
-                  unwrapUrl(urlObject)
-                  break;
-                }
-              }
-            }
-          })
-        })
-    }
+    await SharedIntentImportService.readSharedData(want)
   }
 
   onDestroy() {
 	    Logger.debug("onDestroy", this)
 	    MemoryDiagnosticsService.enableSystemLeakWatcher(false)
 	    RemoteManageService.destroyHostSessions()
-	    AppManager.easytier.destroy()
+    AppManager.easytier.destroy()
+    this.entryRuntimeEventService?.stop()
     this.stopContinuousTask()
-    this.kernelClient?.close()
-    this.continuationClient?.close()
-    EventHelper.emitterOff("entry_sync_continuation_socket", this.entrySyncContinuationSocketCallback)
-    EventHelper.emitterOff(FAVORITE_CARD_REFRESH_EVENT, this.favoriteCardRefreshCallback)
-    EventHelper.emitterOff("start_bg", this.startBgCallback)
-    EventHelper.emitterOff("stop_bg", this.stopBgCallback)
-    EventHelper.emitterOff("setup_tun", this.setupTunCallback)
-    EventHelper.emitterOff("change_ipv4", this.changeIpv4Callback)
-    this.callee.off("send_card_id")
-    this.callee.off("start_favorite")
+    this.entryKernelSocketService?.close()
+    this.continuationSocketClient.close()
+    this.favoriteCardActions.stop()
   }
 
   async onContinue(wantParam: Record<string, Object>): Promise<AbilityConstant.OnContinueResult> {
@@ -845,104 +357,6 @@ export default class EntryAbility extends UIAbility {
     }else {
       return AbilityConstant.OnContinueResult.MISMATCH;
     }
-  }
-
-  start_bg_Listener() {
-    Logger.debug("start_bg_Listener", this)
-    EventHelper.emitterListener("start_bg", this.startBgCallback)
-  }
-
-  stop_bg_Listener() {
-    Logger.debug("stop_bg_Listener", this)
-    EventHelper.emitterListener("stop_bg", this.stopBgCallback)
-  }
-
-  setup_tun_Listener() {
-    Logger.debug("setup_tun_Listener", this)
-    EventHelper.emitterListener("setup_tun", this.setupTunCallback)
-    EventHelper.emitterListener("change_ipv4", this.changeIpv4Callback)
-  }
-
-  safeDns(): string {
-    if (isIpAddr(AppManager.uiState.dns)) {
-      return AppManager.uiState.dns
-    } else {
-      return "223.5.5.5"
-    }
-  }
-
-  async setup_tun(ip: string, mask: number, magicDNS: boolean, inst_id: string, needExitNode: boolean, routes?: string[]) {
-    Logger.info(`setup_tun start instance=${inst_id} ip=${ip}/${mask} magicDNS=${magicDNS} needExitNode=${needExitNode}`, this)
-    Logger.debug("当前IP:" + ip, this)
-    Logger.info(`setup_tun routes kernel=${JSON.stringify(routes ?? [])}`, this)
-    let appList = [
-      deviceInfo.sdkApiVersion >= 22? "":"top.frankhan.easytier",
-      ...AppManager.preference.getBlackList()
-    ]
-    let vpnConfig: vpnExtension.VpnConfig = {
-      addresses: [
-        {
-          address: {
-            address: ip,
-            family: 1,
-          },
-          prefixLength: mask
-        }
-      ],
-      blockedApplications: AppManager.uiState.white_list?[]:appList,
-      trustedApplications: AppManager.uiState.white_list?appList:[],
-      dnsAddresses: magicDNS ? ["100.100.100.101"] : (AppManager.uiState.dev ? [this.safeDns()] : ["223.5.5.5"]),
-      mtu: 1380,
-      routes: AppManager.preference.getVpnCfgRoutes(ip, magicDNS, needExitNode, routes)
-    }
-    Logger.info(`setup_tun finalVpnRoutes=${JSON.stringify(vpnConfig.routes ?? [])}`, this)
-    if (this.vpnConnection === undefined) {
-      Logger.error("vpnConnection not found", this)
-      return
-    }
-    await this.vpnConnection.destroy()
-    Logger.debug("VPN配置:" + JSON.stringify(vpnConfig), this)
-    this.vpnConnection.create(vpnConfig).then((fd) => {
-      Logger.info(`vpnConnection.create success instance=${inst_id} fd=${fd}`, this)
-      this.activateMissionContinue()
-      if (AppManager.uiState.inittedGitCore) {
-        easytier.setTunFd(inst_id, fd)
-        Logger.info(`setTunFd sent to git_core instance=${inst_id}`, this)
-      }else {
-        easytier_release.setTunFd(inst_id, fd)
-        Logger.info(`setTunFd sent to release instance=${inst_id}`, this)
-      }
-    }).catch((error: BusinessError) => {
-      Logger.error(`vpnConnection create failed: ${error.code}, ${error.message}`, this)
-    })
-  }
-
-  prepare_vpn(shouldProtect: boolean = false, callback: () => void = () => {}) {
-    if (this.vpnConnection !== undefined) {
-      Logger.info("prepare_vpn reuse existing vpnConnection", this)
-      if (shouldProtect) {
-        this.vpnConnection.protectProcessNet().then(() => {
-          Logger.info("protectProcessNet completed before kernel start", this)
-          callback()
-        }).catch((error: BusinessError) => {
-          Logger.error(`protectProcessNet failed: ${error.code}, ${error.message}`, this)
-          callback()
-        })
-        return
-      }
-      callback()
-      return;
-    }
-    Logger.info("prepare vpn", this)
-    AppManager.permission.requestVpnPerm(async () => {
-      this.vpnConnection = vpnExtension.createVpnConnection(getContext(this) as vpnExtension.VpnExtensionContext)
-      Logger.info("vpnConnection created in prepare_vpn", this)
-      if (shouldProtect) {
-        await this.vpnConnection.protectProcessNet()
-        Logger.info("protectProcessNet completed before kernel start", this)
-      }
-      callback()
-    })
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
@@ -982,87 +396,7 @@ export default class EntryAbility extends UIAbility {
 
   onConfigurationUpdate(newConfig: Configuration): void {
     WindowUtil.colorMode = newConfig.colorMode ?? -1
-    EventHelper.emitterPublish("update_color_mode")
+    EventHelper.emitterPublish(UPDATE_COLOR_MODE_EVENT)
   }
 
-  private connectToKernelSocket(socketPath: string) {
-    if (this.kernelSocketConnected) {
-      return
-    }
-    this.kernelClient?.close()
-    this.kernelClient = socket.constructLocalSocketInstance()
-    this.kernelMessageBuffer = ''
-    const address: socket.LocalConnectOptions = {
-      address: {
-        address: socketPath
-      }
-    }
-
-    let retryCount = 0
-    const connect = () => {
-      if (AppManager.uiState.ext_mode) {
-        return
-      }
-      this.kernelClient?.connect(address).then(() => {
-        this.kernelSocketConnected = true
-        Logger.info("Connected to kernel socket", this)
-      }).catch((error: BusinessError) => {
-        if (error.code === 2301106) {
-          this.kernelSocketConnected = true
-          return
-        }
-        Logger.info(`kernel socket connect retry=${retryCount} code=${error.code} message=${error.message}`, this)
-        if (retryCount < 20 && !AppManager.uiState.ext_mode) {
-          retryCount++
-          setTimeout(connect, 500)
-        }
-      })
-    }
-    setTimeout(connect, 200)
-
-    this.kernelClient.on('message', (value: socket.LocalSocketMessageInfo) => {
-      try {
-        const decoded = decodeSocketChunk(this.kernelMessageBuffer, value.message)
-        this.kernelMessageBuffer = decoded.rest
-        for (const rawMessage of decoded.messages) {
-          const msg = parseKernelSocketMessage(rawMessage)
-          if (msg.messageType === 'runtime_topology') {
-            const snapshot = typeof msg.payloadJson === 'string' ? JSON.parse(msg.payloadJson) as RuntimeAggregateState : msg.payloadJson as RuntimeAggregateState
-            EventHelper.emitterPublish("kernel_runtime_topology", {
-              data: {
-                snapshot
-              }
-            })
-          } else if (msg.messageType === 'runtime_peer_event') {
-            const peerEvent = typeof msg.payloadJson === 'string' ? JSON.parse(msg.payloadJson) as RuntimePeerEventPayload : msg.payloadJson as RuntimePeerEventPayload
-            EventHelper.emitterPublish("kernel_runtime_peer_event", {
-              data: {
-                peerEvent
-              }
-            })
-          } else if (msg.messageType === 'traffic_stats') {
-            const stats = typeof msg.payloadJson === 'string' ? JSON.parse(msg.payloadJson) as TrafficStatsPayload : msg.payloadJson as TrafficStatsPayload
-            EventHelper.emitterPublish("kernel_traffic_stats", {
-              data: {
-                stats
-              }
-            })
-          } else if (msg.messageType === 'tun_request') {
-            const payload = typeof msg.payloadJson === 'string' ? JSON.parse(msg.payloadJson) as TunRequestPayload : msg.payloadJson as TunRequestPayload
-            const cidr = payload.virtualIpv4Cidr ?? ''
-            const ip = payload.virtualIpv4 ?? cidr.split('/')[0]
-            const mask = Number(cidr.split('/')[1] ?? '24')
-            const routes = payload.aggregatedRoutes ?? []
-            this.setup_tun(ip, mask, payload.magicDnsEnabled, payload.instanceId, payload.needExitNode, routes)
-          }
-        }
-      } catch (e) {
-        Logger.error("kernel socket message error: " + JSON.stringify(e), this)
-      }
-    })
-
-    this.kernelClient.on('close', () => {
-      this.kernelSocketConnected = false
-    })
-  }
 }

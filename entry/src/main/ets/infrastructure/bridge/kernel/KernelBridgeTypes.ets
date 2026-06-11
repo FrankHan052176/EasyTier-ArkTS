@@ -4,9 +4,18 @@ import {
 } from '../../../types/runtime/RuntimeTypes'
 
 export const KERNEL_SOCKET_NAME = 'easytier-kernel.sock'
+export const KERNEL_MESSAGE_RUNTIME_TOPOLOGY = 'runtime_topology'
+export const KERNEL_MESSAGE_RUNTIME_PEER_EVENT = 'runtime_peer_event'
+export const KERNEL_MESSAGE_TRAFFIC_STATS = 'traffic_stats'
+export const KERNEL_MESSAGE_TUN_REQUEST = 'tun_request'
+export const VPN_MESSAGE_LOGS = 'logs'
+export const VPN_MESSAGE_CONTINUE_STATE = 'continue_state'
+
+export type KernelSocketMessageType = 'runtime_topology' | 'runtime_peer_event' | 'traffic_stats' | 'tun_request'
+export type VpnBridgeMessageType = KernelSocketMessageType | 'logs' | 'continue_state'
 
 export interface KernelSocketMessage {
-  messageType: string
+  messageType: KernelSocketMessageType | string
   payloadJson: string | Object
 }
 
@@ -61,6 +70,6 @@ export interface VpnContinueStateData {
 }
 
 export interface VpnMessage {
-  type: string
+  type: VpnBridgeMessageType | string
   data: RuntimeAggregateState | VpnLogData | TrafficStatsPayload | RuntimePeerEventPayload | VpnContinueStateData
 }

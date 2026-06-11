@@ -1,7 +1,6 @@
-import { Want, common } from '@kit.AbilityKit'
-import { vpnExtension } from '@kit.NetworkKit'
 import easytier from 'easytier-ohrs'
 import { ConfigJson } from '../../../config/schema/SchemaConfig'
+import { VpnExtensionAbilityController } from '../../runtime/VpnExtensionAbilityController'
 
 export interface StartOrchestrationOptions {
   config: ConfigJson
@@ -36,28 +35,21 @@ export function orchestrateInstanceStart(options: StartOrchestrationOptions): bo
   }
 
   if (options.extMode) {
-    const want: Want = {
-      bundleName: 'top.frankhan.easytier',
-      abilityName: 'EasyTierAbility',
-      parameters: {
-        cfg: cfgStr,
-        name: options.name,
-        socket: 'easytier_vpn_socket',
-        socket_files_dir: options.socketFilesDir,
-        vpn_routes: options.vpnRoutes,
-        white_list: options.whiteList,
-        black_list: options.blackList,
-        dns: options.dns,
-        dev: options.dev,
-        force_global: options.forceGlobal,
-        core_log: options.coreLog,
-        debug_log: options.debugLog
-      }
-    }
-    options.ensureContinuationSocket()
-    options.requestVpnPerm(() => {
-      vpnExtension.startVpnExtensionAbility(want)
-      options.connectToVpnExtension('easytier_vpn_socket')
+    VpnExtensionAbilityController.start({
+      cfg: cfgStr,
+      name: options.name,
+      socketFilesDir: options.socketFilesDir,
+      vpnRoutes: options.vpnRoutes,
+      whiteList: options.whiteList,
+      blackList: options.blackList,
+      dns: options.dns,
+      dev: options.dev,
+      forceGlobal: options.forceGlobal,
+      coreLog: options.coreLog,
+      debugLog: options.debugLog,
+      ensureContinuationSocket: options.ensureContinuationSocket,
+      requestVpnPerm: options.requestVpnPerm,
+      connectToVpnExtension: options.connectToVpnExtension
     })
   } else {
     options.publishStartBg(cfgStr, options.config.instance_id, options.name)

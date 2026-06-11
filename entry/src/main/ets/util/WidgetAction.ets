@@ -1,6 +1,8 @@
+import { FavoriteCardActionMethod } from '../services/form/FavoriteCardActionService'
+
 export enum CardMethod {
-  StartFavorite = "start_favorite",
-  SendCardId = "send_card_id"
+  StartFavorite = FavoriteCardActionMethod.StartFavorite,
+  SendCardId = FavoriteCardActionMethod.SendCardId
 }
 
 export function startFavorite(component: Object) {
