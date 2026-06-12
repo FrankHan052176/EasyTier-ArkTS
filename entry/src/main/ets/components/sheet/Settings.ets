@@ -413,7 +413,7 @@ struct VerticalSettingSelector {
   @Param @Require selected: string
   @Param canSelect: boolean = true
   @Event onChange: (value: string) => void = () => {}
-  private readonly selectorWidth: number = 184
+  private readonly selectorWidth: number = 136
 
   @Computed
   get selectedIndex(): number {
