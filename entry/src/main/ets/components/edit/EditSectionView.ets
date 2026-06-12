@@ -3,12 +3,22 @@ import { RecursiveJsonEditor } from './RecursiveJsonEditor'
 import { BoolField } from './field/BoolField'
 import { getFieldI18Name } from './FieldLabel'
 
+interface FlagRenderRow {
+  key: string
+  nodes: EditRenderNode[]
+}
+
 class EditRenderNodeDataSource implements IDataSource {
   private nodes: EditRenderNode[] = []
   private listeners: DataChangeListener[] = []
 
   setNodes(nodes: EditRenderNode[]): void {
     this.nodes = nodes
+    this.notifyDataReload()
+  }
+
+  clear(): void {
+    this.nodes = []
     this.notifyDataReload()
   }
 
@@ -46,15 +56,16 @@ class EditRenderNodeDataSource implements IDataSource {
 }
 
 class FlagRowDataSource implements IDataSource {
-  private rows: EditRenderNode[][] = []
+  private rows: FlagRenderRow[] = []
   private listeners: DataChangeListener[] = []
 
-  setNodes(nodes: EditRenderNode[]): void {
-    const rows: EditRenderNode[][] = []
-    for (let index = 0; index < nodes.length; index += 2) {
-      rows.push(nodes.slice(index, index + 2))
-    }
+  setRows(rows: FlagRenderRow[]): void {
     this.rows = rows
+    this.notifyDataReload()
+  }
+
+  clear(): void {
+    this.rows = []
     this.notifyDataReload()
   }
 
@@ -67,7 +78,7 @@ class FlagRowDataSource implements IDataSource {
     return this.rows.length
   }
 
-  getData(index: number): EditRenderNode[] {
+  getData(index: number): FlagRenderRow {
     return this.rows[index]
   }
 
@@ -94,11 +105,18 @@ class FlagRowDataSource implements IDataSource {
 @ComponentV2
 export struct EditSectionView {
   @Param @Require section: EditSectionRenderPlan
+  @Param ready: boolean = true
   @Provider() field_width: number = 360
   private dataSource: EditRenderNodeDataSource = new EditRenderNodeDataSource()
   private flagRowDataSource: FlagRowDataSource = new FlagRowDataSource()
+  private lastReady: boolean | undefined = undefined
+  private lastSectionKey: string = ''
 
   aboutToAppear(): void {
+    this.updateDataSource()
+  }
+
+  aboutToUpdate(): void {
     this.updateDataSource()
   }
 
@@ -126,13 +144,32 @@ export struct EditSectionView {
   }
 
   private updateDataSource(): void {
+    if (this.lastReady === this.ready && this.lastSectionKey === this.section.key) {
+      return
+    }
+    this.lastReady = this.ready
+    this.lastSectionKey = this.section.key
+    if (!this.ready) {
+      this.dataSource.clear()
+      this.flagRowDataSource.clear()
+      return
+    }
     if (this.useFlagRows()) {
-      this.dataSource.setNodes([])
-      this.flagRowDataSource.setNodes(this.flagNodes())
+      this.dataSource.clear()
+      this.flagRowDataSource.setRows(this.buildFlagRows(this.flagNodes()))
     } else {
       this.dataSource.setNodes(this.section.nodes)
-      this.flagRowDataSource.setNodes([])
+      this.flagRowDataSource.clear()
     }
+  }
+
+  private buildFlagRows(nodes: EditRenderNode[]): FlagRenderRow[] {
+    const rows: FlagRenderRow[] = []
+    for (let index = 0; index < nodes.length; index += 2) {
+      const row = nodes.slice(index, index + 2)
+      rows.push({ key: row.map((node) => node.renderKey).join('|'), nodes: row })
+    }
+    return rows
   }
 
   @Builder
@@ -191,27 +228,30 @@ export struct EditSectionView {
         .width('100%')
         .height(56)
       if (this.useFlagRows()) {
-        LazyForEach(this.flagRowDataSource, (row: EditRenderNode[]) => {
+        LazyForEach(this.flagRowDataSource, (row: FlagRenderRow) => {
           ListItem() {
             Row({ space: 10 }) {
-              ForEach(row, (node: EditRenderNode) => {
+              ForEach(row.nodes, (node: EditRenderNode) => {
                 BoolField({ field: node.name, fieldPath: node.path, text: getFieldI18Name(node.name) })
-              }, (node: EditRenderNode) => node.path.join('.') + node.kind)
+              }, (node: EditRenderNode) => node.renderKey)
             }
             .width('100%')
             .onAreaChange((a, b) => {
-              this.field_width = b.width.valueOf() as number
+              const width = b.width.valueOf() as number
+              if (this.field_width !== width) {
+                this.field_width = width
+              }
             })
           }
           .width('100%')
-        }, (row: EditRenderNode[]) => row.map((node) => node.path.join('.')).join('|'))
+        }, (row: FlagRenderRow) => row.key)
       } else {
         LazyForEach(this.dataSource, (node: EditRenderNode) => {
           ListItem() {
             RecursiveJsonEditor({ node: node })
               .width('100%')
           }
-        }, (node: EditRenderNode) => node.path.join('.') + node.kind)
+        }, (node: EditRenderNode) => node.renderKey)
       }
       ListItem()
         .width('100%')
@@ -228,6 +268,10 @@ export struct EditSectionView {
   }
 
   build() {
-    this.listView()
+    if (this.ready) {
+      this.listView()
+    } else {
+      this.loadingView()
+    }
   }
 }

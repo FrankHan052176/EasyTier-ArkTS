@@ -4,8 +4,6 @@ import { AppManager } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { TertiaryButton } from '../../util/TextButton';
 import { getHostname } from '../../../util/Conversion';
-import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService';
-import { EventHelper } from '../../../util/EventHelper';
 
 @Extend(TextInput)
 function fieldTextInput(onChange: EditableTextOnChangeCallback, inputType: InputType, enterKeyType: EnterKeyType,
@@ -33,13 +31,9 @@ export struct StringField {
   @Local isEdit: boolean = false;
   @Consumer("unsafe_status") unsafe: boolean = false
   @Consumer("lock_status") unlock: boolean = false
-  private fieldRefreshEvent: string = ''
   private syncingFromConfig: boolean = false
   private syncResetTimer: number = -1
   private active: boolean = false
-  private fieldRefreshCallback = () => {
-    this.updateFromConfig()
-  }
 
   @Computed
   get hasTopTitle() {
@@ -86,10 +80,6 @@ export struct StringField {
     return hasFieldTag(this.field, "useHostname")
   }
 
-  private topLevelField(): string {
-    return this.fieldPath.length > 0 ? this.fieldPath[0] : this.field
-  }
-
   private updateFromConfig(): void {
     if (!this.isEdit) {
       const nextValue = (getFieldPathValue(this.config!, this.fieldPath) as string) || ""
@@ -111,16 +101,10 @@ export struct StringField {
   aboutToAppear(): void {
     this.active = true
     this.updateFromConfig()
-    this.fieldRefreshEvent = getEditingConfigFieldRefreshEvent(this.topLevelField())
-    EventHelper.emitterListener(this.fieldRefreshEvent, this.fieldRefreshCallback)
   }
 
   aboutToDisappear(): void {
     this.active = false
-    if (this.fieldRefreshEvent.length > 0) {
-      EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
-      this.fieldRefreshEvent = ''
-    }
     if (this.syncResetTimer >= 0) {
       clearTimeout(this.syncResetTimer)
       this.syncResetTimer = -1

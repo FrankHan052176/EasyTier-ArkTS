@@ -16,6 +16,11 @@ import {
   BackgroundKeepAliveMode,
   normalizeBackgroundKeepAliveMode
 } from '../../types/runtime/BackgroundKeepAliveTypes'
+import {
+  APP_BUNDLE_NAME,
+  CONTINUOUS_BACKGROUND_TASK_SYSCAP,
+  ENTRY_ABILITY_NAME
+} from './AbilityRuntimePolicy'
 
 export interface EntryBackgroundTaskServiceOptions {
   context: common.UIAbilityContext
@@ -27,6 +32,7 @@ export interface EntryBackgroundTaskServiceOptions {
   setNotificationId: (notificationId: number) => void
   destroyVpnConnection: () => Promise<void>
   getBackgroundKeepAliveMode: () => string
+  shouldUseBackgroundKeepAlive: () => boolean
 }
 
 export class EntryBackgroundTaskService {
@@ -39,6 +45,7 @@ export class EntryBackgroundTaskService {
   private readonly setNotificationId: (notificationId: number) => void
   private readonly destroyVpnConnection: () => Promise<void>
   private readonly getBackgroundKeepAliveMode: () => string
+  private readonly shouldUseBackgroundKeepAlive: () => boolean
   private readonly audioKeepAliveService: AudioKeepAliveService
 
   constructor(options: EntryBackgroundTaskServiceOptions) {
@@ -51,12 +58,18 @@ export class EntryBackgroundTaskService {
     this.setNotificationId = options.setNotificationId
     this.destroyVpnConnection = options.destroyVpnConnection
     this.getBackgroundKeepAliveMode = options.getBackgroundKeepAliveMode
+    this.shouldUseBackgroundKeepAlive = options.shouldUseBackgroundKeepAlive
     this.audioKeepAliveService = new AudioKeepAliveService(options.logTarget)
   }
 
   startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined): void {
     const keepAliveMode = normalizeBackgroundKeepAliveMode(this.getBackgroundKeepAliveMode())
-    if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
+    if (!this.shouldUseBackgroundKeepAlive()) {
+      Logger.info('start runtime without background keep alive', this.logTarget)
+      this.handleRuntimeStartWithoutBackground(cfg, uuid, name)
+      return
+    }
+    if (!canIUse(CONTINUOUS_BACKGROUND_TASK_SYSCAP)) {
       if (!this.runNetworkInstance(cfg)) {
         sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
         Logger.error("启动失败", this.logTarget)
@@ -82,8 +95,8 @@ export class EntryBackgroundTaskService {
     const wantAgentInfo: wantAgent.WantAgentInfo = {
       wants: [
         {
-          bundleName: "top.frankhan.easytier",
-          abilityName: "EntryAbility"
+          bundleName: APP_BUNDLE_NAME,
+          abilityName: ENTRY_ABILITY_NAME
         }
       ],
       actionType: wantAgent.OperationType.START_ABILITY,
@@ -98,6 +111,32 @@ export class EntryBackgroundTaskService {
       })
     } catch (error) {
       Logger.error(`getWantAgent error: ${JSON.stringify(error)}`, this.logTarget)
+    }
+  }
+
+  private handleRuntimeStartWithoutBackground(cfg: string, uuid: string | undefined, name: string | undefined): void {
+    if (this.runNetworkInstance(cfg)) {
+      startRuntimeStatsRecording(this.context.filesDir)
+      try {
+        const config: ConfigJson = JSON.parse(cfg)
+        if (config.no_tun) {
+          this.activateMissionContinue()
+        }
+      } catch (_) {
+      }
+      setTimeout(() => {
+        this.refreshFavoriteCard()
+      }, 300)
+      if (uuid) {
+        HMRouterMgr.to('StatusPage')
+          .withParam(uuid)
+          .withAnimator(new BottomAnimator())
+          .pushAsync()
+      }
+    } else {
+      sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
+      Logger.error("启动失败", this.logTarget)
+      void this.stopContinuousTask()
     }
   }
 
@@ -152,7 +191,11 @@ export class EntryBackgroundTaskService {
     this.deactivateMissionContinue()
     this.audioKeepAliveService.stop()
     stopRuntimeStatsRecording()
-    if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
+    if (!this.shouldUseBackgroundKeepAlive()) {
+      void this.destroyVpnConnection()
+      return
+    }
+    if (!canIUse(CONTINUOUS_BACKGROUND_TASK_SYSCAP)) {
       return
     }
     Logger.info("stop background alive", this.logTarget)

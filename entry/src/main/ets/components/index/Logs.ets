@@ -761,6 +761,7 @@ export struct Logs {
       .layoutWeight(1)
       .justifyContent(FlexAlign.SpaceBetween)
       .alignItems(VerticalAlign.Center)
+      .padding({ left: 8, right: 8 })
     }
     .padding(16)
     .width('100%')

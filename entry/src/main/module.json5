@@ -75,6 +75,16 @@
           }
         ],
         "continuable": true
+      },
+      {
+        "name": "StatusBarBackgroundAbility",
+        "srcEntry": "./ets/backgroundability/StatusBarBackgroundAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:easytier_256",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true
       }
     ],
     "extensionAbilities": [
@@ -122,6 +132,9 @@
       }
     ],
     "requestPermissions": [
+      {
+        "name": "ohos.permission.PREPARE_APP_TERMINATE"
+      },
       {
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING"
       },

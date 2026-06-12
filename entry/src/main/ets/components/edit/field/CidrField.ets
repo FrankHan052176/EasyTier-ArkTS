@@ -2,8 +2,6 @@ import { AppManager } from '../../../AppManager';
 import { hasFieldTag } from '../../../config/fields/ConfigFieldUi';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { getCombinedConfigChildren } from '../../../config/schema/SchemaLayout';
-import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService';
-import { EventHelper } from '../../../util/EventHelper';
 
 @Extend(TextInput)
 function fieldTextInput(onChange: EditableTextOnChangeCallback, editChange: OnSubmitCallback, ip: boolean,
@@ -36,14 +34,6 @@ export struct CidrField {
   @Local editIP: boolean = false
   @Local editMask: boolean = false
   @Consumer("field_edit_enable") enable: boolean = true
-  private ipRefreshEvent: string = ''
-  private maskRefreshEvent: string = ''
-  private ipRefreshCallback = () => {
-    this.updateIpFromConfig()
-  }
-  private maskRefreshCallback = () => {
-    this.updateMaskFromConfig()
-  }
 
   @Computed
   get config() {
@@ -105,21 +95,9 @@ export struct CidrField {
   aboutToAppear(): void {
     this.updateIpFromConfig()
     this.updateMaskFromConfig()
-    this.ipRefreshEvent = getEditingConfigFieldRefreshEvent(this.ipFieldPath[0] ?? this.ipField)
-    this.maskRefreshEvent = getEditingConfigFieldRefreshEvent(this.maskFieldPath[0] ?? this.maskField)
-    EventHelper.emitterListener(this.ipRefreshEvent, this.ipRefreshCallback)
-    EventHelper.emitterListener(this.maskRefreshEvent, this.maskRefreshCallback)
   }
 
   aboutToDisappear(): void {
-    if (this.ipRefreshEvent.length > 0) {
-      EventHelper.emitterOff(this.ipRefreshEvent, this.ipRefreshCallback)
-      this.ipRefreshEvent = ''
-    }
-    if (this.maskRefreshEvent.length > 0) {
-      EventHelper.emitterOff(this.maskRefreshEvent, this.maskRefreshCallback)
-      this.maskRefreshEvent = ''
-    }
     this.editIP = false
     this.editMask = false
     this.value_ip = ''

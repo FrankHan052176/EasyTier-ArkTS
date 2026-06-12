@@ -1,8 +1,17 @@
-import { common } from '@kit.AbilityKit'
+import { common, contextConstant, StartOptions, Want } from '@kit.AbilityKit'
 import { JSON } from '@kit.ArkTS'
+import { BusinessError } from '@kit.BasicServicesKit'
 import { statusBarManager } from '@kit.DeskTopExtensionKit'
 import { image } from '@kit.ImageKit'
 import { Logger } from '../../shared/logging/Logger'
+import {
+  APP_BUNDLE_NAME,
+  ENTRY_ABILITY_NAME,
+  ENTRY_MODULE_NAME,
+  STATUS_BAR_BACKGROUND_ABILITY_NAME,
+  STATUS_BAR_VIEW_ABILITY_NAME,
+  supportsStatusBarTray
+} from '../runtime/AbilityRuntimePolicy'
 import { STATUS_BAR_PANEL_SOCKET_NAME } from './StatusBarPanelTypes'
 import { StatusBarPanelServer } from './StatusBarPanelServer'
 
@@ -11,6 +20,7 @@ export class StatusBarIntegrationService {
   private readonly logTarget: Object | string
   private readonly panelServer: StatusBarPanelServer
   private registered: boolean = false
+  private backgroundStarted: boolean = false
 
   constructor(context: common.UIAbilityContext, logTarget: Object | string, openMainWindow?: () => void) {
     this.context = context
@@ -20,7 +30,15 @@ export class StatusBarIntegrationService {
 
   async start(): Promise<void> {
     this.panelServer.start(`${this.context.filesDir}/${STATUS_BAR_PANEL_SOCKET_NAME}`)
-    if (this.registered || !canIUse('SystemCapability.PCService.StatusBarManager')) {
+    if (!supportsStatusBarTray()) {
+      return
+    }
+    await this.registerStatusBarItem()
+    this.startBackgroundAbility()
+  }
+
+  private async registerStatusBarItem(): Promise<void> {
+    if (this.registered) {
       return
     }
     try {
@@ -28,16 +46,16 @@ export class StatusBarIntegrationService {
       const item: statusBarManager.StatusBarItem = {
         icons: icon,
         quickOperation: {
-          abilityName: 'StatusBarViewAbility',
-          moduleName: 'entry',
+          abilityName: STATUS_BAR_VIEW_ABILITY_NAME,
+          moduleName: ENTRY_MODULE_NAME,
           title: 'EasyTier',
           height: 260
         },
         statusBarGroupMenu: [[{
           title: '打开 EasyTier',
           menuAction: {
-            abilityName: 'EntryAbility',
-            moduleName: 'entry'
+            abilityName: ENTRY_ABILITY_NAME,
+            moduleName: ENTRY_MODULE_NAME
           }
         }]],
         hoverTips: 'EasyTier'
@@ -50,8 +68,45 @@ export class StatusBarIntegrationService {
     }
   }
 
+  private startBackgroundAbility(): void {
+    if (this.backgroundStarted || !this.registered) {
+      return
+    }
+    const want: Want = {
+      bundleName: APP_BUNDLE_NAME,
+      abilityName: STATUS_BAR_BACKGROUND_ABILITY_NAME
+    }
+    const options: StartOptions = {
+      processMode: contextConstant.ProcessMode.NEW_PROCESS_ATTACH_TO_STATUS_BAR_ITEM,
+      startupVisibility: contextConstant.StartupVisibility.STARTUP_HIDE
+    }
+    try {
+      this.context.startAbility(want, options, (err: BusinessError) => {
+        if (err.code) {
+          Logger.error(`status bar background start failed: ${err.code}, ${err.message}`, this.logTarget)
+          return
+        }
+        this.backgroundStarted = true
+        Logger.info('status bar background started', this.logTarget)
+      })
+    } catch (error) {
+      Logger.error(`status bar background start error: ${JSON.stringify(error)}`, this.logTarget)
+    }
+  }
+
   close(): void {
     this.panelServer.close()
+    if (!this.registered) {
+      return
+    }
+    try {
+      statusBarManager.removeFromStatusBar(this.context)
+      Logger.info('status bar item removed', this.logTarget)
+    } catch (error) {
+      Logger.debug(`status bar item remove ignored: ${JSON.stringify(error)}`, this.logTarget)
+    }
+    this.registered = false
+    this.backgroundStarted = false
   }
 
   broadcastState(): void {

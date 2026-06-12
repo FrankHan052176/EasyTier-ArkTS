@@ -56,7 +56,7 @@ export struct ProtocolSelector {
             Text(value.toString().toUpperCase())
               .fontColor(value === this.newSelected ? protocolColor(value) : $r("sys.color.font_primary"))
           }
-          .padding(12)
+          .padding({ left: 10, right: 10, top: 8, bottom: 8 })
           .width(this.comp_width)
           .alignItems(HorizontalAlign.Center)
           .backgroundColor(value === this.newSelected ? protocolBGColor(value) : $r("sys.color.background_primary"))
@@ -65,7 +65,7 @@ export struct ProtocolSelector {
     }
     .listDirection(Axis.Horizontal)
     .width(this.scrollWidth)
-    .height(this.comp_height + 12)
+    .height(this.comp_height + 8)
     .scrollBar(BarState.Off)
     .enableScrollInteraction(false)
   }
@@ -77,7 +77,7 @@ export struct ProtocolSelector {
         Text(this.selected.toString().toUpperCase())
       }
       .width(this.comp_width)
-      .padding({ top: 12 })
+      .padding({ top: 8 })
       .alignItems(HorizontalAlign.Center)
       .onAreaChange((_, b) => {
         this.comp_height = b.height.valueOf() as number
@@ -88,9 +88,9 @@ export struct ProtocolSelector {
         .fontSize(10)
         .fontColor($r("sys.color.font_secondary"))
         .opacity(0.6)
-        .margin({ top: 2 })
+        .margin({ top: 1 })
     }
-    .padding({ bottom: 10 })
+    .padding({ bottom: 6 })
     .borderRadius(12)
     .onTouch((event) => {
       if (event.type === TouchType.Down) {

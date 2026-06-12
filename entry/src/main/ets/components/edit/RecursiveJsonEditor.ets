@@ -6,8 +6,7 @@ import { addFieldValue } from '../../class/config/Basic'
 import { hasFieldTag, isVaultField } from '../../config/fields/ConfigFieldUi'
 import { EditRenderNode } from '../../config/render/EditRenderNode'
 import { collectTopLevelFields } from '../../config/render/EditRenderResolver'
-import { areEditingFieldsLoaded, getEditingConfigFieldRefreshEvent } from '../../services/config/storage/StoredConfigService'
-import { EventHelper } from '../../util/EventHelper'
+import { areEditingFieldsLoaded } from '../../services/config/storage/StoredConfigService'
 import { BoolField } from './field/BoolField'
 import { CidrField } from './field/CidrField'
 import { EnableField } from './field/EnableField'
@@ -34,10 +33,6 @@ export struct RecursiveJsonEditor {
   @Consumer("peep_masked") peepMasked: boolean = false
   @Consumer("peep_dismissed") peepDismissed: boolean = false
   @Provider("lock_status") unlock: boolean = !isVaultField(this.node.name)
-  private fieldRefreshEvents: string[] = []
-  private fieldRefreshCallback = () => {
-    this.updateNodeReady()
-  }
   private userAuthInstance: userAuth.UserAuthInstance | undefined = undefined
   private userAuthCallback: userAuth.IAuthCallback | undefined = undefined
   private topLevelFieldNames: string[] = []
@@ -121,29 +116,11 @@ export struct RecursiveJsonEditor {
     this.nodeReady = areEditingFieldsLoaded(AppManager.uiState.editingInstance, this.topLevelFields())
   }
 
-  private unbindFieldRefreshEvents(): void {
-    this.fieldRefreshEvents.forEach((eventName) => {
-      EventHelper.emitterOff(eventName, this.fieldRefreshCallback)
-    })
-    this.fieldRefreshEvents = []
-  }
-
-  private bindFieldRefreshEvents(): void {
-    this.unbindFieldRefreshEvents()
-    this.topLevelFields().forEach((field) => {
-      const eventName = getEditingConfigFieldRefreshEvent(field)
-      this.fieldRefreshEvents.push(eventName)
-      EventHelper.emitterListener(eventName, this.fieldRefreshCallback)
-    })
-  }
-
   aboutToAppear(): void {
     this.updateNodeReady()
-    this.bindFieldRefreshEvents()
   }
 
   aboutToDisappear(): void {
-    this.unbindFieldRefreshEvents()
     this.cancelUserAuth()
     this.topLevelFieldNames = []
     this.contentNodeCache = []
@@ -267,11 +244,14 @@ export struct RecursiveJsonEditor {
                 .width('100%')
                 .strokeWidth(3)
             }
-          }, (item: EditRenderNode) => item.path.join('.') + item.kind)
+          }, (item: EditRenderNode) => item.renderKey)
         }
         .width('100%')
         .onAreaChange((a, b) => {
-          this.field_width = b.width.valueOf() as number
+          const width = b.width.valueOf() as number
+          if (this.field_width !== width) {
+            this.field_width = width
+          }
         })
       } else {
         this.fieldContent(this.node)
@@ -359,7 +339,10 @@ export struct RecursiveJsonEditor {
         .backgroundColumn()
         .blur(this.safe_show ? 0 : this.blurRadius)
         .onAreaChange((a, b) => {
-          this.content_height = b.height.valueOf() as number
+          const height = b.height.valueOf() as number
+          if (this.content_height !== height) {
+            this.content_height = height
+          }
         })
 
         if (!this.safe_show) {

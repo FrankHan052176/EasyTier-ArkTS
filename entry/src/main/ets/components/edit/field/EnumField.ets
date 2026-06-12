@@ -3,8 +3,6 @@ import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../Co
 import { EditRenderOption } from '../../../config/render/EditRenderNode'
 import { getFieldI18Name } from '../FieldLabel'
 import { LengthMetrics } from '@kit.ArkUI'
-import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService'
-import { EventHelper } from '../../../util/EventHelper'
 
 @ComponentV2
 export struct EnumField {
@@ -13,18 +11,10 @@ export struct EnumField {
   @Param options: EditRenderOption[] = []
   @Consumer("field_edit_enable") enable: boolean = true
   @Local selectedValue: string = ''
-  private fieldRefreshEvent: string = ''
-  private fieldRefreshCallback = () => {
-    this.updateFromConfig()
-  }
 
   @Computed
   get config() {
     return AppManager.easytier.getEditingConfig()
-  }
-
-  private topLevelField(): string {
-    return this.fieldPath.length > 0 ? this.fieldPath[0] : this.field
   }
 
   private updateFromConfig(): void {
@@ -33,15 +23,9 @@ export struct EnumField {
 
   aboutToAppear(): void {
     this.updateFromConfig()
-    this.fieldRefreshEvent = getEditingConfigFieldRefreshEvent(this.topLevelField())
-    EventHelper.emitterListener(this.fieldRefreshEvent, this.fieldRefreshCallback)
   }
 
   aboutToDisappear(): void {
-    if (this.fieldRefreshEvent.length > 0) {
-      EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
-      this.fieldRefreshEvent = ''
-    }
     this.selectedValue = ''
   }
 

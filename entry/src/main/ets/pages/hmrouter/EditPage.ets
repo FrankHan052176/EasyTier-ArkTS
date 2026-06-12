@@ -3,7 +3,7 @@ import { deviceInfo, emitter } from '@kit.BasicServicesKit'
 import { HdsNavigation, HdsNavigationTitleMode,
   hdsMaterial,
   TitleBarStyleOptions} from '@kit.UIDesignKit'
-import { ComponentContent, LengthMetrics } from '@kit.ArkUI'
+import { ComponentContent, FrameCallback, LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { HdsMenuButton } from '../Components'
 import { SheetContentBuilder } from '../../components/sheet/Basic'
@@ -41,6 +41,28 @@ class ShareMenuParam {
 
   constructor(onQrClick: () => void) {
     this.onQrClick = onQrClick
+  }
+}
+
+class SectionMountFrameCallback extends FrameCallback {
+  private readonly action: () => void
+  private fired: boolean = false
+
+  constructor(action: () => void) {
+    super()
+    this.action = action
+  }
+
+  onFrame(frameTimeInNano: number): void {
+    this.run()
+  }
+
+  private run(): void {
+    if (this.fired) {
+      return
+    }
+    this.fired = true
+    this.action()
   }
 }
 
@@ -109,18 +131,22 @@ export struct EditPage {
   @Local remoteSessionId: string = ""
   @Local activePageIndex: number = 0
   @Local animationTargetIndex: number = -1
+  @Local sectionMountRevision: number = 0
   private qrPixelMap: image.PixelMap | undefined = undefined
   private qrDialogController: CustomDialogController | null = null
   private renderPlan: EditRenderPlan = emptyEditRenderPlan()
   private active: boolean = false
   private dlpRegistered: boolean = false
-  private loadedSectionKeys: Set<string> = new Set()
+  private dataLoadedSectionKeys: Set<string> = new Set()
+  private mountedSectionKeys: Set<string> = new Set()
   private loadingSectionKeys: Set<string> = new Set()
   private sectionLoadQueue: number[] = []
-  private sectionLoadBusy: boolean = false
   private sectionLoadTimer: number = -1
   private sectionPreloadTimer: number = -1
+  private sectionMountTimer: number = -1
+  private initialSectionLoadTimer: number = -1
   private sectionPreloadQueued: boolean = false
+  private sectionMountScheduled: boolean = false
   private sectionLoadGeneration: number = 0
   private sectionLoadFailureCounts: Map<string, number> = new Map()
   private gesturesShareRegistered: boolean = false
@@ -177,11 +203,11 @@ export struct EditPage {
     AppManager.uiState.editingInstance = this.uuid
     this.activePageIndex = 0
     this.animationTargetIndex = -1
+    this.sectionMountRevision = 0
     this.resetSectionLoading()
     prepareEditingConfig(this.uuid)
     this.renderPlan = buildEditRenderPlan()
-    this.editingConfigReady = true
-    this.enqueueVisibleSectionLoads(0, 32)
+    this.loadInitialSectionData()
     EventHelper.emitterListener("edit_open_sheet", this.editOpenSheetCallback)
     EventHelper.emitterListener("edit_close_sheet", this.editCloseSheetCallback)
     if (!this.remoteEditing) {
@@ -237,8 +263,10 @@ export struct EditPage {
   @Builder
   pageContent(section: EditSectionRenderPlan, index: number) {
     Column() {
-      if (this.shouldMountSection(index)) {
+      if (this.sectionMountRevision >= 0 && this.shouldMountSection(index) && this.isSectionLoaded(section)) {
         EditSectionView({ section: section })
+      } else if (this.shouldMountSection(index)) {
+        EditSectionView({ section: section, ready: false })
       } else {
         Blank()
           .width('100%')
@@ -271,7 +299,9 @@ export struct EditPage {
     .onAnimationEnd((index: number) => {
       this.activePageIndex = index
       this.animationTargetIndex = -1
+      this.sectionMountRevision++
       this.enqueueNearbySectionLoads(index)
+      this.scheduleSectionMount()
     })
   }
 
@@ -478,11 +508,12 @@ export struct EditPage {
 
   private resetSectionLoading(): void {
     this.sectionLoadGeneration += 1
-    this.loadedSectionKeys.clear()
+    this.dataLoadedSectionKeys.clear()
+    this.mountedSectionKeys.clear()
     this.loadingSectionKeys.clear()
 	    this.sectionLoadQueue = []
-	    this.sectionLoadBusy = false
 	    this.sectionPreloadQueued = false
+	    this.sectionMountScheduled = false
 	    this.sectionLoadFailureCounts.clear()
     if (this.sectionLoadTimer >= 0) {
       clearTimeout(this.sectionLoadTimer)
@@ -491,6 +522,14 @@ export struct EditPage {
     if (this.sectionPreloadTimer >= 0) {
       clearTimeout(this.sectionPreloadTimer)
       this.sectionPreloadTimer = -1
+    }
+    if (this.sectionMountTimer >= 0) {
+      clearTimeout(this.sectionMountTimer)
+      this.sectionMountTimer = -1
+    }
+    if (this.initialSectionLoadTimer >= 0) {
+      clearTimeout(this.initialSectionLoadTimer)
+      this.initialSectionLoadTimer = -1
     }
   }
 
@@ -502,12 +541,16 @@ export struct EditPage {
     return this.sectionLoadQueue.indexOf(index) >= 0
   }
 
+  private isSectionLoaded(section: EditSectionRenderPlan): boolean {
+    return this.mountedSectionKeys.has(section.key)
+  }
+
   private enqueueSectionLoad(index: number, highPriority: boolean = false, delayMs: number = 0): void {
     if (!this.isValidSectionIndex(index)) {
       return
     }
     const section = this.renderPlan.sections[index]
-    if (this.loadedSectionKeys.has(section.key) || this.loadingSectionKeys.has(section.key) || this.isSectionQueued(index)) {
+    if (this.dataLoadedSectionKeys.has(section.key) || this.loadingSectionKeys.has(section.key) || this.isSectionQueued(index)) {
       return
     }
     if (highPriority) {
@@ -519,7 +562,7 @@ export struct EditPage {
   }
 
   private scheduleSectionLoadDrain(delayMs: number = 0): void {
-    if (!this.active || this.sectionLoadBusy || this.sectionLoadQueue.length === 0) {
+    if (!this.active || this.sectionLoadQueue.length === 0) {
       return
     }
     if (this.sectionLoadTimer >= 0) {
@@ -539,7 +582,7 @@ export struct EditPage {
         continue
       }
       const section = this.renderPlan.sections[index]
-      if (!this.loadedSectionKeys.has(section.key) && !this.loadingSectionKeys.has(section.key)) {
+      if (!this.dataLoadedSectionKeys.has(section.key) && !this.loadingSectionKeys.has(section.key)) {
         return index
       }
     }
@@ -547,51 +590,143 @@ export struct EditPage {
   }
 
   private drainSectionLoadQueue(): void {
-    if (!this.active || this.sectionLoadBusy) {
+    if (!this.active) {
       return
     }
-    const index = this.takeNextSectionIndex()
-    if (index < 0) {
+    let started = 0
+    const maxStarted = Math.max(2, this.visiblePageCount())
+    while (started < maxStarted) {
+      const index = this.takeNextSectionIndex()
+      if (index < 0) {
+        return
+      }
+      this.loadSectionData(index)
+      started++
+    }
+    if (this.sectionLoadQueue.length > 0) {
+      this.scheduleSectionLoadDrain(16)
+    }
+  }
+
+  private allSectionFields(): string[] {
+    const fields: string[] = []
+    this.renderPlan.sections.forEach((section) => {
+      section.topLevelFields.forEach((field) => {
+        if (field.length > 0 && fields.indexOf(field) < 0) {
+          fields.push(field)
+        }
+      })
+    })
+    return fields
+  }
+
+  private areAllSectionsDataLoaded(): boolean {
+    return this.renderPlan.sections.every((section) => this.dataLoadedSectionKeys.has(section.key))
+  }
+
+  private markAllSectionsReady(): void {
+    this.renderPlan.sections.forEach((section) => {
+      this.dataLoadedSectionKeys.add(section.key)
+      this.mountedSectionKeys.add(section.key)
+      this.loadingSectionKeys.delete(section.key)
+    })
+    this.sectionLoadQueue = []
+    this.sectionMountRevision++
+  }
+
+  private loadInitialSectionData(delayMs: number = 0): void {
+    if (!this.active || this.renderPlan.sections.length === 0) {
       return
     }
-	    const section = this.renderPlan.sections[index]
-	    const generation = this.sectionLoadGeneration
-	    let retryDelay = -1
-	    this.sectionLoadBusy = true
-	    this.loadingSectionKeys.add(section.key)
-	    ensureEditingFieldsAsync(this.uuid, section.topLevelFields).then(() => {
-	      if (!this.active || generation !== this.sectionLoadGeneration) {
-	        return
-	      }
-	      this.sectionLoadFailureCounts.delete(section.key)
-	      this.loadedSectionKeys.add(section.key)
-	      if (index === 0) {
-	        this.scheduleTrailingSectionPreload()
-	      }
-	    }).catch(() => {
-	      if (!this.active || generation !== this.sectionLoadGeneration) {
-	        return
-	      }
-	      const failureCount = this.sectionLoadFailureCounts.get(section.key) ?? 0
-	      if (failureCount < 2) {
-	        this.sectionLoadFailureCounts.set(section.key, failureCount + 1)
-	        retryDelay = 800
-	      } else {
-	        sendToast('读取配置字段失败', $r('sys.symbol.exclamationmark_circle'), 1)
-	      }
-	    }).finally(() => {
-	      if (generation !== this.sectionLoadGeneration) {
-	        return
-	      }
-	      this.loadingSectionKeys.delete(section.key)
-	      this.sectionLoadBusy = false
-	      if (this.active && retryDelay >= 0) {
-	        this.enqueueSectionLoad(index, true, retryDelay)
-	        return
-	      }
-	      if (this.active && this.sectionLoadQueue.length > 0) {
-	        this.scheduleSectionLoadDrain(120)
-	      }
+    if (delayMs > 0) {
+      if (this.initialSectionLoadTimer >= 0) {
+        clearTimeout(this.initialSectionLoadTimer)
+      }
+      this.initialSectionLoadTimer = setTimeout(() => {
+        this.initialSectionLoadTimer = -1
+        this.loadInitialSectionData()
+      }, delayMs)
+      return
+    }
+    if (this.areAllSectionsDataLoaded()) {
+      this.markAllSectionsReady()
+      this.editingConfigReady = true
+      return
+    }
+    const generation = this.sectionLoadGeneration
+    const fields = this.allSectionFields()
+    this.renderPlan.sections.forEach((section) => {
+      if (!this.dataLoadedSectionKeys.has(section.key)) {
+        this.loadingSectionKeys.add(section.key)
+      }
+    })
+    ensureEditingFieldsAsync(this.uuid, fields).then(() => {
+      if (!this.active || generation !== this.sectionLoadGeneration) {
+        return
+      }
+      this.sectionLoadFailureCounts.clear()
+      this.markAllSectionsReady()
+      this.editingConfigReady = true
+    }).catch(() => {
+      if (!this.active || generation !== this.sectionLoadGeneration) {
+        return
+      }
+      const failureCount = this.sectionLoadFailureCounts.get('__initial__') ?? 0
+      if (failureCount < 2) {
+        this.sectionLoadFailureCounts.set('__initial__', failureCount + 1)
+        this.loadInitialSectionData(300)
+      } else {
+        this.editingConfigReady = true
+        sendToast('读取配置字段失败', $r('sys.symbol.exclamationmark_circle'), 1)
+      }
+    }).finally(() => {
+      if (generation !== this.sectionLoadGeneration) {
+        return
+      }
+      this.renderPlan.sections.forEach((section) => {
+        this.loadingSectionKeys.delete(section.key)
+      })
+    })
+  }
+
+  private loadSectionData(index: number): void {
+    const section = this.renderPlan.sections[index]
+    const generation = this.sectionLoadGeneration
+    let retryDelay = -1
+    this.loadingSectionKeys.add(section.key)
+    ensureEditingFieldsAsync(this.uuid, section.topLevelFields).then(() => {
+      if (!this.active || generation !== this.sectionLoadGeneration) {
+        return
+      }
+      this.sectionLoadFailureCounts.delete(section.key)
+      this.dataLoadedSectionKeys.add(section.key)
+      if (index === 0) {
+        this.scheduleTrailingSectionPreload()
+      }
+      this.scheduleSectionMount()
+    }).catch(() => {
+      if (!this.active || generation !== this.sectionLoadGeneration) {
+        return
+      }
+      const failureCount = this.sectionLoadFailureCounts.get(section.key) ?? 0
+      if (failureCount < 2) {
+        this.sectionLoadFailureCounts.set(section.key, failureCount + 1)
+        retryDelay = 800
+      } else {
+        sendToast('读取配置字段失败', $r('sys.symbol.exclamationmark_circle'), 1)
+      }
+    }).finally(() => {
+      if (generation !== this.sectionLoadGeneration) {
+        return
+      }
+      this.loadingSectionKeys.delete(section.key)
+      if (this.active && retryDelay >= 0) {
+        this.enqueueSectionLoad(index, true, retryDelay)
+        return
+      }
+      if (this.active && this.sectionLoadQueue.length > 0) {
+        this.scheduleSectionLoadDrain(16)
+      }
     })
   }
 
@@ -605,12 +740,89 @@ export struct EditPage {
       if (!this.active) {
         return
       }
-      this.enqueueVisibleSectionLoads(this.activePageIndex)
+      this.enqueueVisibleSectionLoads(this.activePageIndex, 32)
     }, 180)
   }
 
-  private enqueueNearbySectionLoads(index: number): void {
-    this.enqueueVisibleSectionLoads(index)
+  private scheduleSectionMount(): void {
+    if (!this.active || this.sectionMountScheduled) {
+      return
+    }
+    if (!this.canMountVisibleWindow()) {
+      return
+    }
+    this.sectionMountScheduled = true
+    const callback = () => {
+      this.sectionMountScheduled = false
+      this.mountNextReadySection()
+    }
+    try {
+      this.getUIContext().postFrameCallback(new SectionMountFrameCallback(callback))
+    } catch (_) {
+      this.sectionMountTimer = setTimeout(() => {
+        this.sectionMountTimer = -1
+        callback()
+      }, 16)
+    }
+  }
+
+  private mountNextReadySection(): void {
+    if (!this.active) {
+      return
+    }
+    if (this.animationTargetIndex >= 0) {
+      return
+    }
+    if (!this.canMountVisibleWindow()) {
+      return
+    }
+    const visibleStart = this.visibleWindowStart(this.activePageIndex)
+    const visibleCount = this.visiblePageCount()
+    let mounted = false
+    for (let offset = 0; offset < visibleCount; offset++) {
+      const index = visibleStart + offset
+      if (this.canMountSection(index)) {
+        const section = this.renderPlan.sections[index]
+        this.mountedSectionKeys.add(section.key)
+        mounted = true
+      }
+    }
+    if (mounted) {
+      this.sectionMountRevision++
+    }
+  }
+
+  private canMountVisibleWindow(): boolean {
+    const visibleStart = this.visibleWindowStart(this.activePageIndex)
+    const visibleCount = this.visiblePageCount()
+    let hasUnmountedVisible = false
+    for (let offset = 0; offset < visibleCount; offset++) {
+      const index = visibleStart + offset
+      if (!this.isValidSectionIndex(index)) {
+        continue
+      }
+      const section = this.renderPlan.sections[index]
+      if (this.mountedSectionKeys.has(section.key)) {
+        continue
+      }
+      hasUnmountedVisible = true
+      if (!this.dataLoadedSectionKeys.has(section.key)) {
+        return false
+      }
+    }
+    return hasUnmountedVisible
+  }
+
+  private canMountSection(index: number): boolean {
+    if (!this.isValidSectionIndex(index)) {
+      return false
+    }
+    const section = this.renderPlan.sections[index]
+    return this.dataLoadedSectionKeys.has(section.key) && !this.mountedSectionKeys.has(section.key)
+  }
+
+  private enqueueNearbySectionLoads(index: number, delayMs: number = 0): void {
+    this.enqueueVisibleSectionLoads(index, delayMs)
   }
 
   private enqueueVisibleSectionLoads(index: number, delayMs: number = 0): void {

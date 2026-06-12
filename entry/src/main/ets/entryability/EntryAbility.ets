@@ -2,7 +2,7 @@ import { AbilityConstant, Configuration, UIAbility, Want, wantConstant } from '@
 import { window } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
 import { Logger, LogLocate } from '../shared/logging/Logger';
-import { BusinessError, deviceInfo, emitter } from '@kit.BasicServicesKit';
+import { BusinessError, commonEventManager, deviceInfo, emitter } from '@kit.BasicServicesKit';
 import easytier from 'easytier-ohrs';
 import { JSON } from '@kit.ArkTS';
 import { BUILD_TIME } from '../util/info/BuildTime';
@@ -42,6 +42,13 @@ import {
 } from '../types/events/RuntimeEventTypes'
 import { SharedIntentImportService } from '../services/share/SharedIntentImportService'
 import { StatusBarIntegrationService } from '../services/desktop/StatusBarIntegrationService'
+import {
+  shouldUseEntryBackgroundKeepAlive,
+  shouldUseSubprocessRuntimeMode,
+  supportsStatusBarTray,
+  STATUS_BAR_BACKGROUND_TERMINATE_EVENT,
+  VPN_EXTENSION_SOCKET_NAME
+} from '../services/runtime/AbilityRuntimePolicy'
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility implements EntryRemoteHostDelegate {
@@ -51,13 +58,15 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   private entryAppBootstrapService: EntryAppBootstrapService | undefined = undefined
   private entryRuntimeEventService: EntryRuntimeEventService | undefined = undefined
   private statusBarIntegrationService: StatusBarIntegrationService | undefined = undefined
+  private statusBarSubscriber: commonEventManager.CommonEventSubscriber | undefined = undefined
+  private terminatingFromStatusBar: boolean = false
   private mainWindow: window.Window | undefined = undefined
   private windowWillCloseCallback: (() => Promise<boolean>) | undefined = undefined
   private windowStageCloseCallback: (() => boolean) | undefined = undefined
   private continuationSocketClient: ContinuationSocketClient = new ContinuationSocketClient({
-    socketName: 'easytier_vpn_socket',
+    socketName: VPN_EXTENSION_SOCKET_NAME,
     logTarget: 'EntryAbility',
-    isExtMode: () => AppManager.uiState.ext_mode,
+    isExtMode: () => AppManager.uiState.ext_mode && shouldUseSubprocessRuntimeMode(),
     getSocketPath: (name: string) => AppManager.uiState.getSocketPath(name),
     onContinueState: (active: boolean) => {
       if (active) {
@@ -99,7 +108,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   }
 
   private shouldMinimizeToBackground(): boolean {
-    return canIUse('SystemCapability.PCService.StatusBarManager')
+    return supportsStatusBarTray()
   }
 
   private minimizeMainWindow(mainWindow: window.Window): Promise<boolean> {
@@ -157,6 +166,45 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     }
   }
 
+  private subscribeStatusBarTerminateEvent(): void {
+    if (!supportsStatusBarTray() || this.statusBarSubscriber) {
+      return
+    }
+    const subscribeInfo: commonEventManager.CommonEventSubscribeInfo = {
+      events: [STATUS_BAR_BACKGROUND_TERMINATE_EVENT]
+    }
+    commonEventManager.createSubscriber(subscribeInfo).then((subscriber: commonEventManager.CommonEventSubscriber) => {
+      this.statusBarSubscriber = subscriber
+      commonEventManager.subscribe(subscriber, (err: BusinessError) => {
+        if (err) {
+          Logger.error(`status bar terminate subscribe failed: ${err.code}, ${err.message}`, this)
+          return
+        }
+        this.terminatingFromStatusBar = true
+        this.statusBarIntegrationService?.close()
+        setTimeout(() => {
+          this.context.terminateSelf().catch((error: BusinessError) => {
+            Logger.error(`terminateSelf after status bar exit failed: ${error.code}, ${error.message}`, this)
+          })
+        }, 200)
+      })
+    }).catch((err: BusinessError) => {
+      Logger.error(`status bar terminate subscriber create failed: ${err.code}, ${err.message}`, this)
+    })
+  }
+
+  private unsubscribeStatusBarTerminateEvent(): void {
+    if (!this.statusBarSubscriber) {
+      return
+    }
+    commonEventManager.unsubscribe(this.statusBarSubscriber, (err?: BusinessError) => {
+      if (err) {
+        Logger.debug(`status bar terminate unsubscribe ignored: ${err.code}, ${err.message}`, this)
+      }
+    })
+    this.statusBarSubscriber = undefined
+  }
+
   startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined) {
     this.entryBackgroundTaskService?.startContinuousTask(cfg, uuid, name)
   }
@@ -183,7 +231,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     })
     this.entryKernelSocketService = new EntryKernelSocketService({
       logTarget: this,
-      shouldConnect: () => !AppManager.uiState.ext_mode,
+      shouldConnect: () => !AppManager.uiState.ext_mode || !shouldUseSubprocessRuntimeMode(),
       buildTunSetupRequest: (payload) => {
         return this.vpnSetupRequestBuilder.buildFromKernelPayload(payload)
       },
@@ -217,6 +265,9 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
       },
       getBackgroundKeepAliveMode: () => {
         return AppManager.uiState.background_keep_alive_mode
+      },
+      shouldUseBackgroundKeepAlive: () => {
+        return shouldUseEntryBackgroundKeepAlive()
       }
     })
     this.entryAppBootstrapService = new EntryAppBootstrapService({
@@ -262,6 +313,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     this.statusBarIntegrationService = new StatusBarIntegrationService(this.context, this, () => {
       this.restoreMainWindow()
     })
+    this.subscribeStatusBarTerminateEvent()
     RemoteManageService.setHostHandlerProvider(() => this.createRemoteHostHandler())
     this.favoriteCardActions.start(this.callee)
     CrashLogService.init(this.context.filesDir)
@@ -402,7 +454,23 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     this.entryKernelSocketService?.close()
     this.continuationSocketClient.close()
     this.statusBarIntegrationService?.close()
+    this.unsubscribeStatusBarTerminateEvent()
     this.favoriteCardActions.stop()
+  }
+
+  onPrepareToTerminate(): boolean {
+    if (!this.shouldMinimizeToBackground() || this.terminatingFromStatusBar) {
+      return false
+    }
+    const mainWindow = this.mainWindow
+    if (mainWindow) {
+      void this.minimizeMainWindow(mainWindow)
+    } else {
+      this.context.hideAbility().catch((err: BusinessError) => {
+        Logger.debug(`hideAbility before terminate ignored: ${err.code}, ${err.message}`, this)
+      })
+    }
+    return true
   }
 
   async onContinue(wantParam: Record<string, Object>): Promise<AbilityConstant.OnContinueResult> {

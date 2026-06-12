@@ -14,6 +14,7 @@ import { getHostname } from '../../util/Conversion'
 import { EventHelper } from '../../util/EventHelper'
 import { APP_VERSION, CORE_VERSION } from '../../util/info/BuildTime'
 import { updateFavorite } from '../form/CommunicationUtil'
+import { shouldUseSubprocessRuntimeMode } from '../runtime/AbilityRuntimePolicy'
 import {
   RemoteConfigMeta,
   RemoteCreateDefaultConfigResult,
@@ -96,8 +97,9 @@ export class EntryRemoteHostDomainService {
   }
 
   remoteSettings(): RemoteSettingsState {
+    const extMode = AppManager.uiState.ext_mode && shouldUseSubprocessRuntimeMode()
     return {
-      ext_mode: AppManager.uiState.ext_mode,
+      ext_mode: extMode,
       background_keep_alive_mode: normalizeRuntimeMode(AppManager.uiState.background_keep_alive_mode),
       dev: AppManager.uiState.dev,
       vpn_routes: AppManager.uiState.vpn_routes,
@@ -260,7 +262,7 @@ export class EntryRemoteHostDomainService {
         break
       case 'ext_mode':
         if (AppManager.easytier.runningNetworks.size === 0) {
-          AppManager.uiState.ext_mode = Boolean(value)
+          AppManager.uiState.ext_mode = Boolean(value) && shouldUseSubprocessRuntimeMode()
         }
         break
       case 'background_keep_alive_mode':

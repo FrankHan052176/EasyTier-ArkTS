@@ -14,7 +14,6 @@ import { PortForward, setEditValue_PortForward } from '../../../class/config/Por
 import { getFieldPathValue, syncTopLevelField } from '../../../ConfigSyncUtil';
 import { ConfigFieldValue } from '../../../config/schema/SchemaConfig';
 import { Logger } from '../../../shared/logging/Logger';
-import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService';
 
 interface PortForwardRawValue {
   bind_ip: string
@@ -25,15 +24,64 @@ interface PortForwardRawValue {
 }
 
 type ListRawValue = string | PortForwardRawValue
+const DEFAULT_LIST_ITEM_HEIGHT = 74
+
+class ListFieldItemDataSource implements IDataSource {
+  private items: ListFieldItemModel[] = []
+  private listeners: DataChangeListener[] = []
+
+  setItems(items: ListFieldItemModel[]): void {
+    this.items = items
+    this.notifyDataReload()
+  }
+
+  clear(): void {
+    this.items = []
+    this.notifyDataReload()
+  }
+
+  dispose(): void {
+    this.items = []
+    this.listeners = []
+  }
+
+  totalCount(): number {
+    return this.items.length
+  }
+
+  getData(index: number): ListFieldItemModel {
+    return this.items[index]
+  }
+
+  registerDataChangeListener(listener: DataChangeListener): void {
+    if (this.listeners.indexOf(listener) < 0) {
+      this.listeners.push(listener)
+    }
+  }
+
+  unregisterDataChangeListener(listener: DataChangeListener): void {
+    const index = this.listeners.indexOf(listener)
+    if (index >= 0) {
+      this.listeners.splice(index, 1)
+    }
+  }
+
+  private notifyDataReload(): void {
+    this.listeners.forEach((listener) => {
+      listener.onDataReloaded()
+    })
+  }
+
+}
 
 @ComponentV2
 export struct ListField {
   @Param @Require field: string;
   @Param @Require type: string;
-  @Local items: ListFieldItemModel[] = []
+  @Local itemCount: number = 0
   @Local item_height: number = 0
   private scroller: ListScroller = new ListScroller();
-  private fieldRefreshEvent: string = ''
+  private dataSource: ListFieldItemDataSource = new ListFieldItemDataSource()
   private editRefreshEvent: string = ''
   private fieldRefreshCallback = () => {
     this.updateItems()
@@ -46,12 +94,13 @@ export struct ListField {
 
   @Computed
   get comp_height() {
-    if (this.items.length == 0) {
+    const itemHeight = this.item_height > 0 ? this.item_height : DEFAULT_LIST_ITEM_HEIGHT
+    if (this.itemCount == 0) {
       return 70
-    } else if (this.items.length <= 2) {
-      return this.items.length * this.item_height + (this.items.length - 1) * 10
+    } else if (this.itemCount <= 2) {
+      return this.itemCount * itemHeight + (this.itemCount - 1) * 10
     } else {
-      return 2.5 * this.item_height + 10
+      return 2.5 * itemHeight + 10
     }
   }
 
@@ -143,12 +192,13 @@ export struct ListField {
   private updateItems() {
     const rawValues: ListRawValue[] | undefined = this.currentRawValues()
     if (!rawValues) {
-      this.items = []
+      this.itemCount = 0
+      this.dataSource.clear()
       return
     }
-    this.items = rawValues.map((value: ListRawValue, index: number) => {
-      return this.createDisplayItem(value, index)
-    })
+    const items = rawValues.map((value: ListRawValue, index: number) => this.createDisplayItem(value, index))
+    this.itemCount = items.length
+    this.dataSource.setItems(items)
   }
 
   aboutToAppear(): void {
@@ -160,20 +210,15 @@ export struct ListField {
       }
     }
     this.updateItems()
-    this.fieldRefreshEvent = getEditingConfigFieldRefreshEvent(this.field)
     this.editRefreshEvent = "edit_refresh_" + this.field
-    EventHelper.emitterListener(this.fieldRefreshEvent, this.fieldRefreshCallback)
     EventHelper.emitterListener(this.editRefreshEvent, this.fieldRefreshCallback)
   }
 
   aboutToDisappear(): void {
     this.scroller.closeAllSwipeActions()
-    this.items = []
+    this.dataSource.dispose()
+    this.itemCount = 0
     this.item_height = 0
-    if (this.fieldRefreshEvent.length > 0) {
-      EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
-      this.fieldRefreshEvent = ''
-    }
     if (this.editRefreshEvent.length > 0) {
       EventHelper.emitterOff(this.editRefreshEvent, this.fieldRefreshCallback)
       this.editRefreshEvent = ''
@@ -267,13 +312,16 @@ export struct ListField {
 
   build() {
     List({ space: 10, scroller: this.scroller }) {
-      if (this.items.length > 0) {
-        ForEach(this.items, (item: ListFieldItemModel) => {
+      if (this.itemCount > 0) {
+        LazyForEach(this.dataSource, (item: ListFieldItemModel) => {
           ListItem() {
             ListFieldValue({ item: item })
               .width('100%')
               .onAreaChange((a, b) => {
-                this.item_height = b.height.valueOf() as number
+                const height = b.height.valueOf() as number
+                if (this.item_height !== height) {
+                  this.item_height = height
+                }
               })
           }
           .swipeAction({

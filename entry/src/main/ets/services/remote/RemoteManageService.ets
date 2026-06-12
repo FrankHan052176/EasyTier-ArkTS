@@ -44,11 +44,9 @@ import {
   REMOTE_SEND_MESSAGE_MAX_BYTES,
   utf8ByteLength
 } from './RemoteWireCodec'
+import { APP_BUNDLE_NAME, ENTRY_ABILITY_NAME, ENTRY_MODULE_NAME } from '../runtime/AbilityRuntimePolicy'
 
 const REMOTE_RPC_TIMEOUT_MS = 12000
-const REMOTE_BUNDLE_NAME = 'top.frankhan.easytier'
-const REMOTE_MODULE_NAME = 'entry'
-const REMOTE_ABILITY_NAME = 'EntryAbility'
 const REMOTE_NOTIFY_SUMMARY_DIRTY = 'summaryDirty'
 
 export const REMOTE_MANAGE_CONNECTION_EVENT = 'remote_manage_connection'
@@ -175,9 +173,9 @@ class RemoteManageServiceClass {
     }
     const peerInfo: abilityConnectionManager.PeerInfo = {
       deviceId: targetDeviceId,
-      bundleName: REMOTE_BUNDLE_NAME,
-      moduleName: REMOTE_MODULE_NAME,
-      abilityName: REMOTE_ABILITY_NAME,
+      bundleName: APP_BUNDLE_NAME,
+      moduleName: ENTRY_MODULE_NAME,
+      abilityName: ENTRY_ABILITY_NAME,
       serviceName: REMOTE_MANAGE_SERVICE_NAME
     }
     const parameterModel = new RemoteConnectParameters()

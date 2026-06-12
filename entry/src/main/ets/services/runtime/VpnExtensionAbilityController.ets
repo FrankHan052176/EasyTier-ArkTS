@@ -1,9 +1,6 @@
 import { Want } from '@kit.AbilityKit'
 import { vpnExtension } from '@kit.NetworkKit'
-
-const VPN_EXTENSION_SOCKET_NAME = 'easytier_vpn_socket'
-const EASYTIER_BUNDLE_NAME = 'top.frankhan.easytier'
-const EASYTIER_VPN_ABILITY_NAME = 'EasyTierAbility'
+import { APP_BUNDLE_NAME, VPN_EXTENSION_ABILITY_NAME, VPN_EXTENSION_SOCKET_NAME } from './AbilityRuntimePolicy'
 
 export interface VpnExtensionStartOptions {
   cfg: string
@@ -25,8 +22,8 @@ export interface VpnExtensionStartOptions {
 export class VpnExtensionAbilityController {
   static start(options: VpnExtensionStartOptions): void {
     const want: Want = {
-      bundleName: EASYTIER_BUNDLE_NAME,
-      abilityName: EASYTIER_VPN_ABILITY_NAME,
+      bundleName: APP_BUNDLE_NAME,
+      abilityName: VPN_EXTENSION_ABILITY_NAME,
       parameters: {
         cfg: options.cfg,
         name: options.name,
@@ -51,8 +48,8 @@ export class VpnExtensionAbilityController {
 
   static stop(): void {
     const want: Want = {
-      bundleName: EASYTIER_BUNDLE_NAME,
-      abilityName: EASYTIER_VPN_ABILITY_NAME
+      bundleName: APP_BUNDLE_NAME,
+      abilityName: VPN_EXTENSION_ABILITY_NAME
     }
     vpnExtension.stopVpnExtensionAbility(want)
   }

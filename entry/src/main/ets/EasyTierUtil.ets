@@ -23,6 +23,7 @@ import { FavoriteCardSignatureState } from './services/runtime/RuntimeNotificati
 import { RuntimeStateCoordinator } from './services/runtime/RuntimeStateCoordinator'
 import { VpnExtensionAbilityController } from './services/runtime/VpnExtensionAbilityController'
 import { VpnExtensionRuntimeClient } from './services/runtime/VpnExtensionRuntimeClient'
+import { shouldUseSubprocessRuntimeMode, VPN_EXTENSION_SOCKET_NAME } from './services/runtime/AbilityRuntimePolicy'
 import {
   ENTRY_SYNC_CONTINUATION_SOCKET_EVENT,
   KERNEL_RUNTIME_PEER_EVENT,
@@ -42,7 +43,7 @@ export class EasyTierUtil {
   @Trace temporaryConfigIds: Set<string> = new Set()
   private logTimer: number | undefined
   private vpnExtensionRuntimeClient: VpnExtensionRuntimeClient = new VpnExtensionRuntimeClient({
-    isExtMode: () => AppManager.uiState.ext_mode,
+    isExtMode: () => this.shouldUseExtMode(),
     getSocketPath: (name: string) => AppManager.uiState.getSocketPath(name),
     onTopology: (snapshot: RuntimeAggregateState) => {
       Logger.debug(`VpnExtension runtime_topology received instances=${snapshot.instances?.length ?? 0}`, this)
@@ -67,7 +68,7 @@ export class EasyTierUtil {
     getInstanceName: (uuid: string) => this.getConfigName(uuid) ?? 'N/A',
     getFavoriteState: () => this.buildFavoriteCardState(),
     isVpnConnected: () => this.vpnExtensionRuntimeClient.isConnected(),
-    isExtMode: () => AppManager.uiState.ext_mode
+    isExtMode: () => this.shouldUseExtMode()
   })
   private initialized: boolean = false
   private kernelRuntimeTopologyCallback: Callback<emitter.EventData> = (event: emitter.EventData) => {
@@ -86,6 +87,10 @@ export class EasyTierUtil {
     }
   }
 
+  private shouldUseExtMode(): boolean {
+    return AppManager.uiState.ext_mode && shouldUseSubprocessRuntimeMode()
+  }
+
   init() {
     if (this.initialized) {
       return
@@ -99,8 +104,8 @@ export class EasyTierUtil {
       this.processLogs(easytier.drainLogLines())
     }, 500)
 
-    if (AppManager.uiState.ext_mode) {
-      this.connectToVpnExtension("easytier_vpn_socket")
+    if (this.shouldUseExtMode()) {
+      this.connectToVpnExtension(VPN_EXTENSION_SOCKET_NAME)
     }
   }
 
@@ -178,7 +183,7 @@ export class EasyTierUtil {
         const started = orchestrateInstanceStart({
           config,
           name: this.getConfigName(uuid) ?? uuid,
-          extMode: AppManager.uiState.ext_mode,
+          extMode: this.shouldUseExtMode(),
           socketFilesDir: AppManager.uiState.socketFilesDir,
           vpnRoutes: AppManager.uiState.vpn_routes,
           whiteList: AppManager.uiState.white_list,
@@ -237,7 +242,7 @@ export class EasyTierUtil {
       const started = orchestrateInstanceStart({
         config,
         name,
-        extMode: AppManager.uiState.ext_mode,
+        extMode: this.shouldUseExtMode(),
         socketFilesDir: AppManager.uiState.socketFilesDir,
         vpnRoutes: AppManager.uiState.vpn_routes,
         whiteList: AppManager.uiState.white_list,
@@ -289,7 +294,7 @@ export class EasyTierUtil {
   public stop() {
     const temporaryRunningIds = Array.from(this.temporaryConfigIds.values())
     AppManager.runtimeStats.stopLiveRefresh()
-    if (AppManager.uiState.ext_mode) {
+    if (this.shouldUseExtMode()) {
       VpnExtensionAbilityController.stop()
       this.vpnExtensionRuntimeClient.close()
     } else {
@@ -322,7 +327,7 @@ export class EasyTierUtil {
     if (!uuid || !running) {
       return false
     }
-    if (AppManager.uiState.ext_mode) {
+    if (this.shouldUseExtMode()) {
       this.stop()
       return true
     }

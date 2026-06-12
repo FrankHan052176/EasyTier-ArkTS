@@ -2,8 +2,8 @@ import { deviceInfo } from '@kit.BasicServicesKit'
 import { connection, vpnExtension } from '@kit.NetworkKit'
 import { NetworkSegment } from '../../models/network/NetworkSegment'
 import { stringArr2RouteArr } from '../../util/Conversion'
+import { APP_BUNDLE_NAME } from '../runtime/AbilityRuntimePolicy'
 
-const EASYTIER_PACKAGE_NAME = 'top.frankhan.easytier'
 const DEFAULT_DNS_ADDRESS = '223.5.5.5'
 const MAGIC_DNS_ADDRESS = '100.100.100.101'
 const IPV4_FAMILY = 1
@@ -42,7 +42,7 @@ export function shouldBuildPreferenceVpnRoutes(vpnRoutes: boolean, sdkApiVersion
 
 export function buildTunVpnAppList(blackList: string[], sdkApiVersion: number = deviceInfo.sdkApiVersion): string[] {
   return [
-    sdkApiVersion >= 22 ? '' : EASYTIER_PACKAGE_NAME,
+    sdkApiVersion >= 22 ? '' : APP_BUNDLE_NAME,
     ...blackList
   ]
 }

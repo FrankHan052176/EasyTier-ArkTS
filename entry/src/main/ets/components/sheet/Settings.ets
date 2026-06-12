@@ -19,6 +19,7 @@ import {
   runtimeModeOptions,
   runtimeModeText
 } from '../../types/runtime/RuntimeModeTypes'
+import { shouldUseSubprocessRuntimeMode } from '../../services/runtime/AbilityRuntimePolicy'
 
 const CORE_REPOSITORY_URL = 'https://github.com/EasyTier/EasyTier'
 const SHELL_REPOSITORY_URL =
@@ -170,7 +171,7 @@ function runtimeModeValue(): string {
 }
 
 function applyRuntimeMode(value: string): void {
-  if (value === RUNTIME_MODE_SUBPROCESS) {
+  if (value === RUNTIME_MODE_SUBPROCESS && shouldUseSubprocessRuntimeMode()) {
     AppManager.uiState.ext_mode = true
     return
   }
@@ -476,7 +477,7 @@ function settingVerticalSelectorRow(symbol: Resource, title: string, hint: strin
             .fontColor($r("sys.color.font_secondary"))
             .fontSize(12)
             .maxLines(1)
-            .margin({ top: 3 })
+            .margin({ top: 1 })
         }
         .alignItems(HorizontalAlign.Start)
       }
@@ -489,7 +490,7 @@ function settingVerticalSelectorRow(symbol: Resource, title: string, hint: strin
         onChange: onChange
       })
     }
-    .height(58)
+    .height(52)
     .borderRadius(18)
     .alignItems(VerticalAlign.Center)
     .justifyContent(FlexAlign.SpaceBetween)
@@ -499,9 +500,14 @@ function settingVerticalSelectorRow(symbol: Resource, title: string, hint: strin
       radius: 7,
       color: '#1F000000'
     })
-    .padding(10)
+    .padding({
+      left: 10,
+      right: 8,
+      top: 7,
+      bottom: 7
+    })
   }
-  .margin({ bottom: 10 })
+  .margin({ bottom: 8 })
 }
 
 @Builder

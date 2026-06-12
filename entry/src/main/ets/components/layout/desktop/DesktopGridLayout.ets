@@ -4,6 +4,7 @@ import { formProvider } from '@kit.FormKit';
 import { SymbolGlyphModifier, curves } from '@kit.ArkUI';
 import { vibrator } from '@kit.SensorServiceKit';
 import { Logger } from '../../../shared/logging/Logger';
+import { APP_BUNDLE_NAME, ENTRY_FORM_ABILITY_NAME } from '../../../services/runtime/AbilityRuntimePolicy';
 
 export interface BreakpointConfig {
   breakpoint: number
@@ -213,8 +214,8 @@ export class LayoutUtil {
   widgetList: string[] = []
   formWantFunc: (comp_type: string) => Want = (comp_type: string) => {
     return {
-      bundleName: 'top.frankhan.easytier',
-      abilityName: 'EntryFormAbility',
+      bundleName: APP_BUNDLE_NAME,
+      abilityName: ENTRY_FORM_ABILITY_NAME,
       parameters: {
         'ohos.extra.param.key.form_dimension': 1,
         'ohos.extra.param.key.form_name': comp_type,
@@ -1581,8 +1582,8 @@ export struct DesktopLayout {
   @Param hasWidgetList: string[] = []
   @Param formWantFunc: (comp_type: string) => Want = (comp_type: string) => {
     return {
-      bundleName: 'top.frankhan.easytier',
-      abilityName: 'EntryFormAbility',
+      bundleName: APP_BUNDLE_NAME,
+      abilityName: ENTRY_FORM_ABILITY_NAME,
       parameters: {
         'ohos.extra.param.key.form_dimension': 1,
         'ohos.extra.param.key.form_name': comp_type,

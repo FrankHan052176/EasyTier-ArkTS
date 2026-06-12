@@ -1,7 +1,5 @@
 import { AppManager } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
-import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService';
-import { EventHelper } from '../../../util/EventHelper';
 
 @Extend(TextInput)
 function fieldTextInput() {
@@ -23,10 +21,6 @@ export struct PortField {
   @Consumer("field_edit_enable") enable: boolean = true
   @Local value: string = "" + (getFieldPathValue(this.config!, this.fieldPath) ?? 0);
   @Local isEdit: boolean = false;
-  private fieldRefreshEvent: string = ''
-  private fieldRefreshCallback = () => {
-    this.updateFromConfig()
-  }
 
   @Computed
   get config() {
@@ -38,10 +32,6 @@ export struct PortField {
     return this.enable ? $r("sys.color.font_primary") : $r("sys.color.font_tertiary")
   }
 
-  private topLevelField(): string {
-    return this.fieldPath.length > 0 ? this.fieldPath[0] : this.field
-  }
-
   private updateFromConfig(): void {
     if (!this.isEdit) {
       this.value = "" + (getFieldPathValue(this.config!, this.fieldPath) ?? 0)
@@ -50,15 +40,9 @@ export struct PortField {
 
   aboutToAppear(): void {
     this.updateFromConfig()
-    this.fieldRefreshEvent = getEditingConfigFieldRefreshEvent(this.topLevelField())
-    EventHelper.emitterListener(this.fieldRefreshEvent, this.fieldRefreshCallback)
   }
 
   aboutToDisappear(): void {
-    if (this.fieldRefreshEvent.length > 0) {
-      EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
-      this.fieldRefreshEvent = ''
-    }
     this.isEdit = false
     this.value = ''
   }

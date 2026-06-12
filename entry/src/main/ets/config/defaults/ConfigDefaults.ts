@@ -1,7 +1,7 @@
 import { ConfigJson } from '../schema/SchemaConfig'
 
 export function getDefaultConfig(hostname: string): ConfigJson {
-  const cfg = JSON.parse('{}') as ConfigJson
+  const cfg = {} as ConfigJson
   cfg.networking_method = 1
   cfg.public_server_url = ''
   cfg.enable_relay_network_whitelist = true

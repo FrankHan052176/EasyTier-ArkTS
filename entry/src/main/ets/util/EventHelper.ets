@@ -1,8 +1,9 @@
 import { BusinessError, commonEventManager, emitter } from '@kit.BasicServicesKit';
 import { Logger } from '../shared/logging/Logger';
+import { APP_BUNDLE_NAME } from '../services/runtime/AbilityRuntimePolicy';
 
 export class EventHelper {
-  public static bundleName = "top.frankhan.easytier"
+  public static bundleName = APP_BUNDLE_NAME
 
   public static commonListener(event: string, callback: (data: commonEventManager.CommonEventData) => void): () => void {
     let subscriber: commonEventManager.CommonEventSubscriber | undefined = undefined

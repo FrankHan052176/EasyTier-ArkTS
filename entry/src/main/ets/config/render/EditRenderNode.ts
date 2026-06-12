@@ -19,6 +19,7 @@ export interface EditRenderOption {
 export interface EditRenderNode {
   name: string
   path: string[]
+  renderKey: string
   topLevelField: string
   kind: EditRenderKind
   field: ConfigField

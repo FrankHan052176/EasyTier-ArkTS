@@ -3,6 +3,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { vpnExtension } from '@kit.NetworkKit';
 import { AppManager } from '../../AppManager';
 import { Logger, LogLocate } from '../../shared/logging/Logger';
+import { APP_BUNDLE_NAME, VPN_EXTENSION_ABILITY_NAME } from '../runtime/AbilityRuntimePolicy';
 
 const DISTRIBUTED_DATASYNC_PERMISSION: Permissions = 'ohos.permission.DISTRIBUTED_DATASYNC';
 
@@ -95,14 +96,14 @@ export class PermissionUtil {
   requestVpnPerm(callback: () => void, finallyCallback: () => void = () => {}) {
     vpnExtension.startVpnExtensionAbility({
       deviceId: '',
-      bundleName: 'top.frankhan.easytier',
-      abilityName: 'EasyTierAbility',
+      bundleName: APP_BUNDLE_NAME,
+      abilityName: VPN_EXTENSION_ABILITY_NAME,
     }).then(() => {
       Logger.debug("startVpnExtensionAbility", this)
       vpnExtension.stopVpnExtensionAbility({
         deviceId: '',
-        bundleName: 'top.frankhan.easytier',
-        abilityName: 'EasyTierAbility',
+        bundleName: APP_BUNDLE_NAME,
+        abilityName: VPN_EXTENSION_ABILITY_NAME,
       }).then(callback)
     }).finally(() => {
       finallyCallback()

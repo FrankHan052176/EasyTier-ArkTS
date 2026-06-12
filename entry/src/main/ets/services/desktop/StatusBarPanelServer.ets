@@ -6,8 +6,8 @@ import { socket } from '@kit.NetworkKit'
 import { AppManager } from '../../AppManager'
 import { decodeSocketChunk } from '../../infrastructure/bridge/kernel/SocketCodec'
 import { Logger } from '../../shared/logging/Logger'
-import { EventHelper } from '../../util/EventHelper'
 import { backgroundKeepAliveModeText } from '../../types/runtime/BackgroundKeepAliveTypes'
+import { APP_BUNDLE_NAME, ENTRY_ABILITY_NAME, supportsStatusBarTray } from '../runtime/AbilityRuntimePolicy'
 import {
   STATUS_BAR_PANEL_ACTION_OPEN_APP,
   STATUS_BAR_PANEL_ACTION_REQUEST_STATE,
@@ -107,7 +107,8 @@ export class StatusBarPanelServer {
       favoriteRunning: AppManager.easytier.isFavoritesRunning(),
       runningCount: AppManager.easytier.runningNetworks.size,
       configCount: AppManager.data.configIds.length,
-      keepAliveMode: backgroundKeepAliveModeText(AppManager.uiState.background_keep_alive_mode)
+      keepAliveMode: supportsStatusBarTray() ? '托盘保活' :
+        backgroundKeepAliveModeText(AppManager.uiState.background_keep_alive_mode)
     }
   }
 
@@ -149,8 +150,8 @@ export class StatusBarPanelServer {
   private openApp(): void {
     this.openMainWindow?.()
     this.context.startAbility({
-      bundleName: EventHelper.bundleName,
-      abilityName: 'EntryAbility'
+      bundleName: APP_BUNDLE_NAME,
+      abilityName: ENTRY_ABILITY_NAME
     }).catch((err: BusinessError) => {
       Logger.error(`status bar open app failed: ${err.code}, ${err.message}`, this.logTarget)
     })

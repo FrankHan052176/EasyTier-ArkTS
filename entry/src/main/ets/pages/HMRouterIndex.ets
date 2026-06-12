@@ -6,6 +6,7 @@ import { Logger } from '../shared/logging/Logger';
 import { deferredLink } from '@kit.AppLinkingKit';
 import { url } from '@kit.ArkTS';
 import { unwrapUrl } from '../util/ShareUtil';
+import { warmEditRenderPlan } from '../config/render/EditRenderResolver';
 
 class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
   initializeModifier(instance: NavigationAttribute): void {
@@ -32,6 +33,9 @@ export struct HMRouterIndex {
     if (!this.active || generation !== this.appearGeneration) {
       return
     }
+    setTimeout(() => {
+      warmEditRenderPlan()
+    }, 0)
     if (canIUse("SystemCapability.BundleManager.AppLinking.DeferredLink") && !this.privacyStateUnsubscribe) {
       this.privacyStateUnsubscribe = EventHelper.commonListener("usual.event.PRIVACY_STATE_CHANGED", () => {
         deferredLink.popDeferredLink().then(async (link: string) => {

@@ -3,8 +3,6 @@ import { hasFieldTag } from '../../../config/fields/ConfigFieldUi';
 import { getFieldI18Name } from '../FieldLabel';
 import { AppManager, Svp2fp } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
-import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService';
-import { EventHelper } from '../../../util/EventHelper';
 
 @ComponentV2
 export struct EnableField {
@@ -12,10 +10,6 @@ export struct EnableField {
   @Param fieldPath: string[] = [this.field]
   @Consumer("field_edit_enable") enable: boolean = true
   @Local button: boolean = true;
-  private fieldRefreshEvent: string = ''
-  private fieldRefreshCallback = () => {
-    this.updateFromConfig()
-  }
 
   @Computed
   get config() {
@@ -32,10 +26,6 @@ export struct EnableField {
     return hasFieldTag(this.field, "inverse")
   }
 
-  private topLevelField(): string {
-    return this.fieldPath.length > 0 ? this.fieldPath[0] : this.field
-  }
-
   private updateFromConfig(): void {
     this.button = (getFieldPathValue(this.config!, this.fieldPath) as boolean) ?? false
     this.updateEnable()
@@ -43,15 +33,9 @@ export struct EnableField {
 
   aboutToAppear(): void {
     this.updateFromConfig()
-    this.fieldRefreshEvent = getEditingConfigFieldRefreshEvent(this.topLevelField())
-    EventHelper.emitterListener(this.fieldRefreshEvent, this.fieldRefreshCallback)
   }
 
   aboutToDisappear(): void {
-    if (this.fieldRefreshEvent.length > 0) {
-      EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
-      this.fieldRefreshEvent = ''
-    }
     this.button = false
   }
 

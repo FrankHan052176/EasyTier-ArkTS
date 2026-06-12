@@ -2,8 +2,8 @@ import easytier from 'easytier-ohrs'
 import { JSON, taskpool } from '@kit.ArkTS'
 import { getDefaultConfig } from '../../../config/defaults/ConfigDefaults'
 import { ConfigFieldValue, ConfigJson } from '../../../config/schema/SchemaConfig'
-import { EventHelper } from '../../../util/EventHelper'
 import { RemoteManageService } from '../../remote/RemoteManageService'
+import { RemoteFieldValueResult } from '../../remote/RemoteManageDtos'
 
 interface FieldLoadWorkerResult {
   field: string
@@ -29,12 +29,6 @@ export interface EditingConfigStoreRef {
 
 let editingConfigStoreRef: EditingConfigStoreRef = {
   source: 'local'
-}
-
-export const EDITING_CONFIG_FIELD_REFRESH_EVENT_PREFIX = 'editing_config_field_refresh:'
-
-export function getEditingConfigFieldRefreshEvent(field: string): string {
-  return EDITING_CONFIG_FIELD_REFRESH_EVENT_PREFIX + field
 }
 
 function currentEditingStoreKey(): string {
@@ -119,6 +113,33 @@ async function loadStoredConfigFieldsWorker(uuid: string, fields: string[]): Pro
     })
   })
   return results
+}
+
+@Concurrent
+async function parseRemoteConfigFieldsWorker(values: RemoteFieldValueResult[]): Promise<FieldLoadWorkerResult[]> {
+  return values.map((item) => {
+    const totalStart = Date.now()
+    let value: ConfigFieldValue = undefined
+    let parseMs = 0
+    if (item.found && item.rawValue !== undefined) {
+      const parseStart = Date.now()
+      try {
+        value = JSON.parse(item.rawValue) as ConfigFieldValue
+      } catch (_) {
+        value = undefined
+      }
+      parseMs = Date.now() - parseStart
+    }
+    return {
+      field: item.field,
+      value,
+      found: item.found,
+      rawLength: item.rawValue?.length ?? 0,
+      nativeMs: 0,
+      parseMs,
+      totalMs: Date.now() - totalStart
+    } as FieldLoadWorkerResult
+  })
 }
 
 let editingConfigLoadedFields: Set<string> = new Set()
@@ -230,15 +251,6 @@ export function markEditingConfigFieldDirty(editingId: string | undefined, field
   editingConfigDirtyFields.add(field)
 }
 
-function publishEditingConfigFieldRefresh(editingId: string | undefined, field: string): void {
-  EventHelper.emitterPublish(getEditingConfigFieldRefreshEvent(field), {
-    data: {
-      configId: editingId ?? '',
-      field
-    }
-  })
-}
-
 function setEditingFieldValue(field: string, value: ConfigFieldValue): void {
   if (!editingConfigCache) {
     editingConfigCache = getDefaultConfig('')
@@ -331,29 +343,7 @@ async function loadEditingFieldsBatchAsync(editingId: string, fields: string[], 
 	        if (remoteResult.values.length < fields.length) {
 	          throw new Error('remote field response incomplete')
 	        }
-	        results = remoteResult.values.map((item) => {
-          const totalStart = Date.now()
-          let value: ConfigFieldValue = undefined
-          let parseMs = 0
-          if (item.found && item.rawValue !== undefined) {
-            const parseStart = Date.now()
-            try {
-              value = JSON.parse(item.rawValue) as ConfigFieldValue
-            } catch (_) {
-              value = undefined
-            }
-            parseMs = Date.now() - parseStart
-          }
-          return {
-            field: item.field,
-            value,
-            found: item.found,
-            rawLength: item.rawValue?.length ?? 0,
-            nativeMs: 0,
-            parseMs,
-            totalMs: Date.now() - totalStart
-          } as FieldLoadWorkerResult
-        })
+        results = (await taskpool.execute(parseRemoteConfigFieldsWorker, remoteResult.values)) as FieldLoadWorkerResult[]
       } else {
         results = (await taskpool.execute(loadStoredConfigFieldsWorker, editingId, fields)) as FieldLoadWorkerResult[]
       }
@@ -369,7 +359,6 @@ async function loadEditingFieldsBatchAsync(editingId: string, fields: string[], 
           setEditingFieldValue(field, result.value)
         }
         editingConfigLoadedFields.add(field)
-        publishEditingConfigFieldRefresh(editingId, field)
       })
     } catch (_) {
       throw new Error('load editing fields failed')

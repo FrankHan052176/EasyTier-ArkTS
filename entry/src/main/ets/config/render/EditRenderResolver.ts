@@ -106,6 +106,7 @@ export function resolveEditRenderNode(field: ConfigField, layer: number = 0): Ed
   return {
     name: field.name,
     path: field.path,
+    renderKey: `${field.path.join('.')}:${kind}`,
     topLevelField: topLevelField(field.path, field.name),
     kind,
     field,
@@ -148,8 +149,11 @@ export function collectTopLevelFields(node: EditRenderNode): string[] {
 }
 
 export function buildEditRenderPlan(): EditRenderPlan {
+  if (cachedEditRenderPlan) {
+    return cachedEditRenderPlan
+  }
   configFieldRegistry.init()
-  return {
+  cachedEditRenderPlan = {
     sections: [
       section('basic', '基础', configFieldRegistry.basicFields),
       section('flags', '开关', [configFieldRegistry.flagField]),
@@ -157,6 +161,13 @@ export function buildEditRenderPlan(): EditRenderPlan {
       section('other', '其他', configFieldRegistry.otherFields)
     ]
   }
+  return cachedEditRenderPlan
+}
+
+let cachedEditRenderPlan: EditRenderPlan | undefined = undefined
+
+export function warmEditRenderPlan(): void {
+  buildEditRenderPlan()
 }
 
 export function emptyEditRenderPlan(): EditRenderPlan {

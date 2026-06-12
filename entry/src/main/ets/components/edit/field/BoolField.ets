@@ -1,8 +1,6 @@
 import { AppManager, Sfp2vp, Svp2fp } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { flagsCategory, flagsSymbol } from '../../../util/FlagsInfo';
-import { getEditingConfigFieldRefreshEvent } from '../../../services/config/storage/StoredConfigService';
-import { EventHelper } from '../../../util/EventHelper';
 
 @ComponentV2
 export struct BoolField {
@@ -11,10 +9,6 @@ export struct BoolField {
   @Consumer('field_width') field_width: number = 0
   @Param text: ResourceStr = $r("app.string.i18_enable");
   @Local button: boolean = true;
-  private fieldRefreshEvent: string = ''
-  private fieldRefreshCallback = () => {
-    this.updateFromConfig()
-  }
 
   @Computed
   get config() {
@@ -41,25 +35,15 @@ export struct BoolField {
     return Math.max(18, Svp2fp((this.safeFieldWidth - 10) / 8 - 6))
   }
 
-  private topLevelField(): string {
-    return this.fieldPath.length > 0 ? this.fieldPath[0] : this.field
-  }
-
   private updateFromConfig(): void {
     this.button = (getFieldPathValue(this.config!, this.fieldPath) as boolean) || false
   }
 
   aboutToAppear(): void {
     this.updateFromConfig()
-    this.fieldRefreshEvent = getEditingConfigFieldRefreshEvent(this.topLevelField())
-    EventHelper.emitterListener(this.fieldRefreshEvent, this.fieldRefreshCallback)
   }
 
   aboutToDisappear(): void {
-    if (this.fieldRefreshEvent.length > 0) {
-      EventHelper.emitterOff(this.fieldRefreshEvent, this.fieldRefreshCallback)
-      this.fieldRefreshEvent = ''
-    }
     this.button = false
   }
 

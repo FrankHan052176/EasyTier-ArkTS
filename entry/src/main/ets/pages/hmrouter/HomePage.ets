@@ -23,6 +23,7 @@ import { QQGroups } from '../../components/index/QQGroups';
 import { RemoteControl } from '../../components/index/RemoteControl';
 import { HdsMenuButton } from '../Components';
 import { CompSizeWithPos, DesktopLayout, LayoutUtil } from '../../components/layout/desktop/DesktopGridLayout';
+import { APP_BUNDLE_NAME, ENTRY_FORM_ABILITY_NAME, ENTRY_MODULE_NAME } from '../../services/runtime/AbilityRuntimePolicy';
 
 const HOME_CARD_TYPES: string[] = ['Instances', 'Logs', 'Favorite', 'SharedPeers', 'QQ']
 const HOME_DEFAULT_CARD_SEQUENCE: CompSizeWithPos[] = [
@@ -358,12 +359,12 @@ export struct HomePage {
           hasWidgetList: ['Favorite'],
           formWantFunc: (comp_type: string) => {
             return {
-              bundleName: 'top.frankhan.easytier',
-              abilityName: 'EntryFormAbility',
+              bundleName: APP_BUNDLE_NAME,
+              abilityName: ENTRY_FORM_ABILITY_NAME,
               parameters: {
                 'ohos.extra.param.key.form_dimension': 1,
                 'ohos.extra.param.key.form_name': comp_type.toLowerCase() + '_widget',
-                'ohos.extra.param.key.module_name': 'entry'
+                'ohos.extra.param.key.module_name': ENTRY_MODULE_NAME
               }
             }
           },

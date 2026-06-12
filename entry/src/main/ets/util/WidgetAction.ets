@@ -1,4 +1,5 @@
 import { FavoriteCardActionMethod } from '../services/form/FavoriteCardActionService'
+import { APP_BUNDLE_NAME, ENTRY_ABILITY_NAME } from '../services/runtime/AbilityRuntimePolicy'
 
 export enum CardMethod {
   StartFavorite = FavoriteCardActionMethod.StartFavorite,
@@ -8,8 +9,8 @@ export enum CardMethod {
 export function startFavorite(component: Object) {
   postCardAction(component, {
     action: 'call',
-    bundleName: 'top.frankhan.easytier',
-    abilityName: 'EntryAbility',
+    bundleName: APP_BUNDLE_NAME,
+    abilityName: ENTRY_ABILITY_NAME,
     params: {
       method: CardMethod.StartFavorite
     }
@@ -19,8 +20,8 @@ export function startFavorite(component: Object) {
 export function sendFormId(component: Object, formId: string) {
   postCardAction(component, {
     action: 'call',
-    bundleName: 'top.frankhan.easytier',
-    abilityName: 'EntryAbility',
+    bundleName: APP_BUNDLE_NAME,
+    abilityName: ENTRY_ABILITY_NAME,
     params: {
       method: CardMethod.SendCardId,
       formId: formId,
@@ -31,7 +32,7 @@ export function sendFormId(component: Object, formId: string) {
 export function startApp(component: Object) {
   postCardAction(component, {
     action: 'router',
-    bundleName: 'top.frankhan.easytier',
-    abilityName: 'EntryAbility'
+    bundleName: APP_BUNDLE_NAME,
+    abilityName: ENTRY_ABILITY_NAME
   });
 }
