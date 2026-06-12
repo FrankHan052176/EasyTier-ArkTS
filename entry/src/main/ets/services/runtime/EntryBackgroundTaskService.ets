@@ -30,6 +30,7 @@ export interface EntryBackgroundTaskServiceOptions {
   deactivateMissionContinue: () => void
   refreshFavoriteCard: () => void
   setNotificationId: (notificationId: number) => void
+  clearNotificationId: () => void
   destroyVpnConnection: () => Promise<void>
   getBackgroundKeepAliveMode: () => string
   shouldUseBackgroundKeepAlive: () => boolean
@@ -43,6 +44,7 @@ export class EntryBackgroundTaskService {
   private readonly deactivateMissionContinue: () => void
   private readonly refreshFavoriteCard: () => void
   private readonly setNotificationId: (notificationId: number) => void
+  private readonly clearNotificationId: () => void
   private readonly destroyVpnConnection: () => Promise<void>
   private readonly getBackgroundKeepAliveMode: () => string
   private readonly shouldUseBackgroundKeepAlive: () => boolean
@@ -56,6 +58,7 @@ export class EntryBackgroundTaskService {
     this.deactivateMissionContinue = options.deactivateMissionContinue
     this.refreshFavoriteCard = options.refreshFavoriteCard
     this.setNotificationId = options.setNotificationId
+    this.clearNotificationId = options.clearNotificationId
     this.destroyVpnConnection = options.destroyVpnConnection
     this.getBackgroundKeepAliveMode = options.getBackgroundKeepAliveMode
     this.shouldUseBackgroundKeepAlive = options.shouldUseBackgroundKeepAlive
@@ -64,6 +67,7 @@ export class EntryBackgroundTaskService {
 
   startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined): void {
     const keepAliveMode = normalizeBackgroundKeepAliveMode(this.getBackgroundKeepAliveMode())
+    this.clearNotificationId()
     if (!this.shouldUseBackgroundKeepAlive()) {
       Logger.info('start runtime without background keep alive', this.logTarget)
       this.handleRuntimeStartWithoutBackground(cfg, uuid, name)
@@ -190,6 +194,7 @@ export class EntryBackgroundTaskService {
   async stopContinuousTask(): Promise<void> {
     this.deactivateMissionContinue()
     this.audioKeepAliveService.stop()
+    this.clearNotificationId()
     stopRuntimeStatsRecording()
     if (!this.shouldUseBackgroundKeepAlive()) {
       void this.destroyVpnConnection()

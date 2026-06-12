@@ -257,6 +257,9 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
       setNotificationId: (notificationId: number) => {
         AppManager.uiState.notificationId = notificationId
       },
+      clearNotificationId: () => {
+        AppManager.uiState.notificationId = undefined
+      },
       destroyVpnConnection: () => {
         if (this.entryVpnService) {
           return this.entryVpnService.destroyVpnConnection()

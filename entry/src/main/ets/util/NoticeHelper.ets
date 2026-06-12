@@ -7,9 +7,10 @@ import {
   BACKGROUND_KEEP_ALIVE_DATA_TRANSFER,
   normalizeBackgroundKeepAliveMode
 } from '../types/runtime/BackgroundKeepAliveTypes';
+import { shouldUseEntryBackgroundKeepAlive } from '../services/runtime/AbilityRuntimePolicy';
 
 function shouldUseLiveViewNotification(): boolean {
-  return normalizeBackgroundKeepAliveMode(AppManager.uiState.background_keep_alive_mode) ===
+  return shouldUseEntryBackgroundKeepAlive() && normalizeBackgroundKeepAliveMode(AppManager.uiState.background_keep_alive_mode) ===
     BACKGROUND_KEEP_ALIVE_DATA_TRANSFER
 }
 
