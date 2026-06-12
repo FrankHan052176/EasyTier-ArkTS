@@ -2,12 +2,12 @@ import { HMRouter, HMRouterMgr } from '@hadss/hmrouter';
 import { deviceInfo, emitter } from '@kit.BasicServicesKit';
 import { common } from '@kit.AbilityKit';
 import { HdsNavigation, HdsNavigationTitleMode, TitleBarStyleOptions } from '@hms.hds.hdsBaseComponent';
-import { LengthMetrics } from '@kit.ArkUI';
+import { ColorMetrics, LengthMetrics } from '@kit.ArkUI';
 import { AppManager } from '../../AppManager';
 import { EventHelper } from '../../util/EventHelper';
 import { HomeSheetContentBuilder } from '../../components/sheet/HomeSheet';
 import { setConfigName } from '../../components/sheet/NewConfig';
-import { hdsMaterial } from '@kit.UIDesignKit';
+import { ActionBarButton, ActionBarStyle, HdsActionBar, hdsMaterial } from '@kit.UIDesignKit';
 import { sendToast } from '../../ToastUtil';
 import { BottomAnimator } from '../../class/animator/BottomAnimator';
 import { harmonyShare } from '@kit.ShareKit';
@@ -1175,6 +1175,46 @@ export struct HomePage {
   }
 
   @Builder
+  actionBar() {
+    Column() {
+      HdsActionBar({
+        startButtons: [new ActionBarButton({
+          baseIcon: $r('sys.symbol.thumbnails'),
+          onClick: () => {
+            this.status()
+          }
+        })],
+        endButtons: [new ActionBarButton({
+          baseIcon: $r('sys.symbol.qrcode'),
+          onClick: () => {
+            void this.qr()
+          }
+        })],
+        primaryButton: new ActionBarButton({
+          baseIcon: $r('sys.symbol.play_fill'),
+          altIcon: $r('sys.symbol.pause_fill'),
+          onClick: () => {
+            this.startAndStop()
+          },
+          hoverTips: '启停'
+        }),
+        actionBarStyle: new ActionBarStyle({
+          backgroundBlurStyle: BlurStyle.COMPONENT_ULTRA_THIN,
+          isPrimaryIconChanged: AppManager.easytier.runningNetworks.size > 0,
+          backgroundColor: ColorMetrics.resourceColor($r('sys.color.interactive_select'))
+        }),
+        isExpand: AppManager.easytier.runningNetworks.size > 0
+      })
+    }
+    .alignItems(HorizontalAlign.Center)
+    .justifyContent(FlexAlign.End)
+    .height('100%')
+    .width('100%')
+    .hitTestBehavior(HitTestMode.Transparent)
+    .padding({ left: 20, right: 20 })
+  }
+
+  @Builder
   content() {
     Scroll(this.scroller) {
       Column() {
@@ -1320,6 +1360,13 @@ export struct HomePage {
           action.dismiss()
           this.closeHomeSheet()
         }
+      }
+    })
+    .overlay(this.actionBar, {
+      align: Alignment.Bottom,
+      offset: {
+        x: 0,
+        y: WindowUtil.statusBarHeight
       }
     })
   }

@@ -10,6 +10,12 @@ import { LogFileEntry } from '../../types/logging/LogFileTypes'
 import { hdsMaterial, HdsNavigation, HdsNavigationTitleMode, IconStyleMode, TitleBarStyleOptions } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
 import { RuntimeStatsService } from '../../services/runtime/RuntimeStatsService'
+import {
+  BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK,
+  BACKGROUND_KEEP_ALIVE_DATA_TRANSFER,
+  backgroundKeepAliveModeText,
+  normalizeBackgroundKeepAliveMode
+} from '../../types/runtime/BackgroundKeepAliveTypes'
 
 const CORE_REPOSITORY_URL = 'https://github.com/EasyTier/EasyTier'
 const SHELL_REPOSITORY_URL =
@@ -715,6 +721,13 @@ struct SettingHomeSheet {
           AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "",
           AppManager.uiState.ext_mode, AppManager.easytier.runningNetworks.size == 0, (isOn: boolean) => {
             AppManager.uiState.ext_mode = isOn
+          })
+        settingSwitchRow($r("sys.symbol.waveform"), "音频保活",
+          `与数据传输保活二选一，当前：${backgroundKeepAliveModeText(AppManager.uiState.background_keep_alive_mode)}`,
+          normalizeBackgroundKeepAliveMode(AppManager.uiState.background_keep_alive_mode) === BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK,
+          AppManager.easytier.runningNetworks.size == 0, (isOn: boolean) => {
+            AppManager.uiState.background_keep_alive_mode = isOn ? BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK :
+              BACKGROUND_KEEP_ALIVE_DATA_TRANSFER
           })
         settingMenuRow($r("sys.symbol.cloud"), "云空间同步", formatSyncState(AppManager.cloudSync.syncState), () => {
           this.onNavigate('cloud_sync')

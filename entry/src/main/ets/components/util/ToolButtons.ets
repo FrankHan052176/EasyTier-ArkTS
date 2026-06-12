@@ -2,6 +2,37 @@ import { BusinessError, pasteboard } from '@kit.BasicServicesKit'
 import { Svp2fp } from '../../AppManager'
 import { Logger } from '../../shared/logging/Logger'
 
+function pushPasteText(values: string[], value: string | undefined): void {
+  if (!value || value.trim().length === 0) {
+    return
+  }
+  if (!values.includes(value)) {
+    values.push(value)
+  }
+}
+
+function collectPasteTexts(pasteData: pasteboard.PasteData): string[] {
+  const values: string[] = []
+  try {
+    pushPasteText(values, pasteData.getPrimaryText() as string | undefined)
+  } catch (_) {
+  }
+  try {
+    const count = pasteData.getRecordCount()
+    for (let index = 0; index < count; index++) {
+      try {
+        const record = pasteData.getRecord(index)
+        pushPasteText(values, record.plainText as string | undefined)
+        pushPasteText(values, record.toPlainText())
+      } catch (error) {
+        Logger.debug(`read paste record failed: ${JSON.stringify(error)}`, 'ToolButtons')
+      }
+    }
+  } catch (_) {
+  }
+  return values
+}
+
 @ComponentV2
 export struct ToolButton {
   @Param @Require symbol: Resource

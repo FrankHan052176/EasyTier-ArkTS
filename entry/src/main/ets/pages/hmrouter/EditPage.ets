@@ -118,36 +118,15 @@ export struct EditPage {
   private loadingSectionKeys: Set<string> = new Set()
   private sectionLoadQueue: number[] = []
   private sectionLoadBusy: boolean = false
-	  private sectionLoadTimer: number = -1
-	  private sectionPreloadTimer: number = -1
-	  private sectionPreloadQueued: boolean = false
-	  private sectionLoadGeneration: number = 0
-	  private sectionLoadFailureCounts: Map<string, number> = new Map()
-	  private gesturesShareRegistered: boolean = false
+  private sectionLoadTimer: number = -1
+  private sectionPreloadTimer: number = -1
+  private sectionPreloadQueued: boolean = false
+  private sectionLoadGeneration: number = 0
+  private sectionLoadFailureCounts: Map<string, number> = new Map()
+  private gesturesShareRegistered: boolean = false
   private knockShareRegistered: boolean = false
   private shareMenuContent: ComponentContent<Object> | undefined = undefined
   private qrRequestId: number = 0
-  private editOpenSheetCallback = (data: emitter.EventData) => {
-    this.sheet_type = data.data!.type as string
-    this.sheet = true
-  }
-  private editCloseSheetCallback = () => {
-    this.sheet = false
-    this.refreshTitle()
-  }
-
-  private refreshTitle(): void {
-    this.titleText = getStoredConfigLabel(this.uuid, this.uuid ?? '')
-  }
-
-  @Computed
-  get name() {
-    if (this.uuid) {
-      return getStoredConfigName(this.uuid) ?? ''
-    }
-    return ""
-  }
-
   private onStatusChange = async (status: dlpAntiPeep.DlpAntiPeepStatus): Promise<void> => {
     if (status === dlpAntiPeep.DlpAntiPeepStatus.PASS) {
       this.unsafe = false;
@@ -159,163 +138,12 @@ export struct EditPage {
     }
   }
 
-  private resetSectionLoading(): void {
-    this.sectionLoadGeneration += 1
-    this.loadedSectionKeys.clear()
-    this.loadingSectionKeys.clear()
-	    this.sectionLoadQueue = []
-	    this.sectionLoadBusy = false
-	    this.sectionPreloadQueued = false
-	    this.sectionLoadFailureCounts.clear()
-    if (this.sectionLoadTimer >= 0) {
-      clearTimeout(this.sectionLoadTimer)
-      this.sectionLoadTimer = -1
+  @Computed
+  get name() {
+    if (this.uuid) {
+      return getStoredConfigName(this.uuid) ?? ''
     }
-    if (this.sectionPreloadTimer >= 0) {
-      clearTimeout(this.sectionPreloadTimer)
-      this.sectionPreloadTimer = -1
-    }
-  }
-
-  private isValidSectionIndex(index: number): boolean {
-    return index >= 0 && index < this.renderPlan.sections.length
-  }
-
-  private isSectionQueued(index: number): boolean {
-    return this.sectionLoadQueue.indexOf(index) >= 0
-  }
-
-  private enqueueSectionLoad(index: number, highPriority: boolean = false, delayMs: number = 0): void {
-    if (!this.isValidSectionIndex(index)) {
-      return
-    }
-    const section = this.renderPlan.sections[index]
-    if (this.loadedSectionKeys.has(section.key) || this.loadingSectionKeys.has(section.key) || this.isSectionQueued(index)) {
-      return
-    }
-    if (highPriority) {
-      this.sectionLoadQueue.unshift(index)
-    } else {
-      this.sectionLoadQueue.push(index)
-    }
-    this.scheduleSectionLoadDrain(delayMs)
-  }
-
-  private scheduleSectionLoadDrain(delayMs: number = 0): void {
-    if (!this.active || this.sectionLoadBusy || this.sectionLoadQueue.length === 0) {
-      return
-    }
-    if (this.sectionLoadTimer >= 0) {
-      clearTimeout(this.sectionLoadTimer)
-      this.sectionLoadTimer = -1
-    }
-    this.sectionLoadTimer = setTimeout(() => {
-      this.sectionLoadTimer = -1
-      this.drainSectionLoadQueue()
-    }, delayMs)
-  }
-
-  private takeNextSectionIndex(): number {
-    while (this.sectionLoadQueue.length > 0) {
-      const index = this.sectionLoadQueue.shift() as number
-      if (!this.isValidSectionIndex(index)) {
-        continue
-      }
-      const section = this.renderPlan.sections[index]
-      if (!this.loadedSectionKeys.has(section.key) && !this.loadingSectionKeys.has(section.key)) {
-        return index
-      }
-    }
-    return -1
-  }
-
-  private drainSectionLoadQueue(): void {
-    if (!this.active || this.sectionLoadBusy) {
-      return
-    }
-    const index = this.takeNextSectionIndex()
-    if (index < 0) {
-      return
-    }
-	    const section = this.renderPlan.sections[index]
-	    const generation = this.sectionLoadGeneration
-	    let retryDelay = -1
-	    this.sectionLoadBusy = true
-	    this.loadingSectionKeys.add(section.key)
-	    ensureEditingFieldsAsync(this.uuid, section.topLevelFields).then(() => {
-	      if (!this.active || generation !== this.sectionLoadGeneration) {
-	        return
-	      }
-	      this.sectionLoadFailureCounts.delete(section.key)
-	      this.loadedSectionKeys.add(section.key)
-	      if (index === 0) {
-	        this.scheduleTrailingSectionPreload()
-	      }
-	    }).catch(() => {
-	      if (!this.active || generation !== this.sectionLoadGeneration) {
-	        return
-	      }
-	      const failureCount = this.sectionLoadFailureCounts.get(section.key) ?? 0
-	      if (failureCount < 2) {
-	        this.sectionLoadFailureCounts.set(section.key, failureCount + 1)
-	        retryDelay = 800
-	      } else {
-	        sendToast('读取配置字段失败', $r('sys.symbol.exclamationmark_circle'), 1)
-	      }
-	    }).finally(() => {
-	      if (generation !== this.sectionLoadGeneration) {
-	        return
-	      }
-	      this.loadingSectionKeys.delete(section.key)
-	      this.sectionLoadBusy = false
-	      if (this.active && retryDelay >= 0) {
-	        this.enqueueSectionLoad(index, true, retryDelay)
-	        return
-	      }
-	      if (this.active && this.sectionLoadQueue.length > 0) {
-	        this.scheduleSectionLoadDrain(120)
-	      }
-    })
-  }
-
-  private scheduleTrailingSectionPreload(): void {
-    if (this.sectionPreloadQueued) {
-      return
-    }
-    this.sectionPreloadQueued = true
-    this.sectionPreloadTimer = setTimeout(() => {
-      this.sectionPreloadTimer = -1
-      if (!this.active) {
-        return
-      }
-      this.enqueueNearbySectionLoads(this.activePageIndex)
-    }, 180)
-  }
-
-  private enqueueNearbySectionLoads(index: number): void {
-    this.enqueueSectionLoad(index, true)
-    this.enqueueSectionLoad(index - 1, false)
-    this.enqueueSectionLoad(index + 1, false)
-  }
-
-  private visiblePageCount(): number {
-    return Math.max(1, Math.floor(WindowUtil.uiType / 2))
-  }
-
-  private isPageInWindow(index: number, start: number): boolean {
-    const count = this.visiblePageCount()
-    return index >= start && index < start + count
-  }
-
-  private shouldMountSection(index: number): boolean {
-    if (this.isPageInWindow(index, this.activePageIndex)) {
-      return true
-    }
-    return this.animationTargetIndex >= 0 && this.isPageInWindow(index, this.animationTargetIndex)
-  }
-
-  private updateSwipeTarget(targetIndex: number): void {
-    this.animationTargetIndex = this.isValidSectionIndex(targetIndex) ? targetIndex : -1
+    return ""
   }
 
   aboutToAppear(): void {
@@ -367,157 +195,6 @@ export struct EditPage {
     setTimeout(() => {
       this.initDlpAntiPeep()
     }, 0)
-  }
-
-  private closeShareMenu(): void {
-    const content: ComponentContent<Object> | undefined = this.shareMenuContent
-    if (!content) {
-      return
-    }
-    this.shareMenuContent = undefined
-    try {
-      this.getUIContext().getPromptAction().closeMenu(content).catch(() => {
-      }).finally(() => {
-        content.dispose()
-      })
-    } catch (_) {
-      content.dispose()
-    }
-  }
-
-  private disposeShareMenuContent(content: ComponentContent<Object>): void {
-    if (this.shareMenuContent !== content) {
-      return
-    }
-    this.shareMenuContent = undefined
-    try {
-      content.dispose()
-    } catch (_) {
-    }
-  }
-
-  private releaseQrPixelMap(): void {
-    const pixelMap = this.qrPixelMap
-    this.qrPixelMap = undefined
-    if (pixelMap) {
-      pixelMap.release().catch(() => {
-      })
-    }
-  }
-
-  private resetQrDialog(): void {
-    const controller = this.qrDialogController
-    this.qrDialogController = null
-    if (controller) {
-      try {
-        controller.close()
-      } catch (_) {
-      }
-    }
-    this.releaseQrPixelMap()
-  }
-
-  private closeQrDialog(): void {
-    this.qrRequestId++
-    this.resetQrDialog()
-  }
-
-  private openQrDialog(pixelMap: image.PixelMap): void {
-    const controller: CustomDialogController = new CustomDialogController({
-      builder: QRDialog({ pixelMap }),
-      autoCancel: true,
-      alignment: DialogAlignment.Center,
-      customStyle: true,
-      isModal: true,
-      maskColor: 'rgba(0,0,0,0.35)',
-      cancel: () => {
-        if (this.qrDialogController === controller) {
-          this.qrDialogController = null
-        }
-        this.releaseQrPixelMap()
-      }
-    })
-    this.qrPixelMap = pixelMap
-    this.qrDialogController = controller
-    controller.open()
-  }
-
-  private async showQr(): Promise<void> {
-    const editingId = this.uuid
-    let config: ConfigJson | undefined = editingId ? AppManager.easytier.getConfig(editingId) : undefined
-    if (!config) {
-      return
-    }
-    const requestId = ++this.qrRequestId
-    this.resetQrDialog()
-    try {
-      const content = await buildShareUrlSync(config, true)
-      if (!this.active || requestId !== this.qrRequestId) {
-        return
-      }
-      if (content.length === 0) {
-        sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
-        return
-      }
-      let options: generateBarcode.CreateOptions = {
-        scanType: scanCore.ScanType.QR_CODE,
-        height: 400,
-        width: 400
-      }
-      const pixelMap = await generateBarcode.createBarcode(content, options)
-      if (!this.active || requestId !== this.qrRequestId) {
-        pixelMap.release().catch(() => {
-        })
-        return
-      }
-      this.openQrDialog(pixelMap)
-    } catch (_) {
-      if (!this.active || requestId !== this.qrRequestId) {
-        return
-      }
-      sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
-    }
-  }
-
-  private clearSheetState(): void {
-    if (this.sheet_type.startsWith('add_')) {
-      const addInfo = this.sheet_type.substring(4).split('|')
-      clearEditValue(addInfo[0])
-    } else if (this.sheet_type.startsWith('edit_')) {
-      const editInfo = this.sheet_type.substring(5).split('|')
-      clearEditValue(editInfo[0])
-    }
-    this.sheet = false
-    this.sheet_type = ''
-  }
-
-  private async initDlpAntiPeep(): Promise<void> {
-    if (canIUse("SystemCapability.Security.DlpAntiPeep")) {
-      try {
-        const isOpen = await dlpAntiPeep.isDlpAntiPeepSwitchOn();
-        if (!this.active) {
-          return
-        }
-        if (isOpen) {
-          dlpAntiPeep.on('dlpAntiPeep', this.onStatusChange);
-          this.dlpRegistered = true
-        } else if (!AppManager.uiState.ask_dlp) {
-          AppManager.uiState.ask_dlp = true
-          const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-          const result = await dlpAntiPeep.requestAntiPeepOptions(context);
-          if (!this.active) {
-            return
-          }
-          if (result === dlpAntiPeep.AntiPeepOptionsResult.SUCCESS ||
-            result === dlpAntiPeep.AntiPeepOptionsResult.ALREADY_ON) {
-            dlpAntiPeep.on('dlpAntiPeep', this.onStatusChange);
-            this.dlpRegistered = true
-          }
-        }
-      } catch (error) {
-        console.error(`Failed to init DlpAntiPeep. Code: ${error.code}, message: ${error.message}`);
-      }
-    }
   }
 
   aboutToDisappear(): void {
@@ -782,6 +459,330 @@ export struct EditPage {
       buildShareData(config, (data) => {
         sharableTarget.share(data);
       }, false, this.name, this.uuid)
+    }
+  }
+
+  private editOpenSheetCallback = (data: emitter.EventData) => {
+    this.sheet_type = data.data!.type as string
+    this.sheet = true
+  }
+
+  private editCloseSheetCallback = () => {
+    this.sheet = false
+    this.refreshTitle()
+  }
+
+  private refreshTitle(): void {
+    this.titleText = getStoredConfigLabel(this.uuid, this.uuid ?? '')
+  }
+
+  private resetSectionLoading(): void {
+    this.sectionLoadGeneration += 1
+    this.loadedSectionKeys.clear()
+    this.loadingSectionKeys.clear()
+	    this.sectionLoadQueue = []
+	    this.sectionLoadBusy = false
+	    this.sectionPreloadQueued = false
+	    this.sectionLoadFailureCounts.clear()
+    if (this.sectionLoadTimer >= 0) {
+      clearTimeout(this.sectionLoadTimer)
+      this.sectionLoadTimer = -1
+    }
+    if (this.sectionPreloadTimer >= 0) {
+      clearTimeout(this.sectionPreloadTimer)
+      this.sectionPreloadTimer = -1
+    }
+  }
+
+  private isValidSectionIndex(index: number): boolean {
+    return index >= 0 && index < this.renderPlan.sections.length
+  }
+
+  private isSectionQueued(index: number): boolean {
+    return this.sectionLoadQueue.indexOf(index) >= 0
+  }
+
+  private enqueueSectionLoad(index: number, highPriority: boolean = false, delayMs: number = 0): void {
+    if (!this.isValidSectionIndex(index)) {
+      return
+    }
+    const section = this.renderPlan.sections[index]
+    if (this.loadedSectionKeys.has(section.key) || this.loadingSectionKeys.has(section.key) || this.isSectionQueued(index)) {
+      return
+    }
+    if (highPriority) {
+      this.sectionLoadQueue.unshift(index)
+    } else {
+      this.sectionLoadQueue.push(index)
+    }
+    this.scheduleSectionLoadDrain(delayMs)
+  }
+
+  private scheduleSectionLoadDrain(delayMs: number = 0): void {
+    if (!this.active || this.sectionLoadBusy || this.sectionLoadQueue.length === 0) {
+      return
+    }
+    if (this.sectionLoadTimer >= 0) {
+      clearTimeout(this.sectionLoadTimer)
+      this.sectionLoadTimer = -1
+    }
+    this.sectionLoadTimer = setTimeout(() => {
+      this.sectionLoadTimer = -1
+      this.drainSectionLoadQueue()
+    }, delayMs)
+  }
+
+  private takeNextSectionIndex(): number {
+    while (this.sectionLoadQueue.length > 0) {
+      const index = this.sectionLoadQueue.shift() as number
+      if (!this.isValidSectionIndex(index)) {
+        continue
+      }
+      const section = this.renderPlan.sections[index]
+      if (!this.loadedSectionKeys.has(section.key) && !this.loadingSectionKeys.has(section.key)) {
+        return index
+      }
+    }
+    return -1
+  }
+
+  private drainSectionLoadQueue(): void {
+    if (!this.active || this.sectionLoadBusy) {
+      return
+    }
+    const index = this.takeNextSectionIndex()
+    if (index < 0) {
+      return
+    }
+	    const section = this.renderPlan.sections[index]
+	    const generation = this.sectionLoadGeneration
+	    let retryDelay = -1
+	    this.sectionLoadBusy = true
+	    this.loadingSectionKeys.add(section.key)
+	    ensureEditingFieldsAsync(this.uuid, section.topLevelFields).then(() => {
+	      if (!this.active || generation !== this.sectionLoadGeneration) {
+	        return
+	      }
+	      this.sectionLoadFailureCounts.delete(section.key)
+	      this.loadedSectionKeys.add(section.key)
+	      if (index === 0) {
+	        this.scheduleTrailingSectionPreload()
+	      }
+	    }).catch(() => {
+	      if (!this.active || generation !== this.sectionLoadGeneration) {
+	        return
+	      }
+	      const failureCount = this.sectionLoadFailureCounts.get(section.key) ?? 0
+	      if (failureCount < 2) {
+	        this.sectionLoadFailureCounts.set(section.key, failureCount + 1)
+	        retryDelay = 800
+	      } else {
+	        sendToast('读取配置字段失败', $r('sys.symbol.exclamationmark_circle'), 1)
+	      }
+	    }).finally(() => {
+	      if (generation !== this.sectionLoadGeneration) {
+	        return
+	      }
+	      this.loadingSectionKeys.delete(section.key)
+	      this.sectionLoadBusy = false
+	      if (this.active && retryDelay >= 0) {
+	        this.enqueueSectionLoad(index, true, retryDelay)
+	        return
+	      }
+	      if (this.active && this.sectionLoadQueue.length > 0) {
+	        this.scheduleSectionLoadDrain(120)
+	      }
+    })
+  }
+
+  private scheduleTrailingSectionPreload(): void {
+    if (this.sectionPreloadQueued) {
+      return
+    }
+    this.sectionPreloadQueued = true
+    this.sectionPreloadTimer = setTimeout(() => {
+      this.sectionPreloadTimer = -1
+      if (!this.active) {
+        return
+      }
+      this.enqueueNearbySectionLoads(this.activePageIndex)
+    }, 180)
+  }
+
+  private enqueueNearbySectionLoads(index: number): void {
+    this.enqueueSectionLoad(index, true)
+    this.enqueueSectionLoad(index - 1, false)
+    this.enqueueSectionLoad(index + 1, false)
+  }
+
+  private visiblePageCount(): number {
+    return Math.max(1, Math.floor(WindowUtil.uiType / 2))
+  }
+
+  private isPageInWindow(index: number, start: number): boolean {
+    const count = this.visiblePageCount()
+    return index >= start && index < start + count
+  }
+
+  private shouldMountSection(index: number): boolean {
+    if (this.isPageInWindow(index, this.activePageIndex)) {
+      return true
+    }
+    return this.animationTargetIndex >= 0 && this.isPageInWindow(index, this.animationTargetIndex)
+  }
+
+  private updateSwipeTarget(targetIndex: number): void {
+    this.animationTargetIndex = this.isValidSectionIndex(targetIndex) ? targetIndex : -1
+  }
+
+  private closeShareMenu(): void {
+    const content: ComponentContent<Object> | undefined = this.shareMenuContent
+    if (!content) {
+      return
+    }
+    this.shareMenuContent = undefined
+    try {
+      this.getUIContext().getPromptAction().closeMenu(content).catch(() => {
+      }).finally(() => {
+        content.dispose()
+      })
+    } catch (_) {
+      content.dispose()
+    }
+  }
+
+  private disposeShareMenuContent(content: ComponentContent<Object>): void {
+    if (this.shareMenuContent !== content) {
+      return
+    }
+    this.shareMenuContent = undefined
+    try {
+      content.dispose()
+    } catch (_) {
+    }
+  }
+
+  private releaseQrPixelMap(): void {
+    const pixelMap = this.qrPixelMap
+    this.qrPixelMap = undefined
+    if (pixelMap) {
+      pixelMap.release().catch(() => {
+      })
+    }
+  }
+
+  private resetQrDialog(): void {
+    const controller = this.qrDialogController
+    this.qrDialogController = null
+    if (controller) {
+      try {
+        controller.close()
+      } catch (_) {
+      }
+    }
+    this.releaseQrPixelMap()
+  }
+
+  private closeQrDialog(): void {
+    this.qrRequestId++
+    this.resetQrDialog()
+  }
+
+  private openQrDialog(pixelMap: image.PixelMap): void {
+    const controller: CustomDialogController = new CustomDialogController({
+      builder: QRDialog({ pixelMap }),
+      autoCancel: true,
+      alignment: DialogAlignment.Center,
+      customStyle: true,
+      isModal: true,
+      maskColor: 'rgba(0,0,0,0.35)',
+      cancel: () => {
+        if (this.qrDialogController === controller) {
+          this.qrDialogController = null
+        }
+        this.releaseQrPixelMap()
+      }
+    })
+    this.qrPixelMap = pixelMap
+    this.qrDialogController = controller
+    controller.open()
+  }
+
+  private async showQr(): Promise<void> {
+    const editingId = this.uuid
+    let config: ConfigJson | undefined = editingId ? AppManager.easytier.getConfig(editingId) : undefined
+    if (!config) {
+      return
+    }
+    const requestId = ++this.qrRequestId
+    this.resetQrDialog()
+    try {
+      const content = await buildShareUrlSync(config, true)
+      if (!this.active || requestId !== this.qrRequestId) {
+        return
+      }
+      if (content.length === 0) {
+        sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
+        return
+      }
+      let options: generateBarcode.CreateOptions = {
+        scanType: scanCore.ScanType.QR_CODE,
+        height: 400,
+        width: 400
+      }
+      const pixelMap = await generateBarcode.createBarcode(content, options)
+      if (!this.active || requestId !== this.qrRequestId) {
+        pixelMap.release().catch(() => {
+        })
+        return
+      }
+      this.openQrDialog(pixelMap)
+    } catch (_) {
+      if (!this.active || requestId !== this.qrRequestId) {
+        return
+      }
+      sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
+    }
+  }
+
+  private clearSheetState(): void {
+    if (this.sheet_type.startsWith('add_')) {
+      const addInfo = this.sheet_type.substring(4).split('|')
+      clearEditValue(addInfo[0])
+    } else if (this.sheet_type.startsWith('edit_')) {
+      const editInfo = this.sheet_type.substring(5).split('|')
+      clearEditValue(editInfo[0])
+    }
+    this.sheet = false
+    this.sheet_type = ''
+  }
+
+  private async initDlpAntiPeep(): Promise<void> {
+    if (canIUse("SystemCapability.Security.DlpAntiPeep")) {
+      try {
+        const isOpen = await dlpAntiPeep.isDlpAntiPeepSwitchOn();
+        if (!this.active) {
+          return
+        }
+        if (isOpen) {
+          dlpAntiPeep.on('dlpAntiPeep', this.onStatusChange);
+          this.dlpRegistered = true
+        } else if (!AppManager.uiState.ask_dlp) {
+          AppManager.uiState.ask_dlp = true
+          const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+          const result = await dlpAntiPeep.requestAntiPeepOptions(context);
+          if (!this.active) {
+            return
+          }
+          if (result === dlpAntiPeep.AntiPeepOptionsResult.SUCCESS ||
+            result === dlpAntiPeep.AntiPeepOptionsResult.ALREADY_ON) {
+            dlpAntiPeep.on('dlpAntiPeep', this.onStatusChange);
+            this.dlpRegistered = true
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to init DlpAntiPeep. Code: ${error.code}, message: ${error.message}`);
+      }
     }
   }
 }

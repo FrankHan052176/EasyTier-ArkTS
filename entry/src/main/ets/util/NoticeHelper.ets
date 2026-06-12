@@ -3,6 +3,15 @@ import { BusinessError } from '@kit.BasicServicesKit';
 import { Logger } from '../shared/logging/Logger';
 import { InstanceInfo } from '../class/InstanceInfo';
 import { AppManager } from '../AppManager';
+import {
+  BACKGROUND_KEEP_ALIVE_DATA_TRANSFER,
+  normalizeBackgroundKeepAliveMode
+} from '../types/runtime/BackgroundKeepAliveTypes';
+
+function shouldUseLiveViewNotification(): boolean {
+  return normalizeBackgroundKeepAliveMode(AppManager.uiState.background_keep_alive_mode) ===
+    BACKGROUND_KEEP_ALIVE_DATA_TRANSFER
+}
 
 function buildLiveViewRequest(instanceName: string, text: string, progressValue: number): notificationManager.NotificationRequest {
   const downLoadTemplate: notificationManager.NotificationTemplate = {
@@ -29,6 +38,9 @@ function buildLiveViewRequest(instanceName: string, text: string, progressValue:
 }
 
 export function publishTextNotification(instance_name: string): void {
+  if (!shouldUseLiveViewNotification()) {
+    return
+  }
   notificationManager.publish(buildLiveViewRequest(instance_name, `0 ↑ 0 ↓`, 0), (err: BusinessError) => {
     if (err) {
       Logger.error(`实况窗通知发布失败, nid: ${AppManager.uiState.notificationId}, code: ${err.code}, message:${err.message}`, "NoticeHelper")
@@ -37,7 +49,7 @@ export function publishTextNotification(instance_name: string): void {
 }
 
 export async function updateTextNotification(instance_name: string, instanceInfo: InstanceInfo): Promise<void> {
-  if (AppManager.uiState.notificationId == undefined) {
+  if (!shouldUseLiveViewNotification() || AppManager.uiState.notificationId == undefined) {
     return
   }
   const text = `${instanceInfo.getUploadRate().toFixed(1)}${instanceInfo.getUploadRateUnit()} ↑ ${instanceInfo.getDownloadRate().toFixed(1)}${instanceInfo.getDownloadRateUnit()} ↓`

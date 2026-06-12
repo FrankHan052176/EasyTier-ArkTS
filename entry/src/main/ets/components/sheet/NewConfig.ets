@@ -1,7 +1,7 @@
 import { ToolButtonWithPaste } from '../util/ToolButtons';
 import { Logger } from '../../shared/logging/Logger';
 import { EventHelper } from '../../util/EventHelper';
-import { AppManager } from '../../AppManager';
+import { ConfigTextImportService } from '../../services/share/ConfigTextImportService';
 
 export let config_name: string | undefined
 
@@ -73,15 +73,16 @@ export struct NewConfig_Content {
             .fontColor($r("sys.color.font_primary"))
           ToolButtonWithPaste({
             pasteCallback: async (value) => {
-              if (value) {
-                if (AppManager.data.importToml(value)) {
+              if (value.length > 0) {
+                const result = await ConfigTextImportService.importFirst(value)
+                if (result.success) {
                   this.getUIContext().getPromptAction().showToast({
                     message: "导入成功"
                   })
                 } else {
                   try {
                     this.getUIContext().getPromptAction().showToast({
-                      message: "导入失败,请导入标准Toml配置或其他鸿蒙设备分享的链接\n导入文本为：" + value
+                      message: result.message + "\n导入文本为：" + (result.sourceText ?? value)
                     })
                   } catch (e) {
                     Logger.error(`[Index] An unexpected error occurred. Code:${e.code},message:${e.message}`,

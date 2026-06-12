@@ -2,7 +2,7 @@ import { AbilityConstant, Configuration, UIAbility, Want, wantConstant } from '@
 import { window } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
 import { Logger, LogLocate } from '../shared/logging/Logger';
-import { deviceInfo, emitter } from '@kit.BasicServicesKit';
+import { BusinessError, deviceInfo, emitter } from '@kit.BasicServicesKit';
 import easytier from 'easytier-ohrs';
 import { JSON } from '@kit.ArkTS';
 import { BUILD_TIME } from '../util/info/BuildTime';
@@ -41,6 +41,7 @@ import {
   UPDATE_COLOR_MODE_EVENT
 } from '../types/events/RuntimeEventTypes'
 import { SharedIntentImportService } from '../services/share/SharedIntentImportService'
+import { StatusBarIntegrationService } from '../services/desktop/StatusBarIntegrationService'
 
 const easytier_release = easytier
 
@@ -51,6 +52,10 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   private entryBackgroundTaskService: EntryBackgroundTaskService | undefined = undefined
   private entryAppBootstrapService: EntryAppBootstrapService | undefined = undefined
   private entryRuntimeEventService: EntryRuntimeEventService | undefined = undefined
+  private statusBarIntegrationService: StatusBarIntegrationService | undefined = undefined
+  private mainWindow: window.Window | undefined = undefined
+  private windowWillCloseCallback: (() => Promise<boolean>) | undefined = undefined
+  private windowStageCloseCallback: (() => boolean) | undefined = undefined
   private continuationSocketClient: ContinuationSocketClient = new ContinuationSocketClient({
     socketName: 'easytier_vpn_socket',
     logTarget: 'EntryAbility',
@@ -93,6 +98,65 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
 
   private syncContinuationSocket(): void {
     this.continuationSocketClient.sync()
+  }
+
+  private shouldMinimizeToBackground(): boolean {
+    return canIUse('SystemCapability.PCService.StatusBarManager')
+  }
+
+  private minimizeMainWindow(mainWindow: window.Window): Promise<boolean> {
+    try {
+      return mainWindow.minimize().then(() => {
+        Logger.info('main window minimized to background', this)
+        return true
+      }).catch((err: BusinessError) => {
+        Logger.error(`main window minimize failed: ${err.code}, ${err.message}`, this)
+        return false
+      })
+    } catch (err) {
+      Logger.error(`main window minimize error: ${JSON.stringify(err)}`, this)
+      return Promise.resolve(false)
+    }
+  }
+
+  private restoreMainWindow(): void {
+    if (!this.mainWindow || !this.shouldMinimizeToBackground()) {
+      return
+    }
+    try {
+      this.mainWindow.restore().catch((err: BusinessError) => {
+        Logger.debug(`main window restore ignored: ${err.code}, ${err.message}`, this)
+      })
+    } catch (err) {
+      Logger.debug(`main window restore error ignored: ${JSON.stringify(err)}`, this)
+    }
+  }
+
+  private registerWindowCloseToBackground(windowStage: window.WindowStage, mainWindow: window.Window): void {
+    if (!this.shouldMinimizeToBackground()) {
+      return
+    }
+    if (deviceInfo.sdkApiVersion >= 15) {
+      this.windowWillCloseCallback = () => {
+        return this.minimizeMainWindow(mainWindow)
+      }
+      try {
+        mainWindow.on('windowWillClose', this.windowWillCloseCallback)
+      } catch (err) {
+        Logger.debug(`windowWillClose register ignored: ${JSON.stringify(err)}`, this)
+      }
+    }
+    if (deviceInfo.sdkApiVersion >= 14) {
+      this.windowStageCloseCallback = () => {
+        void this.minimizeMainWindow(mainWindow)
+        return true
+      }
+      try {
+        windowStage.on('windowStageClose', this.windowStageCloseCallback)
+      } catch (err) {
+        Logger.debug(`windowStageClose register ignored: ${JSON.stringify(err)}`, this)
+      }
+    }
   }
 
   startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined) {
@@ -157,6 +221,9 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
           return this.entryVpnService.destroyVpnConnection()
         }
         return Promise.resolve()
+      },
+      getBackgroundKeepAliveMode: () => {
+        return AppManager.uiState.background_keep_alive_mode
       }
     })
     this.entryAppBootstrapService = new EntryAppBootstrapService({
@@ -199,6 +266,9 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
         void this.entryVpnService?.setupTun(request)
       }
     })
+    this.statusBarIntegrationService = new StatusBarIntegrationService(this.context, this, () => {
+      this.restoreMainWindow()
+    })
     RemoteManageService.setHostHandlerProvider(() => this.createRemoteHostHandler())
     this.favoriteCardActions.start(this.callee)
     CrashLogService.init(this.context.filesDir)
@@ -213,6 +283,9 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
     this.appReadyPromise = this.initApp()
     this.appReadyPromise.then(() => {
+      this.statusBarIntegrationService?.start().catch((error: Error) => {
+        Logger.error(`status bar integration start failed: ${JSON.stringify(error)}`, this)
+      })
       this.readSharedData(want)
       this.favoriteCardActions.refresh()
       if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
@@ -311,6 +384,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam) {
     Logger.debug("onNetWant", this)
+    this.restoreMainWindow()
     this.readSharedData(want)
     this.favoriteCardActions.refresh()
     if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
@@ -326,7 +400,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   }
 
   async readSharedData(want: Want) {
-    await SharedIntentImportService.readSharedData(want)
+    await SharedIntentImportService.readSharedData(want, this.context.cacheDir)
   }
 
   onDestroy() {
@@ -338,6 +412,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     this.stopContinuousTask()
     this.entryKernelSocketService?.close()
     this.continuationSocketClient.close()
+    this.statusBarIntegrationService?.close()
     this.favoriteCardActions.stop()
   }
 
@@ -361,10 +436,13 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
     try {
-      windowStage.getMainWindowSync().on('windowSizeChange', (data) => {
+      const mainWindow = windowStage.getMainWindowSync()
+      this.mainWindow = mainWindow
+      this.registerWindowCloseToBackground(windowStage, mainWindow)
+      mainWindow.on('windowSizeChange', (data) => {
         WindowUtil.update(data.width, data.height)
       });
-      windowStage.getMainWindowSync().on('avoidAreaChange', (data) => {
+      mainWindow.on('avoidAreaChange', (data) => {
         if (data.type == window.AvoidAreaType.TYPE_SYSTEM) {
           WindowUtil.setStatusBarHeight = data.area.topRect.height
         } else if (data.type == window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) {
@@ -385,12 +463,16 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   }
 
   onWindowStageDestroy(): void {
+    this.mainWindow = undefined
+    this.windowWillCloseCallback = undefined
+    this.windowStageCloseCallback = undefined
     WindowUtil.windowStageDestroy()
   }
 
   onForeground(): void {
     WindowUtil.foreground()
     this.syncContinuationSocket()
+    this.statusBarIntegrationService?.broadcastState()
   }
 
   onBackground(): void {

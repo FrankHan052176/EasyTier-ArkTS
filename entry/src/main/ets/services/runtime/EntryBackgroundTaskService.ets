@@ -8,7 +8,14 @@ import { ConfigJson } from '../../config/schema/SchemaConfig'
 import { Logger } from '../../shared/logging/Logger'
 import { sendToast } from '../../ToastUtil'
 import { publishTextNotification } from '../../util/NoticeHelper'
+import { AudioKeepAliveService } from './AudioKeepAliveService'
 import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from './RuntimeStatsService'
+import {
+  BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK,
+  BACKGROUND_KEEP_ALIVE_DATA_TRANSFER,
+  BackgroundKeepAliveMode,
+  normalizeBackgroundKeepAliveMode
+} from '../../types/runtime/BackgroundKeepAliveTypes'
 
 export interface EntryBackgroundTaskServiceOptions {
   context: common.UIAbilityContext
@@ -19,6 +26,7 @@ export interface EntryBackgroundTaskServiceOptions {
   refreshFavoriteCard: () => void
   setNotificationId: (notificationId: number) => void
   destroyVpnConnection: () => Promise<void>
+  getBackgroundKeepAliveMode: () => string
 }
 
 export class EntryBackgroundTaskService {
@@ -30,6 +38,8 @@ export class EntryBackgroundTaskService {
   private readonly refreshFavoriteCard: () => void
   private readonly setNotificationId: (notificationId: number) => void
   private readonly destroyVpnConnection: () => Promise<void>
+  private readonly getBackgroundKeepAliveMode: () => string
+  private readonly audioKeepAliveService: AudioKeepAliveService
 
   constructor(options: EntryBackgroundTaskServiceOptions) {
     this.context = options.context
@@ -40,14 +50,20 @@ export class EntryBackgroundTaskService {
     this.refreshFavoriteCard = options.refreshFavoriteCard
     this.setNotificationId = options.setNotificationId
     this.destroyVpnConnection = options.destroyVpnConnection
+    this.getBackgroundKeepAliveMode = options.getBackgroundKeepAliveMode
+    this.audioKeepAliveService = new AudioKeepAliveService(options.logTarget)
   }
 
   startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined): void {
+    const keepAliveMode = normalizeBackgroundKeepAliveMode(this.getBackgroundKeepAliveMode())
     if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
       if (!this.runNetworkInstance(cfg)) {
         sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
         Logger.error("启动失败", this.logTarget)
       } else {
+        if (keepAliveMode === BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK) {
+          this.audioKeepAliveService.start()
+        }
         startRuntimeStatsRecording(this.context.filesDir)
         try {
           const config: ConfigJson = JSON.parse(cfg)
@@ -59,7 +75,10 @@ export class EntryBackgroundTaskService {
       }
       return
     }
-    Logger.info("start background alive", this.logTarget)
+    Logger.info(`start background alive mode=${keepAliveMode}`, this.logTarget)
+    if (keepAliveMode === BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK) {
+      this.audioKeepAliveService.start()
+    }
     const wantAgentInfo: wantAgent.WantAgentInfo = {
       wants: [
         {
@@ -73,39 +92,7 @@ export class EntryBackgroundTaskService {
     }
     try {
       wantAgent.getWantAgent(wantAgentInfo).then((wantAgentObj: WantAgent) => {
-        try {
-          backgroundTaskManager.startBackgroundRunning(this.context, ["dataTransfer"], wantAgentObj).then((res: backgroundTaskManager.ContinuousTaskNotification) => {
-            if (this.runNetworkInstance(cfg)) {
-              startRuntimeStatsRecording(this.context.filesDir)
-              try {
-                const config: ConfigJson = JSON.parse(cfg)
-                if (config.no_tun) {
-                  this.activateMissionContinue()
-                }
-              } catch (_) {
-              }
-              setTimeout(() => {
-                this.refreshFavoriteCard()
-                this.setNotificationId(res.notificationId)
-                publishTextNotification(name ?? "N/A")
-              }, 300)
-              if (uuid) {
-                HMRouterMgr.to('StatusPage')
-                  .withParam(uuid)
-                  .withAnimator(new BottomAnimator())
-                  .pushAsync()
-              }
-            } else {
-              sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
-              Logger.error("启动失败", this.logTarget)
-              this.stopContinuousTask()
-            }
-          }).catch((err: BusinessError) => {
-            Logger.error(`startBackgroundRunning failed: ${err.code}, ${err.message}`, this.logTarget)
-          })
-        } catch (error) {
-          Logger.error(`startBackgroundRunning error: ${JSON.stringify(error)}`, this.logTarget)
-        }
+        this.startBackgroundRunning(wantAgentObj, cfg, uuid, name, keepAliveMode)
       }).catch((err: BusinessError) => {
         Logger.error(`getWantAgent failed: ${err.code}, ${err.message}`, this.logTarget)
       })
@@ -114,8 +101,56 @@ export class EntryBackgroundTaskService {
     }
   }
 
+  private startBackgroundRunning(wantAgentObj: WantAgent, cfg: string, uuid: string | undefined,
+    name: string | undefined, keepAliveMode: BackgroundKeepAliveMode): void {
+    const modes = keepAliveMode === BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK ? [BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK] :
+      [BACKGROUND_KEEP_ALIVE_DATA_TRANSFER]
+    try {
+      backgroundTaskManager.startBackgroundRunning(this.context, modes, wantAgentObj).then((res: backgroundTaskManager.ContinuousTaskNotification) => {
+        this.handleBackgroundRunningStarted(res, cfg, uuid, name)
+      }).catch((err: BusinessError) => {
+        this.audioKeepAliveService.stop()
+        sendToast("后台保活启动失败，请尝试切换保活模式。", $r("sys.symbol.exclamationmark_circle"), 1)
+        Logger.error(`startBackgroundRunning ${keepAliveMode} failed: ${err.code}, ${err.message}`, this.logTarget)
+      })
+    } catch (error) {
+      this.audioKeepAliveService.stop()
+      Logger.error(`startBackgroundRunning ${keepAliveMode} error: ${JSON.stringify(error)}`, this.logTarget)
+    }
+  }
+
+  private handleBackgroundRunningStarted(res: backgroundTaskManager.ContinuousTaskNotification, cfg: string,
+    uuid: string | undefined, name: string | undefined): void {
+    if (this.runNetworkInstance(cfg)) {
+      startRuntimeStatsRecording(this.context.filesDir)
+      try {
+        const config: ConfigJson = JSON.parse(cfg)
+        if (config.no_tun) {
+          this.activateMissionContinue()
+        }
+      } catch (_) {
+      }
+      setTimeout(() => {
+        this.refreshFavoriteCard()
+        this.setNotificationId(res.notificationId)
+        publishTextNotification(name ?? "N/A")
+      }, 300)
+      if (uuid) {
+        HMRouterMgr.to('StatusPage')
+          .withParam(uuid)
+          .withAnimator(new BottomAnimator())
+          .pushAsync()
+      }
+    } else {
+      sendToast("实例启动失败, 可能是内核错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
+      Logger.error("启动失败", this.logTarget)
+      this.stopContinuousTask()
+    }
+  }
+
   async stopContinuousTask(): Promise<void> {
     this.deactivateMissionContinue()
+    this.audioKeepAliveService.stop()
     stopRuntimeStatsRecording()
     if (!canIUse("SystemCapability.ResourceSchedule.BackgroundTaskManager.ContinuousTask")) {
       return

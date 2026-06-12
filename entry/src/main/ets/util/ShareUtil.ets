@@ -93,22 +93,21 @@ export function buildTomlShareData(config: ConfigJson, callback: (data: systemSh
   }
 }
 
-export async function unwrapUrl(url: url.URL) {
+export async function unwrapUrl(url: url.URL): Promise<boolean> {
   try {
     if (isCloudResetting()) {
-      return
+      return false
     }
     const payload: SharedConfigLinkPayload | null = easytier.parseConfigShareLink(url.toString())
     if (!payload) {
-      return
+      return false
     }
     const config: ConfigJson = JSON.parse(payload.configJson) as ConfigJson
     const displayName: string = payload.displayName ?? config.instance_id ?? 'shared'
     Logger.debug("unwrap shared config: " + displayName, "ShareUtil")
 
     if (payload.onlyStart && AppManager.easytier.runningNetworks.size == 0) {
-      await AppManager.easytier.temp_start(displayName, config)
-      return
+      return await AppManager.easytier.temp_start(displayName, config)
     }
 
     const importedId: string | null = easytier.importConfigShareLink(url.toString(), payload.displayName)
@@ -119,7 +118,9 @@ export async function unwrapUrl(url: url.URL) {
     const importedConfig: ConfigJson = storedJson ? JSON.parse(storedJson) as ConfigJson : config
     const finalId: string = importedId ?? importedConfig.instance_id!
     AppManager.data.readConfig(finalId, payload.displayName ?? finalId, importedConfig)
+    return true
   } catch (e) {
     Logger.error("unwrapUrl error: " + JSON.stringify(e), "ShareUtil")
+    return false
   }
 }

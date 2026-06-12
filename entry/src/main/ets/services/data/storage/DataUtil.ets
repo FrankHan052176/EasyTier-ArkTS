@@ -166,8 +166,8 @@ export class DataUtil {
       return false
     }
     let instance_name = cfg_toml.match(/^\s*instance_name\s*=\s*["'](.+?)["']\s*(?:#.*)?$/m)
-    Logger.debug("import toml find name: " + JSON.stringify(instance_name))
-    let name = instance_name ? instance_name[1] : undefined
+    Logger.debug("import toml find name: " + JSON.stringify(instance_name), this)
+    const name = instance_name?.[1]?.trim() || '新实例'
     let config: ConfigJson
     try {
       config = JSON.parse(cfg)
@@ -175,60 +175,64 @@ export class DataUtil {
       Logger.error(`importToml parse error: ${JSON.stringify(e)}`, this)
       return false
     }
+    if (typeof config.instance_id !== 'string' || config.instance_id.length === 0) {
+      config.instance_id = this.safeUUID()
+    }
     if ((config.networking_method as number | undefined) === 0 && config.public_server_url) {
-      config.hostname = getHostname()
-      config.networking_method = 1
       config.peer_urls.push(config.public_server_url)
     }
-    config.proxy_cidrs.forEach((cidrStr: string): void => {
+    config.hostname = getHostname()
+    config.public_server_url = ''
+    config.networking_method = 1
+    config.proxy_cidrs?.forEach((cidrStr: string): void => {
       let cidr = new Cidr()
       if (cidr.fromString(cidrStr)) {
         this.getDataSource("cidr").add(cidr)
       }
     })
-    config.routes.forEach((routeStr: string): void => {
+    config.routes?.forEach((routeStr: string): void => {
       let route = new Cidr()
       if (route.fromString(routeStr)) {
         this.getDataSource("route").add(route)
       }
     })
-    config.peer_urls.forEach((urlStr: string): void => {
+    config.peer_urls?.forEach((urlStr: string): void => {
       let url = new Url()
       if (url.fromString(urlStr)) {
         this.getDataSource("peer").add(url)
       }
     })
-    config.listener_urls.forEach((urlStr: string): void => {
+    config.listener_urls?.forEach((urlStr: string): void => {
       let url = new Url()
       if (url.fromString(urlStr)) {
         this.getDataSource("listener").add(url)
       }
     })
-    config.mapped_listeners.forEach((urlStr: string): void => {
+    config.mapped_listeners?.forEach((urlStr: string): void => {
       let url = new Url()
       if (url.fromString(urlStr)) {
         this.getDataSource("mapped_listener").add(url)
       }
     })
-    config.exit_nodes.forEach((nodeStr: string): void => {
+    config.exit_nodes?.forEach((nodeStr: string): void => {
       let ip = new IP()
       if (ip.fromString(nodeStr)) {
         this.getDataSource("ip").add(ip)
       }
     })
-    config.relay_network_whitelist.forEach((wlStr: string): void => {
+    config.relay_network_whitelist?.forEach((wlStr: string): void => {
       let name = new NetworkName()
       if (name.fromString(wlStr)) {
         this.getDataSource("network_name").add(name)
       }
     })
-    config.port_forwards.forEach((pfConfig: ESObject): void => {
+    config.port_forwards?.forEach((pfConfig: ESObject): void => {
       let pf = new PortForward()
       if (pf.readFrom(pfConfig)) {
         this.getDataSource("port_forward").add(pf)
       }
     })
-    if (!syncWholeConfig(config.instance_id!, name ?? config.instance_id!, config)) {
+    if (!syncWholeConfig(config.instance_id, name, config)) {
       return false
     }
     this.refreshConfigIds()

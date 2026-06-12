@@ -13,6 +13,10 @@ import { release } from '../../../util/info/ArtifactsType';
 import { EventHelper } from '../../../util/EventHelper';
 import { FAVORITE_CARD_REFRESH_EVENT } from '../../form/FavoriteCardState';
 import { buildTunRoutes, shouldBuildPreferenceVpnRoutes } from '../../tun/TunConfigBuilder';
+import {
+  BACKGROUND_KEEP_ALIVE_DATA_TRANSFER,
+  normalizeBackgroundKeepAliveMode
+} from '../../../types/runtime/BackgroundKeepAliveTypes';
 
 const easytier_release = easytier
 
@@ -188,6 +192,8 @@ export class PreferenceUtil {
       s.ext_mode = this.preferences.getSync("ext_mode", false).valueOf() as boolean;
       s.ask_dlp = this.preferences.getSync("ask_dlp", false).valueOf() as boolean;
       s.cloud_auto_sync = this.preferences.getSync("cloud_auto_sync", false).valueOf() as boolean;
+      s.background_keep_alive_mode = normalizeBackgroundKeepAliveMode(this.preferences.getSync("background_keep_alive_mode",
+        BACKGROUND_KEEP_ALIVE_DATA_TRANSFER).valueOf() as string);
       s.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string;
       s.help2 = this.preferences.getSync("help2", true).valueOf() as boolean;
 
