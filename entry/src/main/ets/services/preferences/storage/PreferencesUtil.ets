@@ -9,7 +9,6 @@ import { connection } from '@kit.NetworkKit';
 import { syncWholeConfig } from '../../../ConfigSyncUtil';
 import { getDefaultConfig } from '../../../config/defaults/ConfigDefaults';
 import { ConfigFieldValue, ConfigJson } from '../../../config/schema/SchemaConfig';
-import { release } from '../../../util/info/ArtifactsType';
 import { EventHelper } from '../../../util/EventHelper';
 import { FAVORITE_CARD_REFRESH_EVENT } from '../../form/FavoriteCardState';
 import { buildTunRoutes, shouldBuildPreferenceVpnRoutes } from '../../tun/TunConfigBuilder';
@@ -17,8 +16,6 @@ import {
   BACKGROUND_KEEP_ALIVE_DATA_TRANSFER,
   normalizeBackgroundKeepAliveMode
 } from '../../../types/runtime/BackgroundKeepAliveTypes';
-
-const easytier_release = easytier
 
 interface StoredConfigMetaLite {
   configId: string
@@ -251,11 +248,7 @@ export class PreferenceUtil {
     }
 
     if (completed && AppManager.uiState.core_log) {
-      if (AppManager.uiState.inittedGitCore) {
-        easytier.initTracingSubscriber()
-      }else {
-        easytier_release.initTracingSubscriber()
-      }
+      easytier.initTracingSubscriber()
     }
   }
 

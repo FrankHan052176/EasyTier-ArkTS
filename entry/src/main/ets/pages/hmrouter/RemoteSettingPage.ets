@@ -7,6 +7,12 @@ import { RemoteSettingPageParam } from '../../types/navigation/PageParam'
 import { RemoteManageService } from '../../services/remote/RemoteManageService'
 import { RemoteSettingsState, RemoteSummary } from '../../services/remote/RemoteManageTypes'
 import { sendToast } from '../../ToastUtil'
+import {
+  RuntimeModeSelectOption,
+  runtimeModeFromSettings,
+  runtimeModeOptions,
+  runtimeModeText
+} from '../../types/runtime/RuntimeModeTypes'
 
 function remoteSettingTitleStyle(): TitleBarStyleOptions {
   if (deviceInfo.distributionOSApiVersion >= 60100 && hdsMaterial.getSystemMaterialTypes().length > 0) {
@@ -100,6 +106,69 @@ function remoteValueRow(title: string, value: string) {
   .margin({ bottom: 10 })
 }
 
+interface RemoteSelectOption {
+  value: string
+}
+
+class RemoteSelectOptionItem implements RemoteSelectOption {
+  value: string
+
+  constructor(value: string) {
+    this.value = value
+  }
+}
+
+@ComponentV2
+struct RemoteRuntimeSelector {
+  @Param @Require options: RuntimeModeSelectOption[]
+  @Param @Require selected: string
+  @Param canSelect: boolean = true
+  @Event onChange: (value: string) => void = () => {}
+  private readonly selectorWidth: number = 184
+
+  @Computed
+  get selectedIndex(): number {
+    const index = this.options.findIndex((option: RuntimeModeSelectOption) => {
+      return option.value === this.selected
+    })
+    return index >= 0 ? index : 0
+  }
+
+  @Computed
+  get selectOptions(): RemoteSelectOption[] {
+    return this.options.map((option: RuntimeModeSelectOption) => {
+      return new RemoteSelectOptionItem(option.label)
+    })
+  }
+
+  build() {
+    Select(this.selectOptions)
+      .selected(this.selectedIndex)
+      .value(runtimeModeText(this.selected))
+      .width(this.selectorWidth)
+      .height(40)
+      .controlSize(ControlSize.SMALL)
+      .font({ size: 14, weight: FontWeight.Medium })
+      .fontColor($r('sys.color.font_primary'))
+      .selectedOptionBgColor($r('sys.color.brand'))
+      .selectedOptionFontColor('#FFFFFFFF')
+      .optionBgColor($r('sys.color.comp_background_primary'))
+      .optionFont({ size: 14, weight: FontWeight.Medium })
+      .optionFontColor($r('sys.color.font_primary'))
+      .optionWidth(this.selectorWidth)
+      .menuBackgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(14)
+      .opacity(this.canSelect ? 1 : 0.55)
+      .enabled(this.canSelect)
+      .onSelect((index: number) => {
+        if (!this.canSelect || index < 0 || index >= this.options.length) {
+          return
+        }
+        this.onChange(this.options[index].value)
+      })
+  }
+}
+
 function isRemoteSettingCategory(category: string): boolean {
   return category === 'runtime' || category === 'advanced' || category === 'logs' || category === 'permissions'
 }
@@ -170,6 +239,21 @@ export struct RemoteSettingPage {
     } catch (_) {
       sendToast('同步远端设置失败', $r('sys.symbol.exclamationmark_circle'), 1)
     }
+  }
+
+  private async setRuntimeMode(value: string): Promise<void> {
+    try {
+      this.settings = await RemoteManageService.setSetting('runtime_mode', value, this.remoteSessionId)
+      if (this.summary) {
+        this.summary.settings = this.settings
+      }
+    } catch (_) {
+      sendToast('同步远端运行方案失败', $r('sys.symbol.exclamationmark_circle'), 1)
+    }
+  }
+
+  private runtimeModeValue(): string {
+    return runtimeModeFromSettings(this.settings?.ext_mode ?? false, this.settings?.background_keep_alive_mode)
   }
 
   private async requestPermission(kind: string): Promise<void> {
@@ -256,16 +340,57 @@ export struct RemoteSettingPage {
   }
 
   @Builder
+  private runtimeSelectorRow(title: string, hint: string, selected: string, enabled: boolean) {
+    ListItem() {
+      Row() {
+        Column() {
+          Text(title)
+            .fontColor($r('sys.color.font_primary'))
+            .fontSize(16)
+            .maxLines(1)
+          Text(hint.length > 0 ? hint : '保活模式与子进程模式三选一')
+            .fontColor($r('sys.color.font_secondary'))
+            .fontSize(12)
+            .maxLines(1)
+            .margin({ top: 3 })
+        }
+        .layoutWeight(1)
+        .alignItems(HorizontalAlign.Start)
+
+        RemoteRuntimeSelector({
+          options: runtimeModeOptions(),
+          selected: selected,
+          canSelect: enabled,
+          onChange: (value: string) => {
+            this.setRuntimeMode(value)
+          }
+        })
+      }
+      .height(58)
+      .borderRadius(18)
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.SpaceBetween)
+      .width('100%')
+      .backgroundColor($r('sys.color.comp_background_primary'))
+      .shadow({
+        radius: 7,
+        color: '#1F000000'
+      })
+      .padding({ left: 12, right: 12 })
+    }
+    .margin({ bottom: 10 })
+  }
+
+  @Builder
   private runtimeContent() {
     ListItemGroup({ header: remoteSettingHeader('运行') }) {
       remoteValueRow('配置数量', `${this.summary?.runtime.configCount ?? 0}`)
       remoteValueRow('运行配置', `${this.summary?.runtime.runningCount ?? 0}`)
       remoteValueRow('运行时长', this.summary?.runtime.runtimeDurationText ?? '未运行')
       remoteValueRow('内存占用', this.summary?.runtime.memoryUsageText ?? '未记录')
-      this.switchRow('子进程模式',
+      this.runtimeSelectorRow('运行方案',
         (this.summary?.runtime.runningCount ?? 0) > 0 ? '运行时禁止切换' : '',
-        'ext_mode',
-        this.settings?.ext_mode ?? false,
+        this.runtimeModeValue(),
         (this.summary?.runtime.runningCount ?? 0) === 0)
     }
   }

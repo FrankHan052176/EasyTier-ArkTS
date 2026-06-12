@@ -24,14 +24,6 @@ function isHttpUrl(text: string): boolean {
 
 @LogLocate('ConfigTextImportService')
 export class ConfigTextImportService {
-  static async importFirst(text: string): Promise<ConfigTextImportResult> {
-    const result = await ConfigTextImportService.importText(text)
-    if (result.success) {
-      return result
-    }
-    return result
-  }
-
   static async importText(text: string): Promise<ConfigTextImportResult> {
     if (text.length === 0) {
       return {

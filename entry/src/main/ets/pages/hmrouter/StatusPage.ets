@@ -6,7 +6,7 @@ import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, HdsNavigationA
 import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Sfp2vp, Svp2fp } from '../../AppManager'
 import { DiscoverBall } from '../../components/status/DiscoverBall'
-import { HdsMenuButton, MenuButton } from '../Components'
+import { HdsMenuButton } from '../Components'
 import { PeerInfo } from '../../class/InstanceInfo'
 import { ConfigJson } from '../../config/schema/SchemaConfig'
 import { NatTypeValue } from '../../types/runtime/RuntimeTypes'

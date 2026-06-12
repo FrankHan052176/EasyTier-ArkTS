@@ -5,14 +5,6 @@
       "value": "获取设备名并与其他设备共享配置"
     },
     {
-      "name": "i18_add",
-      "value": "新增 %s"
-    },
-    {
-      "name": "i18_edit",
-      "value": "编辑 %s"
-    },
-    {
       "name": "i18_total",
       "value": "共"
     },

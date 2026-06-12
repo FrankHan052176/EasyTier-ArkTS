@@ -22,7 +22,6 @@ export class EntryAppBootstrapService {
   }
 
   async initialize(): Promise<void> {
-    AppManager.uiState.init()
     AppManager.uiState.setSocketFilesDir(this.context.filesDir)
     try {
       await AppManager.preference.init(this.context)

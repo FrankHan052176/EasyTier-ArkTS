@@ -43,8 +43,6 @@ import {
 import { SharedIntentImportService } from '../services/share/SharedIntentImportService'
 import { StatusBarIntegrationService } from '../services/desktop/StatusBarIntegrationService'
 
-const easytier_release = easytier
-
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility implements EntryRemoteHostDelegate {
   private entryVpnService: EntryVpnConnectionService | undefined = undefined
@@ -179,13 +177,8 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
         this.activateMissionContinue()
       },
       setTunFd: (instanceId: string, fd: number) => {
-        if (AppManager.uiState.inittedGitCore) {
-          easytier.setTunFd(instanceId, fd)
-          Logger.info(`setTunFd sent to git_core instance=${instanceId}`, this)
-        } else {
-          easytier_release.setTunFd(instanceId, fd)
-          Logger.info(`setTunFd sent to release instance=${instanceId}`, this)
-        }
+        easytier.setTunFd(instanceId, fd)
+        Logger.info(`setTunFd sent instance=${instanceId}`, this)
       }
     })
     this.entryKernelSocketService = new EntryKernelSocketService({
@@ -202,7 +195,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
       context: this.context,
       logTarget: this,
       runNetworkInstance: (cfg: string) => {
-        return AppManager.uiState.inittedGitCore ? easytier.runNetworkInstance(cfg) : easytier_release.runNetworkInstance(cfg)
+        return easytier.runNetworkInstance(cfg)
       },
       activateMissionContinue: () => {
         this.activateMissionContinue()
@@ -294,11 +287,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
           this.readUri(url)
         }
       }
-      if (AppManager.uiState.inittedGitCore) {
-        easytier.initPanicHook()
-      }else {
-        easytier_release.initPanicHook()
-      }
+      easytier.initPanicHook()
     })
   }
 

@@ -74,7 +74,7 @@ export struct NewConfig_Content {
           ToolButtonWithPaste({
             pasteCallback: async (value) => {
               if (value.length > 0) {
-                const result = await ConfigTextImportService.importFirst(value)
+                const result = await ConfigTextImportService.importText(value)
                 if (result.success) {
                   this.getUIContext().getPromptAction().showToast({
                     message: "导入成功"

@@ -790,7 +790,7 @@ export struct RemoteControlPage {
   private settingCategories() {
     ListItemGroup({ header: remoteGroupHeader('远端首选项') }) {
       this.settingCategoryRow('运行控制',
-        `子进程模式${boolText(this.summaryView.extMode)}`, 'runtime')
+        `运行方案：${this.summaryView.runtimeModeLabel}`, 'runtime')
       this.settingCategoryRow('网络高级',
         `高级模式${boolText(this.summaryView.devMode)}`, 'advanced')
       this.settingCategoryRow('日志与调试',
@@ -970,6 +970,8 @@ export struct RemoteControlPage {
       .height('100%')
       .padding({ left: 15, right: 15 })
       .scrollBar(BarState.Auto)
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+      .scrollBar(BarState.Off)
     }
     .titleBar({
       style: remoteTitleStyle(),
@@ -989,6 +991,8 @@ export struct RemoteControlPage {
     .titleMode(HdsNavigationTitleMode.MINI)
     .hideBackButton(false)
     .hideTitleBar(false)
+    .height('100%')
+    .width('100%')
     .backgroundColor($r('sys.color.background_secondary'))
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .bindSheet($$this.showNewConfigSheet, this.NewConfigSheet(), {

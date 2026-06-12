@@ -1,4 +1,9 @@
 import { RemoteConfigMeta, RemoteRuntimeInstanceLite, RemoteSummary } from '../../../services/remote/RemoteManageTypes'
+import {
+  RUNTIME_MODE_DATA_TRANSFER,
+  runtimeModeFromSettings,
+  runtimeModeText
+} from '../../../types/runtime/RuntimeModeTypes'
 
 function runtimeRowKey(instance: RemoteRuntimeInstanceLite): string {
   return instance.instanceId || instance.configId
@@ -195,6 +200,8 @@ export class RemoteSummaryViewState {
   @Trace runtimeDurationText: string = '未运行'
   @Trace memoryUsageText: string = '未记录'
   @Trace extMode: boolean = false
+  @Trace runtimeMode: string = RUNTIME_MODE_DATA_TRANSFER
+  @Trace runtimeModeLabel: string = runtimeModeText(RUNTIME_MODE_DATA_TRANSFER)
   @Trace devMode: boolean = false
   @Trace coreLog: boolean = false
   @Trace debugLog: boolean = false
@@ -217,6 +224,9 @@ export class RemoteSummaryViewState {
     this.runtimeDurationText = summary.runtime?.runtimeDurationText ?? '未运行'
     this.memoryUsageText = summary.runtime?.memoryUsageText ?? '未记录'
     this.extMode = summary.settings?.ext_mode ?? false
+    this.runtimeMode =
+      runtimeModeFromSettings(summary.settings?.ext_mode ?? false, summary.settings?.background_keep_alive_mode)
+    this.runtimeModeLabel = runtimeModeText(this.runtimeMode)
     this.devMode = summary.settings?.dev ?? false
     this.coreLog = summary.settings?.core_log ?? false
     this.debugLog = summary.settings?.debug_log ?? false
@@ -234,6 +244,8 @@ export class RemoteSummaryViewState {
     this.runtimeDurationText = '未运行'
     this.memoryUsageText = '未记录'
     this.extMode = false
+    this.runtimeMode = RUNTIME_MODE_DATA_TRANSFER
+    this.runtimeModeLabel = runtimeModeText(RUNTIME_MODE_DATA_TRANSFER)
     this.devMode = false
     this.coreLog = false
     this.debugLog = false

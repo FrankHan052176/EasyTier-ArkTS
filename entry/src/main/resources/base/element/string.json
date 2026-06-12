@@ -17,14 +17,6 @@
       "value": "Share configs with other devices and get the device name"
     },
     {
-      "name": "i18_add",
-      "value": "Add %s"
-    },
-    {
-      "name": "i18_edit",
-      "value": "Edit %s"
-    },
-    {
       "name": "i18_total",
       "value": "Tot."
     },

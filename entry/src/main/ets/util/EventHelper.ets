@@ -39,21 +39,6 @@ export class EventHelper {
     }
   }
 
-  public static commonPublish(event: string) {
-    commonEventManager.publish(event, () => {})
-  }
-
-  public static commonPublishData(event: string, data: string) {
-    commonEventManager.publish(event, {
-      data: data
-    }, () => {
-    })
-  }
-
-  public static commonPublishCallback(event: string, callback: () => void) {
-    commonEventManager.publish(event, callback)
-  }
-
   public static emitterListener(event: string, callback: Callback<emitter.EventData>) {
     emitter.on(event, callback)
   }

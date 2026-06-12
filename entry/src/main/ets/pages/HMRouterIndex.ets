@@ -1,5 +1,5 @@
 import { HMDefaultGlobalAnimator, HMNavigation, HMRouterMgr } from '@hadss/hmrouter';
-import { AttributeUpdater, FrameCallback } from '@kit.ArkUI';
+import { AttributeUpdater } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
 import { AppManager } from '../AppManager';
 import { Logger } from '../shared/logging/Logger';
@@ -13,27 +13,10 @@ class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
   }
 }
 
-export class MyFrameCallback extends FrameCallback {
-  callback: () => void
-
-  constructor(callback: () => void) {
-    super();
-    this.callback = callback
-  }
-
-  onFrame() {
-    this.callback()
-  }
-}
-
 @Entry
 @ComponentV2
 export struct HMRouterIndex {
   modifier: MyNavModifier = new MyNavModifier();
-  @Local dragOverlay: boolean = false
-  compPos: Position | undefined
-  dragType: string | undefined
-  onlyDrag: boolean = false
   private privacyStateUnsubscribe: (() => void) | undefined = undefined
   private active: boolean = false
   private appearGeneration: number = 0

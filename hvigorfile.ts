@@ -11,7 +11,6 @@ const en_file = "./entry/src/main/resources/base/element/easytier.json"
 const cn_file = "./entry/src/main/resources/zh/element/easytier.json"
 const cn = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/cn.yaml"
 const en = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/en.yaml"
-const proto = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/refs/heads/main/easytier/src/proto/"
 function calcHash(content: string): string {
     return crypto.createHash("sha256").update(content).digest("hex");
 }
@@ -115,27 +114,6 @@ function fixFieldName(field: string): string {
         return snake.substring(1)
     }else {
         return snake
-    }
-}
-async function downloadProtoFile(fileName: string): Promise<boolean> {
-    try {
-        const dir = path.resolve(__dirname, "./proto");
-        const filePath = path.join(dir, fileName+".proto");
-        const response = await fetch(proto+fileName+".proto");
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const protoContent = await response.text();
-        if (shouldSkipWrite(filePath, protoContent)) {
-            console.log(`⏩ 未变更，跳过下载：${fileName}.proto`);
-            return false;
-        }
-        fs.writeFileSync(filePath, protoContent, 'utf8');
-        console.log(`✅ 已下载并更新：${fileName}.proto`);
-        return true;
-    } catch (error) {
-        console.error(`❌ ${fileName}.proto 转换失败:`, error);
-        return false;
     }
 }
 hvigor.nodesEvaluated(() => {

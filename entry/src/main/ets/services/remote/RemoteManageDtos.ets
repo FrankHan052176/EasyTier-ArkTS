@@ -40,6 +40,7 @@ export interface RemoteRuntimeSummary {
 
 export interface RemoteSettingsState {
   ext_mode: boolean
+  background_keep_alive_mode: string
   dev: boolean
   vpn_routes: boolean
   force_global: boolean

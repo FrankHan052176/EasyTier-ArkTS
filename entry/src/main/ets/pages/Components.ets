@@ -8,14 +8,6 @@ function symbolWithSize(symbol: Resource, size: number): SymbolGlyphModifier {
   return result
 }
 
-export function MenuButton(value: string | Resource, symbol: Resource, callback: () => void): NavigationMenuItem {
-  return {
-    'value': value, 'symbolIcon': new SymbolGlyphModifier(symbol), 'action': () => {
-      callback()
-    }
-  }
-}
-
 export function HdsMenuButton(value: ResourceStr, symbol: Resource,
   callback: () => void, id: string | undefined = undefined): HdsNavigationMenuItemOptions {
   return {

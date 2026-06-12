@@ -2,8 +2,6 @@
   "modelVersion": "6.0.0",
   "dependencies": {
     "yaml": "^2.3.0",
-    "@bufbuild/protobuf": "^2.10.0",
-    "protobufjs": "^7.5.4",
     "@hadss/hmrouter-plugin": "^1.2.2"
   },
   "execution": {

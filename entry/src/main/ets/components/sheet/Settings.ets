@@ -11,11 +11,14 @@ import { hdsMaterial, HdsNavigation, HdsNavigationTitleMode, IconStyleMode, Titl
 import { LengthMetrics } from '@kit.ArkUI'
 import { RuntimeStatsService } from '../../services/runtime/RuntimeStatsService'
 import {
-  BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK,
-  BACKGROUND_KEEP_ALIVE_DATA_TRANSFER,
-  backgroundKeepAliveModeText,
-  normalizeBackgroundKeepAliveMode
-} from '../../types/runtime/BackgroundKeepAliveTypes'
+  RUNTIME_MODE_AUDIO_PLAYBACK,
+  RUNTIME_MODE_DATA_TRANSFER,
+  RUNTIME_MODE_SUBPROCESS,
+  RuntimeModeSelectOption,
+  runtimeModeFromSettings,
+  runtimeModeOptions,
+  runtimeModeText
+} from '../../types/runtime/RuntimeModeTypes'
 
 const CORE_REPOSITORY_URL = 'https://github.com/EasyTier/EasyTier'
 const SHELL_REPOSITORY_URL =
@@ -148,6 +151,33 @@ function settingGroupHeader(title: string) {
 
 function boolText(value: boolean): string {
   return value ? '开启' : '关闭'
+}
+
+interface RuntimeSelectOption {
+  value: string
+}
+
+class RuntimeSelectOptionItem implements RuntimeSelectOption {
+  value: string
+
+  constructor(value: string) {
+    this.value = value
+  }
+}
+
+function runtimeModeValue(): string {
+  return runtimeModeFromSettings(AppManager.uiState.ext_mode, AppManager.uiState.background_keep_alive_mode)
+}
+
+function applyRuntimeMode(value: string): void {
+  if (value === RUNTIME_MODE_SUBPROCESS) {
+    AppManager.uiState.ext_mode = true
+    return
+  }
+  AppManager.uiState.ext_mode = false
+  AppManager.uiState.background_keep_alive_mode = value === RUNTIME_MODE_AUDIO_PLAYBACK ?
+    RUNTIME_MODE_AUDIO_PLAYBACK :
+    RUNTIME_MODE_DATA_TRANSFER
 }
 
 function permissionSummary(): string {
@@ -362,6 +392,104 @@ function settingSwitchRow(symbol: Resource, title: string, hint: string, isOn: b
         .enabled(enabled)
     }
     .height(49)
+    .borderRadius(18)
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.SpaceBetween)
+    .width('100%')
+    .backgroundColor($r("sys.color.comp_background_primary"))
+    .shadow({
+      radius: 7,
+      color: '#1F000000'
+    })
+    .padding(10)
+  }
+  .margin({ bottom: 10 })
+}
+
+@ComponentV2
+struct VerticalSettingSelector {
+  @Param @Require options: RuntimeModeSelectOption[]
+  @Param @Require selected: string
+  @Param canSelect: boolean = true
+  @Event onChange: (value: string) => void = () => {}
+  private readonly selectorWidth: number = 184
+
+  @Computed
+  get selectedIndex(): number {
+    const index = this.options.findIndex((option: RuntimeModeSelectOption) => {
+      return option.value === this.selected
+    })
+    return index >= 0 ? index : 0
+  }
+
+  @Computed
+  get selectOptions(): RuntimeSelectOption[] {
+    return this.options.map((option: RuntimeModeSelectOption) => {
+      return new RuntimeSelectOptionItem(option.label)
+    })
+  }
+
+  build() {
+    Select(this.selectOptions)
+      .selected(this.selectedIndex)
+      .value(runtimeModeText(this.selected))
+      .width(this.selectorWidth)
+      .height(40)
+      .controlSize(ControlSize.SMALL)
+      .font({ size: 14, weight: FontWeight.Medium })
+      .fontColor($r('sys.color.font_primary'))
+      .selectedOptionBgColor($r('sys.color.brand'))
+      .selectedOptionFontColor('#FFFFFFFF')
+      .optionBgColor($r('sys.color.comp_background_primary'))
+      .optionFont({ size: 14, weight: FontWeight.Medium })
+      .optionFontColor($r('sys.color.font_primary'))
+      .optionWidth(this.selectorWidth)
+      .menuBackgroundColor($r('sys.color.comp_background_primary'))
+      .borderRadius(14)
+      .opacity(this.canSelect ? 1 : 0.55)
+      .enabled(this.canSelect)
+      .onSelect((index: number) => {
+        if (!this.canSelect || index < 0 || index >= this.options.length) {
+          return
+        }
+        this.onChange(this.options[index].value)
+      })
+  }
+}
+
+@Builder
+function settingVerticalSelectorRow(symbol: Resource, title: string, hint: string, selected: string, enabled: boolean,
+  onChange: (value: string) => void) {
+  ListItem() {
+    Row() {
+      Row() {
+        SymbolGlyph(symbol)
+          .fontColor([$r("sys.color.font_primary")])
+          .fontSize(16)
+          .margin({ right: 5 })
+        Column() {
+          Text(title)
+            .fontColor($r("sys.color.font_primary"))
+            .fontSize(16)
+            .maxLines(1)
+          Text(hint.length > 0 ? hint : "点击选择运行方案")
+            .fontColor($r("sys.color.font_secondary"))
+            .fontSize(12)
+            .maxLines(1)
+            .margin({ top: 3 })
+        }
+        .alignItems(HorizontalAlign.Start)
+      }
+      .layoutWeight(1)
+
+      VerticalSettingSelector({
+        options: runtimeModeOptions(),
+        selected: selected,
+        canSelect: enabled,
+        onChange: onChange
+      })
+    }
+    .height(58)
     .borderRadius(18)
     .alignItems(VerticalAlign.Center)
     .justifyContent(FlexAlign.SpaceBetween)
@@ -717,17 +845,10 @@ struct SettingHomeSheet {
           title: "内核内存占用",
           value: AppManager.runtimeStats.memoryUsageText
         })
-        settingSwitchRow($r("sys.symbol.house_fill"), "子进程模式",
-          AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "",
-          AppManager.uiState.ext_mode, AppManager.easytier.runningNetworks.size == 0, (isOn: boolean) => {
-            AppManager.uiState.ext_mode = isOn
-          })
-        settingSwitchRow($r("sys.symbol.waveform"), "音频保活",
-          `与数据传输保活二选一，当前：${backgroundKeepAliveModeText(AppManager.uiState.background_keep_alive_mode)}`,
-          normalizeBackgroundKeepAliveMode(AppManager.uiState.background_keep_alive_mode) === BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK,
-          AppManager.easytier.runningNetworks.size == 0, (isOn: boolean) => {
-            AppManager.uiState.background_keep_alive_mode = isOn ? BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK :
-              BACKGROUND_KEEP_ALIVE_DATA_TRANSFER
+        settingVerticalSelectorRow($r("sys.symbol.waveform"), "运行方案",
+          AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "保活模式与子进程模式三选一",
+          runtimeModeValue(), AppManager.easytier.runningNetworks.size == 0, (value: string) => {
+            applyRuntimeMode(value)
           })
         settingMenuRow($r("sys.symbol.cloud"), "云空间同步", formatSyncState(AppManager.cloudSync.syncState), () => {
           this.onNavigate('cloud_sync')

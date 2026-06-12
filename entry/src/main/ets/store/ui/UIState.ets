@@ -39,11 +39,6 @@ export class UIState {
 
   // 记录启动时的初始状态，用于显示“重启后生效”
   inittedCoreLog: boolean = false
-  inittedGitCore: boolean = false
-
-  init() {
-    // 逻辑已移动到 PreferencesUtil.init 中直接赋值，此处仅做二次校验或初始化
-  }
 
   setSocketFilesDir(filesDir: string) {
     this.socketFilesDir = filesDir

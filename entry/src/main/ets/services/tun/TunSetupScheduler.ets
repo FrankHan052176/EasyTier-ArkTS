@@ -8,11 +8,6 @@ export interface TunSetupRequest {
   trigger: string
 }
 
-export interface TunSetupSchedulerState {
-  currentSignature: string
-  inFlight: boolean
-}
-
 export interface TunSetupSchedulerOptions {
   debounceMs: number
   getCurrentSignature: () => string

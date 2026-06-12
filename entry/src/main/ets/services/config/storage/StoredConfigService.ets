@@ -18,7 +18,6 @@ interface FieldLoadWorkerResult {
 let editingConfigCacheId: string | undefined = undefined
 let editingConfigCacheStoreKey: string = 'local'
 let editingConfigCache: ConfigJson | undefined = undefined
-let editingConfigRevision: number = 0
 let editingConfigDirtyFields: Set<string> = new Set()
 const DEFAULT_CONFIG_FALLBACK: ConfigJson = getDefaultConfig('')
 
@@ -32,7 +31,6 @@ let editingConfigStoreRef: EditingConfigStoreRef = {
   source: 'local'
 }
 
-export const EDITING_CONFIG_REFRESH_EVENT = 'editing_config_refresh'
 export const EDITING_CONFIG_FIELD_REFRESH_EVENT_PREFIX = 'editing_config_field_refresh:'
 
 export function getEditingConfigFieldRefreshEvent(field: string): string {
@@ -213,14 +211,6 @@ export function prepareEditingConfig(editingId: string | undefined): ConfigJson 
   return editingConfigCache
 }
 
-export function refreshEditingConfig(editingId: string | undefined): ConfigJson | undefined {
-  return prepareEditingConfig(editingId)
-}
-
-export async function refreshEditingConfigAsync(editingId: string | undefined): Promise<ConfigJson | undefined> {
-  return prepareEditingConfig(editingId)
-}
-
 export function clearEditingConfigCache(editingId?: string): void {
   if (!editingId || (editingConfigCacheId === editingId && editingConfigCacheStoreKey === currentEditingStoreKey())) {
     editingConfigCacheId = undefined
@@ -238,20 +228,6 @@ export function markEditingConfigFieldDirty(editingId: string | undefined, field
     return
   }
   editingConfigDirtyFields.add(field)
-}
-
-export function getEditingConfigRevision(): number {
-  return editingConfigRevision
-}
-
-function publishEditingConfigRefresh(editingId: string | undefined): void {
-  editingConfigRevision += 1
-  EventHelper.emitterPublish(EDITING_CONFIG_REFRESH_EVENT, {
-    data: {
-      configId: editingId ?? '',
-      revision: editingConfigRevision
-    }
-  })
 }
 
 function publishEditingConfigFieldRefresh(editingId: string | undefined, field: string): void {

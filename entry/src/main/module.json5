@@ -12,7 +12,6 @@
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
-    "routerMap": "$profile:route_map",
     "abilities": [
       {
         "name": "EntryAbility",
@@ -153,9 +152,6 @@
       },
       {
         "name": "ohos.permission.VIBRATE",
-      },
-      {
-        "name": "ohos.permission.DETECT_GESTURE"
       },
       {
         "name": "ohos.permission.ACCESS_BIOMETRIC"

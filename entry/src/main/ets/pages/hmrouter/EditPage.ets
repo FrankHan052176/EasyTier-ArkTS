@@ -181,7 +181,7 @@ export struct EditPage {
     prepareEditingConfig(this.uuid)
     this.renderPlan = buildEditRenderPlan()
     this.editingConfigReady = true
-    this.enqueueSectionLoad(0, true, 32)
+    this.enqueueVisibleSectionLoads(0, 32)
     EventHelper.emitterListener("edit_open_sheet", this.editOpenSheetCallback)
     EventHelper.emitterListener("edit_close_sheet", this.editCloseSheetCallback)
     if (!this.remoteEditing) {
@@ -605,23 +605,42 @@ export struct EditPage {
       if (!this.active) {
         return
       }
-      this.enqueueNearbySectionLoads(this.activePageIndex)
+      this.enqueueVisibleSectionLoads(this.activePageIndex)
     }, 180)
   }
 
   private enqueueNearbySectionLoads(index: number): void {
-    this.enqueueSectionLoad(index, true)
-    this.enqueueSectionLoad(index - 1, false)
-    this.enqueueSectionLoad(index + 1, false)
+    this.enqueueVisibleSectionLoads(index)
+  }
+
+  private enqueueVisibleSectionLoads(index: number, delayMs: number = 0): void {
+    const start = this.visibleWindowStart(index)
+    const count = this.visiblePageCount()
+    this.enqueueSectionLoad(index, true, delayMs)
+    for (let offset = 0; offset < count; offset++) {
+      const sectionIndex = start + offset
+      if (sectionIndex !== index) {
+        this.enqueueSectionLoad(sectionIndex, false, delayMs)
+      }
+    }
+    this.enqueueSectionLoad(start - 1, false, delayMs)
+    this.enqueueSectionLoad(start + count, false, delayMs)
   }
 
   private visiblePageCount(): number {
     return Math.max(1, Math.floor(WindowUtil.uiType / 2))
   }
 
+  private visibleWindowStart(start: number): number {
+    const count = this.visiblePageCount()
+    const maxStart = Math.max(0, this.renderPlan.sections.length - count)
+    return Math.min(Math.max(0, start), maxStart)
+  }
+
   private isPageInWindow(index: number, start: number): boolean {
     const count = this.visiblePageCount()
-    return index >= start && index < start + count
+    const windowStart = this.visibleWindowStart(start)
+    return index >= windowStart && index < windowStart + count
   }
 
   private shouldMountSection(index: number): boolean {
