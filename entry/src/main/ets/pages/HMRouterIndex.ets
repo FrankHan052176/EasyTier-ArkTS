@@ -2,7 +2,6 @@ import { HMDefaultGlobalAnimator, HMNavigation, HMRouterMgr } from '@hadss/hmrou
 import { AttributeUpdater, FrameCallback } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
 import { AppManager } from '../AppManager';
-import { DialogHub, DialogMode } from '@hadss/dialoghub';
 import { Logger } from '../shared/logging/Logger';
 import { deferredLink } from '@kit.AppLinkingKit';
 import { url } from '@kit.ArkTS';
@@ -42,7 +41,6 @@ export struct HMRouterIndex {
   async aboutToAppear(): Promise<void> {
     this.active = true
     const generation = ++this.appearGeneration
-    DialogHub.init(this.getUIContext(), DialogMode.CUSTOM_DIALOG);
     try {
       await AppManager.init(this.getUIContext())
     } catch (error) {

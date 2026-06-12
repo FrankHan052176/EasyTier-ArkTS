@@ -1,6 +1,6 @@
 import { AppManager } from '../../AppManager'
 import { EventHelper } from '../../util/EventHelper'
-import { LayoutManager } from 'desktop_layout'
+import { LayoutManager } from '../layout/desktop/DesktopGridLayout'
 
 @ComponentV2
 struct PostureDemo {

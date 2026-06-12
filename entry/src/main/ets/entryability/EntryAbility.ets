@@ -378,6 +378,9 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
         Logger.error('Failed to load the content. Cause: ' + JSON.stringify(err), this);
         return;
       }
+      windowStage.getMainWindow().then((win) => {
+        win.setWindowKeepScreenOn(true)
+      })
     });
   }
 

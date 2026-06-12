@@ -5,7 +5,7 @@ import { hdsEffect } from "@kit.UIDesignKit";
 import { WindowUtil } from "../../WindowUtil";
 import { lane } from "../../util/Conversion";
 import { Logger } from "../../shared/logging/Logger";
-import { DesktopLayout } from "desktop_layout";
+import { DesktopLayout } from "../../components/layout/desktop/DesktopGridLayout";
 
 @HMRouter({ pageUrl: "HelpPage" })
 @ComponentV2

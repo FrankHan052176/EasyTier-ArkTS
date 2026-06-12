@@ -56,6 +56,9 @@ struct HomeSheetContent {
     if (this.type === 'setting') {
       return '设置'
     }
+    if (this.type === 'logs') {
+      return '日志与调试'
+    }
     if (this.type === 'ui') {
       return 'UI 设置'
     }
@@ -247,6 +250,8 @@ struct HomeSheetContent {
           Column().height(64)
           if (this.type === 'new') {
             NewConfig_Content()
+          } else if (this.type === 'logs') {
+            SettingLogs_Content()
           } else if (this.type === 'ui') {
             UI_Content()
           } else if (this.type === 'black_list') {

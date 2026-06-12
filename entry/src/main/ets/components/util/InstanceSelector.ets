@@ -11,6 +11,7 @@ interface InstanceEntry {
 @ComponentV2
 export struct InstanceSelector {
   @Param selectedUuid: string = ""
+  @Param compact: boolean = false
   @Local isSelecting: boolean = false
 
   @Computed
@@ -147,16 +148,16 @@ export struct InstanceSelector {
     Column() {
       Column() {
         Text(this.entries.find((item) => item.uuid === this.selectedUuid)?.label ?? "未选择实例")
-          .fontSize(20)
+          .fontSize(this.compact ? 15 : 20)
           .fontWeight(FontWeight.Bold)
           .fontColor($r('sys.color.font_primary'))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
 
         Text("点击切换实例")
-          .fontSize(12)
+          .fontSize(this.compact ? 10 : 12)
           .fontColor($r('sys.color.font_secondary'))
-          .margin({ top: 4 })
+          .margin({ top: this.compact ? 1 : 4 })
       }
       .width('100%')
       .justifyContent(FlexAlign.Center)

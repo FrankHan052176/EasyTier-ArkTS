@@ -1,5 +1,14 @@
 export enum NatTypeValue {
   Unknown = 0,
+  OpenInternet = 1,
+  NoPAT = 2,
+  FullCone = 3,
+  Restricted = 4,
+  PortRestricted = 5,
+  Symmetric = 6,
+  SymUdpFirewall = 7,
+  SymmetricEasyInc = 8,
+  SymmetricEasyDec = 9,
 }
 
 export interface RuntimeRouteView {
