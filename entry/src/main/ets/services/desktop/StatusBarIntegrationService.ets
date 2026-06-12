@@ -1,7 +1,7 @@
 import { common, contextConstant, StartOptions, Want } from '@kit.AbilityKit'
 import { JSON } from '@kit.ArkTS'
 import { BusinessError } from '@kit.BasicServicesKit'
-import { statusBarManager } from '@kit.DeskTopExtensionKit'
+import { statusBarManager } from '@kit.StatusBarExtensionKit'
 import { image } from '@kit.ImageKit'
 import { Logger } from '../../shared/logging/Logger'
 import {
