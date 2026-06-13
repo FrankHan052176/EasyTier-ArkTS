@@ -19,7 +19,7 @@ import {
   runtimeModeOptions,
   runtimeModeText
 } from '../../types/runtime/RuntimeModeTypes'
-import { shouldUseSubprocessRuntimeMode } from '../../services/runtime/AbilityRuntimePolicy'
+import { shouldUseSubprocessRuntimeMode, supportsStatusBarTray } from '../../services/runtime/AbilityRuntimePolicy'
 
 const CORE_REPOSITORY_URL = 'https://github.com/EasyTier/EasyTier'
 const SHELL_REPOSITORY_URL =
@@ -851,11 +851,13 @@ struct SettingHomeSheet {
           title: "内核内存占用",
           value: AppManager.runtimeStats.memoryUsageText
         })
-        settingVerticalSelectorRow($r("sys.symbol.waveform"), "运行方案",
-          AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "保活模式与子进程模式三选一",
-          runtimeModeValue(), AppManager.easytier.runningNetworks.size == 0, (value: string) => {
-            applyRuntimeMode(value)
-          })
+        if (!supportsStatusBarTray()) {
+          settingVerticalSelectorRow($r("sys.symbol.waveform"), "运行方案",
+            AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "保活模式与子进程模式三选一",
+            runtimeModeValue(), AppManager.easytier.runningNetworks.size == 0, (value: string) => {
+              applyRuntimeMode(value)
+            })
+        }
         settingMenuRow($r("sys.symbol.cloud"), "云空间同步", formatSyncState(AppManager.cloudSync.syncState), () => {
           this.onNavigate('cloud_sync')
         })

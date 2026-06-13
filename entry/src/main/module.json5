@@ -110,14 +110,6 @@
         "type": "vpn"
       },
       {
-        "name": "StatusBarViewAbility",
-        "icon": "$media:layered_image",
-        "description": "statusBar",
-        "type": "statusBarView",
-        "exported": true,
-        "srcEntry": "./ets/entryability/StatusBarViewAbility.ets"
-      },
-      {
         "name": "EntryFormAbility",
         "srcEntry": "./ets/entryability/EntryFormAbility.ets",
         "label": "$string:EntryFormAbility_label",

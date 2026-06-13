@@ -111,23 +111,29 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     return supportsStatusBarTray()
   }
 
-  private minimizeMainWindow(mainWindow: window.Window): Promise<boolean> {
+  private hideMainWindow(): Promise<boolean> {
     try {
-      return mainWindow.minimize().then(() => {
-        Logger.info('main window minimized to background', this)
+      return this.context.hideAbility().then(() => {
+        Logger.info('main window hidden to status bar', this)
         return true
       }).catch((err: BusinessError) => {
-        Logger.error(`main window minimize failed: ${err.code}, ${err.message}`, this)
+        Logger.error(`hideAbility failed: ${err.code}, ${err.message}`, this)
         return false
       })
     } catch (err) {
-      Logger.error(`main window minimize error: ${JSON.stringify(err)}`, this)
+      Logger.error(`hideAbility error: ${JSON.stringify(err)}`, this)
       return Promise.resolve(false)
     }
   }
 
   private restoreMainWindow(): void {
-    if (!this.mainWindow || !this.shouldMinimizeToBackground()) {
+    if (!this.shouldMinimizeToBackground()) {
+      return
+    }
+    this.context.showAbility().catch((err: BusinessError) => {
+      Logger.debug(`showAbility ignored: ${err.code}, ${err.message}`, this)
+    })
+    if (!this.mainWindow) {
       return
     }
     try {
@@ -139,13 +145,21 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     }
   }
 
+  private terminateApplication(): void {
+    this.terminatingFromStatusBar = true
+    this.statusBarIntegrationService?.close()
+    this.context.terminateSelf().catch((error: BusinessError) => {
+      Logger.error(`terminateSelf failed: ${error.code}, ${error.message}`, this)
+    })
+  }
+
   private registerWindowCloseToBackground(windowStage: window.WindowStage, mainWindow: window.Window): void {
-    if (!this.shouldMinimizeToBackground()) {
-      return
-    }
     if (deviceInfo.sdkApiVersion >= 15) {
       this.windowWillCloseCallback = () => {
-        return this.minimizeMainWindow(mainWindow)
+        if (!this.shouldMinimizeToBackground()) {
+          return Promise.resolve(false)
+        }
+        return this.hideMainWindow()
       }
       try {
         mainWindow.on('windowWillClose', this.windowWillCloseCallback)
@@ -155,7 +169,10 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     }
     if (deviceInfo.sdkApiVersion >= 14) {
       this.windowStageCloseCallback = () => {
-        void this.minimizeMainWindow(mainWindow)
+        if (!this.shouldMinimizeToBackground()) {
+          return false
+        }
+        void this.hideMainWindow()
         return true
       }
       try {
@@ -167,7 +184,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   }
 
   private subscribeStatusBarTerminateEvent(): void {
-    if (!supportsStatusBarTray() || this.statusBarSubscriber) {
+    if (this.statusBarSubscriber) {
       return
     }
     const subscribeInfo: commonEventManager.CommonEventSubscribeInfo = {
@@ -315,6 +332,8 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     })
     this.statusBarIntegrationService = new StatusBarIntegrationService(this.context, this, () => {
       this.restoreMainWindow()
+    }, () => {
+      this.terminateApplication()
     })
     this.subscribeStatusBarTerminateEvent()
     RemoteManageService.setHostHandlerProvider(() => this.createRemoteHostHandler())
@@ -329,11 +348,8 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     })
     Logger.info("BuildTime:" + BUILD_TIME, this)
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
-    this.appReadyPromise = this.initApp()
+    this.appReadyPromise = this.startStatusBarThenInitApp()
     this.appReadyPromise.then(() => {
-      this.statusBarIntegrationService?.start().catch((error: Error) => {
-        Logger.error(`status bar integration start failed: ${JSON.stringify(error)}`, this)
-      })
       this.readSharedData(want)
       this.favoriteCardActions.refresh()
       if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
@@ -426,6 +442,15 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     await this.entryAppBootstrapService?.initialize()
   }
 
+  private async startStatusBarThenInitApp(): Promise<void> {
+    try {
+      await this.statusBarIntegrationService?.start()
+    } catch (error) {
+      Logger.error(`status bar integration start failed: ${JSON.stringify(error)}`, this)
+    }
+    await this.initApp()
+  }
+
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam) {
     Logger.debug("onNetWant", this)
     this.restoreMainWindow()
@@ -462,18 +487,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   }
 
   onPrepareToTerminate(): boolean {
-    if (!this.shouldMinimizeToBackground() || this.terminatingFromStatusBar) {
-      return false
-    }
-    const mainWindow = this.mainWindow
-    if (mainWindow) {
-      void this.minimizeMainWindow(mainWindow)
-    } else {
-      this.context.hideAbility().catch((err: BusinessError) => {
-        Logger.debug(`hideAbility before terminate ignored: ${err.code}, ${err.message}`, this)
-      })
-    }
-    return true
+    return false
   }
 
   async onContinue(wantParam: Record<string, Object>): Promise<AbilityConstant.OnContinueResult> {
@@ -532,7 +546,6 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   onForeground(): void {
     WindowUtil.foreground()
     this.syncContinuationSocket()
-    this.statusBarIntegrationService?.broadcastState()
   }
 
   onBackground(): void {

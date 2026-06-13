@@ -1,6 +1,6 @@
 import { common, contextConstant, StartOptions, Want } from '@kit.AbilityKit'
 import { JSON } from '@kit.ArkTS'
-import { BusinessError } from '@kit.BasicServicesKit'
+import { BusinessError, emitter } from '@kit.BasicServicesKit'
 import { statusBarManager } from '@kit.StatusBarExtensionKit'
 import { image } from '@kit.ImageKit'
 import { Logger } from '../../shared/logging/Logger'
@@ -9,62 +9,89 @@ import {
   ENTRY_ABILITY_NAME,
   ENTRY_MODULE_NAME,
   STATUS_BAR_BACKGROUND_ABILITY_NAME,
-  STATUS_BAR_VIEW_ABILITY_NAME,
-  supportsStatusBarTray
+  setStatusBarTraySupported
 } from '../runtime/AbilityRuntimePolicy'
-import { STATUS_BAR_PANEL_SOCKET_NAME } from './StatusBarPanelTypes'
-import { StatusBarPanelServer } from './StatusBarPanelServer'
+
+const STATUS_BAR_MENU_CODE_EXIT = 'easytier_status_bar_exit'
+const STATUS_BAR_MENU_CODE_OPEN = 'easytier_status_bar_open'
 
 export class StatusBarIntegrationService {
   private readonly context: common.UIAbilityContext
   private readonly logTarget: Object | string
-  private readonly panelServer: StatusBarPanelServer
+  private readonly openMainWindow: (() => void) | undefined
   private registered: boolean = false
   private backgroundStarted: boolean = false
+  private readonly terminateApp: (() => void) | undefined
+  private readonly iconClickCallback: Callback<emitter.EventData> = (eventData: emitter.EventData) => {
+    const clickType = eventData.data?.['iconClickType'] as string | undefined
+    if (clickType === 'leftClick') {
+      this.openMainWindow?.()
+    }
+  }
+  private readonly rightMenuClickCallback: Callback<emitter.EventData> = (eventData: emitter.EventData) => {
+    const menuCode = eventData.data?.['menuCode'] as string | undefined
+    if (menuCode === STATUS_BAR_MENU_CODE_OPEN) {
+      this.openMainWindow?.()
+    } else if (menuCode === STATUS_BAR_MENU_CODE_EXIT) {
+      this.terminateApp?.()
+    }
+  }
 
-  constructor(context: common.UIAbilityContext, logTarget: Object | string, openMainWindow?: () => void) {
+  constructor(context: common.UIAbilityContext, logTarget: Object | string, openMainWindow?: () => void, terminateApp?: () => void) {
     this.context = context
     this.logTarget = logTarget
-    this.panelServer = new StatusBarPanelServer(context, logTarget, openMainWindow)
+    this.openMainWindow = openMainWindow
+    this.terminateApp = terminateApp
   }
 
   async start(): Promise<void> {
-    this.panelServer.start(`${this.context.filesDir}/${STATUS_BAR_PANEL_SOCKET_NAME}`)
-    if (!supportsStatusBarTray()) {
+    setStatusBarTraySupported(false)
+    const registered = await this.registerStatusBarItem()
+    setStatusBarTraySupported(registered)
+    if (!registered) {
       return
     }
-    await this.registerStatusBarItem()
-    this.startBackgroundAbility()
+    setTimeout(() => {
+      this.startBackgroundAbility()
+    }, 300)
   }
 
-  private async registerStatusBarItem(): Promise<void> {
+  private async registerStatusBarItem(): Promise<boolean> {
     if (this.registered) {
-      return
+      return true
     }
     try {
       const icon = await this.createStatusBarIcon()
       const item: statusBarManager.StatusBarItem = {
         icons: icon,
         quickOperation: {
-          abilityName: STATUS_BAR_VIEW_ABILITY_NAME,
+          abilityName: '',
           moduleName: ENTRY_MODULE_NAME,
           title: 'EasyTier',
-          height: 260
+          height: 1
         },
-        statusBarGroupMenu: [[{
-          title: '打开 EasyTier',
-          menuAction: {
-            abilityName: ENTRY_ABILITY_NAME,
-            moduleName: ENTRY_MODULE_NAME
+        statusBarGroupMenu: [[
+          {
+            title: '打开 EasyTier',
+            menuAction: {
+              abilityName: ENTRY_ABILITY_NAME,
+              moduleName: ENTRY_MODULE_NAME,
+              menuCode: STATUS_BAR_MENU_CODE_OPEN,
+              notifyOnly: true
+            }
           }
-        }]],
+        ]],
         hoverTips: 'EasyTier'
       }
       statusBarManager.addToStatusBar(this.context, item)
+      statusBarManager.on('statusBarIconClick', this.iconClickCallback)
+      statusBarManager.on('rightMenuClick', this.rightMenuClickCallback)
       this.registered = true
       Logger.info('status bar item registered', this.logTarget)
+      return true
     } catch (error) {
       Logger.error(`status bar item register failed: ${JSON.stringify(error)}`, this.logTarget)
+      return false
     }
   }
 
@@ -74,6 +101,7 @@ export class StatusBarIntegrationService {
     }
     const want: Want = {
       bundleName: APP_BUNDLE_NAME,
+      moduleName: ENTRY_MODULE_NAME,
       abilityName: STATUS_BAR_BACKGROUND_ABILITY_NAME
     }
     const options: StartOptions = {
@@ -83,23 +111,24 @@ export class StatusBarIntegrationService {
     try {
       this.context.startAbility(want, options, (err: BusinessError) => {
         if (err.code) {
-          Logger.error(`status bar background start failed: ${err.code}, ${err.message}`, this.logTarget)
+          Logger.debug(`status bar background attach ignored: ${err.code}, ${err.message}`, this.logTarget)
           return
         }
         this.backgroundStarted = true
         Logger.info('status bar background started', this.logTarget)
       })
     } catch (error) {
-      Logger.error(`status bar background start error: ${JSON.stringify(error)}`, this.logTarget)
+      Logger.debug(`status bar background attach error ignored: ${JSON.stringify(error)}`, this.logTarget)
     }
   }
 
   close(): void {
-    this.panelServer.close()
     if (!this.registered) {
       return
     }
     try {
+      statusBarManager.off('statusBarIconClick', this.iconClickCallback)
+      statusBarManager.off('rightMenuClick', this.rightMenuClickCallback)
       statusBarManager.removeFromStatusBar(this.context)
       Logger.info('status bar item removed', this.logTarget)
     } catch (error) {
@@ -107,10 +136,7 @@ export class StatusBarIntegrationService {
     }
     this.registered = false
     this.backgroundStarted = false
-  }
-
-  broadcastState(): void {
-    this.panelServer.broadcastState()
+    setStatusBarTraySupported(false)
   }
 
   private async createStatusBarIcon(): Promise<statusBarManager.StatusBarIcon> {
