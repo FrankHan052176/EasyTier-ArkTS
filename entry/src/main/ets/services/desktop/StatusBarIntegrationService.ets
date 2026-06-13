@@ -140,11 +140,12 @@ export class StatusBarIntegrationService {
   }
 
   private async createStatusBarIcon(): Promise<statusBarManager.StatusBarIcon> {
-    const data = this.context.resourceManager.getMediaContentSync($r('app.media.easytier').id)
-    const source = image.createImageSource(data.buffer.slice(0, data.buffer.byteLength))
-    const white = await source.createPixelMap({ desiredSize: { width: 24, height: 24 } })
-    const source2 = image.createImageSource(data.buffer.slice(0, data.buffer.byteLength))
-    const black = await source2.createPixelMap({ desiredSize: { width: 24, height: 24 } })
+    const whiteData = this.context.resourceManager.getMediaContentSync($r('app.media.easytier_status_bar_white').id)
+    const whiteSource = image.createImageSource(whiteData.buffer.slice(0, whiteData.buffer.byteLength))
+    const white = await whiteSource.createPixelMap()
+    const blackData = this.context.resourceManager.getMediaContentSync($r('app.media.easytier_status_bar_black').id)
+    const blackSource = image.createImageSource(blackData.buffer.slice(0, blackData.buffer.byteLength))
+    const black = await blackSource.createPixelMap()
     return { white, black }
   }
 }

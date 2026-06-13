@@ -59,7 +59,6 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   private entryRuntimeEventService: EntryRuntimeEventService | undefined = undefined
   private statusBarIntegrationService: StatusBarIntegrationService | undefined = undefined
   private statusBarSubscriber: commonEventManager.CommonEventSubscriber | undefined = undefined
-  private terminatingFromStatusBar: boolean = false
   private mainWindow: window.Window | undefined = undefined
   private windowWillCloseCallback: (() => Promise<boolean>) | undefined = undefined
   private windowStageCloseCallback: (() => boolean) | undefined = undefined
@@ -146,7 +145,6 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   }
 
   private terminateApplication(): void {
-    this.terminatingFromStatusBar = true
     this.statusBarIntegrationService?.close()
     this.context.terminateSelf().catch((error: BusinessError) => {
       Logger.error(`terminateSelf failed: ${error.code}, ${error.message}`, this)
@@ -197,7 +195,6 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
           Logger.error(`status bar terminate subscribe failed: ${err.code}, ${err.message}`, this)
           return
         }
-        this.terminatingFromStatusBar = true
         this.statusBarIntegrationService?.close()
         setTimeout(() => {
           this.context.terminateSelf().catch((error: BusinessError) => {
