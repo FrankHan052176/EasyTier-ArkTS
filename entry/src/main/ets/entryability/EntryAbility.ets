@@ -45,6 +45,7 @@ import { StatusBarIntegrationService } from '../services/desktop/StatusBarIntegr
 import {
   shouldUseEntryBackgroundKeepAlive,
   shouldUseSubprocessRuntimeMode,
+  setStatusBarTraySupported,
   supportsStatusBarTray,
   STATUS_BAR_BACKGROUND_TERMINATE_EVENT,
   VPN_EXTENSION_SOCKET_NAME
@@ -60,6 +61,8 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   private statusBarIntegrationService: StatusBarIntegrationService | undefined = undefined
   private statusBarSubscriber: commonEventManager.CommonEventSubscriber | undefined = undefined
   private mainWindow: window.Window | undefined = undefined
+  private mainWindowReadyPromise: Promise<window.Window> | undefined = undefined
+  private mainWindowReadyResolver: ((mainWindow: window.Window) => void) | undefined = undefined
   private windowWillCloseCallback: (() => Promise<boolean>) | undefined = undefined
   private windowStageCloseCallback: (() => boolean) | undefined = undefined
   private continuationSocketClient: ContinuationSocketClient = new ContinuationSocketClient({
@@ -149,6 +152,48 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     this.context.terminateSelf().catch((error: BusinessError) => {
       Logger.error(`terminateSelf failed: ${error.code}, ${error.message}`, this)
     })
+  }
+
+  private waitMainWindowReady(): Promise<window.Window> {
+    if (this.mainWindow) {
+      return Promise.resolve(this.mainWindow)
+    }
+    if (!this.mainWindowReadyPromise) {
+      this.mainWindowReadyPromise = new Promise<window.Window>((resolve) => {
+        this.mainWindowReadyResolver = resolve
+      })
+    }
+    return this.mainWindowReadyPromise
+  }
+
+  private notifyMainWindowReady(mainWindow: window.Window): void {
+    this.mainWindowReadyResolver?.(mainWindow)
+    this.mainWindowReadyResolver = undefined
+  }
+
+  private shouldStartStatusBar(mainWindow: window.Window): boolean {
+    const deviceType = deviceInfo.deviceType.toLowerCase()
+    if (deviceType === '2in1' || deviceType === 'pc') {
+      Logger.info(`status bar enabled for deviceType=${deviceType}`, this)
+      return true
+    }
+    if (deviceType !== 'tablet') {
+      Logger.info(`status bar skipped for deviceType=${deviceType}`, this)
+      return false
+    }
+    if (deviceInfo.sdkApiVersion < 12) {
+      Logger.info(`status bar skipped for tablet sdkApiVersion=${deviceInfo.sdkApiVersion}`, this)
+      return false
+    }
+    try {
+      const status = mainWindow.getWindowStatus()
+      const enabled = status === window.WindowStatusType.FLOATING
+      Logger.info(`status bar tablet windowStatus=${status}, enabled=${enabled}`, this)
+      return enabled
+    } catch (error) {
+      Logger.debug(`status bar tablet window status check failed: ${JSON.stringify(error)}`, this)
+      return false
+    }
   }
 
   private registerWindowCloseToBackground(windowStage: window.WindowStage, mainWindow: window.Window): void {
@@ -440,8 +485,13 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   }
 
   private async startStatusBarThenInitApp(): Promise<void> {
+    const mainWindow = await this.waitMainWindowReady()
     try {
-      await this.statusBarIntegrationService?.start()
+      if (this.shouldStartStatusBar(mainWindow)) {
+        await this.statusBarIntegrationService?.start()
+      } else {
+        setStatusBarTraySupported(false)
+      }
     } catch (error) {
       Logger.error(`status bar integration start failed: ${JSON.stringify(error)}`, this)
     }
@@ -509,6 +559,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     try {
       const mainWindow = windowStage.getMainWindowSync()
       this.mainWindow = mainWindow
+      this.notifyMainWindowReady(mainWindow)
       this.registerWindowCloseToBackground(windowStage, mainWindow)
       mainWindow.on('windowSizeChange', (data) => {
         WindowUtil.update(data.width, data.height)
