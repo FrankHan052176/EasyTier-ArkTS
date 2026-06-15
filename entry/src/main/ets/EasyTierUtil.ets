@@ -6,7 +6,7 @@ import { sendToast } from './ToastUtil'
 import { InstanceInfo } from './class/InstanceInfo'
 import { emitter } from '@kit.BasicServicesKit'
 import { getDefaultConfig } from './config/defaults/ConfigDefaults'
-import { JSON } from '@kit.ArkTS'
+import { JSON, taskpool } from '@kit.ArkTS'
 import { LogDataSource } from './class/data_source/LogDataSource'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { syncWholeConfig } from './ConfigSyncUtil'
@@ -32,6 +32,15 @@ import {
   START_BACKGROUND_EVENT,
   STOP_BACKGROUND_EVENT
 } from './types/events/RuntimeEventTypes'
+
+@Concurrent
+async function stopKernelWorker(instanceIds: string[]): Promise<void> {
+  instanceIds.forEach((instanceId) => {
+    if (instanceId.length > 0) {
+      easytier.stopKernel(instanceId)
+    }
+  })
+}
 
 @LogLocate("EasyTierUtil")
 @ObservedV2
@@ -89,6 +98,21 @@ export class EasyTierUtil {
 
   private shouldUseExtMode(): boolean {
     return AppManager.uiState.ext_mode && shouldUseSubprocessRuntimeMode()
+  }
+
+  private stopKernelAsync(instanceIds: string[], reason: string): void {
+    const uniqueIds: string[] = []
+    instanceIds.forEach((instanceId) => {
+      if (instanceId.length > 0 && uniqueIds.indexOf(instanceId) < 0) {
+        uniqueIds.push(instanceId)
+      }
+    })
+    if (uniqueIds.length === 0) {
+      return
+    }
+    taskpool.execute(stopKernelWorker, uniqueIds).catch((error: Error) => {
+      Logger.error(`stopKernelAsync failed reason=${reason}, ids=${JSON.stringify(uniqueIds)}, error=${error.message}`, this)
+    })
   }
 
   init() {
@@ -302,9 +326,7 @@ export class EasyTierUtil {
         return value.length > 0
       }) as string[]
       EventHelper.emitterPublish(STOP_BACKGROUND_EVENT)
-      runningIds.forEach((value) => {
-        easytier.stopKernel(value)
-      })
+      this.stopKernelAsync(runningIds, 'stop_all')
     }
 
     // 显式清理 UI 状态
@@ -332,7 +354,6 @@ export class EasyTierUtil {
       return true
     }
     const stopId = running.configId || running.instanceId || uuid
-    easytier.stopKernel(stopId)
     this.runtimeStateCoordinator.removeRunningInstanceAliases(running, uuid)
     if (this.temporaryConfigIds.has(uuid)) {
       AppManager.data.delConfig(uuid)
@@ -348,6 +369,7 @@ export class EasyTierUtil {
       HMRouterMgr.pop()
     }
     this.runtimeStateCoordinator.notifyRuntimeChanged()
+    this.stopKernelAsync([stopId], 'stop_config')
     return true
   }
 

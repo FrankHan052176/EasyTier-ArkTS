@@ -10,6 +10,7 @@ export struct EnableField {
   @Param fieldPath: string[] = [this.field]
   @Consumer("field_edit_enable") enable: boolean = true
   @Local button: boolean = true;
+  private active: boolean = false
 
   @Computed
   get config() {
@@ -32,10 +33,12 @@ export struct EnableField {
   }
 
   aboutToAppear(): void {
+    this.active = true
     this.updateFromConfig()
   }
 
   aboutToDisappear(): void {
+    this.active = false
     this.button = false
   }
 
@@ -44,6 +47,9 @@ export struct EnableField {
   }
 
   click(isOn: boolean) {
+    if (!this.active) {
+      return
+    }
     animateToImmediately({
       curve: Curve.FastOutSlowIn,
       duration: 300

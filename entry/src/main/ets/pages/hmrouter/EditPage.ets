@@ -35,6 +35,7 @@ import { clearEditValue } from '../../class/config/Basic'
 import { MemoryDiagnosticsService } from '../../services/runtime/MemoryDiagnosticsService'
 import { RemoteManageService } from '../../services/remote/RemoteManageService'
 import { sendToast } from '../../ToastUtil'
+import { setEditingConfigFieldSyncSuspended } from '../../ConfigSyncUtil'
 
 class ShareMenuParam {
   onQrClick: () => void
@@ -173,6 +174,7 @@ export struct EditPage {
   }
 
   aboutToAppear(): void {
+    setEditingConfigFieldSyncSuspended(false)
     this.active = true
     if (AppManager.uiState.debug_log) {
       MemoryDiagnosticsService.watchObject(this, 'EditPage')
@@ -224,6 +226,7 @@ export struct EditPage {
   }
 
   aboutToDisappear(): void {
+    setEditingConfigFieldSyncSuspended(true)
     if (AppManager.uiState.debug_log) {
       MemoryDiagnosticsService.markDelayed('EditPage.aboutToDisappear')
     }

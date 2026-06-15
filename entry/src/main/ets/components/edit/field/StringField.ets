@@ -155,6 +155,9 @@ export struct StringField {
         Row() {
             TextInput({ text: $$this.value })
               .fieldTextInput((value) => {
+                if (!this.active) {
+                  return
+                }
                 if (this.syncingFromConfig) {
                   return
                 }

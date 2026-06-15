@@ -23,6 +23,7 @@ export struct NumberField {
   @Local intensity: number = 0;
   @Local offsetX: number = 0;
   @Local isEdit: boolean = false;
+  private active: boolean = false
 
   @Computed
   get hasTitle() {
@@ -46,10 +47,12 @@ export struct NumberField {
   }
 
   aboutToAppear(): void {
+    this.active = true
     this.updateFromConfig()
   }
 
   aboutToDisappear(): void {
+    this.active = false
     this.isEdit = false
     this.value = ''
   }
@@ -62,6 +65,9 @@ export struct NumberField {
         TextInput({ text: this.value!! })
           .fieldTextInput()
           .onChange((value) => {
+            if (!this.active) {
+              return
+            }
             if (value.length == 0) {
               setFieldPathValue(this.config!, this.fieldPath, undefined)
               syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)

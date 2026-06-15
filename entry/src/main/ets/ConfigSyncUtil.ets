@@ -14,6 +14,12 @@ import { RemoteManageService } from './services/remote/RemoteManageService'
 
 export const CLOUD_CONFIG_CHANGED_EVENT = 'cloud_config_changed'
 
+let editingConfigFieldSyncSuspended: boolean = false
+
+export function setEditingConfigFieldSyncSuspended(suspended: boolean): void {
+  editingConfigFieldSyncSuspended = suspended
+}
+
 function canUseRemoteEditingStore(configId: string | undefined): boolean {
   if (!isEditingRemoteConfig() || !isEditingConfigTarget(configId)) {
     return false
@@ -64,7 +70,8 @@ export function setFieldPathValue(config: ConfigJson, path: string[], value: Con
 
 export function syncTopLevelField(configId: string | undefined, field: string | undefined, config: ConfigJson): boolean {
   const remoteEditing = canUseRemoteEditingStore(configId)
-  if (!configId || configId.length === 0 || !field || field.length === 0 || (!remoteEditing && isCloudResetting())) {
+  if (editingConfigFieldSyncSuspended || !configId || configId.length === 0 || !field || field.length === 0 ||
+    (!remoteEditing && isCloudResetting())) {
     return false
   }
   if (isEditingRemoteConfig() && isEditingConfigTarget(configId) && !remoteEditing) {

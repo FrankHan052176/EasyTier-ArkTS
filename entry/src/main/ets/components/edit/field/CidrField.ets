@@ -34,6 +34,7 @@ export struct CidrField {
   @Local editIP: boolean = false
   @Local editMask: boolean = false
   @Consumer("field_edit_enable") enable: boolean = true
+  private active: boolean = false
 
   @Computed
   get config() {
@@ -93,11 +94,13 @@ export struct CidrField {
   }
 
   aboutToAppear(): void {
+    this.active = true
     this.updateIpFromConfig()
     this.updateMaskFromConfig()
   }
 
   aboutToDisappear(): void {
+    this.active = false
     this.editIP = false
     this.editMask = false
     this.value_ip = ''
@@ -120,9 +123,15 @@ export struct CidrField {
         Row() {
           TextInput({ text: this.value_ip!! })
             .fieldTextInput((value) => {
+              if (!this.active) {
+                return
+              }
               this.value_ip = value
               setFieldPathValue(this.config!, this.ipFieldPath, value)
             }, () => {
+              if (!this.active) {
+                return
+              }
               syncFieldPath(this.config!.instance_id!, this.ipFieldPath, this.config!)
               this.getUIContext().getFocusController().requestFocus(this.field + "mask");
             }, true, this.field)
@@ -130,7 +139,7 @@ export struct CidrField {
             .onEditChange((isEdit) => {
               const wasEdit = this.editIP
               this.editIP = isEdit
-              if (wasEdit && !isEdit) {
+              if (this.active && wasEdit && !isEdit) {
                 syncFieldPath(this.config!.instance_id!, this.ipFieldPath, this.config!)
               }
             })
@@ -141,17 +150,23 @@ export struct CidrField {
             .fontColor(this.fontColor)
           TextInput({ text: this.value_mask!! })
             .fieldTextInput((value) => {
+              if (!this.active) {
+                return
+              }
               this.value_mask = value
               let num = Number.parseInt(value)
               setFieldPathValue(this.config!, this.maskFieldPath, Number.isNaN(num) ? 0 : num)
             }, () => {
+              if (!this.active) {
+                return
+              }
               syncFieldPath(this.config!.instance_id!, this.maskFieldPath, this.config!)
             }, false, this.field)
             .width(30)
             .onEditChange((isEdit) => {
               const wasEdit = this.editMask
               this.editMask = isEdit
-              if (wasEdit && !isEdit) {
+              if (this.active && wasEdit && !isEdit) {
                 syncFieldPath(this.config!.instance_id!, this.maskFieldPath, this.config!)
               }
             })

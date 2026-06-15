@@ -21,6 +21,7 @@ export struct PortField {
   @Consumer("field_edit_enable") enable: boolean = true
   @Local value: string = "" + (getFieldPathValue(this.config!, this.fieldPath) ?? 0);
   @Local isEdit: boolean = false;
+  private active: boolean = false
 
   @Computed
   get config() {
@@ -39,10 +40,12 @@ export struct PortField {
   }
 
   aboutToAppear(): void {
+    this.active = true
     this.updateFromConfig()
   }
 
   aboutToDisappear(): void {
+    this.active = false
     this.isEdit = false
     this.value = ''
   }
@@ -70,6 +73,9 @@ export struct PortField {
   }
 
   change(value: string) {
+    if (!this.active) {
+      return
+    }
     this.value = value
     let num = Number.parseInt(value)
     setFieldPathValue(this.config!, this.fieldPath, Number.isNaN(num) ? 0 : num)

@@ -10,6 +10,7 @@ export struct UnsupportedField {
   @Consumer("field_edit_enable") enable: boolean = true
   @Local value: string = ''
   @Local parseError: boolean = false
+  private active: boolean = false
 
   @Computed
   get config(): ConfigJson | undefined {
@@ -17,17 +18,19 @@ export struct UnsupportedField {
   }
 
   aboutToAppear(): void {
+    this.active = true
     const raw: ConfigFieldValue = getFieldPathValue(this.config!, this.fieldPath)
     this.value = JSON.stringify(raw ?? null)
   }
 
   aboutToDisappear(): void {
+    this.active = false
     this.value = ''
     this.parseError = false
   }
 
   private commit(): void {
-    if (!this.enable) {
+    if (!this.enable || !this.active) {
       return
     }
     try {

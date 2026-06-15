@@ -520,9 +520,9 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   }
 
   onDestroy() {
-	    Logger.debug("onDestroy", this)
-	    MemoryDiagnosticsService.enableSystemLeakWatcher(false)
-	    RemoteManageService.destroyHostSessions()
+    Logger.debug("onDestroy", this)
+    MemoryDiagnosticsService.enableSystemLeakWatcher(false)
+    RemoteManageService.destroyHostSessions()
     AppManager.easytier.destroy()
     this.entryRuntimeEventService?.stop()
     this.stopContinuousTask()
