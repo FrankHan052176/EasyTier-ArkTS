@@ -11,6 +11,7 @@ const en_file = "./entry/src/main/resources/base/element/easytier.json"
 const cn_file = "./entry/src/main/resources/zh/element/easytier.json"
 const cn = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/cn.yaml"
 const en = "https://ghfast.top/https://raw.githubusercontent.com/EasyTier/EasyTier/main/easytier-web/frontend-lib/src/locales/en.yaml"
+const signingConfigFileName = "signingConfigs.json"
 function calcHash(content: string): string {
     return crypto.createHash("sha256").update(content).digest("hex");
 }
@@ -20,17 +21,27 @@ function shouldSkipWrite(filePath: string, newContent: string): boolean {
     return calcHash(oldContent) === calcHash(newContent);
 }
 function loadSigningConfigs() {
-    const path = './signing/signingConfigs.json';
-    try {
-        fs.accessSync(path);
-    } catch (e) {
-        if (e.code !== 'ENOENT') {
-            console.error(e);
-        }
+    const signingDir = process.env.EASYTIER_SIGNING_DIR;
+    if (!signingDir) {
+        console.warn("> hvigor EASYTIER_SIGNING_DIR is not set; signing configuration will not be injected.");
         return [];
     }
-    const data = fs.readFileSync(path);
-    return JSON.parse(data.toString());
+    const signingConfigPath = path.join(signingDir, signingConfigFileName);
+    try {
+        fs.accessSync(signingConfigPath, fs.constants.R_OK);
+    } catch (error) {
+        throw new Error(`Unable to read EasyTier signing configuration from EASYTIER_SIGNING_DIR: ${error}`);
+    }
+    const configs = JSON.parse(fs.readFileSync(signingConfigPath, 'utf8'));
+    if (!Array.isArray(configs)) {
+        throw new Error("EasyTier signing configuration must be a JSON array.");
+    }
+    const hasDefault = configs.some(config => config.name === "default");
+    const hasPublish = configs.some(config => config.name === "publish");
+    if (!hasDefault || !hasPublish) {
+        throw new Error("EasyTier signing configuration must contain default and publish entries.");
+    }
+    return configs;
 }
 function loadBUILDNUMBER() {
     const path = './BUILDNUMBER.txt';
@@ -171,9 +182,19 @@ const rootNode = getNode(__filename);
 rootNode.afterNodeEvaluate(node => {
     const appContext = node.getContext(OhosPluginId.OHOS_APP_PLUGIN) as OhosAppContext;
     const buildProfileOpt = appContext.getBuildProfileOpt();
-    if (!buildProfileOpt['app']['signingConfigs'] || buildProfileOpt['app']['signingConfigs'].length == 0) {
-        console.log("✅ 覆写签名")
-        buildProfileOpt['app']['signingConfigs'] = loadSigningConfigs();
+    const signingConfigs = loadSigningConfigs();
+    if (signingConfigs.length > 0) {
+        console.log("> hvigor Injecting EasyTier signing configuration from EASYTIER_SIGNING_DIR.")
+        buildProfileOpt['app']['signingConfigs'] = signingConfigs;
+        const products = buildProfileOpt['app']['products'];
+        if (Array.isArray(products)) {
+            products.forEach(product => {
+                const productName = product['name'];
+                if (productName === "default" || productName === "publish") {
+                    product['signingConfig'] = productName;
+                }
+            });
+        }
     }
     appContext.setBuildProfileOpt(buildProfileOpt);
     const ohpmInfo = appContext.getOhpmDependencyInfo();
