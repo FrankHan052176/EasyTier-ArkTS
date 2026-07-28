@@ -8,12 +8,17 @@ import { WebUtil } from './services/web/WebUtil';
 import { UIState } from './store/ui/UIState';
 import { CloudConfigSyncService } from './services/cloud/CloudConfigSyncService';
 import { RuntimeStatsService } from './services/runtime/RuntimeStatsService';
+import { startupMark } from './services/runtime/StartupTrace';
 import { common } from '@kit.AbilityKit';
+
+/** 首帧渲染完成后再执行非首屏必需的初始化 */
+const DEFERRED_INIT_DELAY_MS = 300
 
 @LogLocate("AppManager")
 export class AppManager {
   private static initialized: boolean = false
   private static initPromise: Promise<void> | undefined = undefined
+  private static deferredScheduled: boolean = false
 
   public static data: DataUtil = new DataUtil()
   public static content: ContextUtil = new ContextUtil()
@@ -36,9 +41,9 @@ export class AppManager {
       return
     }
     AppManager.initPromise = (async () => {
+      startupMark('AppManager.init.begin')
       await AppManager.preference.init(AppManager.content.context!)
-      await AppManager.cloudSync.init(AppManager.content.context! as common.UIAbilityContext)
-      await AppManager.runtimeStats.init(AppManager.content.context! as common.UIAbilityContext)
+      startupMark('AppManager.preference.init')
       AppManager.initialized = true
     })()
     try {
@@ -50,6 +55,35 @@ export class AppManager {
       }
       throw new Error(`AppManager init failed: ${JSON.stringify(error)}`)
     }
+    AppManager.scheduleDeferredInit()
+  }
+
+  /**
+   * 首帧之后再做的初始化。
+   * cloudSync.init 在冷启动时要遍历云同步目录并统计本地库时间戳，
+   * 实测冷启动耗时接近 1s；它与首屏渲染无关，放到首帧之后执行，
+   * 内部各自有幂等保护，重复调用安全。
+   */
+  private static scheduleDeferredInit(): void {
+    if (AppManager.deferredScheduled) {
+      return
+    }
+    AppManager.deferredScheduled = true
+    setTimeout(async () => {
+      const context = AppManager.content.context as common.UIAbilityContext | undefined
+      if (!context) {
+        AppManager.deferredScheduled = false
+        return
+      }
+      try {
+        await AppManager.cloudSync.init(context)
+        startupMark('AppManager.cloudSync.init(deferred)')
+        await AppManager.runtimeStats.init(context)
+        startupMark('AppManager.runtimeStats.init(deferred)')
+      } catch (_) {
+        AppManager.deferredScheduled = false
+      }
+    }, DEFERRED_INIT_DELAY_MS)
   }
 }
 

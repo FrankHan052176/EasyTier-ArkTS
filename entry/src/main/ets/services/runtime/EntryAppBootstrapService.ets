@@ -3,6 +3,7 @@ import { deviceInfo } from '@kit.BasicServicesKit'
 import { AppManager } from '../../AppManager'
 import { Logger } from '../../shared/logging/Logger'
 import { MemoryDiagnosticsService } from './MemoryDiagnosticsService'
+import { startupMark } from './StartupTrace'
 
 export interface EntryAppBootstrapServiceOptions {
   context: common.UIAbilityContext
@@ -33,13 +34,16 @@ export class EntryAppBootstrapService {
       MemoryDiagnosticsService.enableSystemLeakWatcher(true)
       MemoryDiagnosticsService.markDelayed('EntryAbility.preference.init')
     }
+    startupMark('bootstrap.preference.init')
     await AppManager.data.init()
+    startupMark('bootstrap.data.init')
     if (AppManager.uiState.debug_log) {
       MemoryDiagnosticsService.markDelayed('EntryAbility.data.init')
     }
     if (deviceInfo.productModel !== "emulator") {
       AppManager.easytier.init()
     }
+    startupMark('bootstrap.easytier.init')
     if (AppManager.uiState.debug_log) {
       MemoryDiagnosticsService.markDelayed('EntryAbility.easytier.init')
     }

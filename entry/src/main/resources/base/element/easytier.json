@@ -1077,6 +1077,14 @@
       "value": "Network Status"
     },
     {
+      "name": "web_device_management_loading_network_status",
+      "value": "Loading Network Status"
+    },
+    {
+      "name": "web_device_management_network_info_unavailable",
+      "value": "Network status is unavailable"
+    },
+    {
       "name": "web_device_management_network_configuration",
       "value": "Network Configuration"
     },

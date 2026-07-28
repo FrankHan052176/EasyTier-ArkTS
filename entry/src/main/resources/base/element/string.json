@@ -103,6 +103,50 @@
     {
       "name": "ipv6_public_addr_provider",
       "value": "IPv6 Public Addr Provider"
+    },
+    {
+      "name": "easytier_pro_recommendation_title",
+      "value": "Need an official server?"
+    },
+    {
+      "name": "easytier_pro_recommendation_subtitle",
+      "value": "Try EasyTier Pro"
+    },
+    {
+      "name": "easytier_pro_recommendation_body",
+      "value": "EasyTier Pro is the commercial edition of EasyTier and provides official servers. If you do not host your own server, you can consider EasyTier Pro."
+    },
+    {
+      "name": "easytier_pro_qr_accessibility",
+      "value": "EasyTier Pro installation QR code"
+    },
+    {
+      "name": "easytier_pro_qr_hint",
+      "value": "Scan the QR code or open AppGallery to install"
+    },
+    {
+      "name": "easytier_pro_open_appgallery",
+      "value": "Open AppGallery"
+    },
+    {
+      "name": "easytier_pro_later",
+      "value": "Not now"
+    },
+    {
+      "name": "easytier_pro_open_failed",
+      "value": "Failed to open AppGallery"
+    },
+    {
+      "name": "easytier_pro_peer_hint_title",
+      "value": "No self-hosted server?"
+    },
+    {
+      "name": "easytier_pro_peer_hint_body",
+      "value": "EasyTier Pro is the commercial edition of EasyTier and provides official servers."
+    },
+    {
+      "name": "easytier_pro_learn_more",
+      "value": "Learn about EasyTier Pro"
     }
   ]
 }

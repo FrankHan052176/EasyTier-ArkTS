@@ -2,6 +2,22 @@ import { AppManager, Sfp2vp, Svp2fp } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { flagsCategory, flagsSymbol } from '../../../util/FlagsInfo';
 
+/**
+ * BoolField 的固定行高（与 build() 里的 .height() 保持一致）。
+ * 导出给 List 的 ListItem 定高用：给了确定高度，List 就不必
+ * 往下钻进子树做内容测量。
+ */
+export function boolFieldHeight(): number {
+  return Sfp2vp(12) + Sfp2vp(16) + 12 + 24
+}
+
+/**
+ * 标记为可复用：flags 页一屏 22 个实例，LazyForEach 在滑出缓存范围时会销毁、
+ * 滑回来再重建。实测这些重建占了 flags 行测量成本的 78%
+ * （CustomNode:BuildItem 33.9ms / 行测量合计 43.5ms）。
+ * 复用后组件实例进回收池，回来时只走 aboutToReuse 重新绑数据。
+ */
+@ReusableV2
 @ComponentV2
 export struct BoolField {
   @Param @Require field: string
@@ -40,6 +56,14 @@ export struct BoolField {
   }
 
   aboutToAppear(): void {
+    this.updateFromConfig()
+  }
+
+  /**
+   * 复用时 @Local 会被重置为初始值（button 会变回 true），
+   * 这里必须按复用后新的 fieldPath 重新读取真实值，否则开关状态会串行。
+   */
+  aboutToReuse(): void {
     this.updateFromConfig()
   }
 
@@ -82,7 +106,7 @@ export struct BoolField {
         })
     }
     .padding(12)
-    .height(Sfp2vp(12) + Sfp2vp(16) + 12 + 24)
+    .height(boolFieldHeight())
     .width(this.cellWidth)
     .backgroundColor(this.button ? $r("sys.color.brand") : $r("sys.color.comp_background_primary"))
     .borderRadius(18)

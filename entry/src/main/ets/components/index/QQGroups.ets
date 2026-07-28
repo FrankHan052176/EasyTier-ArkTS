@@ -9,12 +9,17 @@ export struct QQGroups {
   @Consumer("w") w: number = 1
   @Consumer("h") h: number = 1
   private updateCallback = (data: ESObject) => {
-    this.groups = data.data!.groups as string[]
+    const groups = data?.data?.groups as string[] | undefined
+    if (groups) {
+      this.groups = groups
+    }
   }
 
   aboutToAppear(): void {
-    AppManager.web.updateQQGroups()
+    // 先用已有/缓存数据直接渲染，网络刷新由 WebUtil 推迟到首帧之后
+    this.groups = AppManager.web.qqgroups.slice()
     EventHelper.emitterListener("update_qqgroups", this.updateCallback)
+    AppManager.web.updateQQGroups()
   }
 
   aboutToDisappear(): void {

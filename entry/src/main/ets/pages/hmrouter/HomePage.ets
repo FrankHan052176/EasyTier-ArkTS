@@ -3,6 +3,7 @@ import { deviceInfo, emitter } from '@kit.BasicServicesKit';
 import { HdsNavigation, HdsNavigationTitleMode, TitleBarStyleOptions } from '@hms.hds.hdsBaseComponent';
 import { ColorMetrics, LengthMetrics } from '@kit.ArkUI';
 import { AppManager } from '../../AppManager';
+import { startupMark } from '../../services/runtime/StartupTrace';
 import { EventHelper } from '../../util/EventHelper';
 import { HomeSheetContentBuilder } from '../../components/sheet/HomeSheet';
 import { setConfigName } from '../../components/sheet/NewConfig';
@@ -24,6 +25,10 @@ import { RemoteControl } from '../../components/index/RemoteControl';
 import { HdsMenuButton } from '../Components';
 import { CompSizeWithPos, DesktopLayout, LayoutUtil } from '../../components/layout/desktop/DesktopGridLayout';
 import { APP_BUNDLE_NAME, ENTRY_FORM_ABILITY_NAME, ENTRY_MODULE_NAME } from '../../services/runtime/AbilityRuntimePolicy';
+import { ChangelogPresentationService } from '../../services/changelog/ChangelogPresentationService';
+import { Logger } from '../../shared/logging/Logger';
+import { EasyTierProRecommendationDialog } from '../../components/util/EasyTierProRecommendationDialog';
+import { EasyTierProPromotionService } from '../../services/easytier/EasyTierProPromotionService';
 
 const HOME_CARD_TYPES: string[] = ['Instances', 'Logs', 'Favorite', 'SharedPeers', 'QQ']
 const HOME_DEFAULT_CARD_SEQUENCE: CompSizeWithPos[] = [
@@ -62,7 +67,9 @@ export struct HomePage {
   @Local sheet_type: string = ""
   private qrPixelMap: image.PixelMap | undefined = undefined
   private qrDialogController: CustomDialogController | null = null
+  private proRecommendationDialogController: CustomDialogController | null = null
   private active: boolean = false
+  private startupPresentationGeneration: number = 0
   private qrRequestId: number = 0
   private homeOpenSheetCallback = (data: emitter.EventData) => {
     this.sheet_type = data.data!.type as string
@@ -81,21 +88,77 @@ export struct HomePage {
   }
 
   aboutToAppear(): void {
+    startupMark('home.aboutToAppear')
     this.active = true
+    const generation = ++this.startupPresentationGeneration
     EventHelper.emitterListener("home_open_sheet", this.homeOpenSheetCallback)
     EventHelper.emitterListener("home_close_sheet", this.homeCloseSheetCallback)
     harmonyShare.on('knockShare', this.immersiveCallback);
+    AppManager.init(this.getUIContext()).then(() => {
+      if (!this.active || generation !== this.startupPresentationGeneration) {
+        return
+      }
+      this.presentStartupPage()
+    }).catch((error: Error) => {
+      Logger.error(`startup presentation init failed: ${JSON.stringify(error)}`, 'HomePage')
+    })
+  }
+
+  private presentStartupPage(): void {
     if (AppManager.uiState.help2) {
-      setTimeout(() => {
-        AppManager.uiState.help2 = false
-      }, 100)
-      HMRouterMgr.to("HelpPage").push()
+      AppManager.preference.completeInitialTutorial()
+      HMRouterMgr.to("HelpPage")
+        .onResult(() => this.presentAfterTutorial())
+        .push()
+      return
     }
+    this.presentAfterTutorial()
+  }
+
+  private presentAfterTutorial(): void {
+    if (ChangelogPresentationService.consumeCurrentVersion()) {
+      HMRouterMgr.to('ChangelogPage')
+        .onResult(() => this.presentEasyTierProRecommendation())
+        .push()
+      return
+    }
+    this.presentEasyTierProRecommendation()
+  }
+
+  private presentEasyTierProRecommendation(): void {
+    if (this.proRecommendationDialogController || !EasyTierProPromotionService.consumeFirstPresentation()) {
+      return
+    }
+    const controller = new CustomDialogController({
+      builder: EasyTierProRecommendationDialog({
+        onOpen: () => {
+          this.closeProRecommendationDialog()
+          EasyTierProPromotionService.openAppGallery(this.getUIContext())
+        },
+        onDismiss: () => {
+          this.closeProRecommendationDialog()
+        }
+      }),
+      autoCancel: true,
+      alignment: DialogAlignment.Center,
+      customStyle: true,
+      isModal: true,
+      maskColor: 'rgba(0,0,0,0.35)',
+      cancel: () => {
+        if (this.proRecommendationDialogController === controller) {
+          this.proRecommendationDialogController = null
+        }
+      }
+    })
+    this.proRecommendationDialogController = controller
+    controller.open()
   }
 
   aboutToDisappear(): void {
     this.active = false
+    this.startupPresentationGeneration += 1
     this.closeQrDialog()
+    this.closeProRecommendationDialog()
     EventHelper.emitterOff("home_open_sheet", this.homeOpenSheetCallback)
     EventHelper.emitterOff("home_close_sheet", this.homeCloseSheetCallback)
     harmonyShare.off('knockShare', this.immersiveCallback);
@@ -125,6 +188,17 @@ export struct HomePage {
   private closeQrDialog(): void {
     this.qrRequestId++
     this.resetQrDialog()
+  }
+
+  private closeProRecommendationDialog(): void {
+    const controller = this.proRecommendationDialogController
+    this.proRecommendationDialogController = null
+    if (controller) {
+      try {
+        controller.close()
+      } catch (_) {
+      }
+    }
   }
 
   private openQrDialog(pixelMap: image.PixelMap): void {

@@ -1,4 +1,5 @@
 import { AppManager, Spx2vp } from './AppManager'
+import { perfLog } from './services/runtime/PerfTrace'
 import { Logger, LogLocate } from './shared/logging/Logger'
 import { ConfigurationConstant } from '@kit.AbilityKit'
 
@@ -43,6 +44,7 @@ export class WindowUtil {
         WindowUtil.uiType = UIType.Column_2
       }
     })
+    perfLog(`window ${width}x${height}px -> ${WindowUtil.width.toFixed(1)}x${WindowUtil.height.toFixed(1)}vp uiType=${WindowUtil.uiType}`)
     Logger.debug(`WindowUtil update.`, WindowUtil)
   }
 

@@ -2,6 +2,7 @@ import { AppManager } from '../../AppManager'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { APP_VERSION, APP_VERSION_CODE, BUILD_TIME, CORE_VERSION } from '../../util/info/BuildTime'
 import { EventHelper } from '../../util/EventHelper'
+import { openRemoteControlGated } from '../../services/iap/RemoteControlGate'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { sendToast } from '../../ToastUtil'
 import { cloudSync } from '@kit.CoreFileKit'
@@ -870,7 +871,7 @@ struct SettingHomeSheet {
       ListItemGroup({ header: settingGroupHeader("系统") }) {
         settingMenuRow($r("sys.symbol.local_and_rectangle"), "跨端控制", "管理组网设备上的 EasyTier", () => {
           EventHelper.emitterPublish("home_close_sheet")
-          HMRouterMgr.push({ pageUrl: 'RemoteControlPage' })
+          openRemoteControlGated(this.getUIContext())
         })
         settingMenuRow($r("sys.symbol.local_and_rectangle"), "权限", permissionSummary(), () => {
           this.onNavigate('permissions')
@@ -1238,6 +1239,10 @@ export function SettingAbout_Content() {
       settingButtonRow($r("sys.symbol.questionmark_circle"), "再看看教程?", "看看", () => {
         EventHelper.emitterPublish("home_close_sheet")
         HMRouterMgr.push({ pageUrl: 'HelpPage' })
+      })
+      settingButtonRow($r("sys.symbol.list_bullet_square"), "更新日志", "查看", () => {
+        EventHelper.emitterPublish("home_close_sheet")
+        HMRouterMgr.push({ pageUrl: 'ChangelogPage' })
       })
     }
 

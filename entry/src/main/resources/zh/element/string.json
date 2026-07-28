@@ -75,6 +75,50 @@
     {
       "name": "ipv6_public_addr_provider",
       "value": "提供IPv6公网"
+    },
+    {
+      "name": "easytier_pro_recommendation_title",
+      "value": "需要官方服务器？"
+    },
+    {
+      "name": "easytier_pro_recommendation_subtitle",
+      "value": "可以了解 EasyTier Pro"
+    },
+    {
+      "name": "easytier_pro_recommendation_body",
+      "value": "EasyTier Pro 是 EasyTier 的商业版本，并提供官方服务器。如果你没有自建服务器，可以按需考虑 EasyTier Pro。"
+    },
+    {
+      "name": "easytier_pro_qr_accessibility",
+      "value": "EasyTier Pro 安装二维码"
+    },
+    {
+      "name": "easytier_pro_qr_hint",
+      "value": "扫码或前往 AppGallery 安装"
+    },
+    {
+      "name": "easytier_pro_open_appgallery",
+      "value": "前往 AppGallery"
+    },
+    {
+      "name": "easytier_pro_later",
+      "value": "暂时不用"
+    },
+    {
+      "name": "easytier_pro_open_failed",
+      "value": "打开 AppGallery 失败"
+    },
+    {
+      "name": "easytier_pro_peer_hint_title",
+      "value": "没有自建服务器？"
+    },
+    {
+      "name": "easytier_pro_peer_hint_body",
+      "value": "EasyTier Pro 是 EasyTier 的商业版本，并提供官方服务器。"
+    },
+    {
+      "name": "easytier_pro_learn_more",
+      "value": "了解 EasyTier Pro"
     }
   ]
 }

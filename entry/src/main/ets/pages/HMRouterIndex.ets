@@ -7,6 +7,7 @@ import { deferredLink } from '@kit.AppLinkingKit';
 import { url } from '@kit.ArkTS';
 import { unwrapUrl } from '../util/ShareUtil';
 import { warmEditRenderPlan } from '../config/render/EditRenderResolver';
+import { startupMark } from '../services/runtime/StartupTrace';
 
 class MyNavModifier extends AttributeUpdater<NavigationAttribute> {
   initializeModifier(instance: NavigationAttribute): void {
@@ -23,6 +24,7 @@ export struct HMRouterIndex {
   private appearGeneration: number = 0
 
   async aboutToAppear(): Promise<void> {
+    startupMark('index.aboutToAppear.begin')
     this.active = true
     const generation = ++this.appearGeneration
     try {
@@ -30,6 +32,7 @@ export struct HMRouterIndex {
     } catch (error) {
       Logger.error(`AppManager init failed: ${JSON.stringify(error)}`, 'HMRouterIndex')
     }
+    startupMark('index.appManagerInit.done')
     if (!this.active || generation !== this.appearGeneration) {
       return
     }

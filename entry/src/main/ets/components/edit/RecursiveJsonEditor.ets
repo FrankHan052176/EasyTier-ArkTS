@@ -77,6 +77,12 @@ export struct RecursiveJsonEditor {
     return this.layer === 0 ? 14 : 16
   }
 
+  /** 该分组下是否存在布尔字段（布尔字段是半宽、需要换行布局） */
+  @Computed
+  get hasBooleanChild() {
+    return this.contentNodes().some((child: EditRenderNode) => child.kind === 'boolean')
+  }
+
   @Computed
   get isSingleField() {
     return this.layer >= 1 || this.node.kind === 'list' || this.node.name === "flags_switch"
@@ -216,47 +222,68 @@ export struct RecursiveJsonEditor {
       this.loadingSkeleton()
     } else if (!this.isHidden) {
       if (this.node.kind === 'group') {
-        Flex({
-          wrap: FlexWrap.Wrap,
-          space: {
-            main: LengthMetrics.vp(10),
-            cross: LengthMetrics.vp(10)
+        // 只有布尔字段是半宽、需要换行；其余子节点一律 width('100%')，
+        // 每个必然独占一行。没有布尔子节点时用 Column 代替 Flex(Wrap)，
+        // 省掉换行布局的多趟测量。
+        if (this.hasBooleanChild) {
+          Flex({
+            wrap: FlexWrap.Wrap,
+            space: {
+              main: LengthMetrics.vp(10),
+              cross: LengthMetrics.vp(10)
+            }
+          }) {
+            this.groupChildren()
           }
-        }) {
-          ForEach(this.contentNodes(), (child: EditRenderNode, index: number) => {
-            if (child.kind === 'boolean') {
-              this.fieldContent(child)
-            } else {
-              Column() {
-                this.fieldContent(child)
-              }
-              .width('100%')
-              .padding({
-                left: this.Padding,
-                right: this.Padding,
-                top: (this.isUseDivider && index > 0) ? 6 : 0,
-                bottom: (this.isUseDivider && index < this.contentNodeCount() - 1) ? 6 : 0
-              })
+          .width('100%')
+          .onSizeChange((_o: SizeOptions, n: SizeOptions) => {
+            const width = n.width as number
+            if (width > 0 && this.field_width !== width) {
+              this.field_width = width
             }
-            if (this.isUseDivider && index < this.contentNodeCount() - 1) {
-              Divider()
-                .color($r("sys.color.background_secondary"))
-                .width('100%')
-                .strokeWidth(3)
+          })
+        } else {
+          Column({ space: 10 }) {
+            this.groupChildren()
+          }
+          .width('100%')
+          .onSizeChange((_o: SizeOptions, n: SizeOptions) => {
+            const width = n.width as number
+            if (width > 0 && this.field_width !== width) {
+              this.field_width = width
             }
-          }, (item: EditRenderNode) => item.renderKey)
+          })
         }
-        .width('100%')
-        .onAreaChange((a, b) => {
-          const width = b.width.valueOf() as number
-          if (this.field_width !== width) {
-            this.field_width = width
-          }
-        })
       } else {
         this.fieldContent(this.node)
       }
     }
+  }
+
+  @Builder
+  groupChildren() {
+    ForEach(this.contentNodes(), (child: EditRenderNode, index: number) => {
+      if (child.kind === 'boolean') {
+        this.fieldContent(child)
+      } else {
+        Column() {
+          this.fieldContent(child)
+        }
+        .width('100%')
+        .padding({
+          left: this.Padding,
+          right: this.Padding,
+          top: (this.isUseDivider && index > 0) ? 6 : 0,
+          bottom: (this.isUseDivider && index < this.contentNodeCount() - 1) ? 6 : 0
+        })
+      }
+      if (this.isUseDivider && index < this.contentNodeCount() - 1) {
+        Divider()
+          .color($r("sys.color.background_secondary"))
+          .width('100%')
+          .strokeWidth(3)
+      }
+    }, (item: EditRenderNode) => item.renderKey)
   }
 
   private cancelUserAuth(): void {
@@ -329,7 +356,9 @@ export struct RecursiveJsonEditor {
         .padding({ left: 5, bottom: 10, right: 5 })
       }
 
-      Stack() {
+      if (this.safe_show) {
+        // 扁平分支：没有遮罩就不需要 Stack 叠层，也不挂 blur 滤镜和测高回调。
+        // 每行少两层容器节点，List 逐行 measure 的成本直接下降。
         Column({ space: 8 }) {
           if (this.layer > 0) {
             this.title()
@@ -337,15 +366,24 @@ export struct RecursiveJsonEditor {
           this.content()
         }
         .backgroundColumn()
-        .blur(this.safe_show ? 0 : this.blurRadius)
-        .onAreaChange((a, b) => {
-          const height = b.height.valueOf() as number
-          if (this.content_height !== height) {
-            this.content_height = height
+      } else {
+        // 保险箱字段才需要叠层：模糊内容 + 上面盖锁定遮罩
+        Stack() {
+          Column({ space: 8 }) {
+            if (this.layer > 0) {
+              this.title()
+            }
+            this.content()
           }
-        })
+          .backgroundColumn()
+          .blur(this.blurRadius)
+          .onSizeChange((_o: SizeOptions, n: SizeOptions) => {
+            const height = n.height as number
+            if (height > 0 && this.content_height !== height) {
+              this.content_height = height
+            }
+          })
 
-        if (!this.safe_show) {
           Stack({ alignContent: Alignment.Center }) {
             this.maskBuilder()
           }
@@ -353,9 +391,9 @@ export struct RecursiveJsonEditor {
           .height(1)
           .clip(false)
         }
+        .width('100%')
+        .clip(false)
       }
-      .width('100%')
-      .clip(false)
     }
   }
 

@@ -42,6 +42,8 @@ import {
 } from '../types/events/RuntimeEventTypes'
 import { SharedIntentImportService } from '../services/share/SharedIntentImportService'
 import { StatusBarIntegrationService } from '../services/desktop/StatusBarIntegrationService'
+import { NetworkChangeWatchdog, softRestartStoredInstances } from '../services/runtime/NetworkChangeWatchdog'
+import { startupMark } from '../services/runtime/StartupTrace'
 import {
   shouldUseEntryBackgroundKeepAlive,
   shouldUseSubprocessRuntimeMode,
@@ -51,10 +53,19 @@ import {
   VPN_EXTENSION_SOCKET_NAME
 } from '../services/runtime/AbilityRuntimePolicy'
 
+/**
+ * 模拟器测试用的手机比例窗口尺寸（px），仅在 productModel === 'emulator' 时生效。
+ * 模拟器密度 1.9，取 722x1482px ≈ 380x780vp，与真机（约 376x742vp）对齐，
+ * 保证 uiType 落在 Column_1 且每屏可见行数与真机一致。
+ */
+const EMULATOR_WINDOW_WIDTH_PX = 722
+const EMULATOR_WINDOW_HEIGHT_PX = 1482
+
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility implements EntryRemoteHostDelegate {
   private entryVpnService: EntryVpnConnectionService | undefined = undefined
   private entryKernelSocketService: EntryKernelSocketService | undefined = undefined
+  private networkWatchdog: NetworkChangeWatchdog | undefined = undefined
   private entryBackgroundTaskService: EntryBackgroundTaskService | undefined = undefined
   private entryAppBootstrapService: EntryAppBootstrapService | undefined = undefined
   private entryRuntimeEventService: EntryRuntimeEventService | undefined = undefined
@@ -273,6 +284,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   }
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
+    startupMark('ability.onCreate.begin')
     this.deactivateMissionContinue();
     this.entryVpnService = new EntryVpnConnectionService({
       context: this.context,
@@ -380,14 +392,69 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     this.subscribeStatusBarTerminateEvent()
     RemoteManageService.setHostHandlerProvider(() => this.createRemoteHostHandler())
     this.favoriteCardActions.start(this.callee)
+    startupMark('ability.onCreate.services')
     CrashLogService.init(this.context.filesDir)
+    startupMark('ability.crashLog.init')
     easytier.initLogManager(this.context.filesDir, 'ui')
     easytier.configureLogManager(false, false)
+    startupMark('ability.logManager.init')
     this.entryRuntimeEventService.start()
+    startupMark('ability.runtimeEvent.start')
+    // 切网看护：物理网络切换后对运行中的实例做内核级软重启，
+    // 解决“切网后自动重连大概率失败”的问题。
+    // ext（子进程）模式由 EasyTierAbility 里的看护自理，这里跳过。
+    this.networkWatchdog = new NetworkChangeWatchdog({
+      logTarget: this,
+      getRunningIds: () => {
+        if (AppManager.uiState.ext_mode && shouldUseSubprocessRuntimeMode()) {
+          return []
+        }
+        const ids: string[] = []
+        AppManager.easytier.getRunningInstances().forEach((instance: RuntimeInstanceState) => {
+          const id = instance.configId || instance.instanceId
+          if (id && id.length > 0 && ids.indexOf(id) < 0) {
+            ids.push(id)
+          }
+        })
+        return ids
+      },
+      beforeRestart: (done: () => void) => {
+        // 若该配置启用了进程网络保护（强制全局+出口节点），
+        // 必须先在新网络上重新执行 protectProcessNet，否则内核
+        // 套接字仍固定在失效网络句柄上，重连必然失败。
+        let shouldProtect = false
+        try {
+          const running = AppManager.easytier.getRunningInstances()
+          if (running.length > 0) {
+            const id = running[0].configId || running[0].instanceId
+            const config: ConfigJson | undefined = id ? AppManager.easytier.getConfig(id) : undefined
+            shouldProtect = this.shouldProtectProcessNet(config)
+          }
+        } catch (_) {
+        }
+        if (this.entryVpnService) {
+          this.entryVpnService.prepareVpn(shouldProtect, done)
+        } else {
+          done()
+        }
+      },
+      restartInstances: (ids: string[]) => {
+        // 阻塞式内核重启放入 taskpool 工作线程，避免主线程冻结被系统杀进程
+        softRestartStoredInstances(ids).catch((error: Error) => {
+          Logger.error(`soft restart failed: ${error.message}`, this)
+        }).finally(() => {
+          // 内核桥接服务端已随实例重建：重连以接收新的 tun_request/topology
+          this.entryKernelSocketService?.connect(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
+        })
+      }
+    })
+    this.networkWatchdog.start()
+    startupMark('ability.netWatchdog.start')
     HMRouterMgr.openLog("INFO")
     HMRouterMgr.init({
       context: this.context
     })
+    startupMark('ability.hmrouter.init')
     Logger.info("BuildTime:" + BUILD_TIME, this)
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
     this.appReadyPromise = this.startStatusBarThenInitApp()
@@ -521,6 +588,8 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
 
   onDestroy() {
     Logger.debug("onDestroy", this)
+    this.networkWatchdog?.stop()
+    this.networkWatchdog = undefined
     MemoryDiagnosticsService.enableSystemLeakWatcher(false)
     RemoteManageService.destroyHostSessions()
     AppManager.easytier.destroy()
@@ -556,6 +625,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
+    startupMark('ability.onWindowStageCreate')
     try {
       const mainWindow = windowStage.getMainWindowSync()
       this.mainWindow = mainWindow
@@ -571,9 +641,19 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
           WindowUtil.setNavigationBarHeight = data.area.bottomRect.height
         }
       })
+      // 仅模拟器：2in1 默认窗口很宽，会走到 Column_2/Column_3 的多列断点，
+      // 布局与手机完全不同，性能对比会失真。强制成手机比例窗口。
+      if (deviceInfo.productModel === 'emulator') {
+        try {
+          mainWindow.resize(EMULATOR_WINDOW_WIDTH_PX, EMULATOR_WINDOW_HEIGHT_PX)
+        } catch (error) {
+          Logger.error(`emulator window resize failed: ${JSON.stringify(error)}`, this)
+        }
+      }
     } catch (error) {
     }
     windowStage.loadContent('pages/HMRouterIndex', (err) => {
+      startupMark('ability.loadContent.done')
       if (err.code) {
         Logger.error('Failed to load the content. Cause: ' + JSON.stringify(err), this);
         return;

@@ -238,9 +238,50 @@ export function setEditValue_Url(value: Url) {
 @ComponentV2
 export struct UrlEditor {
   @Param protocolArr: Protocol[] = protocols
+  @Param showEasyTierProHint: boolean = false
+  @Param onOpenEasyTierPro: () => void = () => {}
   @Local domain: boolean = false
   @Local port: boolean = false
   @Local protocol: Protocol = EditValue_Url!.proto
+
+  @Builder
+  private EasyTierProHint(): void {
+    Row({ space: 12 }) {
+      SymbolGlyph($r('sys.symbol.cloud'))
+        .fontSize(24)
+        .fontColor([$r('sys.color.brand')])
+
+      Column({ space: 5 }) {
+        Text($r('app.string.easytier_pro_peer_hint_title'))
+          .width('100%')
+          .fontSize(14)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+
+        Text($r('app.string.easytier_pro_peer_hint_body'))
+          .width('100%')
+          .fontSize(12)
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(3)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+        Button($r('app.string.easytier_pro_learn_more'), {
+          type: ButtonType.Capsule,
+          buttonStyle: ButtonStyleMode.NORMAL,
+          role: ButtonRole.NORMAL
+        })
+          .onClick(() => this.onOpenEasyTierPro())
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+    }
+    .width('90%')
+    .padding(16)
+    .margin({ top: 12 })
+    .alignItems(VerticalAlign.Top)
+    .backgroundColor($r('sys.color.comp_background_primary'))
+    .borderRadius(16)
+  }
 
   build() {
     Column() {
@@ -345,9 +386,13 @@ export struct UrlEditor {
       .backgroundColor($r("sys.color.comp_background_primary"))
       .borderRadius(16)
 
+      if (this.showEasyTierProHint) {
+        this.EasyTierProHint()
+      }
+
       Blank()
         .width('100%')
-        .height(100)
+        .height(this.showEasyTierProHint ? 24 : 100)
     }
   }
 }

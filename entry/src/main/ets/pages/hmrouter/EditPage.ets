@@ -33,6 +33,7 @@ import { EditRenderPlan, EditSectionRenderPlan } from '../../config/render/EditR
 import { EditSectionView } from '../../components/edit/EditSectionView'
 import { clearEditValue } from '../../class/config/Basic'
 import { MemoryDiagnosticsService } from '../../services/runtime/MemoryDiagnosticsService'
+import { perfLog, PerfSpan } from '../../services/runtime/PerfTrace'
 import { RemoteManageService } from '../../services/remote/RemoteManageService'
 import { sendToast } from '../../ToastUtil'
 import { setEditingConfigFieldSyncSuspended } from '../../ConfigSyncUtil'
@@ -115,6 +116,19 @@ function ShareMenu(param: ShareMenuParam) {
   }
 }
 
+/**
+ * 标题栏滚动实时模糊 + 系统材质开关。
+ * A/B 已验证它不是掉帧主因，恢复为开启；留成常量方便随时对比。
+ */
+const EDIT_TITLE_SCROLL_EFFECT = true
+
+/**
+ * 分组挂载策略开关（用于 A/B 实测）：
+ * true  = 每帧挂一个分组，把构建成本摊到进场后的若干帧
+ * false = 数据就绪后一次性挂载全部分组（旧行为）
+ */
+const STAGGER_SECTION_MOUNT = true
+
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
 export struct EditPage {
@@ -126,6 +140,7 @@ export struct EditPage {
   @Local sheet_type: string = ""
   @Local share_menu_id: string = "share_menu_id"
   @Local editingConfigReady: boolean = false
+  @Local initialLoadFailed: boolean = false
   @Local titleText: string = ""
   @Local remoteEditing: boolean = false
   @Local remoteDeviceName: string = ""
@@ -133,6 +148,7 @@ export struct EditPage {
   @Local activePageIndex: number = 0
   @Local animationTargetIndex: number = -1
   @Local sectionMountRevision: number = 0
+  @Local allSectionsMounted: boolean = false
   private qrPixelMap: image.PixelMap | undefined = undefined
   private qrDialogController: CustomDialogController | null = null
   private renderPlan: EditRenderPlan = emptyEditRenderPlan()
@@ -174,6 +190,7 @@ export struct EditPage {
   }
 
   aboutToAppear(): void {
+    const appearSpan = new PerfSpan('edit.aboutToAppear')
     setEditingConfigFieldSyncSuspended(false)
     this.active = true
     if (AppManager.uiState.debug_log) {
@@ -207,8 +224,13 @@ export struct EditPage {
     this.animationTargetIndex = -1
     this.sectionMountRevision = 0
     this.resetSectionLoading()
+    const prepareSpan = new PerfSpan('edit.prepareEditingConfig')
     prepareEditingConfig(this.uuid)
+    prepareSpan.end()
+    const planSpan = new PerfSpan('edit.buildEditRenderPlan')
     this.renderPlan = buildEditRenderPlan()
+    planSpan.end(`sections=${this.renderPlan.sections.length} ${this.renderPlan.sections.map((s: EditSectionRenderPlan,
+      i: number) => `${i}:${s.key}(${s.topLevelFields.length}f)`).join(',')}`)
     this.loadInitialSectionData()
     EventHelper.emitterListener("edit_open_sheet", this.editOpenSheetCallback)
     EventHelper.emitterListener("edit_close_sheet", this.editCloseSheetCallback)
@@ -223,6 +245,7 @@ export struct EditPage {
     setTimeout(() => {
       this.initDlpAntiPeep()
     }, 0)
+    appearSpan.end(`uuid=${this.uuid}`)
   }
 
   aboutToDisappear(): void {
@@ -266,7 +289,13 @@ export struct EditPage {
   @Builder
   pageContent(section: EditSectionRenderPlan, index: number) {
     Column() {
-      if (this.sectionMountRevision >= 0 && this.shouldMountSection(index) && this.isSectionLoaded(section)) {
+      // 必须和下面共用同一个分支：如果给 allSectionsMounted 单独开一个
+      // if 分支，标志位翻转时 ArkUI 会认为分支变了，把已经建好的组件树
+      // 销毁重建（实测每个分组会 didBuild 两次）。
+      // 这里靠 || 短路：全部挂载后不再读 sectionMountRevision /
+      // shouldMountSection，翻页时写那些状态就不会把 ForEach 标脏。
+      if (this.allSectionsMounted ||
+        (this.sectionMountRevision >= 0 && this.shouldMountSection(index) && this.isSectionLoaded(section))) {
         EditSectionView({ section: section })
       } else if (this.shouldMountSection(index)) {
         EditSectionView({ section: section, ready: false })
@@ -292,31 +321,66 @@ export struct EditPage {
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
     .id("edit_content")
     .displayCount(this.visiblePageCount())
-    .cachedCount(0, false)
+    // 固定值：运行期改 cachedCount 会让 Swiper 整体重新 measure，
+    // 之前的分级提升方案实测适得其反（CreateTaskMeasure[Swiper] 单次到 43ms）。
+    .cachedCount(1, false)
     .loop(false)
     .indicator(DotIndicator.dot().top(46))
     .onAnimationStart((index: number, targetIndex: number) => {
+      // 全部就绪后翻页不需要任何状态写入，直接返回，别在动画途中标脏
+      if (this.allSectionsMounted) {
+        return
+      }
+      const span = new PerfSpan('edit.onAnimationStart')
       this.updateSwipeTarget(targetIndex)
       this.enqueueNearbySectionLoads(targetIndex)
+      const targetSection: EditSectionRenderPlan | undefined = this.renderPlan.sections[targetIndex]
+      span.end(`from=${index} to=${targetIndex} targetMounted=${targetSection !== undefined &&
+        this.mountedSectionKeys.has(targetSection.key)} targetDataLoaded=${targetSection !== undefined &&
+        this.dataLoadedSectionKeys.has(targetSection.key)}`)
     })
     .onAnimationEnd((index: number) => {
       this.activePageIndex = index
+      if (this.allSectionsMounted) {
+        return
+      }
+      const span = new PerfSpan('edit.onAnimationEnd')
       this.animationTargetIndex = -1
       this.sectionMountRevision++
       this.enqueueNearbySectionLoads(index)
       this.scheduleSectionMount()
+      span.end(`index=${index} mounted=${this.mountedSectionKeys.size} loaded=${this.dataLoadedSectionKeys.size}`)
     })
   }
 
   @Builder
   loadingContent() {
     Column({ space: 12 }) {
-      LoadingProgress()
-        .width(36)
-        .height(36)
-      Text('正在加载配置')
-        .fontSize(14)
-        .fontColor($r('sys.color.font_secondary'))
+      if (this.initialLoadFailed) {
+        SymbolGlyph($r('sys.symbol.exclamationmark_circle'))
+          .fontSize(32)
+          .fontColor([$r('sys.color.font_secondary')])
+        Text('配置载入失败')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor($r('sys.color.font_primary'))
+        Text('请检查配置文件或远端连接后重试')
+          .fontSize(14)
+          .fontColor($r('sys.color.font_secondary'))
+          .textAlign(TextAlign.Center)
+        Button('重新载入')
+          .type(ButtonType.Capsule)
+          .onClick(() => {
+            this.retryInitialLoading()
+          })
+      } else {
+        LoadingProgress()
+          .width(36)
+          .height(36)
+        Text('正在加载配置')
+          .fontSize(14)
+          .fontColor($r('sys.color.font_secondary'))
+      }
     }
     .width('100%')
     .height('100%')
@@ -326,6 +390,25 @@ export struct EditPage {
 
   navTitleStyle(): TitleBarStyleOptions {
     if (deviceInfo.distributionOSApiVersion >= 60100 && hdsMaterial.getSystemMaterialTypes().length > 0) {
+      if (!EDIT_TITLE_SCROLL_EFFECT) {
+        // A/B 排查：关掉标题栏实时模糊后的对照样式
+        return {
+          originalStyle: {
+            contentStyle: {
+              titleStyle: {
+                mainTitleColor: $r("sys.color.font_primary"),
+                subTitleColor: $r("sys.color.font_secondary")
+              },
+              menuStyle: {
+                iconColor: $r("sys.color.font_primary")
+              },
+              backIconStyle: {
+                iconColor: $r("sys.color.font_primary")
+              }
+            }
+          }
+        }
+      }
       return {
         scrollEffectOpts: {
           enableScrollEffect: true,
@@ -354,12 +437,12 @@ export struct EditPage {
       }
     }else {
       return {
-        scrollEffectOpts: {
+        scrollEffectOpts: EDIT_TITLE_SCROLL_EFFECT ? {
           enableScrollEffect: true,
           scrollEffectType: deviceInfo.sdkApiVersion >= 23 ? 3 : 2,
           blurEffectiveStartOffset: LengthMetrics.vp(0),
           blurEffectiveEndOffset: LengthMetrics.vp(20),
-        },
+        } : undefined,
         originalStyle: {
           contentStyle: {
             titleStyle: {
@@ -534,6 +617,8 @@ export struct EditPage {
       clearTimeout(this.initialSectionLoadTimer)
       this.initialSectionLoadTimer = -1
     }
+    this.allSectionsMounted = false
+    this.initialLoadFailed = false
   }
 
   private isValidSectionIndex(index: number): boolean {
@@ -627,14 +712,40 @@ export struct EditPage {
     return this.renderPlan.sections.every((section) => this.dataLoadedSectionKeys.has(section.key))
   }
 
+  /**
+   * 数据全部就绪，但**不**一次性挂载所有分组。
+   * 进场那一帧如果把 4 个分组的组件树全建出来，实测单帧 136.9ms
+   * （同一帧要 measure 两个 List，内嵌十几次组件构建）。
+   * 这里只标记数据可用，挂载交给 scheduleSectionMount 每帧挂一个，
+   * 把构建成本摊到进场后的若干空闲帧里。
+   */
   private markAllSectionsReady(): void {
     this.renderPlan.sections.forEach((section) => {
       this.dataLoadedSectionKeys.add(section.key)
-      this.mountedSectionKeys.add(section.key)
       this.loadingSectionKeys.delete(section.key)
+      if (!STAGGER_SECTION_MOUNT) {
+        this.mountedSectionKeys.add(section.key)
+      }
     })
     this.sectionLoadQueue = []
     this.sectionMountRevision++
+    if (STAGGER_SECTION_MOUNT) {
+      this.scheduleSectionMount()
+    } else {
+      this.allSectionsMounted = true
+    }
+  }
+
+  /** 全部分组都挂载完之后，才切到短路分支（翻页不再写状态） */
+  private syncAllMountedFlag(): void {
+    if (this.allSectionsMounted || this.renderPlan.sections.length === 0) {
+      return
+    }
+    const done = this.renderPlan.sections.every((section) => this.mountedSectionKeys.has(section.key))
+    if (done) {
+      this.allSectionsMounted = true
+      perfLog(`edit.allSectionsMounted sections=${this.renderPlan.sections.length}`)
+    }
   }
 
   private loadInitialSectionData(delayMs: number = 0): void {
@@ -654,6 +765,7 @@ export struct EditPage {
     if (this.areAllSectionsDataLoaded()) {
       this.markAllSectionsReady()
       this.editingConfigReady = true
+      this.initialLoadFailed = false
       return
     }
     const generation = this.sectionLoadGeneration
@@ -663,13 +775,16 @@ export struct EditPage {
         this.loadingSectionKeys.add(section.key)
       }
     })
+    const initialSpan = new PerfSpan('edit.loadInitialSectionData')
     ensureEditingFieldsAsync(this.uuid, fields).then(() => {
+      initialSpan.end(`fields=${fields.length}`)
       if (!this.active || generation !== this.sectionLoadGeneration) {
         return
       }
       this.sectionLoadFailureCounts.clear()
       this.markAllSectionsReady()
       this.editingConfigReady = true
+      this.initialLoadFailed = false
     }).catch(() => {
       if (!this.active || generation !== this.sectionLoadGeneration) {
         return
@@ -679,7 +794,8 @@ export struct EditPage {
         this.sectionLoadFailureCounts.set('__initial__', failureCount + 1)
         this.loadInitialSectionData(300)
       } else {
-        this.editingConfigReady = true
+        this.editingConfigReady = false
+        this.initialLoadFailed = true
         sendToast('读取配置字段失败', $r('sys.symbol.exclamationmark_circle'), 1)
       }
     }).finally(() => {
@@ -697,7 +813,9 @@ export struct EditPage {
     const generation = this.sectionLoadGeneration
     let retryDelay = -1
     this.loadingSectionKeys.add(section.key)
+    const loadSpan = new PerfSpan('edit.loadSectionData')
     ensureEditingFieldsAsync(this.uuid, section.topLevelFields).then(() => {
+      loadSpan.end(`index=${index} key=${section.key} fields=${section.topLevelFields.length}`)
       if (!this.active || generation !== this.sectionLoadGeneration) {
         return
       }
@@ -751,11 +869,15 @@ export struct EditPage {
     if (!this.active || this.sectionMountScheduled) {
       return
     }
-    if (!this.canMountVisibleWindow()) {
+    if (!this.canMountVisibleWindow() && this.nextPreloadMountIndex() < 0) {
       return
     }
     this.sectionMountScheduled = true
+    const generation = this.sectionLoadGeneration
     const callback = () => {
+      if (!this.active || generation !== this.sectionLoadGeneration) {
+        return
+      }
       this.sectionMountScheduled = false
       this.mountNextReadySection()
     }
@@ -776,23 +898,55 @@ export struct EditPage {
     if (this.animationTargetIndex >= 0) {
       return
     }
-    if (!this.canMountVisibleWindow()) {
-      return
-    }
     const visibleStart = this.visibleWindowStart(this.activePageIndex)
     const visibleCount = this.visiblePageCount()
     let mounted = false
-    for (let offset = 0; offset < visibleCount; offset++) {
-      const index = visibleStart + offset
-      if (this.canMountSection(index)) {
-        const section = this.renderPlan.sections[index]
-        this.mountedSectionKeys.add(section.key)
+    if (this.canMountVisibleWindow()) {
+      for (let offset = 0; offset < visibleCount; offset++) {
+        const index = visibleStart + offset
+        if (this.canMountSection(index)) {
+          const section = this.renderPlan.sections[index]
+          this.mountedSectionKeys.add(section.key)
+          perfLog(`edit.mountVisible index=${index} key=${section.key}`)
+          mounted = true
+        }
+      }
+    } else {
+      // 当前窗口已就绪，利用空闲帧预挂载相邻分组（每帧一个），
+      // 这样首次前滑/后滑都能复用现成组件树，不在动画中途构建。
+      const preloadIndex = this.nextPreloadMountIndex()
+      if (preloadIndex >= 0) {
+        this.mountedSectionKeys.add(this.renderPlan.sections[preloadIndex].key)
+        perfLog(`edit.preloadMount index=${preloadIndex} key=${this.renderPlan.sections[preloadIndex].key}`)
         mounted = true
       }
     }
     if (mounted) {
       this.sectionMountRevision++
+      this.syncAllMountedFlag()
+      this.scheduleSectionMount()
     }
+  }
+
+  /**
+   * 下一个待挂载的分组：先相邻页，再其余任意未挂载分组。
+   * 每帧只返回一个，配合 postFrameCallback 把构建摊到多帧。
+   */
+  private nextPreloadMountIndex(): number {
+    const visibleStart = this.visibleWindowStart(this.activePageIndex)
+    const visibleCount = this.visiblePageCount()
+    const candidates: number[] = [visibleStart + visibleCount, visibleStart - 1]
+    for (const index of candidates) {
+      if (this.canMountSection(index)) {
+        return index
+      }
+    }
+    for (let index = 0; index < this.renderPlan.sections.length; index++) {
+      if (this.canMountSection(index)) {
+        return index
+      }
+    }
+    return -1
   }
 
   private canMountVisibleWindow(): boolean {
@@ -852,6 +1006,15 @@ export struct EditPage {
     return Math.min(Math.max(0, start), maxStart)
   }
 
+  private retryInitialLoading(): void {
+    if (!this.active) {
+      return
+    }
+    this.editingConfigReady = false
+    this.resetSectionLoading()
+    this.loadInitialSectionData()
+  }
+
   private isPageInWindow(index: number, start: number): boolean {
     const count = this.visiblePageCount()
     const windowStart = this.visibleWindowStart(start)
@@ -862,7 +1025,14 @@ export struct EditPage {
     if (this.isPageInWindow(index, this.activePageIndex)) {
       return true
     }
-    return this.animationTargetIndex >= 0 && this.isPageInWindow(index, this.animationTargetIndex)
+    if (this.animationTargetIndex >= 0 && this.isPageInWindow(index, this.animationTargetIndex)) {
+      return true
+    }
+    // 已构建过的分组保持挂载：滑走时不再拆掉组件树，回滑时直接复用。
+    // 否则 onAnimationStart 才把目标页放回窗口，整页要在滑动动画进行中
+    // 重新构建 + 布局，必然掉帧（“第二页划回第一页卡顿”的根因）。
+    const section: EditSectionRenderPlan | undefined = this.renderPlan.sections[index]
+    return section !== undefined && this.mountedSectionKeys.has(section.key)
   }
 
   private updateSwipeTarget(targetIndex: number): void {

@@ -12,6 +12,7 @@ import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../servic
 import { AppManager } from '../AppManager'
 import { VpnExtensionKernelSocketService } from '../services/runtime/VpnExtensionKernelSocketService'
 import { VpnExtensionTunService, VpnExtensionTunSettings } from '../services/tun/VpnExtensionTunService'
+import { NetworkChangeWatchdog, softRestartWithConfig } from '../services/runtime/NetworkChangeWatchdog'
 
 export default class EasyTierAbility extends VpnExtensionAbility {
   private bridgeServer: VpnBridgeServer = new VpnBridgeServer('EasyTierAbility')
@@ -25,6 +26,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     }
   })
   private tunService: VpnExtensionTunService | undefined = undefined
+  private networkWatchdog: NetworkChangeWatchdog | undefined = undefined
   timer: number | undefined
   config: ConfigJson | undefined
   instance_id: string = ""
@@ -92,6 +94,8 @@ export default class EasyTierAbility extends VpnExtensionAbility {
 
   onDestroy(): void {
     Logger.debug("VpnExtAbi destroy", "EasyTierAbility")
+    this.networkWatchdog?.stop()
+    this.networkWatchdog = undefined
     this.bridgeServer.publishContinuationState(false)
     if (this.timer) {
       clearInterval(this.timer);
@@ -122,5 +126,43 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     this.timer = setInterval(() => {
       this.bridgeServer.forwardLogs(easytier.drainLogLines())
     }, 500);
+    this.startNetworkWatchdog()
+  }
+
+  /**
+   * ext（子进程）模式的切网看护：物理网络切换后重新执行进程网络保护，
+   * 并对内核实例做软重启（停止→原配置拉起），随后重连内核桥接以
+   * 重新下发 tun_request。解决切网后自动重连大概率失败的问题。
+   */
+  private startNetworkWatchdog() {
+    if (this.networkWatchdog) {
+      return
+    }
+    this.networkWatchdog = new NetworkChangeWatchdog({
+      logTarget: 'EasyTierAbility',
+      getRunningIds: () => {
+        return this.instance_id.length > 0 ? [this.instance_id] : []
+      },
+      beforeRestart: (done: () => void) => {
+        if (this.tunService) {
+          this.tunService.prepareProtection().catch((err: Error) => {
+            Logger.error(`re-protect after net switch failed: ${JSON.stringify(err)}`, "EasyTierAbility")
+          }).finally(() => {
+            done()
+          })
+        } else {
+          done()
+        }
+      },
+      restartInstances: (ids: string[]) => {
+        // 阻塞式内核重启放入 taskpool 工作线程，避免阻塞扩展进程主线程
+        softRestartWithConfig(ids[0] ?? this.instance_id, JSON.stringify(this.config)).catch((error: Error) => {
+          Logger.error(`soft restart failed: ${error.message}`, "EasyTierAbility")
+        }).finally(() => {
+          this.kernelSocketService.connect(this.socketFilesDir + '/' + KERNEL_SOCKET_NAME)
+        })
+      }
+    })
+    this.networkWatchdog.start()
   }
 }

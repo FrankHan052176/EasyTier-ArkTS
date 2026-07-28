@@ -1,4 +1,6 @@
 import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
+import { common } from '@kit.AbilityKit'
+import { IapService } from '../../services/iap/IapService'
 import { HdsNavigation, HdsNavigationTitleMode, hdsMaterial, TitleBarStyleOptions } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
 import { deviceInfo, emitter } from '@kit.BasicServicesKit'
@@ -156,7 +158,23 @@ export struct RemoteControlPage {
     this.refreshSummary()
   }
 
+  /** 跨设备控制为付费能力：非卡片入口进入时兜底校验 remote_control 权益 */
+  private enforceEntitlement(): void {
+    if (IapService.isRemoteControlUnlocked()) {
+      return
+    }
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext
+    IapService.ensureEntitlementLoaded(context).then((owned: boolean) => {
+      if (!owned) {
+        sendToast('请先在主页解锁跨设备控制', $r('sys.symbol.exclamationmark_circle'), 1)
+        HMRouterMgr.pop()
+      }
+    }).catch(() => {
+    })
+  }
+
   aboutToAppear(): void {
+    this.enforceEntitlement()
     EventHelper.emitterOff(REMOTE_MANAGE_CONNECTION_EVENT, this.remoteConnectionCallback)
     EventHelper.emitterOff(REMOTE_MANAGE_SUMMARY_DIRTY_EVENT, this.remoteSummaryDirtyCallback)
     EventHelper.emitterListener(REMOTE_MANAGE_CONNECTION_EVENT, this.remoteConnectionCallback)

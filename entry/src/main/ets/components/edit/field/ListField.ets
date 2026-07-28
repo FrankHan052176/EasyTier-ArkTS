@@ -317,9 +317,9 @@ export struct ListField {
           ListItem() {
             ListFieldValue({ item: item })
               .width('100%')
-              .onAreaChange((a, b) => {
-                const height = b.height.valueOf() as number
-                if (this.item_height !== height) {
+              .onSizeChange((_o: SizeOptions, n: SizeOptions) => {
+                const height = n.height as number
+                if (height > 0 && this.item_height !== height) {
                   this.item_height = height
                 }
               })

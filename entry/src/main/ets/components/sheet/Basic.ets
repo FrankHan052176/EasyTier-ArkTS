@@ -15,6 +15,7 @@ import { hdsMaterial, HdsNavigation, HdsNavigationMenuItemOptions, HdsNavigation
   TitleBarStyleOptions } from '@kit.UIDesignKit'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { LengthMetrics } from '@kit.ArkUI'
+import { EasyTierProPromotionService } from '../../services/easytier/EasyTierProPromotionService'
 
 @Builder
 export function SheetContentBuilder(type: string) {
@@ -27,6 +28,9 @@ export struct SheetContent {
 
   private getFieldDisplayName(fieldName: string): string {
     try {
+      if (fieldName === 'peer_urls') {
+        return AppManager.content.context!.resourceManager.getStringSync($r('app.string.peer_urls').id)
+      }
       return AppManager.content.context!.resourceManager.getStringSync($r('app.string.' + fieldName).id)
     } catch (_) {
       return fieldName
@@ -79,6 +83,10 @@ export struct SheetContent {
       clearEditValue(this.addFieldType)
     }
     this.closeSheet()
+  }
+
+  private openEasyTierPro(): void {
+    EasyTierProPromotionService.openAppGallery(this.getUIContext())
   }
 
   private titleText(): string {
@@ -194,7 +202,11 @@ export struct SheetContent {
           if (this.addFieldType === "cidr" || this.addFieldType === "route") {
             CidrEditor()
           } else if (this.addFieldType === "peer") {
-            UrlEditor({ protocolArr: peerProtocols })
+            UrlEditor({
+              protocolArr: peerProtocols,
+              showEasyTierProHint: true,
+              onOpenEasyTierPro: () => this.openEasyTierPro()
+            })
           } else if (this.addFieldType === "listener" || this.addFieldType === "mapped_listener") {
             UrlEditor({ protocolArr: protocolsWithoutTXT })
           } else if (this.addFieldType === "ip") {

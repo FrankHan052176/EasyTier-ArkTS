@@ -10,6 +10,7 @@ import { syncWholeConfig } from '../../../ConfigSyncUtil';
 import { getDefaultConfig } from '../../../config/defaults/ConfigDefaults';
 import { ConfigFieldValue, ConfigJson } from '../../../config/schema/SchemaConfig';
 import { EventHelper } from '../../../util/EventHelper';
+import { startupMark } from '../../runtime/StartupTrace';
 import { FAVORITE_CARD_REFRESH_EVENT } from '../../form/FavoriteCardState';
 import { buildTunRoutes, shouldBuildPreferenceVpnRoutes } from '../../tun/TunConfigBuilder';
 import {
@@ -171,7 +172,9 @@ export class PreferenceUtil {
       if (!easytier.initConfigStore(context.filesDir)) {
         throw new Error(`initConfigStore failed filesDir=${context.filesDir}`)
       }
+      startupMark('pref.initConfigStore')
       this.preferences = preferences.getPreferencesSync(context, { name: 'EasyTierPreferences' })
+      startupMark('pref.getPreferencesSync')
       
       const s = AppManager.uiState;
       // 从磁盘加载值到 UIState
@@ -202,8 +205,11 @@ export class PreferenceUtil {
       const preferredFavorite = this.preferences!.getSync("favorite", "").toString() || undefined
       s.selected = preferredSelected
 
+      startupMark('pref.readAllKeys')
       await this.migrateLegacyPreferenceConfigs(context)
+      startupMark('pref.migrateLegacy')
       this.reconcileFavoritePreference(preferredFavorite)
+      startupMark('pref.reconcileFavorite')
 
       this.globalConfigs = preferences.getPreferencesSync(context, { name: 'EasyTierGlobalConfigs' })
       await new Promise<void>((resolve) => {
@@ -226,9 +232,11 @@ export class PreferenceUtil {
         })
       })
 
+      startupMark('pref.globalConfigs.getAll')
       this.black_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierBlackListApp' })
       this.updateBlackListApps()
       this.card_list_preference = preferences.getPreferencesSync(context, { name: 'EasyTierCardList' })
+      startupMark('pref.blacklist+cardlist')
       this.initialized = true
       completed = true
       
@@ -259,6 +267,16 @@ export class PreferenceUtil {
   refreshFavoriteFromStore(): void {
     AppManager.uiState.favorite = this.getStoredFavoriteConfigId()
     EventHelper.emitterPublish(FAVORITE_CARD_REFRESH_EVENT)
+  }
+
+  completeInitialTutorial(): void {
+    AppManager.uiState.help2 = false
+    try {
+      this.preferences?.putSync('help2', false)
+      this.preferences?.flushSync()
+    } catch (error) {
+      Logger.error(`persist initial tutorial completion failed: ${JSON.stringify(error)}`, this)
+    }
   }
 
   getAppInfo(pkgName: string): AppInfo | undefined {

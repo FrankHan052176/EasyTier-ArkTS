@@ -43,19 +43,6 @@ function loadSigningConfigs() {
     }
     return configs;
 }
-function loadBUILDNUMBER() {
-    const path = './BUILDNUMBER.txt';
-    try {
-        fs.accessSync(path);
-    } catch (e) {
-        if (e.code !== 'ENOENT') {
-            console.error(e);
-        }
-        return [];
-    }
-    const num = fs.readFileSync(path).toString().split(".")[1];
-    return num.length == 1?"0"+num:num;
-}
 function loadAppInfo() {
     try {
         fs.accessSync(appInfo);
@@ -147,37 +134,6 @@ hvigor.nodesEvaluated(() => {
         });
     })
 });
-function getDayOfYearUTC(date: Date = new Date()): string {
-    const beijing = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-
-    const startOfYear = Date.UTC(beijing.getUTCFullYear(), 0, 1);
-    const now = Date.UTC(
-        beijing.getUTCFullYear(),
-        beijing.getUTCMonth(),
-        beijing.getUTCDate()
-    );
-
-    const day = Math.floor((now - startOfYear) / 86400000) + 1;
-    return String(day).padStart(3, '0');
-}
-
-
-function normalizeVersionName(coreVersion: string, fallbackVersion: string, buildNumber: string): string {
-    const [baseVersion, buildSuffix] = (coreVersion || "").split("-")
-    const rawVersion = (baseVersion || fallbackVersion || "0.0.0")
-        .replace(/[^0-9.]/g, "")
-    const segments = rawVersion
-        .split(".")
-        .filter(segment => segment.length > 0)
-
-    while (segments.length < 3) {
-        segments.push("0")
-    }
-
-    const normalizedPatch = String(Number.parseInt(buildSuffix ?? buildNumber, 10) || 0)
-    return [...segments.slice(0, 3), normalizedPatch].join(".")
-}
-
 const rootNode = getNode(__filename);
 rootNode.afterNodeEvaluate(node => {
     const appContext = node.getContext(OhosPluginId.OHOS_APP_PLUGIN) as OhosAppContext;
@@ -197,14 +153,7 @@ rootNode.afterNodeEvaluate(node => {
         }
     }
     appContext.setBuildProfileOpt(buildProfileOpt);
-    const ohpmInfo = appContext.getOhpmDependencyInfo();
-    const core = ohpmInfo["easytier-ohrs"]
-    const coreVersion = core != undefined?core.version:"2.4.5-0";
-    const buildNumber = loadBUILDNUMBER()
     const appJson5: AppJson.AppOptObj = appContext.getAppJsonOpt();
-    const version = (""+coreVersion).split("-")[0].replace(".","").replace(".","")
-    appJson5.app.versionName = normalizeVersionName(coreVersion, appJson5.app.versionName, buildNumber)
-    appJson5.app.versionCode = Number.parseInt(version+getDayOfYearUTC()+buildNumber)
     appContext.setAppJsonOpt(appJson5);
     console.log("versionName: "+appJson5.app.versionName)
     console.log("versionCode: "+appJson5.app.versionCode)

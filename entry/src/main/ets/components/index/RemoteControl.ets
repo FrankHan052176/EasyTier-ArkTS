@@ -1,4 +1,3 @@
-import { HMRouterMgr } from '@hadss/hmrouter'
 import { emitter } from '@kit.BasicServicesKit'
 import {
   REMOTE_MANAGE_CONNECTION_EVENT,
@@ -6,6 +5,7 @@ import {
   RemoteManageService
 } from '../../services/remote/RemoteManageService'
 import { RemoteSummary } from '../../services/remote/RemoteManageTypes'
+import { openRemoteControlGated } from '../../services/iap/RemoteControlGate'
 import { EventHelper } from '../../util/EventHelper'
 
 @ComponentV2
@@ -61,8 +61,9 @@ export struct RemoteControl {
     return version.length > 0 ? version : (summary?.runtime.runtimeDurationText ?? '已连接')
   }
 
+  /** 跨设备控制为付费能力：与设置页共用统一的权益校验与付费引导入口 */
   private openRemoteControl(): void {
-    HMRouterMgr.push({ pageUrl: 'RemoteControlPage' })
+    openRemoteControlGated(this.getUIContext())
   }
 
   @Builder
