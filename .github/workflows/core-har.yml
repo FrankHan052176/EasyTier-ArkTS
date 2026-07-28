@@ -1,0 +1,178 @@
+name: Core HAR publish App
+
+on:
+  repository_dispatch:
+    types: [core-har-published]
+  workflow_dispatch:
+    inputs:
+      package_name:
+        description: Exact private OHPM package name
+        required: true
+        default: easytier-ohos_pro-runtime
+        type: string
+      package_version:
+        description: Exact private OHPM package version
+        required: true
+        type: string
+      core_sha:
+        description: Optional Core commit SHA for provenance
+        required: false
+        type: string
+      core_version:
+        description: Optional Core version for provenance
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.client_payload.package_version || inputs.package_version || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  publish-app:
+    name: Signed publish release App
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.client_payload.core_repository == 'EasyTier/EasyTier' &&
+        github.event.client_payload.core_ref == 'refs/heads/ohos/pro-runtime'
+      )
+    runs-on: ubuntu-latest
+    env:
+      CORE_HAR_PACKAGE: ${{ github.event.client_payload.package_name || inputs.package_name }}
+      CORE_HAR_VERSION: ${{ github.event.client_payload.package_version || inputs.package_version }}
+      CORE_SHA: ${{ github.event.client_payload.core_sha || inputs.core_sha }}
+      CORE_VERSION: ${{ github.event.client_payload.core_version || inputs.core_version }}
+      CORE_HAR_ORIGINAL_SHA256: ${{ github.event.client_payload.har_sha256 }}
+      CODEARTS_PRIVATE_OHPM_READ: ${{ secrets.CODEARTS_PRIVATE_OHPM_READ }}
+      SIGNING_REPOSITORY_TOKEN: ${{ secrets.SIGNING_REPOSITORY_TOKEN }}
+      SIGNING_REPOSITORY: ${{ vars.SIGNING_REPOSITORY || 'FrankHan052176/AppGallerySigning' }}
+      SIGNING_REPOSITORY_REF: ${{ vars.SIGNING_REPOSITORY_REF || 'main' }}
+      OHOS_COMMAND_LINE_TOOLS_VERSION: 6.1.1.280
+
+    steps:
+      - name: Checkout ArkTS app
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate dispatch and secrets
+        run: |
+          set -euo pipefail
+          test -n "$CORE_HAR_PACKAGE"
+          test -n "$CORE_HAR_VERSION"
+          test -n "$CODEARTS_PRIVATE_OHPM_READ"
+          test -n "$SIGNING_REPOSITORY_TOKEN"
+          test -n "$SIGNING_REPOSITORY"
+          test -n "$SIGNING_REPOSITORY_REF"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up HarmonyOS Command Line Tools
+        uses: ErBWs/setup-ohos@v2
+        with:
+          version: ${{ env.OHOS_COMMAND_LINE_TOOLS_VERSION }}
+          cache: true
+
+      - name: Verify HarmonyOS tools
+        run: |
+          set -euo pipefail
+          test -d "$OHOS_NDK_HOME"
+          ohpm --version
+          hvigorw --version
+          node --version
+          java -version
+
+      - name: Fetch exact Core HAR
+        env:
+          CORE_HAR_DESTINATION: ${{ github.workspace }}/easytier-ohrs-0.0.1.har
+          CORE_HAR_MODULE_NAME: easytier-ohrs
+        run: .github/scripts/prepare-core-har.sh
+
+      - name: Install ArkTS dependencies
+        run: ohpm install --all
+
+      - name: Checkout private signing repository
+        env:
+          GH_TOKEN: ${{ env.SIGNING_REPOSITORY_TOKEN }}
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/signing-repository"
+          gh repo clone \
+            "$SIGNING_REPOSITORY" \
+            "$RUNNER_TEMP/signing-repository" \
+            -- \
+            --depth=1 \
+            --branch "$SIGNING_REPOSITORY_REF"
+
+      - name: Prepare EasyTier signing configuration
+        env:
+          SIGNING_REPOSITORY_DIR: ${{ runner.temp }}/signing-repository
+          SIGNING_APP_DIR: EasyTier
+          SIGNING_OUTPUT_DIR: ${{ runner.temp }}/easytier-signing
+        run: |
+          set -euo pipefail
+          .github/scripts/prepare-signing-config.sh
+          echo "EASYTIER_SIGNING_DIR=$SIGNING_OUTPUT_DIR" >> "$GITHUB_ENV"
+
+      - name: Confirm App build task
+        run: hvigorw tasks
+
+      - name: Build signed publish release App
+        run: >-
+          hvigorw assembleApp
+          -p product=publish
+          -p buildMode=release
+          --no-daemon
+          --no-incremental
+
+      - name: Verify signed App
+        id: app_artifact
+        run: |
+          set -euo pipefail
+          mapfile -t signed_apps < <(
+            find build/outputs/publish -maxdepth 1 -type f -name '*-signed.app' -print
+          )
+          test "${#signed_apps[@]}" -eq 1
+          signed_app="${signed_apps[0]}"
+          test -s "$signed_app"
+
+          verify_dir=$(mktemp -d "$RUNNER_TEMP/easytier-app-verify.XXXXXX")
+          java -jar "$OHOS_NDK_HOME/toolchains/lib/hap-sign-tool.jar" verify-app \
+            -inFile "$signed_app" \
+            -outCertChain "$verify_dir/cert-chain.cer" \
+            -outProfile "$verify_dir/profile.p7b" \
+            -inForm zip
+          rm -rf "$verify_dir"
+          echo "path=$signed_app" >> "$GITHUB_OUTPUT"
+
+      - name: Record build provenance
+        run: |
+          {
+            echo "### EasyTier ArkTS publish App"
+            echo
+            echo "- Core package: \`$CORE_HAR_PACKAGE@$CORE_HAR_VERSION\`"
+            echo "- Core version: \`${CORE_VERSION:-not supplied}\`"
+            echo "- Core commit: \`${CORE_SHA:-not supplied}\`"
+            echo "- Published HAR SHA-256: \`${CORE_HAR_ORIGINAL_SHA256:-not supplied}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload signed App
+        uses: actions/upload-artifact@v4
+        with:
+          name: easytier-arkts-${{ env.CORE_HAR_VERSION }}-signed-app
+          path: ${{ steps.app_artifact.outputs.path }}
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Remove credentials and signing material
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/signing-repository" "$RUNNER_TEMP/easytier-signing"
+          rm -f "$HOME/.ohpm/.ohpmrc"
