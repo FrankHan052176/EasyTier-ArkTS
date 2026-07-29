@@ -32,7 +32,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CORE_HAR_PACKAGE: ${{ github.event.client_payload.package_name || inputs.package_name || 'easytier-main' }}
-      CORE_HAR_REGISTRY: https://devrepo.devcloud.cn-north-4.huaweicloud.com/artgalaxy/api/ohpm/cn-north-4_c07b1b38744f424b8d87a86532d38003_ohpm_1/
       CORE_HAR_TAG: arkts-latest
       SIGNING_REPOSITORY: ${{ vars.SIGNING_REPOSITORY || 'FrankHan052176/AppGallerySigning' }}
       SIGNING_REPOSITORY_REF: ${{ vars.SIGNING_REPOSITORY_REF || 'main' }}
@@ -72,50 +71,77 @@ jobs:
           node --version
           java -version
 
-      - name: Configure private OHPM access
+      - name: Install Core HAR from private moving tag
+        id: core_har
         env:
           CODEARTS_PRIVATE_OHPM_READ: ${{ secrets.CODEARTS_PRIVATE_OHPM_READ }}
+          CORE_HAR_REGISTRY: https://devrepo.devcloud.cn-north-4.huaweicloud.com/artgalaxy/api/ohpm/cn-north-4_c07b1b38744f424b8d87a86532d38003_ohpm_1/
         run: |
           set -euo pipefail
+          trap 'rm -f "$HOME/.ohpm/.ohpmrc"' EXIT
           test -n "$CODEARTS_PRIVATE_OHPM_READ"
           mkdir -p "$HOME/.ohpm"
           umask 077
           printf '%s' "$CODEARTS_PRIVATE_OHPM_READ" > "$HOME/.ohpm/.ohpmrc"
           chmod 600 "$HOME/.ohpm/.ohpmrc"
-          ohpm config set strict_ssl false
 
-      - name: Install Core HAR from private moving tag
-        id: core_har
-        run: |
-          set -euo pipefail
+          # Install Core in an isolated OHPM project. The private-registry
+          # command therefore cannot see or resolve any application dependency.
+          core_project="$RUNNER_TEMP/easytier-core-ohpm"
+          rm -rf "$core_project"
+          mkdir -p "$core_project"
+          jq -n '{
+            modelVersion: "6.0.0",
+            description: "Isolated EasyTier Core dependency",
+            dependencies: {},
+            devDependencies: {},
+            dynamicDependencies: {}
+          }' > "$core_project/oh-package.json5"
 
-          # The repository keeps a local HAR for ordinary local development.
-          # CI removes only that dependency declaration, then lets OHPM install
-          # the requested branch package directly from the private registry.
-          jq 'del(.dependencies["easytier-ohrs"])' \
-            oh-package.json5 > "$RUNNER_TEMP/oh-package.json5"
-          mv "$RUNNER_TEMP/oh-package.json5" oh-package.json5
-          rm -rf oh_modules
-          rm -f oh-package-lock.json5
+          core_har_spec="${CORE_HAR_PACKAGE}@tag:${CORE_HAR_TAG}"
+          printf 'Core HAR spec: %s\n' "$core_har_spec"
+          (
+            cd "$core_project"
+            ohpm install "$core_har_spec" \
+              --registry "$CORE_HAR_REGISTRY" \
+              --strict_ssl false \
+              --retry_times 5 \
+              --retry_interval 3000
+          )
 
-          ohpm install "${CORE_HAR_PACKAGE}@tag:${CORE_HAR_TAG}" \
-            --registry "$CORE_HAR_REGISTRY" \
-            --retry_times 5 \
-            --retry_interval 3000
-
-          installed_manifest="oh_modules/$CORE_HAR_PACKAGE/oh-package.json5"
+          installed_link="$core_project/oh_modules/$CORE_HAR_PACKAGE"
+          test -d "$installed_link"
+          installed_package=$(cd "$installed_link" && pwd -P)
+          installed_manifest="$installed_package/oh-package.json5"
           test -s "$installed_manifest"
           jq -e \
             --arg name "$CORE_HAR_PACKAGE" \
             '.name == $name and (.version | type == "string" and length > 0)' \
             "$installed_manifest" >/dev/null
-          test -s "oh_modules/$CORE_HAR_PACKAGE/libs/arm64-v8a/libeasytier_ohrs.so"
+          test -s "$installed_package/libs/arm64-v8a/libeasytier_ohrs.so"
           resolved_version=$(jq -r '.version' "$installed_manifest")
-          test -s oh-package-lock.json5
-          grep -F -- "$resolved_version" oh-package-lock.json5 >/dev/null
+          test -s "$core_project/oh-package-lock.json5"
+          grep -F -- "$resolved_version" \
+            "$core_project/oh-package-lock.json5" >/dev/null
           printf 'Resolved %s@tag:%s to %s.\n' \
             "$CORE_HAR_PACKAGE" "$CORE_HAR_TAG" "$resolved_version"
+          echo "package_spec=$core_har_spec" >> "$GITHUB_OUTPUT"
           echo "package_version=$resolved_version" >> "$GITHUB_OUTPUT"
+
+          # The app consumes the already-installed package as a local directory.
+          # Its following plain `ohpm install` therefore needs no private access.
+          local_core_spec="file:$installed_package"
+          jq \
+            --arg name "$CORE_HAR_PACKAGE" \
+            --arg spec "$local_core_spec" \
+            '.dependencies = (
+              (.dependencies // {} | del(.["easytier-ohrs"])) +
+              {($name): $spec}
+            )' \
+            oh-package.json5 > "$RUNNER_TEMP/oh-package.with-core.json5"
+          mv "$RUNNER_TEMP/oh-package.with-core.json5" oh-package.json5
+          rm -rf oh_modules
+          rm -f oh-package-lock.json5
 
           # OHPM has no package-alias syntax. The published package name follows
           # the Core branch, so adapt only the runner checkout's static imports.
@@ -138,11 +164,22 @@ jobs:
             exit 1
           fi
 
-      - name: Install remaining ArkTS dependencies
+      - name: Verify public OHPM context
         run: |
           set -euo pipefail
-          trap 'rm -f "$HOME/.ohpm/.ohpmrc"' EXIT
-          ohpm install
+          test ! -e "$HOME/.ohpm/.ohpmrc"
+          test -z "${OHPM_REGISTRY:-}"
+          effective_registry=$(ohpm config get registry)
+          test "$effective_registry" = "https://ohpm.openharmony.cn/ohpm/"
+          effective_config=$(ohpm config list -j)
+          if grep -Fq "devrepo.devcloud.cn-north-4.huaweicloud.com" \
+            <<< "$effective_config"; then
+            echo "Private OHPM registry leaked into the application install context." >&2
+            exit 1
+          fi
+
+      - name: Install remaining ArkTS dependencies
+        run: ohpm install
 
       - name: Checkout private signing repository
         env:
@@ -204,7 +241,8 @@ jobs:
           {
             echo "### EasyTier ArkTS publish App"
             echo
-            echo "- Core package: \`$CORE_HAR_PACKAGE@${{ steps.core_har.outputs.package_version }}\`"
+            echo "- Core request: \`${{ steps.core_har.outputs.package_spec }}\`"
+            echo "- Core resolved: \`$CORE_HAR_PACKAGE@${{ steps.core_har.outputs.package_version }}\`"
             echo "- Core selection: private registry moving tag \`arkts-latest\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -233,5 +271,8 @@ jobs:
       - name: Remove credentials and signing material
         if: always()
         run: |
-          rm -rf "$RUNNER_TEMP/signing-repository" "$RUNNER_TEMP/easytier-signing"
+          rm -rf \
+            "$RUNNER_TEMP/signing-repository" \
+            "$RUNNER_TEMP/easytier-signing" \
+            "$RUNNER_TEMP/easytier-core-ohpm"
           rm -f "$HOME/.ohpm/.ohpmrc"
