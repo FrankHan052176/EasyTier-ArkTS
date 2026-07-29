@@ -6,12 +6,6 @@ on:
   repository_dispatch:
     types: [core-har-published]
   workflow_dispatch:
-    inputs:
-      package_name:
-        description: Private OHPM package name for the Core branch
-        required: true
-        default: easytier-main
-        type: string
 
 permissions:
   contents: read
@@ -21,7 +15,7 @@ jobs:
     name: ohos
     runs-on: ubuntu-latest
     env:
-      CORE_HAR_PACKAGE: ${{ github.event.client_payload.package_name || inputs.package_name || 'easytier-main' }}
+      CORE_HAR_PACKAGE: ${{ github.event.client_payload.package_name || 'easytier-ohrs' }}
       CORE_HAR_TAG: arkts-latest
       SIGNING_REPOSITORY: ${{ vars.SIGNING_REPOSITORY || 'FrankHan052176/AppGallerySigning' }}
       SIGNING_REPOSITORY_REF: ${{ vars.SIGNING_REPOSITORY_REF || 'main' }}
@@ -54,7 +48,7 @@ jobs:
           set -euo pipefail
           trap 'rm -f "$HOME/.ohpm/.ohpmrc"' EXIT
 
-          ohpm uninstall easytier-ohrs
+          ohpm uninstall "$CORE_HAR_PACKAGE"
 
           mkdir -p "$HOME/.ohpm"
           umask 077
@@ -67,14 +61,6 @@ jobs:
             "oh_modules/$CORE_HAR_PACKAGE/oh-package.json5")
           echo "Installed Core HAR: $CORE_HAR_PACKAGE@$resolved_version"
           echo "package_version=$resolved_version" >> "$GITHUB_OUTPUT"
-
-          while IFS= read -r source_file; do
-            perl -pi -e 's/from \x27easytier-ohrs\x27/from \x27$ENV{CORE_HAR_PACKAGE}\x27/g; s/from "easytier-ohrs"/from "$ENV{CORE_HAR_PACKAGE}"/g' "$source_file"
-          done < <(
-            rg -l "from ['\"]easytier-ohrs['\"]" entry \
-              --glob '*.ets' \
-              --glob '*.ts'
-          )
 
       - name: Prepare EasyTier signing configuration
         env:
