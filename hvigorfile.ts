@@ -61,7 +61,8 @@ function updateBuildTime() {
     const info = loadAppInfo();
     const appContext = getNode(__filename).getContext(OhosPluginId.OHOS_APP_PLUGIN) as OhosAppContext;
     const ohpmInfo = appContext?.getOhpmDependencyInfo?.() ?? {};
-    const core = ohpmInfo["easytier-ohrs"];
+    const corePackageName = process.env.CORE_HAR_PACKAGE ?? "easytier-ohrs";
+    const core = ohpmInfo[corePackageName];
     const coreVersion = core != undefined ? core.version : "2.4.5-0";
     try {
         fs.writeFileSync(

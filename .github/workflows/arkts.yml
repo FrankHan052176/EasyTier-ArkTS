@@ -1,6 +1,8 @@
 name: ArkTS
 
 on:
+  push:
+    branches: [main]
   repository_dispatch:
     types: [core-har-published]
   workflow_dispatch:
@@ -15,14 +17,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.client_payload.package_name || inputs.package_name || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.client_payload.package_name || inputs.package_name || 'easytier-main' }}
   cancel-in-progress: true
 
 jobs:
   publish-app:
     name: Signed publish release App
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      github.event_name != 'repository_dispatch' ||
       (
         github.event.client_payload.core_repository == 'EasyTier/EasyTier' &&
         github.event.client_payload.package_name != ''
@@ -30,9 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CORE_HAR_PACKAGE: ${{ github.event.client_payload.package_name || inputs.package_name || 'easytier-main' }}
+      CORE_HAR_REGISTRY: https://devrepo.devcloud.cn-north-4.huaweicloud.com/artgalaxy/api/ohpm/cn-north-4_c07b1b38744f424b8d87a86532d38003_ohpm_1/
       CORE_HAR_TAG: arkts-latest
-      CODEARTS_PRIVATE_OHPM_READ: ${{ secrets.CODEARTS_PRIVATE_OHPM_READ }}
-      SIGNING_REPOSITORY_TOKEN: ${{ secrets.SIGNING_REPOSITORY_TOKEN }}
       SIGNING_REPOSITORY: ${{ vars.SIGNING_REPOSITORY || 'FrankHan052176/AppGallerySigning' }}
       SIGNING_REPOSITORY_REF: ${{ vars.SIGNING_REPOSITORY_REF || 'main' }}
       OHOS_COMMAND_LINE_TOOLS_VERSION: 6.1.1.280
@@ -43,12 +44,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate dispatch and secrets
+      - name: Validate package and configuration
         run: |
           set -euo pipefail
-          test -n "$CORE_HAR_PACKAGE"
-          test -n "$CODEARTS_PRIVATE_OHPM_READ"
-          test -n "$SIGNING_REPOSITORY_TOKEN"
+          [[ "$CORE_HAR_PACKAGE" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]
           test -n "$SIGNING_REPOSITORY"
           test -n "$SIGNING_REPOSITORY_REF"
 
@@ -73,21 +72,84 @@ jobs:
           node --version
           java -version
 
-      - name: Fetch latest Core HAR for package
-        id: core_har
+      - name: Configure private OHPM access
         env:
-          CORE_HAR_DESTINATION: ${{ github.workspace }}/easytier-ohrs-0.0.1.har
-          CORE_HAR_MODULE_NAME: easytier-ohrs
-        run: .github/scripts/prepare-core-har.sh
+          CODEARTS_PRIVATE_OHPM_READ: ${{ secrets.CODEARTS_PRIVATE_OHPM_READ }}
+        run: |
+          set -euo pipefail
+          test -n "$CODEARTS_PRIVATE_OHPM_READ"
+          mkdir -p "$HOME/.ohpm"
+          umask 077
+          printf '%s' "$CODEARTS_PRIVATE_OHPM_READ" > "$HOME/.ohpm/.ohpmrc"
+          chmod 600 "$HOME/.ohpm/.ohpmrc"
+          ohpm config set strict_ssl false
 
-      - name: Install ArkTS dependencies
-        run: ohpm install --all
+      - name: Install Core HAR from private moving tag
+        id: core_har
+        run: |
+          set -euo pipefail
+
+          # The repository keeps a local HAR for ordinary local development.
+          # CI removes only that dependency declaration, then lets OHPM install
+          # the requested branch package directly from the private registry.
+          jq 'del(.dependencies["easytier-ohrs"])' \
+            oh-package.json5 > "$RUNNER_TEMP/oh-package.json5"
+          mv "$RUNNER_TEMP/oh-package.json5" oh-package.json5
+          rm -rf oh_modules
+          rm -f oh-package-lock.json5
+
+          ohpm install "${CORE_HAR_PACKAGE}@tag:${CORE_HAR_TAG}" \
+            --registry "$CORE_HAR_REGISTRY" \
+            --retry_times 5 \
+            --retry_interval 3000
+
+          installed_manifest="oh_modules/$CORE_HAR_PACKAGE/oh-package.json5"
+          test -s "$installed_manifest"
+          jq -e \
+            --arg name "$CORE_HAR_PACKAGE" \
+            '.name == $name and (.version | type == "string" and length > 0)' \
+            "$installed_manifest" >/dev/null
+          test -s "oh_modules/$CORE_HAR_PACKAGE/libs/arm64-v8a/libeasytier_ohrs.so"
+          resolved_version=$(jq -r '.version' "$installed_manifest")
+          test -s oh-package-lock.json5
+          grep -F -- "$resolved_version" oh-package-lock.json5 >/dev/null
+          printf 'Resolved %s@tag:%s to %s.\n' \
+            "$CORE_HAR_PACKAGE" "$CORE_HAR_TAG" "$resolved_version"
+          echo "package_version=$resolved_version" >> "$GITHUB_OUTPUT"
+
+          # OHPM has no package-alias syntax. The published package name follows
+          # the Core branch, so adapt only the runner checkout's static imports.
+          core_import_count=0
+          while IFS= read -r source_file; do
+            perl -pi -e \
+              "s/from 'easytier-ohrs'/from '$CORE_HAR_PACKAGE'/g; s/from \"easytier-ohrs\"/from \"$CORE_HAR_PACKAGE\"/g" \
+              "$source_file"
+            core_import_count=$((core_import_count + 1))
+          done < <(
+            rg -l "from ['\"]easytier-ohrs['\"]" entry \
+              --glob '*.ets' \
+              --glob '*.ts'
+          )
+          test "$core_import_count" -gt 0
+          if rg -n "from ['\"]easytier-ohrs['\"]" entry \
+            --glob '*.ets' \
+            --glob '*.ts'; then
+            echo "Found a stale easytier-ohrs import after Core package selection." >&2
+            exit 1
+          fi
+
+      - name: Install remaining ArkTS dependencies
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$HOME/.ohpm/.ohpmrc"' EXIT
+          ohpm install
 
       - name: Checkout private signing repository
         env:
-          GH_TOKEN: ${{ env.SIGNING_REPOSITORY_TOKEN }}
+          GH_TOKEN: ${{ secrets.SIGNING_REPOSITORY_TOKEN }}
         run: |
           set -euo pipefail
+          test -n "$GH_TOKEN"
           rm -rf "$RUNNER_TEMP/signing-repository"
           gh repo clone \
             "$SIGNING_REPOSITORY" \
@@ -143,7 +205,7 @@ jobs:
             echo "### EasyTier ArkTS publish App"
             echo
             echo "- Core package: \`$CORE_HAR_PACKAGE@${{ steps.core_har.outputs.package_version }}\`"
-            echo "- Package tag: \`$CORE_HAR_TAG\`"
+            echo "- Core selection: private registry moving tag \`arkts-latest\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload signed App
@@ -153,6 +215,20 @@ jobs:
           path: ${{ steps.app_artifact.outputs.path }}
           retention-days: 14
           if-no-files-found: error
+
+      # TODO(AGC): Enable after AGC credentials and upload parameters are ready.
+      - name: Upload signed App to AGC (placeholder)
+        if: ${{ vars.ENABLE_AGC_SIGNED_APP_UPLOAD == 'true' }}
+        run: |
+          echo "::error::Implement the AGC signed App upload before enabling this step."
+          exit 1
+
+      # TODO(AGC): Enable only after the AGC upload step returns a release ID.
+      - name: Publish AGC test release (placeholder)
+        if: ${{ vars.ENABLE_AGC_TEST_RELEASE == 'true' }}
+        run: |
+          echo "::error::Implement the AGC test release before enabling this step."
+          exit 1
 
       - name: Remove credentials and signing material
         if: always()
