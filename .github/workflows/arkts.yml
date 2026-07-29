@@ -1,4 +1,4 @@
-name: Core HAR publish App
+name: ArkTS
 
 on:
   repository_dispatch:
@@ -6,28 +6,16 @@ on:
   workflow_dispatch:
     inputs:
       package_name:
-        description: Exact private OHPM package name
+        description: Private OHPM package name for the Core branch
         required: true
-        default: easytier-ohos_pro-runtime
-        type: string
-      package_version:
-        description: Exact private OHPM package version
-        required: true
-        type: string
-      core_sha:
-        description: Optional Core commit SHA for provenance
-        required: false
-        type: string
-      core_version:
-        description: Optional Core version for provenance
-        required: false
+        default: easytier-main
         type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.client_payload.package_version || inputs.package_version || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.client_payload.package_name || inputs.package_name || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -37,15 +25,12 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (
         github.event.client_payload.core_repository == 'EasyTier/EasyTier' &&
-        github.event.client_payload.core_ref == 'refs/heads/ohos/pro-runtime'
+        github.event.client_payload.package_name != ''
       )
     runs-on: ubuntu-latest
     env:
-      CORE_HAR_PACKAGE: ${{ github.event.client_payload.package_name || inputs.package_name }}
-      CORE_HAR_VERSION: ${{ github.event.client_payload.package_version || inputs.package_version }}
-      CORE_SHA: ${{ github.event.client_payload.core_sha || inputs.core_sha }}
-      CORE_VERSION: ${{ github.event.client_payload.core_version || inputs.core_version }}
-      CORE_HAR_ORIGINAL_SHA256: ${{ github.event.client_payload.har_sha256 }}
+      CORE_HAR_PACKAGE: ${{ github.event.client_payload.package_name || inputs.package_name || 'easytier-main' }}
+      CORE_HAR_TAG: arkts-latest
       CODEARTS_PRIVATE_OHPM_READ: ${{ secrets.CODEARTS_PRIVATE_OHPM_READ }}
       SIGNING_REPOSITORY_TOKEN: ${{ secrets.SIGNING_REPOSITORY_TOKEN }}
       SIGNING_REPOSITORY: ${{ vars.SIGNING_REPOSITORY || 'FrankHan052176/AppGallerySigning' }}
@@ -62,7 +47,6 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$CORE_HAR_PACKAGE"
-          test -n "$CORE_HAR_VERSION"
           test -n "$CODEARTS_PRIVATE_OHPM_READ"
           test -n "$SIGNING_REPOSITORY_TOKEN"
           test -n "$SIGNING_REPOSITORY"
@@ -89,7 +73,8 @@ jobs:
           node --version
           java -version
 
-      - name: Fetch exact Core HAR
+      - name: Fetch latest Core HAR for package
+        id: core_har
         env:
           CORE_HAR_DESTINATION: ${{ github.workspace }}/easytier-ohrs-0.0.1.har
           CORE_HAR_MODULE_NAME: easytier-ohrs
@@ -157,16 +142,14 @@ jobs:
           {
             echo "### EasyTier ArkTS publish App"
             echo
-            echo "- Core package: \`$CORE_HAR_PACKAGE@$CORE_HAR_VERSION\`"
-            echo "- Core version: \`${CORE_VERSION:-not supplied}\`"
-            echo "- Core commit: \`${CORE_SHA:-not supplied}\`"
-            echo "- Published HAR SHA-256: \`${CORE_HAR_ORIGINAL_SHA256:-not supplied}\`"
+            echo "- Core package: \`$CORE_HAR_PACKAGE@${{ steps.core_har.outputs.package_version }}\`"
+            echo "- Package tag: \`$CORE_HAR_TAG\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload signed App
         uses: actions/upload-artifact@v4
         with:
-          name: easytier-arkts-${{ env.CORE_HAR_VERSION }}-signed-app
+          name: easytier-arkts-${{ steps.core_har.outputs.package_version }}-signed-app
           path: ${{ steps.app_artifact.outputs.path }}
           retention-days: 14
           if-no-files-found: error

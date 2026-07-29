@@ -4,17 +4,17 @@ set -euo pipefail
 
 : "${CODEARTS_PRIVATE_OHPM_READ:?CODEARTS_PRIVATE_OHPM_READ is required}"
 : "${CORE_HAR_PACKAGE:?CORE_HAR_PACKAGE is required}"
-: "${CORE_HAR_VERSION:?CORE_HAR_VERSION is required}"
 : "${CORE_HAR_DESTINATION:?CORE_HAR_DESTINATION is required}"
 
 CORE_HAR_MODULE_NAME="${CORE_HAR_MODULE_NAME:-easytier-ohrs}"
+CORE_HAR_TAG="${CORE_HAR_TAG:-arkts-latest}"
 
 if [[ ! "$CORE_HAR_PACKAGE" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]; then
   echo "Invalid Core HAR package name." >&2
   exit 1
 fi
-if [[ ! "$CORE_HAR_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z.+-]{0,126}$ ]]; then
-  echo "Invalid Core HAR package version." >&2
+if [[ ! "$CORE_HAR_TAG" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{0,127}$ ]]; then
+  echo "Invalid Core HAR package tag." >&2
   exit 1
 fi
 if [[ ! "$CORE_HAR_MODULE_NAME" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]; then
@@ -44,7 +44,7 @@ printf '%s\n' \
 (
   cd "$fetch_root"
   ohpm install \
-    "${CORE_HAR_PACKAGE}@${CORE_HAR_VERSION}" \
+    "${CORE_HAR_PACKAGE}@${CORE_HAR_TAG}" \
     --no-save \
     --retry_times 5 \
     --retry_interval 3000
@@ -59,13 +59,9 @@ installed_package=$(cd "$installed_link" && pwd -P)
 
 jq -e \
   --arg name "$CORE_HAR_PACKAGE" \
-  --arg version "$CORE_HAR_VERSION" \
-  '.name == $name and .version == $version' \
+  '.name == $name and (.version | type == "string" and length > 0)' \
   "$installed_package/oh-package.json5" >/dev/null
-if [[ -n "${CORE_SHA:-}" ]]; then
-  grep -F -- "- Core commit: $CORE_SHA" \
-    "$installed_package/CHANGELOG.md" >/dev/null
-fi
+resolved_version=$(jq -r '.version' "$installed_package/oh-package.json5")
 
 repack_root="$fetch_root/repack"
 mkdir -p "$repack_root/package"
@@ -83,7 +79,7 @@ tar -czf "$CORE_HAR_DESTINATION" -C "$repack_root" package
 
 jq -e \
   --arg name "$CORE_HAR_MODULE_NAME" \
-  --arg version "$CORE_HAR_VERSION" \
+  --arg version "$resolved_version" \
   '.name == $name and .version == $version' \
   <(tar -xOzf "$CORE_HAR_DESTINATION" package/oh-package.json5) >/dev/null
 
@@ -94,6 +90,10 @@ else
 fi
 printf 'Prepared %s@%s as %s (%s)\n' \
   "$CORE_HAR_PACKAGE" \
-  "$CORE_HAR_VERSION" \
+  "$resolved_version" \
   "$CORE_HAR_MODULE_NAME" \
   "$prepared_sha256"
+
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  printf 'package_version=%s\n' "$resolved_version" >> "$GITHUB_OUTPUT"
+fi
