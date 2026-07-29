@@ -19,6 +19,12 @@ jobs:
       SIGNING_REPOSITORY: ${{ vars.SIGNING_REPOSITORY || 'FrankHan052176/AppGallerySigning' }}
       SIGNING_REPOSITORY_REF: ${{ vars.SIGNING_REPOSITORY_REF || 'main' }}
       OHOS_COMMAND_LINE_TOOLS_VERSION: 6.1.1.280
+      AGC_CLIENT_ID: ${{ secrets.AGC_CLIENT_ID }}
+      AGC_CLIENT_SECRET: ${{ secrets.AGC_CLIENT_SECRET }}
+      AGC_APP_ID: ${{ secrets.AGC_APP_ID }}
+      AGC_API_DOMAIN: ${{ vars.AGC_API_DOMAIN || 'connect-api.cloud.huawei.com' }}
+      AGC_TEST_TYPE: ${{ vars.AGC_TEST_TYPE || '3' }}
+      AGC_TEST_DESC: ${{ vars.AGC_TEST_DESC || '' }}
 
     steps:
       - name: Checkout ArkTS app
@@ -110,8 +116,12 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-      # TODO(AGC): Upload the signed App after AGC credentials are configured.
-      # TODO(AGC): Publish the uploaded App to the AGC test track.
+      - name: Upload and submit AGC test version
+        if: ${{ env.AGC_CLIENT_ID != '' && env.AGC_CLIENT_SECRET != '' && env.AGC_APP_ID != '' }}
+        id: agc
+        env:
+          AGC_APP_FILE: ${{ steps.app.outputs.path }}
+        run: .github/scripts/agc-test-release.sh "$AGC_APP_FILE"
 
       - name: Remove credentials and signing material
         if: always()
