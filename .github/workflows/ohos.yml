@@ -1,0 +1,120 @@
+name: ohos
+
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [core-har-published]
+  workflow_dispatch:
+    inputs:
+      package_name:
+        description: Private OHPM package name for the Core branch
+        required: true
+        default: easytier-main
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  ohos:
+    name: ohos
+    runs-on: ubuntu-latest
+    env:
+      CORE_HAR_PACKAGE: ${{ github.event.client_payload.package_name || inputs.package_name || 'easytier-main' }}
+      CORE_HAR_TAG: arkts-latest
+      SIGNING_REPOSITORY: ${{ vars.SIGNING_REPOSITORY || 'FrankHan052176/AppGallerySigning' }}
+      SIGNING_REPOSITORY_REF: ${{ vars.SIGNING_REPOSITORY_REF || 'main' }}
+      OHOS_COMMAND_LINE_TOOLS_VERSION: 6.1.1.280
+
+    steps:
+      - name: Checkout ArkTS app
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up HarmonyOS Command Line Tools
+        uses: ErBWs/setup-ohos@v2
+        with:
+          version: ${{ env.OHOS_COMMAND_LINE_TOOLS_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        id: core_har
+        env:
+          CODEARTS_PRIVATE_OHPM_READ: ${{ secrets.CODEARTS_PRIVATE_OHPM_READ }}
+          CORE_HAR_REGISTRY: https://devrepo.devcloud.cn-north-4.huaweicloud.com/artgalaxy/api/ohpm/cn-north-4_c07b1b38744f424b8d87a86532d38003_ohpm_1/
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$HOME/.ohpm/.ohpmrc"' EXIT
+
+          ohpm uninstall easytier-ohrs
+
+          mkdir -p "$HOME/.ohpm"
+          umask 077
+          printf '%s' "$CODEARTS_PRIVATE_OHPM_READ" > "$HOME/.ohpm/.ohpmrc"
+          ohpm install "$CORE_HAR_PACKAGE@tag:$CORE_HAR_TAG" \
+            --registry "$CORE_HAR_REGISTRY"
+          ohpm install
+
+          resolved_version=$(jq -r '.version' \
+            "oh_modules/$CORE_HAR_PACKAGE/oh-package.json5")
+          echo "Installed Core HAR: $CORE_HAR_PACKAGE@$resolved_version"
+          echo "package_version=$resolved_version" >> "$GITHUB_OUTPUT"
+
+          while IFS= read -r source_file; do
+            perl -pi -e 's/from \x27easytier-ohrs\x27/from \x27$ENV{CORE_HAR_PACKAGE}\x27/g; s/from "easytier-ohrs"/from "$ENV{CORE_HAR_PACKAGE}"/g' "$source_file"
+          done < <(
+            rg -l "from ['\"]easytier-ohrs['\"]" entry \
+              --glob '*.ets' \
+              --glob '*.ts'
+          )
+
+      - name: Prepare EasyTier signing configuration
+        env:
+          GH_TOKEN: ${{ secrets.SIGNING_REPOSITORY_TOKEN }}
+          SIGNING_REPOSITORY_DIR: ${{ runner.temp }}/signing-repository
+          SIGNING_APP_DIR: EasyTier
+          SIGNING_OUTPUT_DIR: ${{ runner.temp }}/easytier-signing
+        run: |
+          set -euo pipefail
+          gh repo clone \
+            "$SIGNING_REPOSITORY" \
+            "$SIGNING_REPOSITORY_DIR" \
+            -- \
+            --depth=1 \
+            --branch "$SIGNING_REPOSITORY_REF"
+          .github/scripts/prepare-signing-config.sh
+          echo "EASYTIER_SIGNING_DIR=$SIGNING_OUTPUT_DIR" >> "$GITHUB_ENV"
+
+      - name: Build signed publish release App
+        run: >-
+          hvigorw assembleApp
+          -p product=publish
+          -p buildMode=release
+          --no-daemon
+
+      - name: Upload signed App
+        uses: actions/upload-artifact@v4
+        with:
+          name: easytier-arkts-${{ steps.core_har.outputs.package_version }}-signed-app
+          path: build/outputs/publish/*-signed.app
+          retention-days: 14
+          if-no-files-found: error
+
+      # TODO(AGC): Upload the signed App after AGC credentials are configured.
+      # TODO(AGC): Publish the uploaded App to the AGC test track.
+
+      - name: Remove credentials and signing material
+        if: always()
+        run: |
+          rm -rf \
+            "$RUNNER_TEMP/signing-repository" \
+            "$RUNNER_TEMP/easytier-signing"
+          rm -f "$HOME/.ohpm/.ohpmrc"
