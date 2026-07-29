@@ -1,4 +1,0 @@
-[submodule "signing"]
-	path = signing
-	url = git@codehub.devcloud.cn-north-4.huaweicloud.com:4514d04878fd4a568dd13915e0b0cfd0/PublishSigning.git
-	branch = master
