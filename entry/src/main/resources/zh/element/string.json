@@ -21,6 +21,10 @@
       "value": "启用"
     },
     {
+      "name": "editing_flags_loading",
+      "value": "正在载入开关"
+    },
+    {
       "name": "i18_favorite",
       "value": "收藏"
     },

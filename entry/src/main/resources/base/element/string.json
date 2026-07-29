@@ -33,6 +33,10 @@
       "value": "Enable"
     },
     {
+      "name": "editing_flags_loading",
+      "value": "Loading switches"
+    },
+    {
       "name": "i18_favorite",
       "value": "Favorite"
     },

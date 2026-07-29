@@ -13,7 +13,10 @@ export const IGNORED_CONFIG_FIELDS: ReadonlySet<string> = new Set([
   'acl',
   'ipv6_public_addr_prefix',
   'secure_mode',
-  'socket_mark'
+  'socket_mark',
+  // peer_urls 是当前面向用户的初始节点编辑入口；peers 是 Core 为公钥节点
+  // 保留的结构化表示，不能再作为原始 JSON 重复暴露。
+  'peers'
 ])
 
 export const COMBINED_CONFIG_FIELDS: Record<string, string[]> = {

@@ -13,6 +13,7 @@ const FIELD_TAGS: Record<string, string> = {
   network_name: 'topFieldName username enter_next',
   network_secret: 'topFieldName password',
   identity: 'hideTitle',
+  instance_recv_bps_limit: 'hideTitle',
   virtual_ip: 'insideName',
   vpn_portal_client_network: 'outsideName',
   encryption_algorithm: 'leftFieldName',

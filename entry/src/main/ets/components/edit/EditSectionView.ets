@@ -16,12 +16,14 @@ const EDIT_LIST_CHAIN_ANIMATION = true
 /** List 左右内边距，与下方 .padding 保持一致 */
 const LIST_HORIZONTAL_PADDING = 20
 
+/** 普通 Schema 每帧放出的行数 */
+const DEFAULT_ROWS_PER_FRAME = 3
+
 /**
- * 每帧放出的行数。
- * 分组级分帧只能做到「每帧挂一个分组」，而一个分组一屏就有 10+ 行，
- * 单帧仍要 40ms 以上。这里再细一层，把构建量摊进帧预算。
+ * Flag 卡片包含完整的文本、Symbol 和交互状态，三栏首屏时每帧只创建一行
+ * （两个 BoolField），避免和另外两栏的构建工作叠在同一帧。
  */
-const ROWS_PER_FRAME = 3
+const FLAG_ROWS_PER_FRAME = 1
 
 /** postFrameCallback 载体 */
 class RevealFrameCallback extends FrameCallback {
@@ -194,6 +196,7 @@ export struct EditSectionView {
   @Param @Require section: EditSectionRenderPlan
   @Param ready: boolean = true
   @Provider() field_width: number = 360
+  @Local flagRevealPending: boolean = false
   private dataSource: EditRenderNodeDataSource = new EditRenderNodeDataSource()
   private flagRowDataSource: FlagRowDataSource = new FlagRowDataSource()
   private lastReady: boolean | undefined = undefined
@@ -203,6 +206,7 @@ export struct EditSectionView {
   private revealTimer: number = -1
   private revealGeneration: number = 0
   private revealActive: boolean = false
+  private usingFlagRows: boolean = false
 
   aboutToAppear(): void {
     this.revealActive = true
@@ -257,15 +261,14 @@ export struct EditSectionView {
   }
 
   /**
-   * 每帧放出 ROWS_PER_FRAME 行。
    * 一次性灌满数据源会让 LazyForEach 在一个 measure pass 里构建整屏 item，
-   * 实测单帧 40ms 以上；分帧放行把同样的总量摊进帧预算。
+   * 实测单帧 40ms 以上；Flag 进一步收紧为每帧一行。
    */
   private scheduleReveal(): void {
     if (this.revealScheduled) {
       return
     }
-    const pending = this.useFlagRows() ? this.flagRowDataSource.hasPending() : this.dataSource.hasPending()
+    const pending = this.usingFlagRows ? this.flagRowDataSource.hasPending() : this.dataSource.hasPending()
     if (!pending) {
       return
     }
@@ -277,10 +280,10 @@ export struct EditSectionView {
       }
       this.revealScheduled = false
       this.revealTimer = -1
-      if (this.useFlagRows()) {
-        this.flagRowDataSource.revealMore(ROWS_PER_FRAME)
+      if (this.usingFlagRows) {
+        this.flagRevealPending = this.flagRowDataSource.revealMore(FLAG_ROWS_PER_FRAME)
       } else {
-        this.dataSource.revealMore(ROWS_PER_FRAME)
+        this.dataSource.revealMore(DEFAULT_ROWS_PER_FRAME)
       }
       this.scheduleReveal()
     }
@@ -305,10 +308,6 @@ export struct EditSectionView {
     return root.children
   }
 
-  private useFlagRows(): boolean {
-    return this.flagNodes().length > 0
-  }
-
   private updateDataSource(): void {
     if (this.lastReady === this.ready && this.lastSectionKey === this.section.key) {
       return
@@ -317,14 +316,20 @@ export struct EditSectionView {
     this.lastReady = this.ready
     this.lastSectionKey = this.section.key
     if (!this.ready) {
+      this.usingFlagRows = false
+      this.flagRevealPending = false
       this.dataSource.clear()
       this.flagRowDataSource.clear()
       return
     }
-    if (this.useFlagRows()) {
+    const flagNodes = this.flagNodes()
+    this.usingFlagRows = flagNodes.length > 0
+    if (this.usingFlagRows) {
       this.dataSource.clear()
-      this.flagRowDataSource.setRows(this.buildFlagRows(this.flagNodes()))
+      this.flagRowDataSource.setRows(this.buildFlagRows(flagNodes))
+      this.flagRevealPending = this.flagRowDataSource.hasPending()
     } else {
+      this.flagRevealPending = false
       this.dataSource.setNodes(this.section.nodes)
       this.flagRowDataSource.clear()
     }
@@ -396,7 +401,7 @@ export struct EditSectionView {
       ListItem()
         .width('100%')
         .height(56)
-      if (this.useFlagRows()) {
+      if (this.usingFlagRows) {
         LazyForEach(this.flagRowDataSource, (row: FlagRenderRow) => {
           ListItem() {
             Row({ space: 10 }) {
@@ -411,6 +416,23 @@ export struct EditSectionView {
           // List 测量这一行时不必再钻进子树按内容算高。
           .height(boolFieldHeight())
         }, (row: FlagRenderRow) => row.key)
+        if (this.flagRevealPending) {
+          ListItem() {
+            Row({ space: 8 }) {
+              LoadingProgress()
+                .width(18)
+                .height(18)
+              Text($r('app.string.editing_flags_loading'))
+                .fontSize(13)
+                .fontColor($r('sys.color.font_secondary'))
+            }
+            .width('100%')
+            .height(44)
+            .justifyContent(FlexAlign.Center)
+          }
+          .width('100%')
+          .height(44)
+        }
       } else {
         LazyForEach(this.dataSource, (node: EditRenderNode) => {
           ListItem() {
