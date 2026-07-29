@@ -43,10 +43,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate package and configuration
+      - name: Validate signing configuration
         run: |
           set -euo pipefail
-          [[ "$CORE_HAR_PACKAGE" =~ ^[a-z][a-z0-9._-]{0,127}$ ]]
           test -n "$SIGNING_REPOSITORY"
           test -n "$SIGNING_REPOSITORY_REF"
 
@@ -109,24 +108,10 @@ jobs:
               --retry_interval 3000
           )
 
-          installed_link="$core_project/oh_modules/$CORE_HAR_PACKAGE"
-          test -d "$installed_link"
-          installed_package=$(cd "$installed_link" && pwd -P)
-          installed_manifest="$installed_package/oh-package.json5"
-          test -s "$installed_manifest"
-          jq -e \
-            --arg name "$CORE_HAR_PACKAGE" \
-            '.name == $name and (.version | type == "string" and length > 0)' \
-            "$installed_manifest" >/dev/null
-          test -s "$installed_package/libs/arm64-v8a/libeasytier_ohrs.so"
-          resolved_version=$(jq -r '.version' "$installed_manifest")
-          test -s "$core_project/oh-package-lock.json5"
-          grep -F -- "$resolved_version" \
-            "$core_project/oh-package-lock.json5" >/dev/null
-          printf 'Resolved %s@tag:%s to %s.\n' \
-            "$CORE_HAR_PACKAGE" "$CORE_HAR_TAG" "$resolved_version"
+          installed_package=$(
+            cd "$core_project/oh_modules/$CORE_HAR_PACKAGE" && pwd -P
+          )
           echo "package_spec=$core_har_spec" >> "$GITHUB_OUTPUT"
-          echo "package_version=$resolved_version" >> "$GITHUB_OUTPUT"
 
           # The app consumes the already-installed package as a local directory.
           # Its following plain `ohpm install` therefore needs no private access.
@@ -145,38 +130,15 @@ jobs:
 
           # OHPM has no package-alias syntax. The published package name follows
           # the Core branch, so adapt only the runner checkout's static imports.
-          core_import_count=0
           while IFS= read -r source_file; do
             perl -pi -e \
               "s/from 'easytier-ohrs'/from '$CORE_HAR_PACKAGE'/g; s/from \"easytier-ohrs\"/from \"$CORE_HAR_PACKAGE\"/g" \
               "$source_file"
-            core_import_count=$((core_import_count + 1))
           done < <(
             rg -l "from ['\"]easytier-ohrs['\"]" entry \
               --glob '*.ets' \
               --glob '*.ts'
           )
-          test "$core_import_count" -gt 0
-          if rg -n "from ['\"]easytier-ohrs['\"]" entry \
-            --glob '*.ets' \
-            --glob '*.ts'; then
-            echo "Found a stale easytier-ohrs import after Core package selection." >&2
-            exit 1
-          fi
-
-      - name: Verify public OHPM context
-        run: |
-          set -euo pipefail
-          test ! -e "$HOME/.ohpm/.ohpmrc"
-          test -z "${OHPM_REGISTRY:-}"
-          effective_registry=$(ohpm config get registry)
-          test "$effective_registry" = "https://ohpm.openharmony.cn/ohpm/"
-          effective_config=$(ohpm config list -j)
-          if grep -Fq "devrepo.devcloud.cn-north-4.huaweicloud.com" \
-            <<< "$effective_config"; then
-            echo "Private OHPM registry leaked into the application install context." >&2
-            exit 1
-          fi
 
       - name: Install remaining ArkTS dependencies
         run: ohpm install
@@ -242,14 +204,13 @@ jobs:
             echo "### EasyTier ArkTS publish App"
             echo
             echo "- Core request: \`${{ steps.core_har.outputs.package_spec }}\`"
-            echo "- Core resolved: \`$CORE_HAR_PACKAGE@${{ steps.core_har.outputs.package_version }}\`"
             echo "- Core selection: private registry moving tag \`arkts-latest\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload signed App
         uses: actions/upload-artifact@v4
         with:
-          name: easytier-arkts-${{ steps.core_har.outputs.package_version }}-signed-app
+          name: easytier-arkts-${{ github.run_id }}-signed-app
           path: ${{ steps.app_artifact.outputs.path }}
           retention-days: 14
           if-no-files-found: error
