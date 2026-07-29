@@ -16,7 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CORE_HAR_PACKAGE: ${{ github.event.client_payload.package_name || 'easytier-ohrs' }}
-      CORE_HAR_TAG: arkts-latest
       SIGNING_REPOSITORY: ${{ vars.SIGNING_REPOSITORY || 'FrankHan052176/AppGallerySigning' }}
       SIGNING_REPOSITORY_REF: ${{ vars.SIGNING_REPOSITORY_REF || 'main' }}
       OHOS_COMMAND_LINE_TOOLS_VERSION: 6.1.1.280
@@ -53,13 +52,16 @@ jobs:
           mkdir -p "$HOME/.ohpm"
           umask 077
           printf '%s' "$CODEARTS_PRIVATE_OHPM_READ" > "$HOME/.ohpm/.ohpmrc"
-          ohpm install "$CORE_HAR_PACKAGE@tag:$CORE_HAR_TAG" \
+          ohpm install "$CORE_HAR_PACKAGE@latest" \
             --registry "$CORE_HAR_REGISTRY"
           ohpm install
 
           resolved_version=$(jq -r '.version' \
             "oh_modules/$CORE_HAR_PACKAGE/oh-package.json5")
+          package_branch=$(printf '%s\n' "$resolved_version" | sed -E \
+            's/^[0-9]+\.[0-9]+\.[0-9]+-//; s/-[0-9]+-[0-9]+-[0-9]+-g[0-9a-f]+$//')
           echo "Installed Core HAR: $CORE_HAR_PACKAGE@$resolved_version"
+          echo "package_branch=$package_branch" >> "$GITHUB_OUTPUT"
           echo "package_version=$resolved_version" >> "$GITHUB_OUTPUT"
 
       - name: Prepare EasyTier signing configuration
@@ -80,17 +82,31 @@ jobs:
           echo "EASYTIER_SIGNING_DIR=$SIGNING_OUTPUT_DIR" >> "$GITHUB_ENV"
 
       - name: Build signed publish release App
-        run: >-
-          hvigorw assembleApp
-          -p product=publish
-          -p buildMode=release
-          --no-daemon
+        id: app
+        env:
+          CORE_HAR_BRANCH: ${{ steps.core_har.outputs.package_branch }}
+          CORE_HAR_VERSION: ${{ steps.core_har.outputs.package_version }}
+        run: |
+          set -euo pipefail
+          hvigorw assembleApp \
+            -p product=publish \
+            -p buildMode=release \
+            --no-daemon
+
+          signed_app=$(find build/outputs/publish \
+            -type f -name '*-signed.app' -print -quit)
+          test -n "$signed_app"
+          app_name="EasyTier-${CORE_HAR_BRANCH}-${CORE_HAR_VERSION}"
+          app_path="$RUNNER_TEMP/$app_name.app"
+          mv "$signed_app" "$app_path"
+          echo "name=$app_name" >> "$GITHUB_OUTPUT"
+          echo "path=$app_path" >> "$GITHUB_OUTPUT"
 
       - name: Upload signed App
         uses: actions/upload-artifact@v4
         with:
-          name: easytier-arkts-${{ steps.core_har.outputs.package_version }}-signed-app
-          path: build/outputs/publish/*-signed.app
+          name: ${{ steps.app.outputs.name }}
+          path: ${{ steps.app.outputs.path }}
           retention-days: 14
           if-no-files-found: error
 
