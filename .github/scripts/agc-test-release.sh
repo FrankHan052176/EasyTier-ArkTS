@@ -14,12 +14,23 @@ fi
 
 api_base="https://${AGC_API_DOMAIN}/api"
 app_id_q=$(jq -rn --arg value "$AGC_APP_ID" '$value | @uri')
-app_name=$(basename "$AGC_APP_FILE")
+source_app_name=$(basename "$AGC_APP_FILE")
 app_size=$(wc -c < "$AGC_APP_FILE" | tr -d ' ')
 if command -v sha256sum >/dev/null 2>&1; then
   app_sha256=$(sha256sum "$AGC_APP_FILE" | awk '{print $1}')
 else
   app_sha256=$(shasum -a 256 "$AGC_APP_FILE" | awk '{print $1}')
+fi
+app_name="$source_app_name"
+if (( $(printf '%s' "$app_name" | wc -c | tr -d ' ') > 64 )); then
+  if [[ -n "${AGC_CORE_HAR_VERSION:-}" ]]; then
+    app_name="EasyTier-${AGC_CORE_HAR_VERSION}.app"
+  else
+    app_name="EasyTier-${app_sha256:0:16}.app"
+  fi
+fi
+if (( $(printf '%s' "$app_name" | wc -c | tr -d ' ') > 64 )); then
+  app_name="EasyTier-${app_sha256:0:16}.app"
 fi
 
 check_ret() {
@@ -254,4 +265,4 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     printf 'agc_object_id=%s\n' "$object_id"
   } >> "$GITHUB_OUTPUT"
 fi
-echo "AGC invitation test version submitted: $version_id ($group_count groups, notify=$need_notify)"
+echo "AGC invitation test version submitted: $version_id (package=$package_id, groups=$group_count, notify=$need_notify)"
