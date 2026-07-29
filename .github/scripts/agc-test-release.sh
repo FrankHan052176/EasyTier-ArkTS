@@ -22,15 +22,16 @@ else
   app_sha256=$(shasum -a 256 "$AGC_APP_FILE" | awk '{print $1}')
 fi
 app_name="$source_app_name"
+app_name_prefix="${AGC_APP_NAME_PREFIX:-EasyTier}"
 if (( $(printf '%s' "$app_name" | wc -c | tr -d ' ') > 64 )); then
   if [[ -n "${AGC_CORE_HAR_VERSION:-}" ]]; then
-    app_name="EasyTier-${AGC_CORE_HAR_VERSION}.app"
+    app_name="${app_name_prefix}-${AGC_CORE_HAR_VERSION}.app"
   else
-    app_name="EasyTier-${app_sha256:0:16}.app"
+    app_name="${app_name_prefix}-${app_sha256:0:16}.app"
   fi
 fi
 if (( $(printf '%s' "$app_name" | wc -c | tr -d ' ') > 64 )); then
-  app_name="EasyTier-${app_sha256:0:16}.app"
+  app_name="${app_name_prefix}-${app_sha256:0:16}.app"
 fi
 
 check_ret() {
@@ -144,11 +145,18 @@ while IFS= read -r header_json; do
   upload_headers+=(--header "$header_name: $header_value")
 done < <(jq -c '.urlInfo.headers // {} | to_entries[]' <<<"$upload_url_response")
 
-curl --silent --show-error --fail-with-body \
-  --request "$upload_method" \
-  "${upload_headers[@]}" \
-  --data-binary "@$AGC_APP_FILE" \
-  "$upload_url" >/dev/null
+if (( ${#upload_headers[@]} > 0 )); then
+  curl --silent --show-error --fail-with-body \
+    --request "$upload_method" \
+    "${upload_headers[@]}" \
+    --data-binary "@$AGC_APP_FILE" \
+    "$upload_url" >/dev/null
+else
+  curl --silent --show-error --fail-with-body \
+    --request "$upload_method" \
+    --data-binary "@$AGC_APP_FILE" \
+    "$upload_url" >/dev/null
+fi
 
 event_name="${AGC_EVENT_NAME:-workflow_dispatch}"
 run_attempt="${AGC_RUN_ATTEMPT:-1}"
@@ -166,7 +174,12 @@ case "$event_name" in
 esac
 test_desc="${test_desc:0:30}"
 need_notify=0
-if [[ "$event_name" == "push" && "$run_attempt" == "1" ]]; then
+notify_on_push="${AGC_NOTIFY_ON_PUSH:-0}"
+if ! [[ "$notify_on_push" =~ ^[01]$ ]]; then
+  echo "AGC_NOTIFY_ON_PUSH must be 0 or 1." >&2
+  exit 1
+fi
+if [[ "$notify_on_push" == "1" && "$event_name" == "push" && "$run_attempt" == "1" ]]; then
   need_notify=1
 fi
 
@@ -189,6 +202,14 @@ package_response=$(curl --silent --show-error --fail-with-body \
     '{distributeMode: $distribute_mode, file: {fileName: $file_name, objectId: $object_id}}')")
 check_ret "$package_response"
 package_id=$(jq -er '.pkgVersion[0] // empty' <<<"$package_response")
+
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  {
+    printf 'agc_version_id=%s\n' "$version_id"
+    printf 'agc_package_id=%s\n' "$package_id"
+    printf 'agc_object_id=%s\n' "$object_id"
+  } >> "$GITHUB_OUTPUT"
+fi
 
 poll_attempts="${AGC_POLL_ATTEMPTS:-30}"
 poll_seconds="${AGC_POLL_SECONDS:-20}"
@@ -258,11 +279,4 @@ submit_response=$(curl --silent --show-error --fail-with-body \
   --data "$(jq -cn --arg version_id "$version_id" '{versionId: $version_id}')")
 check_ret "$submit_response"
 
-if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-  {
-    printf 'agc_version_id=%s\n' "$version_id"
-    printf 'agc_package_id=%s\n' "$package_id"
-    printf 'agc_object_id=%s\n' "$object_id"
-  } >> "$GITHUB_OUTPUT"
-fi
 echo "AGC invitation test version submitted: $version_id (package=$package_id, groups=$group_count, notify=$need_notify)"

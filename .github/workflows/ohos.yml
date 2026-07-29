@@ -122,6 +122,8 @@ jobs:
           AGC_APP_FILE: ${{ steps.app.outputs.path }}
           AGC_EVENT_NAME: ${{ github.event_name }}
           AGC_RUN_ATTEMPT: ${{ github.run_attempt }}
+          AGC_NOTIFY_ON_PUSH: "1"
+          AGC_APP_NAME_PREFIX: EasyTier
           AGC_CORE_HAR_VERSION: ${{ steps.core_har.outputs.package_version }}
           AGC_PUSH_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           AGC_WORKFLOW_SHA: ${{ github.sha }}
