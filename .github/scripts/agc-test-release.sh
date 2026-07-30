@@ -109,6 +109,50 @@ fetch_group_infos() {
   jq -cn --args '$ARGS.positional | map({groupId: .})' "${group_ids[@]}"
 }
 
+add_package() {
+  local distribute_mode="$1"
+  local response
+  local package_id
+
+  response=$(curl --silent --show-error --fail-with-body \
+    --request POST "$api_base/publish/v2/test/version/pkg?appId=$app_id_q" \
+    "${api_headers[@]}" \
+    --data "$(jq -cn \
+      --arg file_name "$app_name" \
+      --arg object_id "$object_id" \
+      --argjson mode "$distribute_mode" \
+      '{distributeMode: $mode, file: {fileName: $file_name, objectId: $object_id}}')")
+  check_ret "$response"
+  package_id=$(jq -er '.pkgVersion[0] // empty' <<<"$response")
+  printf '%s\n' "$package_id"
+}
+
+wait_for_package() {
+  local package_id="$1"
+  local attempt
+  local status_response
+  local success_status
+
+  for ((attempt = 1; attempt <= poll_attempts; attempt++)); do
+    status_response=$(curl --silent --show-error --fail-with-body \
+      --get "$api_base/publish/v3/package/compile/status" \
+      "${api_headers[@]}" \
+      --data-urlencode "appId=$AGC_APP_ID" \
+      --data-urlencode "pkgIds=$package_id")
+    check_ret "$status_response"
+    success_status=$(jq -r '.pkgStateList[0].successStatus // empty' <<<"$status_response")
+    if [[ "$success_status" == "0" ]]; then
+      return 0
+    fi
+    if (( attempt < poll_attempts )); then
+      sleep "$poll_seconds"
+    fi
+  done
+
+  echo "AGC package did not reach success status within the polling window: $package_id" >&2
+  exit 1
+}
+
 token_response=$(curl --silent --show-error --fail-with-body \
   --request POST "$api_base/oauth2/v1/token" \
   --header 'Content-Type: application/json' \
@@ -191,49 +235,23 @@ create_response=$(curl --silent --show-error --fail-with-body \
     '{releaseType: 6, testType: 3, testDesc: $desc, onshelfSelfDetect: 0}')")
 check_ret "$create_response"
 version_id=$(jq -er '.versionId // empty' <<<"$create_response")
-
-package_response=$(curl --silent --show-error --fail-with-body \
-  --request POST "$api_base/publish/v2/test/version/pkg?appId=$app_id_q" \
-  "${api_headers[@]}" \
-  --data "$(jq -cn \
-    --arg file_name "$app_name" \
-    --arg object_id "$object_id" \
-    --argjson distribute_mode "${AGC_DISTRIBUTE_MODE:-1}" \
-    '{distributeMode: $distribute_mode, file: {fileName: $file_name, objectId: $object_id}}')")
-check_ret "$package_response"
-package_id=$(jq -er '.pkgVersion[0] // empty' <<<"$package_response")
+test_package_id=$(add_package 1)
+listing_package_id=$(add_package 2)
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     printf 'agc_version_id=%s\n' "$version_id"
-    printf 'agc_package_id=%s\n' "$package_id"
+    printf 'agc_package_id=%s\n' "$test_package_id"
+    printf 'agc_test_package_id=%s\n' "$test_package_id"
+    printf 'agc_listing_package_id=%s\n' "$listing_package_id"
     printf 'agc_object_id=%s\n' "$object_id"
   } >> "$GITHUB_OUTPUT"
 fi
 
 poll_attempts="${AGC_POLL_ATTEMPTS:-30}"
 poll_seconds="${AGC_POLL_SECONDS:-20}"
-package_ready=false
-for ((attempt = 1; attempt <= poll_attempts; attempt++)); do
-  status_response=$(curl --silent --show-error --fail-with-body \
-    --get "$api_base/publish/v3/package/compile/status" \
-    "${api_headers[@]}" \
-    --data-urlencode "appId=$AGC_APP_ID" \
-    --data-urlencode "pkgIds=$package_id")
-  check_ret "$status_response"
-  success_status=$(jq -r '.pkgStateList[0].successStatus // empty' <<<"$status_response")
-  if [[ "$success_status" == "0" ]]; then
-    package_ready=true
-    break
-  fi
-  if (( attempt < poll_attempts )); then
-    sleep "$poll_seconds"
-  fi
-done
-if [[ "$package_ready" != true ]]; then
-  echo "AGC package did not reach success status within the polling window." >&2
-  exit 1
-fi
+wait_for_package "$test_package_id"
+wait_for_package "$listing_package_id"
 
 duration_days="${AGC_TEST_DURATION_DAYS:-14}"
 if ! [[ "$duration_days" =~ ^[1-9][0-9]*$ ]]; then
@@ -250,7 +268,7 @@ update_response=$(curl --silent --show-error --fail-with-body \
   "${api_headers[@]}" \
   --data "$(jq -cn \
     --arg version_id "$version_id" \
-    --arg package_id "$package_id" \
+    --arg package_id "$test_package_id" \
     --arg desc "$test_desc" \
     --argjson start_time "$start_time" \
     --argjson end_time "$end_time" \
@@ -279,4 +297,4 @@ submit_response=$(curl --silent --show-error --fail-with-body \
   --data "$(jq -cn --arg version_id "$version_id" '{versionId: $version_id}')")
 check_ret "$submit_response"
 
-echo "AGC invitation test version submitted: $version_id (package=$package_id, groups=$group_count, notify=$need_notify)"
+echo "AGC invitation test version submitted: $version_id (test_package=$test_package_id, listing_package=$listing_package_id, groups=$group_count, notify=$need_notify)"
