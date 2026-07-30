@@ -65,10 +65,10 @@ jobs:
 
           resolved_version=$(jq -r '.version' \
             "oh_modules/$CORE_HAR_PACKAGE/oh-package.json5")
-          core_version="${resolved_version%%-*}"
-          core_commit_count="${resolved_version#"$core_version"-}"
-          core_commit_count="${core_commit_count%%-*}"
-          if ! [[ "$core_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$core_commit_count" =~ ^[0-9]+$ ]]; then
+          if [[ "$resolved_version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)-.+-([0-9]+)-[0-9]+-[0-9]+-g[0-9a-f]+$ ]]; then
+            core_version="${BASH_REMATCH[1]}"
+            core_commit_count="${BASH_REMATCH[2]}"
+          else
             echo "Unsupported Core HAR version: $resolved_version" >&2
             exit 1
           fi
