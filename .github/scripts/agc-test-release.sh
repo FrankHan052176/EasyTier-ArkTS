@@ -235,23 +235,20 @@ create_response=$(curl --silent --show-error --fail-with-body \
     '{releaseType: 6, testType: 3, testDesc: $desc, onshelfSelfDetect: 0}')")
 check_ret "$create_response"
 version_id=$(jq -er '.versionId // empty' <<<"$create_response")
-test_package_id=$(add_package 1)
-listing_package_id=$(add_package 2)
+release_package_id=$(add_package 2)
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   {
     printf 'agc_version_id=%s\n' "$version_id"
-    printf 'agc_package_id=%s\n' "$test_package_id"
-    printf 'agc_test_package_id=%s\n' "$test_package_id"
-    printf 'agc_listing_package_id=%s\n' "$listing_package_id"
+    printf 'agc_package_id=%s\n' "$release_package_id"
+    printf 'agc_release_package_id=%s\n' "$release_package_id"
     printf 'agc_object_id=%s\n' "$object_id"
   } >> "$GITHUB_OUTPUT"
 fi
 
 poll_attempts="${AGC_POLL_ATTEMPTS:-30}"
 poll_seconds="${AGC_POLL_SECONDS:-20}"
-wait_for_package "$test_package_id"
-wait_for_package "$listing_package_id"
+wait_for_package "$release_package_id"
 
 duration_days="${AGC_TEST_DURATION_DAYS:-14}"
 if ! [[ "$duration_days" =~ ^[1-9][0-9]*$ ]]; then
@@ -268,7 +265,7 @@ update_response=$(curl --silent --show-error --fail-with-body \
   "${api_headers[@]}" \
   --data "$(jq -cn \
     --arg version_id "$version_id" \
-    --arg package_id "$test_package_id" \
+    --arg package_id "$release_package_id" \
     --arg desc "$test_desc" \
     --argjson start_time "$start_time" \
     --argjson end_time "$end_time" \
@@ -297,4 +294,4 @@ submit_response=$(curl --silent --show-error --fail-with-body \
   --data "$(jq -cn --arg version_id "$version_id" '{versionId: $version_id}')")
 check_ret "$submit_response"
 
-echo "AGC invitation test version submitted: $version_id (test_package=$test_package_id, listing_package=$listing_package_id, groups=$group_count, notify=$need_notify)"
+echo "AGC invitation test version submitted: $version_id (release_package=$release_package_id, groups=$group_count, notify=$need_notify)"
