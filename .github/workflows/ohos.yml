@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -48,6 +49,7 @@ jobs:
         env:
           CODEARTS_PRIVATE_OHPM_READ: ${{ secrets.CODEARTS_PRIVATE_OHPM_READ }}
           CORE_HAR_REGISTRY: https://devrepo.devcloud.cn-north-4.huaweicloud.com/artgalaxy/api/ohpm/cn-north-4_c07b1b38744f424b8d87a86532d38003_ohpm_1/
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           trap 'rm -f "$HOME/.ohpm/.ohpmrc"' EXIT
@@ -63,11 +65,46 @@ jobs:
 
           resolved_version=$(jq -r '.version' \
             "oh_modules/$CORE_HAR_PACKAGE/oh-package.json5")
+          core_version="${resolved_version%%-*}"
+          core_commit_count="${resolved_version#"$core_version"-}"
+          core_commit_count="${core_commit_count%%-*}"
+          if ! [[ "$core_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$core_commit_count" =~ ^[0-9]+$ ]]; then
+            echo "Unsupported Core HAR version: $resolved_version" >&2
+            exit 1
+          fi
+
+          today=$(date -u +%F)
+          day_of_year=$(date -u +%j)
+          workflow_runs=$(curl --fail --silent --show-error --location \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/ohos.yml/runs?per_page=100")
+          first_run_number=$(jq -er --arg today "$today" \
+            '[.workflow_runs[] | select(.created_at | startswith($today)) | .run_number] | min' \
+            <<<"$workflow_runs")
+          daily_build_number=$((10#$GITHUB_RUN_NUMBER - 10#$first_run_number + 1))
+          if (( daily_build_number < 1 || daily_build_number > 99 )); then
+            echo "Daily build number is outside the supported range: $daily_build_number" >&2
+            exit 1
+          fi
+
+          app_version_name="${core_version}.${core_commit_count}"
+          app_version_code="${core_version//./}${day_of_year}$(printf '%02d' "$daily_build_number")"
+          app_version_code=$((10#$app_version_code))
+          app_json=$(mktemp)
+          jq --arg version_name "$app_version_name" --argjson version_code "$app_version_code" \
+            '.app.versionName = $version_name | .app.versionCode = $version_code' \
+            AppScope/app.json5 > "$app_json"
+          mv "$app_json" AppScope/app.json5
+
           package_branch=$(printf '%s\n' "$resolved_version" | sed -E \
             's/^[0-9]+\.[0-9]+\.[0-9]+-//; s/-[0-9]+-[0-9]+-[0-9]+-g[0-9a-f]+$//')
           echo "Installed Core HAR: $CORE_HAR_PACKAGE@$resolved_version"
+          echo "App version: $app_version_name ($app_version_code)"
           echo "package_branch=$package_branch" >> "$GITHUB_OUTPUT"
           echo "package_version=$resolved_version" >> "$GITHUB_OUTPUT"
+          echo "app_version_name=$app_version_name" >> "$GITHUB_OUTPUT"
+          echo "app_version_code=$app_version_code" >> "$GITHUB_OUTPUT"
 
       - name: Prepare EasyTier signing configuration
         env:
@@ -101,7 +138,7 @@ jobs:
           signed_app=$(find build/outputs/publish \
             -type f -name '*-signed.app' -print -quit)
           test -n "$signed_app"
-          app_name="EasyTier-${CORE_HAR_BRANCH}-${CORE_HAR_VERSION}"
+          app_name="EasyTier-${{ steps.core_har.outputs.app_version_name }}"
           app_path="$RUNNER_TEMP/$app_name.app"
           mv "$signed_app" "$app_path"
           echo "name=$app_name" >> "$GITHUB_OUTPUT"
