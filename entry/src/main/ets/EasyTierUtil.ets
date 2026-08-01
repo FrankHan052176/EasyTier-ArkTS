@@ -676,6 +676,27 @@ export class EasyTierUtil {
     return findRunningInstance(this.runningNetworks, uuid)
   }
 
+  public getConfirmedRunningInstance(uuid?: string): RuntimeInstanceState | undefined {
+    const running = this.getRunningInstance(uuid)
+    if (!running) {
+      return undefined
+    }
+    const aliases: Array<string | undefined> = [uuid, running.configId, running.instanceId]
+    for (const alias of aliases) {
+      if (alias && this.optimisticRunningUntil.has(alias)) {
+        return undefined
+      }
+    }
+    return running
+  }
+
+  public isRuntimeStarting(uuid: string): boolean {
+    if (this.pendingStartIds.has(uuid) || this.acceptedRuntimeIds.has(uuid)) {
+      return this.getConfirmedRunningInstance(uuid) === undefined
+    }
+    return this.getRunningInstance(uuid) !== undefined && this.getConfirmedRunningInstance(uuid) === undefined
+  }
+
   public getRunningInstances(): RuntimeInstanceState[] {
     return listRunningInstances(this.runningNetworks)
   }

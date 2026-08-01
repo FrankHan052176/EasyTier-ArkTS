@@ -12,6 +12,7 @@
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
+    "crossAppSharedConfig": "$profile:third_party_shared_config",
     "abilities": [
       {
         "name": "EntryAbility",

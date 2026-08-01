@@ -57,6 +57,7 @@ import {
   STATUS_BAR_BACKGROUND_TERMINATE_EVENT,
   VPN_EXTENSION_SOCKET_NAME
 } from '../services/runtime/AbilityRuntimePolicy'
+import { ThirdPartyApiService } from '../services/integration/ThirdPartyApiService'
 
 /**
  * 模拟器测试用的手机比例窗口尺寸（px），仅在 productModel === 'emulator' 时生效。
@@ -95,6 +96,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     }
   })
   private appReadyPromise: Promise<void> = Promise.resolve()
+  private thirdPartyApiService: ThirdPartyApiService | undefined = undefined
   private remoteHostDomain: EntryRemoteHostDomainService = new EntryRemoteHostDomainService()
   private favoriteCardActions: FavoriteCardActionService = new FavoriteCardActionService()
   private vpnSetupRequestBuilder: EntryVpnSetupRequestBuilder = new EntryVpnSetupRequestBuilder({
@@ -288,6 +290,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     startupMark('ability.onCreate.begin')
+    this.thirdPartyApiService = new ThirdPartyApiService(this.context)
     this.deactivateMissionContinue();
     this.entryVpnService = new EntryVpnConnectionService({
       context: this.context,
@@ -444,15 +447,10 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
     this.appReadyPromise = this.startStatusBarThenInitApp()
     this.appReadyPromise.then(() => {
-      this.readSharedData(want)
-      this.favoriteCardActions.refresh()
-      if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
-        if (want.parameters !== undefined) {
-          let url = want.parameters.data as string
-          this.readUri(url)
-        }
-      }
+      this.handleIncomingWant(want, launchParam)
       easytier.initPanicHook()
+    }).catch((error: Error) => {
+      Logger.error(`application initialization failed: ${error.message}`, this)
     })
   }
 
@@ -553,7 +551,20 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam) {
     Logger.debug("onNetWant", this)
     this.restoreMainWindow()
-    this.readSharedData(want)
+    this.appReadyPromise.then(() => {
+      this.handleIncomingWant(want, launchParam)
+    }).catch((error: Error) => {
+      Logger.error(`handle new Want failed: ${error.message}`, this)
+    })
+  }
+
+  private handleIncomingWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    if (ThirdPartyApiService.isRequestWant(want)) {
+      void this.thirdPartyApiService?.handleWant(want)
+      this.favoriteCardActions.refresh()
+      return
+    }
+    void this.readSharedData(want)
     this.favoriteCardActions.refresh()
     if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
       if (want.parameters !== undefined) {
@@ -573,6 +584,8 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
 
   onDestroy() {
     Logger.debug("onDestroy", this)
+    this.thirdPartyApiService?.destroy()
+    this.thirdPartyApiService = undefined
     this.networkWatchdog?.stop()
     this.networkWatchdog = undefined
     MemoryDiagnosticsService.enableSystemLeakWatcher(false)

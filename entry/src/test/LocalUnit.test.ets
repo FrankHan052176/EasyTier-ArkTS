@@ -8,6 +8,14 @@ import {
 import { parseVpnBridgeMessage } from '../main/ets/infrastructure/bridge/kernel/SocketCodec';
 import { redactSensitiveLogText } from '../main/ets/shared/logging/LogRedaction';
 import { NatTypeValue, natTypeToText } from '../main/ets/types/runtime/RuntimeTypes';
+import {
+  THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING,
+  THIRD_PARTY_OPERATION_LIST_INSTANCES,
+  THIRD_PARTY_REQUEST_TTL_MS,
+  THIRD_PARTY_RESULT_REQUEST_EXPIRED,
+  ThirdPartyApiRequestPayload,
+  ThirdPartyApiValidator
+} from '../main/ets/services/integration/ThirdPartyApiContract';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
@@ -91,6 +99,47 @@ export default function localUnitTest() {
       const result = message.data as VpnRuntimeStartResultData
       expect(result.instanceId).assertEqual('instance')
       expect(result.started).assertEqual(true)
+    });
+    it('validatesThirdPartyApiListRequest', 0, () => {
+      const requestId = '12345678-1234-4234-9234-123456789abc'
+      const now = Date.now()
+      const payload: ThirdPartyApiRequestPayload = {
+        schemaVersion: 1,
+        requestId,
+        operation: THIRD_PARTY_OPERATION_LIST_INSTANCES,
+        issuedAt: now
+      }
+      const result = ThirdPartyApiValidator.validateRequest(payload, requestId, now)
+      expect(result.ok).assertTrue()
+    });
+    it('requiresInstanceForThirdPartyStartRequest', 0, () => {
+      const requestId = '12345678-1234-4234-9234-123456789abc'
+      const now = Date.now()
+      const payload: ThirdPartyApiRequestPayload = {
+        schemaVersion: 1,
+        requestId,
+        operation: THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING,
+        issuedAt: now
+      }
+      const result = ThirdPartyApiValidator.validateRequest(payload, requestId, now)
+      expect(result.ok).assertFalse()
+    });
+    it('rejectsExpiredThirdPartyApiRequest', 0, () => {
+      const requestId = '12345678-1234-4234-9234-123456789abc'
+      const now = Date.now()
+      const payload: ThirdPartyApiRequestPayload = {
+        schemaVersion: 1,
+        requestId,
+        operation: THIRD_PARTY_OPERATION_LIST_INSTANCES,
+        issuedAt: now - THIRD_PARTY_REQUEST_TTL_MS - 1
+      }
+      const result = ThirdPartyApiValidator.validateRequest(payload, requestId, now)
+      expect(result.ok).assertFalse()
+      expect(result.code).assertEqual(THIRD_PARTY_RESULT_REQUEST_EXPIRED)
+    });
+    it('sanitizesThirdPartyInstanceNames', 0, () => {
+      const name = ThirdPartyApiValidator.safeInstanceName('  office\u0000network  ')
+      expect(name).assertEqual('officenetwork')
     });
   });
 }
