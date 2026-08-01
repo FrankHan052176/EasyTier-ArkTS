@@ -931,7 +931,7 @@ export function SettingLogs_Content() {
 }
 
 @Builder
-export function SettingCloudSync_Content() {
+export function SettingCloudSync_Content(onReset: () => void) {
   List() {
     ListItem()
       .height(64)
@@ -1041,11 +1041,7 @@ export function SettingCloudSync_Content() {
         Button('全部重置', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.NORMAL, role: ButtonRole.ERROR })
           .width('100%')
           .borderRadius(13)
-          .onClick(() => {
-            AppManager.cloudSync.resetAllSyncData().catch(() => {
-              sendToast('重置本地与云端数据失败', $r("sys.symbol.exclamationmark_circle"), 1)
-            })
-          })
+          .onClick(onReset)
       }
       .width('100%')
       .padding({
@@ -1075,6 +1071,10 @@ export struct SettingAdvanced_Content {
   @Local vpnRoutes: boolean = AppManager.uiState.vpn_routes
   @Local forceGlobal: boolean = AppManager.uiState.force_global
 
+  private runtimeActive(): boolean {
+    return AppManager.easytier.hasActiveOrStartingRuntime()
+  }
+
   build() {
     List() {
       ListItem()
@@ -1082,14 +1082,14 @@ export struct SettingAdvanced_Content {
 
       ListItemGroup({ header: settingGroupHeader("高级") }) {
         if (deviceInfo.sdkApiVersion < 20) {
-          settingSwitchRow($r("sys.symbol.list_square_bill"), "路由表模式", "",
-            this.vpnRoutes, true, (isOn: boolean) => {
+          settingSwitchRow($r("sys.symbol.list_square_bill"), "路由表模式", this.runtimeActive() ? "运行中不可修改" : "",
+            this.vpnRoutes, !this.runtimeActive(), (isOn: boolean) => {
               this.vpnRoutes = isOn
               AppManager.uiState.vpn_routes = isOn
             })
         }
-        settingSwitchRow($r("sys.symbol.person"), "高级模式", "",
-          this.advancedMode, true, (isOn: boolean) => {
+        settingSwitchRow($r("sys.symbol.person"), "高级模式", this.runtimeActive() ? "运行中不可修改" : "",
+          this.advancedMode, !this.runtimeActive(), (isOn: boolean) => {
             this.advancedMode = isOn
             AppManager.uiState.dev = isOn
           })
@@ -1114,6 +1114,8 @@ export struct SettingAdvanced_Content {
                 .backgroundColor(Color.Transparent)
                 .height('100%')
                 .layoutWeight(1)
+                .enabled(!this.runtimeActive())
+                .opacity(this.runtimeActive() ? 0.5 : 1)
                 .onChange((value) => {
                   if (value.length > 0) {
                     AppManager.uiState.dns = value
@@ -1136,8 +1138,8 @@ export struct SettingAdvanced_Content {
           }
           .margin({ bottom: 10 })
 
-          settingSwitchRow($r("sys.symbol.person"), "添加全局路由", "",
-            this.forceGlobal, true, (isOn: boolean) => {
+          settingSwitchRow($r("sys.symbol.person"), "添加全局路由", this.runtimeActive() ? "运行中不可修改" : "",
+            this.forceGlobal, !this.runtimeActive(), (isOn: boolean) => {
               this.forceGlobal = isOn
               AppManager.uiState.force_global = isOn
             })

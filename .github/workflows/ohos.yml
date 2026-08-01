@@ -130,6 +130,7 @@ jobs:
           CORE_HAR_VERSION: ${{ steps.core_har.outputs.package_version }}
         run: |
           set -euo pipefail
+          npm config set registry=https://registry.npmjs.org/ --location=user
           hvigorw assembleApp \
             -p product=publish \
             -p buildMode=release \
@@ -172,4 +173,5 @@ jobs:
           rm -rf \
             "$RUNNER_TEMP/signing-repository" \
             "$RUNNER_TEMP/easytier-signing"
+          rm -f "$HOME/.npmrc"
           rm -f "$HOME/.ohpm/.ohpmrc"

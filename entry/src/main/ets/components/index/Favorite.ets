@@ -23,18 +23,16 @@ export struct Favorite {
     return this.favoriteUuid ? AppManager.easytier.getConfigName(this.favoriteUuid) ?? "Unknown" : "无收藏"
   }
 
-  toggle() {
+  async toggle(): Promise<void> {
     if (!this.favoriteUuid) {
       return
     }
 
     if (this.isRunning) {
-      AppManager.easytier.stop()
+      await AppManager.easytier.stopAndWait()
     } else {
-      if (AppManager.easytier.runningNetworks.size > 0) {
-        AppManager.easytier.stop()
-      }
-      if (!AppManager.easytier.start(this.favoriteUuid)) {
+      const started = await AppManager.easytier.startAfterStop(this.favoriteUuid)
+      if (!started) {
         sendToast("Amazing! 收藏的实例不存在", $r("sys.symbol.exclamationmark_circle"), 1)
       }
     }
@@ -86,7 +84,9 @@ export struct Favorite {
               .fontSize(48)
               .fontColor([this.brandColor])
               .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
-              .onClick(() => this.toggle())
+              .onClick(() => {
+                void this.toggle()
+              })
           }
 
           Text(this.favoriteName)
@@ -149,7 +149,9 @@ export struct Favorite {
               .fontSize(56)
               .fontColor([this.brandColor])
               .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
-              .onClick(() => this.toggle())
+              .onClick(() => {
+                void this.toggle()
+              })
           }
           .justifyContent(FlexAlign.Center)
           .height('100%')
@@ -185,7 +187,9 @@ export struct Favorite {
             .fontSize(64)
             .fontColor([this.brandColor])
             .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
-            .onClick(() => this.toggle())
+            .onClick(() => {
+              void this.toggle()
+            })
 
           Text(this.favoriteName)
             .fontSize(18)
@@ -234,7 +238,9 @@ export struct Favorite {
             .fontSize(80)
             .fontColor([this.brandColor])
             .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), (this.isRunning ? 1 : 0) + this.trigger)
-            .onClick(() => this.toggle())
+            .onClick(() => {
+              void this.toggle()
+            })
 
           Text(this.favoriteName)
             .fontSize(24)

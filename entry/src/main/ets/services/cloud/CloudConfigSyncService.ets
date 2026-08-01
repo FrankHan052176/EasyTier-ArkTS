@@ -63,7 +63,9 @@ export class CloudConfigSyncService {
   private reconcileTimer: number | undefined = undefined
   private pendingImport: PendingImportRequest | undefined = undefined
   private syncInFlight: boolean = false
+  private syncProgressGeneration: number = 0
   private readonly fileSyncCallback = (pg: cloudSync.SyncProgress) => {
+    this.syncProgressGeneration++
     this.syncState = pg.state
     this.syncError = pg.error
     if (this.resettingSyncData) {
@@ -123,7 +125,7 @@ export class CloudConfigSyncService {
     this.cloudFileCache.on('progress', this.cacheProgressCallback)
     EventHelper.emitterListener(CLOUD_CONFIG_CHANGED_EVENT, this.configChangedCallback)
     if (AppManager.uiState.cloud_auto_sync) {
-      this.safeStartFileSync('自动同步初始化')
+      void this.safeStartFileSync('自动同步初始化')
     }
     this.initialized = true
   }
@@ -464,29 +466,37 @@ export class CloudConfigSyncService {
     }
   }
 
-  private async safeStartFileSync(reason: string): Promise<void> {
+  private async safeStartFileSync(reason: string): Promise<boolean> {
+    const startGeneration = this.syncProgressGeneration
     try {
       await this.fileSync.start()
+      const completed = await this.waitForSyncCompletion(15000, startGeneration)
+      if (!completed) {
+        this.lastSyncMessage = `${reason}未完成，请检查同步状态`
+      }
+      return completed
     } catch (error) {
       Logger.error(`safeStartFileSync failed reason=${reason} err=${JSON.stringify(error)}`, this)
       this.lastSyncMessage = `${reason}失败，请检查下方错误信息`
+      return false
     }
   }
 
-  private async waitForSyncCompletion(timeoutMs: number): Promise<boolean> {
+  private async waitForSyncCompletion(timeoutMs: number, sinceGeneration: number): Promise<boolean> {
     const startedAt = Date.now()
     while (Date.now() - startedAt < timeoutMs) {
-      if (this.syncState === cloudSync.SyncState.COMPLETED) {
+      if (this.syncProgressGeneration > sinceGeneration && this.syncState === cloudSync.SyncState.COMPLETED) {
         return true
       }
-      if (this.syncState === cloudSync.SyncState.UPLOAD_FAILED || this.syncState === cloudSync.SyncState.DOWNLOAD_FAILED) {
+      if (this.syncProgressGeneration > sinceGeneration &&
+        (this.syncState === cloudSync.SyncState.UPLOAD_FAILED || this.syncState === cloudSync.SyncState.DOWNLOAD_FAILED)) {
         return false
       }
       await new Promise<void>((resolve) => {
         setTimeout(() => resolve(), 100)
       })
     }
-    return this.syncState === cloudSync.SyncState.COMPLETED
+    return this.syncProgressGeneration > sinceGeneration && this.syncState === cloudSync.SyncState.COMPLETED
   }
 
   isResettingSyncData(): boolean {
@@ -499,8 +509,10 @@ export class CloudConfigSyncService {
       if (!this.exportSnapshotToCloud(localTs)) {
         throw new Error('export snapshot failed')
       }
+      if (!await this.safeStartFileSync('上传配置')) {
+        throw new Error('file sync upload did not complete')
+      }
       this.lastSyncMessage = '已生成本地快照并上传到云端'
-      await this.safeStartFileSync('上传配置')
     })
   }
 
@@ -545,8 +557,9 @@ export class CloudConfigSyncService {
         if (!this.exportSnapshotToCloud(localTs)) {
           throw new Error('export snapshot failed')
         }
-        this.lastSyncMessage = '已自动上传较新的本地快照'
-        await this.safeStartFileSync('自动同步上传')
+        if (await this.safeStartFileSync('自动同步上传')) {
+          this.lastSyncMessage = '已自动上传较新的本地快照'
+        }
       } else if (compare < 0) {
         const cloudMeta = this.readCloudMeta()
         if (!await this.ensureCloudSnapshotCached(cloudMeta.updatedAt, '已自动使用较新的云端快照更新本地')) {
@@ -590,7 +603,7 @@ export class CloudConfigSyncService {
     this.refreshMetaState()
     if (enabled) {
       this.lastSyncMessage = '已开启自动同步，将优先采用较新的快照'
-      this.safeStartFileSync('自动同步初始化')
+      void this.safeStartFileSync('自动同步初始化')
     } else {
       this.lastSyncMessage = '已关闭自动同步'
     }
@@ -612,7 +625,7 @@ export class CloudConfigSyncService {
           await this.cloudFileCache.stop(fileUri.getUriFromPath(this.cloudDbPath()), true)
         } catch (_) {}
         try {
-          AppManager.easytier.stop()
+          await AppManager.easytier.stopAndWait()
         } catch (_) {}
         await AppManager.preference.clearLegacyPreferenceSources(context)
 
@@ -628,8 +641,7 @@ export class CloudConfigSyncService {
         this.removeFileIfExists(this.localExportSnapshotPath())
         this.removeFileIfExists(this.localImportSnapshotPath())
 
-        await this.safeStartFileSync('重置同步文件')
-        const synced = await this.waitForSyncCompletion(5000)
+        const synced = await this.safeStartFileSync('重置同步文件')
         try {
           await this.fileSync.stop()
         } catch (_) {}

@@ -9,18 +9,11 @@ import { DiscoverBall } from '../../components/status/DiscoverBall'
 import { HdsMenuButton } from '../Components'
 import { PeerInfo } from '../../class/InstanceInfo'
 import { ConfigJson } from '../../config/schema/SchemaConfig'
-import { NatTypeValue } from '../../types/runtime/RuntimeTypes'
+import { NatTypeValue, natTypeToText } from '../../types/runtime/RuntimeTypes'
 import { Protocol, protocolBGColor, protocolColor } from '../../util/Conversion'
 import { WindowUtil } from '../../WindowUtil'
 import { harmonyShare } from '@kit.ShareKit'
 import { buildShareData } from '../../util/ShareUtil'
-
-function natTypeToJSON(value: NatTypeValue): string {
-  if (value === NatTypeValue.Unknown) {
-    return 'Unknown'
-  }
-  return '' + value
-}
 
 @HMRouter({ pageUrl: "StatusPage" })
 @ComponentV2
@@ -283,7 +276,7 @@ export struct StatusPage {
                   .fontSize(12)
 
                 Row({ space: 4 }) {
-                  Text(natTypeToJSON(this.udp_nat))
+                  Text(`UDP ${natTypeToText(this.udp_nat)}`)
                     .fontSize(12)
 
                   Divider()
@@ -293,7 +286,7 @@ export struct StatusPage {
                     .lineCap(LineCapStyle.Round)
                     .height(Sfp2vp(12) * 0.7)
 
-                  Text(natTypeToJSON(this.tcp_nat))
+                  Text(`TCP ${natTypeToText(this.tcp_nat)}`)
                     .fontSize(12)
                 }
               }

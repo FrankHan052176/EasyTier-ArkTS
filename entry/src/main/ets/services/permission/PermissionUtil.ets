@@ -6,6 +6,7 @@ import { Logger, LogLocate } from '../../shared/logging/Logger';
 import { APP_BUNDLE_NAME, VPN_EXTENSION_ABILITY_NAME } from '../runtime/AbilityRuntimePolicy';
 
 const DISTRIBUTED_DATASYNC_PERMISSION: Permissions = 'ohos.permission.DISTRIBUTED_DATASYNC';
+let vpnPermissionReady: boolean = false
 
 @LogLocate("PermissionUtil")
 @ObservedV2
@@ -93,18 +94,30 @@ export class PermissionUtil {
     return this.distributePerm == abilityAccessCtrl.GrantStatus.PERMISSION_GRANTED
   }
 
-  requestVpnPerm(callback: () => void, finallyCallback: () => void = () => {}) {
+  requestVpnPerm(callback: () => void, finallyCallback: () => void = () => {},
+    errorCallback: (error: BusinessError) => void = () => {}) {
+    if (vpnPermissionReady) {
+      callback()
+      finallyCallback()
+      return
+    }
     vpnExtension.startVpnExtensionAbility({
       deviceId: '',
       bundleName: APP_BUNDLE_NAME,
       abilityName: VPN_EXTENSION_ABILITY_NAME,
     }).then(() => {
       Logger.debug("startVpnExtensionAbility", this)
-      vpnExtension.stopVpnExtensionAbility({
+      return vpnExtension.stopVpnExtensionAbility({
         deviceId: '',
         bundleName: APP_BUNDLE_NAME,
         abilityName: VPN_EXTENSION_ABILITY_NAME,
-      }).then(callback)
+      }).then(() => {
+        vpnPermissionReady = true
+        callback()
+      })
+    }).catch((error: BusinessError) => {
+      Logger.error(`VPN permission probe failed: ${error.code}, ${error.message}`, this)
+      errorCallback(error)
     }).finally(() => {
       finallyCallback()
     })

@@ -46,6 +46,7 @@ export class EntryKernelSocketService {
     if (this.kernelSocketClient?.isConnected()) {
       return
     }
+    this.kernelSocketClient?.close()
     this.kernelSocketClient = new KernelSocketClient()
     this.kernelSocketClient.start({
       socketPath,
@@ -53,9 +54,6 @@ export class EntryKernelSocketService {
       shouldConnect: this.shouldConnect,
       onConnected: () => {
         Logger.info('Connected to kernel socket', this.logTarget)
-      },
-      onConnectError: (error: BusinessError) => {
-        return error.code === 2301106
       },
       onRetry: (retryCount: number, error: BusinessError) => {
         Logger.info(`kernel socket connect retry=${retryCount} code=${error.code} message=${error.message}`, this.logTarget)
@@ -69,6 +67,15 @@ export class EntryKernelSocketService {
   close(): void {
     this.kernelSocketClient?.close()
     this.kernelSocketClient = undefined
+  }
+
+  reconnect(socketPath: string): void {
+    this.close()
+    this.connect(socketPath)
+  }
+
+  isConnected(): boolean {
+    return this.kernelSocketClient?.isConnected() ?? false
   }
 
   private handleMessage(msg: KernelSocketMessage): void {

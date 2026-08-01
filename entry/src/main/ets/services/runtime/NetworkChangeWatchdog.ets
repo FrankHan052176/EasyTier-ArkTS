@@ -10,23 +10,19 @@ async function stopInstancesWorker(ids: string[]): Promise<boolean> {
 }
 
 @Concurrent
-async function startStoredInstancesWorker(ids: string[]): Promise<void> {
+async function startStoredInstancesWorker(ids: string[]): Promise<boolean> {
+  let started = true
   for (const id of ids) {
-    easytier.startKernel(id)
+    if (!easytier.startKernel(id)) {
+      started = false
+    }
   }
+  return started
 }
 
 @Concurrent
 async function startWithConfigWorker(cfgJson: string): Promise<boolean> {
   return easytier.parseNetworkConfig(cfgJson) && easytier.runNetworkInstance(cfgJson)
-}
-
-const RESTART_SETTLE_MS = 500
-
-function settle(): Promise<void> {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, RESTART_SETTLE_MS)
-  })
 }
 
 /**
@@ -35,28 +31,58 @@ function settle(): Promise<void> {
  * 可能阻塞数秒），绝不能放在主线程，否则会触发 LIFECYCLE_TIMEOUT
  * 冻屏并被系统杀进程。与 EasyTierUtil 的 stopKernelWorker 同一策略。
  */
-export async function softRestartStoredInstances(ids: string[]): Promise<void> {
-  await taskpool.execute(stopInstancesWorker, ids)
-  await settle()
-  await taskpool.execute(startStoredInstancesWorker, ids)
+export interface NetworkRestartResult {
+  stopped: boolean
+  started: boolean
+  cancelled: boolean
+}
+
+export async function stopStoredInstances(ids: string[]): Promise<boolean> {
+  return await taskpool.execute(stopInstancesWorker, ids) as boolean
+}
+
+export async function softRestartStoredInstances(ids: string[], shouldStart: () => boolean = () => true): Promise<NetworkRestartResult> {
+  const stopped = await stopStoredInstances(ids)
+  if (!stopped || !shouldStart()) {
+    return {
+      stopped,
+      started: false,
+      cancelled: stopped
+    }
+  }
+  const started = await taskpool.execute(startStoredInstancesWorker, ids) as boolean
+  return {
+    stopped,
+    started,
+    cancelled: false
+  }
 }
 
 /** ext（子进程）模式：以持有的原始配置 JSON 重启单实例，同样走 taskpool */
-export async function softRestartWithConfig(id: string, cfgJson: string): Promise<void> {
-  await taskpool.execute(stopInstancesWorker, [id])
-  await settle()
-  await taskpool.execute(startWithConfigWorker, cfgJson)
+export async function softRestartWithConfig(id: string, cfgJson: string,
+  shouldStart: () => boolean = () => true): Promise<NetworkRestartResult> {
+  const stopped = await stopStoredInstances([id])
+  if (!stopped || !shouldStart()) {
+    return {
+      stopped,
+      started: false,
+      cancelled: stopped
+    }
+  }
+  const started = await taskpool.execute(startWithConfigWorker, cfgJson) as boolean
+  return {
+    stopped,
+    started,
+    cancelled: false
+  }
 }
 
 /**
  * 物理网络切换看护。
  *
- * 背景：WiFi/蜂窝切换后，内核既有连接绑定在已失效的网络上，
- * 自动重连大概率卡死（尤其是曾执行过 protectProcessNet 时，
- * 进程套接字仍固定在旧网络句柄上）。内核代码不可修改，因此在
- * 应用层监听“物理承载网络”的变化，切网后对运行中的实例做一次
- * 内核级软重启（停止→原配置拉起），并给上层机会先重新执行
- * 网络保护绑定。
+ * WiFi/蜂窝等默认网络切换后，只对运行中的 EasyTier 实例执行一次
+ * 内核级软重启（停止→原配置拉起）。VPN Connection 与 TUN 生命周期
+ * 不属于此看护器，不能在切网回调中修改。
  *
  * 只观察 WiFi/蜂窝/以太网承载：自身 VPN 虚拟网络的出现与消失
  * 不会被当成切网（否则会造成重启死循环）。
@@ -66,13 +92,8 @@ export interface NetworkChangeWatchdogOptions {
   /** 返回需要看护重启的实例 configId 列表；空数组表示当前无需处理 */
   getRunningIds: () => string[]
   /** 执行内核级软重启 */
-  restartInstances: (ids: string[]) => void
-  /** 重启前的准备动作（如重新 protectProcessNet），完成后必须调用 done */
-  beforeRestart?: (done: () => void) => void
+  restartInstances: (ids: string[]) => Promise<NetworkRestartResult>
 }
-
-const SWITCH_DEBOUNCE_MS = 1500
-const RESTART_COOLDOWN_MS = 8000
 
 export class NetworkChangeWatchdog {
   private readonly options: NetworkChangeWatchdogOptions
@@ -80,9 +101,10 @@ export class NetworkChangeWatchdog {
   private baselineSet: boolean = false
   private currentNetId: number = -1
   private lostSinceLast: boolean = false
-  private debounceTimer: number = -1
-  private lastRestartAt: number = 0
   private started: boolean = false
+  private restartInFlight: boolean = false
+  private pendingRestart: boolean = false
+  private generation: number = 0
 
   constructor(options: NetworkChangeWatchdogOptions) {
     this.options = options
@@ -93,29 +115,26 @@ export class NetworkChangeWatchdog {
       return
     }
     this.started = true
+    this.generation++
     try {
-      this.netConnection = connection.createNetConnection({
-        netCapabilities: {
-          bearerTypes: [
-            connection.NetBearType.BEARER_CELLULAR,
-            connection.NetBearType.BEARER_WIFI,
-            connection.NetBearType.BEARER_ETHERNET
-          ]
-        }
-      })
+      // 不传 NetSpecifier 才是监听系统默认的非 VPN 网络。
+      this.netConnection = connection.createNetConnection()
       this.netConnection.on('netAvailable', (netHandle: connection.NetHandle) => {
-        this.onPhysicalNetAvailable(netHandle.netId)
+        this.onDefaultNetAvailable(netHandle.netId)
       })
       this.netConnection.on('netLost', (netHandle: connection.NetHandle) => {
         if (netHandle.netId === this.currentNetId) {
           this.lostSinceLast = true
-          Logger.info(`physical net lost netId=${netHandle.netId}`, this.options.logTarget)
+          this.currentNetId = -1
+          Logger.info(`default net lost netId=${netHandle.netId}`, this.options.logTarget)
         }
       })
       this.netConnection.register((error: BusinessError) => {
         if (error) {
           Logger.error(`net watchdog register failed: ${error.code} ${error.message}`, this.options.logTarget)
+          return
         }
+        this.captureDefaultNetworkBaseline()
       })
       Logger.info('network change watchdog started', this.options.logTarget)
     } catch (error) {
@@ -128,10 +147,7 @@ export class NetworkChangeWatchdog {
       return
     }
     this.started = false
-    if (this.debounceTimer >= 0) {
-      clearTimeout(this.debounceTimer)
-      this.debounceTimer = -1
-    }
+    this.generation++
     try {
       this.netConnection?.unregister((_error: BusinessError) => {
       })
@@ -141,9 +157,27 @@ export class NetworkChangeWatchdog {
     this.baselineSet = false
     this.currentNetId = -1
     this.lostSinceLast = false
+    this.restartInFlight = false
+    this.pendingRestart = false
   }
 
-  private onPhysicalNetAvailable(netId: number): void {
+  private captureDefaultNetworkBaseline(): void {
+    const generation = this.generation
+    connection.getDefaultNet().then((netHandle: connection.NetHandle) => {
+      if (!this.started || this.generation !== generation || this.baselineSet) {
+        return
+      }
+      this.baselineSet = true
+      this.currentNetId = netHandle.netId
+      Logger.info(`default net baseline netId=${netHandle.netId}`, this.options.logTarget)
+    }).catch((error: BusinessError) => {
+      if (this.started && this.generation === generation) {
+        Logger.info(`default net baseline unavailable: ${error.code} ${error.message}`, this.options.logTarget)
+      }
+    })
+  }
+
+  private onDefaultNetAvailable(netId: number): void {
     if (!this.started) {
       return
     }
@@ -151,7 +185,7 @@ export class NetworkChangeWatchdog {
       // 启动时的首个物理网络：仅作为基线，不触发重启
       this.baselineSet = true
       this.currentNetId = netId
-      Logger.info(`physical net baseline netId=${netId}`, this.options.logTarget)
+      Logger.info(`default net baseline netId=${netId}`, this.options.logTarget)
       return
     }
     const switched = netId !== this.currentNetId || this.lostSinceLast
@@ -160,50 +194,46 @@ export class NetworkChangeWatchdog {
     if (!switched) {
       return
     }
-    Logger.info(`physical net switched to netId=${netId}`, this.options.logTarget)
-    this.scheduleRestart()
+    Logger.info(`default net switched to netId=${netId}`, this.options.logTarget)
+    this.performRestart(`default net switched to ${netId}`)
   }
 
-  private scheduleRestart(): void {
-    if (this.debounceTimer >= 0) {
-      clearTimeout(this.debounceTimer)
-    }
-    this.debounceTimer = setTimeout(() => {
-      this.debounceTimer = -1
-      this.performRestart()
-    }, SWITCH_DEBOUNCE_MS)
-  }
-
-  private performRestart(): void {
+  private performRestart(reason: string): void {
     if (!this.started) {
       return
     }
-    const now = Date.now()
-    if (now - this.lastRestartAt < RESTART_COOLDOWN_MS) {
-      Logger.info('net watchdog restart skipped (cooldown)', this.options.logTarget)
+    if (this.restartInFlight) {
+      this.pendingRestart = true
+      Logger.info(`net watchdog restart queued reason=${reason}`, this.options.logTarget)
       return
     }
     const ids = this.options.getRunningIds()
     if (ids.length === 0) {
       return
     }
-    this.lastRestartAt = now
-    Logger.info(`net switched, soft-restarting instances: ${ids.join(',')}`, this.options.logTarget)
-    const run = (): void => {
-      try {
-        this.options.restartInstances(ids)
-      } catch (error) {
-        Logger.error(`net watchdog restart error: ${JSON.stringify(error)}`, this.options.logTarget)
+    const generation = this.generation
+    this.pendingRestart = false
+    this.restartInFlight = true
+    Logger.info(`soft-restarting instances reason=${reason}: ${ids.join(',')}`, this.options.logTarget)
+    this.options.restartInstances(ids).then((result: NetworkRestartResult) => {
+      if (!this.started || this.generation !== generation) {
+        return
       }
-    }
-    if (this.options.beforeRestart) {
-      try {
-        this.options.beforeRestart(run)
-      } catch (_) {
-        run()
+      Logger.info(`net watchdog restart result stopped=${result.stopped} started=${result.started} cancelled=${result.cancelled}`, this.options.logTarget)
+    }).catch((error: Error) => {
+      if (!this.started || this.generation !== generation) {
+        return
       }
-    } else {
-      run()
-    }
+      Logger.error(`net watchdog restart error: ${error.message}`, this.options.logTarget)
+    }).finally(() => {
+      if (this.generation !== generation) {
+        return
+      }
+      this.restartInFlight = false
+      if (this.pendingRestart) {
+        this.pendingRestart = false
+        this.performRestart('network changed while restart was running')
+      }
+    })
   }
 }

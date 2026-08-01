@@ -10,6 +10,7 @@ import { SettingAdvanced_Content, SettingAbout_Content, SettingCloudSync_Content
   SettingPermissions_Content, Setting_Sheet } from './Settings'
 import { UI_Content } from './UIModifier'
 import { BlackList_Content } from './BlackList'
+import { sendToast } from '../../ToastUtil'
 
 @Builder
 export function HomeSheetContentBuilder(type: string) {
@@ -49,6 +50,14 @@ struct HomeSheetContent {
     this.closeSheet()
   }
 
+  private toggleAppFilterMode(): void {
+    if (AppManager.easytier.hasActiveOrStartingRuntime()) {
+      sendToast('实例运行中，请停止后再切换黑白名单模式', $r('sys.symbol.exclamationmark_circle'), 1)
+      return
+    }
+    AppManager.uiState.white_list = !AppManager.uiState.white_list
+  }
+
   private titleText(): string {
     if (this.type === 'new') {
       return '新建实例'
@@ -78,7 +87,7 @@ struct HomeSheetContent {
     if (this.type === 'black_list') {
       return [
         HdsMenuButton('切换', $r('sys.symbol.arrow_2_circlepath'), () => {
-          AppManager.uiState.white_list = !AppManager.uiState.white_list
+          this.toggleAppFilterMode()
         }),
         HdsMenuButton('关闭', $r('sys.symbol.xmark'), () => this.closeSheet())
       ]
@@ -145,6 +154,24 @@ struct HomeSheetContent {
     this.settingPathStack.pushPath(new NavPathInfo(page, null))
   }
 
+  private async confirmCloudReset(): Promise<void> {
+    try {
+      const result = await this.getUIContext().getPromptAction().showDialog({
+        title: '重置云空间同步',
+        message: '将停止当前实例，并删除本地配置及云空间同步快照。此操作无法撤销。',
+        buttons: [
+          { text: '确认重置', color: '#C91C1C' },
+          { text: '取消', color: '#0A59F7' }
+        ]
+      })
+      if (result.index === 0) {
+        await AppManager.cloudSync.resetAllSyncData()
+      }
+    } catch (_) {
+      sendToast('重置本地与云端数据失败', $r('sys.symbol.exclamationmark_circle'), 1)
+    }
+  }
+
   private settingDestinationTitle(page: string): string {
     if (page === 'ui') {
       return 'UI 设置'
@@ -174,7 +201,7 @@ struct HomeSheetContent {
     if (page === 'black_list') {
       return [
         HdsMenuButton('切换', $r('sys.symbol.arrow_2_circlepath'), () => {
-          AppManager.uiState.white_list = !AppManager.uiState.white_list
+          this.toggleAppFilterMode()
         }),
         HdsMenuButton('关闭', $r('sys.symbol.xmark'), () => this.closeSheet())
       ]
@@ -191,7 +218,9 @@ struct HomeSheetContent {
         } else if (page === 'black_list') {
           BlackList_Content()
         } else if (page === 'cloud_sync') {
-          SettingCloudSync_Content()
+          SettingCloudSync_Content(() => {
+            void this.confirmCloudReset()
+          })
         } else if (page === 'logs') {
           SettingLogs_Content()
         } else if (page === 'permissions') {

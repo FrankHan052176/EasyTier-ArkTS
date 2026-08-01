@@ -11,6 +11,31 @@ export enum NatTypeValue {
   SymmetricEasyDec = 9,
 }
 
+export function natTypeToText(value: NatTypeValue): string {
+  switch (value) {
+    case NatTypeValue.OpenInternet:
+      return '公网'
+    case NatTypeValue.NoPAT:
+      return '无端口转换'
+    case NatTypeValue.FullCone:
+      return '全锥型'
+    case NatTypeValue.Restricted:
+      return '受限锥型'
+    case NatTypeValue.PortRestricted:
+      return '端口受限型'
+    case NatTypeValue.Symmetric:
+      return '对称型'
+    case NatTypeValue.SymUdpFirewall:
+      return '对称防火墙'
+    case NatTypeValue.SymmetricEasyInc:
+      return '对称递增型'
+    case NatTypeValue.SymmetricEasyDec:
+      return '对称递减型'
+    default:
+      return '未知'
+  }
+}
+
 export interface RuntimeRouteView {
   peerId: number
   hostname?: string

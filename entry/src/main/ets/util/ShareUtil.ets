@@ -111,12 +111,18 @@ export async function unwrapUrl(url: url.URL): Promise<boolean> {
     }
 
     const importedId: string | null = easytier.importConfigShareLink(url.toString(), payload.displayName)
-    if (importedId) {
-      EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
+    if (!importedId) {
+      Logger.error('importConfigShareLink returned no config id', 'ShareUtil')
+      return false
     }
-    const storedJson = importedId ? easytier.getConfig(importedId) : undefined
-    const importedConfig: ConfigJson = storedJson ? JSON.parse(storedJson) as ConfigJson : config
-    const finalId: string = importedId ?? importedConfig.instance_id!
+    EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
+    const storedJson = easytier.getConfig(importedId)
+    if (!storedJson) {
+      Logger.error(`imported config missing id=${importedId}`, 'ShareUtil')
+      return false
+    }
+    const importedConfig: ConfigJson = JSON.parse(storedJson) as ConfigJson
+    const finalId: string = importedId
     AppManager.data.readConfig(finalId, payload.displayName ?? finalId, importedConfig)
     return true
   } catch (e) {

@@ -34,11 +34,11 @@ function pickPrimaryConn(conns: RuntimePeerConnInfo[], defaultConnId?: string): 
 }
 
 function fixedRate(value: number): number {
-  if (value > 107374182) {
+  if (value >= 1073741824) {
     return (value / 1073741824)
-  } else if (value > 104858) {
+  } else if (value >= 1048576) {
     return (value / 1048576)
-  } else if (value > 102) {
+  } else if (value >= 1024) {
     return (value / 1024)
   } else {
     return value
@@ -46,11 +46,11 @@ function fixedRate(value: number): number {
 }
 
 function rateUnit(value: number): string {
-  if (value > 107374182) {
+  if (value >= 1073741824) {
     return "GB/s"
-  } else if (value > 104858) {
+  } else if (value >= 1048576) {
     return "MB/s"
-  } else if (value > 102) {
+  } else if (value >= 1024) {
     return "KB/s"
   } else {
     return "B/s"
@@ -68,6 +68,7 @@ export class PeerInfo {
   @Trace byte_rate: number = 0
   @Trace byte_arr: CircleArray<number> = new CircleArray(10)
   @Trace last_bytes: number = 0
+  private last_sample_at_ms: number = -1
   @Trace ip: string
   @Trace resolvedRemoteAddr: string = ''
 
@@ -83,10 +84,27 @@ export class PeerInfo {
     this.ip = ip
   }
 
-  push(byte: number) {
-    this.byte_arr.push(byte - this.last_bytes)
+  push(byte: number, sampledAtMs: number = Date.now()): void {
+    if (this.last_sample_at_ms < 0) {
+      this.last_bytes = byte
+      this.last_sample_at_ms = sampledAtMs
+      return
+    }
+    if (byte < this.last_bytes) {
+      this.byte_arr.clear()
+      this.byte_rate = 0
+      this.last_bytes = byte
+      this.last_sample_at_ms = sampledAtMs
+      return
+    }
+    const elapsedSeconds = (sampledAtMs - this.last_sample_at_ms) / 1000
+    if (elapsedSeconds <= 0) {
+      return
+    }
+    this.byte_arr.push((byte - this.last_bytes) / elapsedSeconds)
     this.last_bytes = byte
-    this.byte_rate = this.byte_arr.sum
+    this.last_sample_at_ms = sampledAtMs
+    this.byte_rate = this.byte_arr.average
   }
 
   getRate(): number {
@@ -110,12 +128,12 @@ export class PeerInfo {
     }
   }
 
-  updateTraffic(totalBytes: number, latencyUs: number, lossRate: number) {
+  updateTraffic(totalBytes: number, latencyUs: number, lossRate: number, sampledAtMs: number = Date.now()): void {
     if (latencyUs >= 0) {
       this.latency_us = latencyUs
     }
     this.loss = lossRate
-    this.push(totalBytes)
+    this.push(totalBytes, sampledAtMs)
   }
 }
 
@@ -128,6 +146,7 @@ export class InstanceInfo {
   @Trace private upload_rate: number = 0
   @Trace private upload_arr: CircleArray<number> = new CircleArray(10)
   @Trace private last_upload: number = -1
+  private last_traffic_sample_at_ms: number = -1
   @Trace udp_nat: NatTypeValue = NatTypeValue.Unknown
   @Trace tcp_nat: NatTypeValue = NatTypeValue.Unknown
   @Trace ip: string = "waiting"
@@ -300,32 +319,42 @@ export class InstanceInfo {
   }
   */
 
-  updateTraffic(stats: InstanceTrafficStats) {
-    this.updateTrafficCounters(stats.rxBytes, stats.txBytes)
+  updateTraffic(stats: InstanceTrafficStats, sampledAtMs: number = Date.now()): void {
+    this.updateTrafficCounters(stats.rxBytes, stats.txBytes, sampledAtMs)
     for (const peer of stats.peers ?? []) {
       const peerInfo = this.peers.get(peer.peerId)
-      peerInfo?.updateTraffic(peer.totalBytes, peer.latencyUs, peer.lossRate)
+      peerInfo?.updateTraffic(peer.totalBytes, peer.latencyUs, peer.lossRate, sampledAtMs)
     }
   }
 
-  private updateTrafficCounters(rxBytes: number, txBytes: number): void {
-    if (this.last_download < 0) {
+  private updateTrafficCounters(rxBytes: number, txBytes: number, sampledAtMs: number = Date.now()): void {
+    if (this.last_download < 0 || this.last_upload < 0 || this.last_traffic_sample_at_ms < 0) {
       this.last_download = rxBytes
-    } else {
-      const deltaDownload = Math.max(0, rxBytes - this.last_download)
-      this.download_arr.push(deltaDownload)
-      this.download_rate = this.download_arr.sum
+      this.last_upload = txBytes
+      this.last_traffic_sample_at_ms = sampledAtMs
+      return
+    }
+    if (rxBytes < this.last_download || txBytes < this.last_upload) {
+      this.download_arr.clear()
+      this.upload_arr.clear()
+      this.download_rate = 0
+      this.upload_rate = 0
       this.last_download = rxBytes
-    }
-
-    if (this.last_upload < 0) {
       this.last_upload = txBytes
-    } else {
-      const deltaUpload = Math.max(0, txBytes - this.last_upload)
-      this.upload_arr.push(deltaUpload)
-      this.upload_rate = this.upload_arr.sum
-      this.last_upload = txBytes
+      this.last_traffic_sample_at_ms = sampledAtMs
+      return
     }
+    const elapsedSeconds = (sampledAtMs - this.last_traffic_sample_at_ms) / 1000
+    if (elapsedSeconds <= 0) {
+      return
+    }
+    this.download_arr.push((rxBytes - this.last_download) / elapsedSeconds)
+    this.upload_arr.push((txBytes - this.last_upload) / elapsedSeconds)
+    this.download_rate = this.download_arr.average
+    this.upload_rate = this.upload_arr.average
+    this.last_download = rxBytes
+    this.last_upload = txBytes
+    this.last_traffic_sample_at_ms = sampledAtMs
   }
 
   getDownloadRate(): number {

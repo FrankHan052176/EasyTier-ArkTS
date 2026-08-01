@@ -33,7 +33,7 @@ export class UIState {
   @Trace white_list: boolean = false
   @Trace vault_mode: boolean = false
   @Trace ask_dlp: boolean = false
-  @Trace ext_mode: boolean = false
+  @Trace ext_mode: boolean = true
   @Trace cloud_auto_sync: boolean = false
   @Trace background_keep_alive_mode: string = BACKGROUND_KEEP_ALIVE_DATA_TRANSFER
 

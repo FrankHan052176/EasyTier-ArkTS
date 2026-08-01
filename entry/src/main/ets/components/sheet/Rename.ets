@@ -93,8 +93,15 @@ export struct Rename_Content {
           sendToast('远端重命名失败', $r('sys.symbol.exclamationmark_circle'), 1)
           return
         }
-      } else if (!isCloudResetting()) {
-        easytier.renameStoredConfig(instanceId, value)
+      } else if (isCloudResetting()) {
+        sendToast('云同步重置中，暂时无法重命名', $r('sys.symbol.exclamationmark_circle'), 1)
+        return
+      } else {
+        const ok = easytier.renameStoredConfig(instanceId, value)
+        if (!ok) {
+          sendToast('重命名失败', $r('sys.symbol.exclamationmark_circle'), 1)
+          return
+        }
         EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
       }
       if (this.closeAfterSubmit) {

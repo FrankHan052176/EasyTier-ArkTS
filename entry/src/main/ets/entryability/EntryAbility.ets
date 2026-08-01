@@ -7,6 +7,7 @@ import easytier from 'easytier-ohrs';
 import { JSON } from '@kit.ArkTS';
 import { BUILD_TIME } from '../util/info/BuildTime';
 import { WindowUtil } from '../WindowUtil';
+import { publishTextNotification } from '../util/NoticeHelper';
 import { HMRouterMgr } from '@hadss/hmrouter';
 import { AppManager } from '../AppManager';
 import { buildShareUrlSync } from '../util/ShareUtil';
@@ -42,8 +43,12 @@ import {
 } from '../types/events/RuntimeEventTypes'
 import { SharedIntentImportService } from '../services/share/SharedIntentImportService'
 import { StatusBarIntegrationService } from '../services/desktop/StatusBarIntegrationService'
-import { NetworkChangeWatchdog, softRestartStoredInstances } from '../services/runtime/NetworkChangeWatchdog'
+import { NetworkChangeWatchdog, NetworkRestartResult } from '../services/runtime/NetworkChangeWatchdog'
 import { startupMark } from '../services/runtime/StartupTrace'
+import {
+  registerEntryRuntimeHandlers,
+  unregisterEntryRuntimeHandlers
+} from '../services/runtime/EntryRuntimeStopBridge'
 import {
   shouldUseEntryBackgroundKeepAlive,
   shouldUseSubprocessRuntimeMode,
@@ -275,12 +280,10 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     this.statusBarSubscriber = undefined
   }
 
-  startContinuousTask(cfg: string, uuid: string | undefined, name: string | undefined) {
-    this.entryBackgroundTaskService?.startContinuousTask(cfg, uuid, name)
-  }
-
-  stopContinuousTask() {
-    void this.entryBackgroundTaskService?.stopContinuousTask()
+  stopContinuousTask(): void {
+    void this.entryBackgroundTaskService?.stopContinuousTask().catch((error: Error) => {
+      Logger.error(`stop continuous task failed: ${error.message}`, this)
+    })
   }
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
@@ -289,15 +292,16 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     this.entryVpnService = new EntryVpnConnectionService({
       context: this.context,
       logTarget: this,
-      requestVpnPerm: (callback: () => void) => {
-        AppManager.permission.requestVpnPerm(callback)
+      requestVpnPerm: (callback: () => void, errorCallback?: (error: BusinessError) => void) => {
+        AppManager.permission.requestVpnPerm(callback, () => {}, errorCallback)
       },
       activateMissionContinue: () => {
         this.activateMissionContinue()
       },
       setTunFd: (instanceId: string, fd: number) => {
-        easytier.setTunFd(instanceId, fd)
+        const attached = easytier.setTunFd(instanceId, fd)
         Logger.info(`setTunFd sent instance=${instanceId}`, this)
+        return attached
       }
     })
     this.entryKernelSocketService = new EntryKernelSocketService({
@@ -342,7 +346,29 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
       },
       shouldUseBackgroundKeepAlive: () => {
         return shouldUseEntryBackgroundKeepAlive()
+      },
+      onBackgroundTaskCancelled: (reason: string) => {
+        Logger.error(`background keep-alive cancelled reason=${reason}`, this)
+      },
+      onBackgroundTaskSuspended: (reason: string) => {
+        Logger.warn(`background keep-alive suspended reason=${reason}`, this)
+        publishTextNotification('后台保活已暂停，打开应用后将自动恢复')
+      },
+      onBackgroundTaskActive: () => {
+        AppManager.easytier.ensureRuntimeConnection()
       }
+    })
+    registerEntryRuntimeHandlers(async (cfg: string, uuid: string | undefined, name: string | undefined,
+      shouldProtect: boolean): Promise<boolean> => {
+      if (!this.entryVpnService || !this.entryBackgroundTaskService) {
+        return false
+      }
+      await this.entryVpnService.prepareVpnAsync(shouldProtect)
+      this.entryKernelSocketService?.connect(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
+      return await this.entryBackgroundTaskService.startContinuousTask(cfg, uuid, name)
+    }, async () => {
+      await this.entryBackgroundTaskService?.stopContinuousTask()
+      this.entryKernelSocketService?.close()
     })
     this.entryAppBootstrapService = new EntryAppBootstrapService({
       context: this.context,
@@ -355,27 +381,6 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
       logTarget: this,
       syncContinuationSocket: () => {
         this.syncContinuationSocket()
-      },
-      prepareVpn: (shouldProtect: boolean, callback: () => void) => {
-        this.entryVpnService?.prepareVpn(shouldProtect, callback)
-      },
-      shouldProtectProcessNet: (config?: ConfigJson) => {
-        return this.shouldProtectProcessNet(config)
-      },
-      getKernelSocketPath: () => {
-        return AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME)
-      },
-      connectToKernelSocket: (socketPath: string) => {
-        this.entryKernelSocketService?.connect(socketPath)
-      },
-      startContinuousTask: (cfg: string, uuid: string | undefined, name: string | undefined) => {
-        this.startContinuousTask(cfg, uuid, name)
-      },
-      stopContinuousTask: () => {
-        this.stopContinuousTask()
-      },
-      closeKernelSocket: () => {
-        this.entryKernelSocketService?.close()
       },
       buildTunSetupRequest: (data: emitter.EventData) => {
         return this.vpnSetupRequestBuilder.buildFromEventData(data)
@@ -409,42 +414,22 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
         if (AppManager.uiState.ext_mode && shouldUseSubprocessRuntimeMode()) {
           return []
         }
-        const ids: string[] = []
-        AppManager.easytier.getRunningInstances().forEach((instance: RuntimeInstanceState) => {
-          const id = instance.configId || instance.instanceId
-          if (id && id.length > 0 && ids.indexOf(id) < 0) {
-            ids.push(id)
-          }
-        })
-        return ids
-      },
-      beforeRestart: (done: () => void) => {
-        // 若该配置启用了进程网络保护（强制全局+出口节点），
-        // 必须先在新网络上重新执行 protectProcessNet，否则内核
-        // 套接字仍固定在失效网络句柄上，重连必然失败。
-        let shouldProtect = false
-        try {
-          const running = AppManager.easytier.getRunningInstances()
-          if (running.length > 0) {
-            const id = running[0].configId || running[0].instanceId
-            const config: ConfigJson | undefined = id ? AppManager.easytier.getConfig(id) : undefined
-            shouldProtect = this.shouldProtectProcessNet(config)
-          }
-        } catch (_) {
-        }
-        if (this.entryVpnService) {
-          this.entryVpnService.prepareVpn(shouldProtect, done)
-        } else {
-          done()
-        }
+        return AppManager.easytier.getRuntimeIntentIds()
       },
       restartInstances: (ids: string[]) => {
-        // 阻塞式内核重启放入 taskpool 工作线程，避免主线程冻结被系统杀进程
-        softRestartStoredInstances(ids).catch((error: Error) => {
-          Logger.error(`soft restart failed: ${error.message}`, this)
-        }).finally(() => {
-          // 内核桥接服务端已随实例重建：重连以接收新的 tun_request/topology
-          this.entryKernelSocketService?.connect(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
+        const vpnService = this.entryVpnService
+        if (!vpnService) {
+          const cancelledResult: NetworkRestartResult = {
+            stopped: false,
+            started: false,
+            cancelled: true
+          }
+          return Promise.resolve(cancelledResult)
+        }
+        return AppManager.easytier.restartForNetworkChange(ids, () => {
+          return vpnService.beginKernelRestart()
+        }, (started: boolean) => {
+          return vpnService.completeKernelRestart(started)
         })
       }
     })
@@ -595,6 +580,8 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     AppManager.easytier.destroy()
     this.entryRuntimeEventService?.stop()
     this.stopContinuousTask()
+    this.entryBackgroundTaskService?.stopTaskMonitoring()
+    unregisterEntryRuntimeHandlers()
     this.entryKernelSocketService?.close()
     this.continuationSocketClient.close()
     this.statusBarIntegrationService?.close()
@@ -610,7 +597,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     if (AppManager.easytier.runningNetworks.size > 0) {
       let uuid = AppManager.easytier.runningNetworks.keys().next().value as string
       let cfg: ConfigJson | undefined = AppManager.easytier.getConfig(uuid)
-      Logger.debug("find "+JSON.stringify(cfg))
+      Logger.debug(`continuation config found id=${cfg.instance_id ?? ''}`, this)
       if (cfg) {
         wantParam['data'] = await buildShareUrlSync(cfg, true)
         wantParam[wantConstant.Params.SUPPORT_CONTINUE_SOURCE_EXIT_KEY] = false;
@@ -674,6 +661,12 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   onForeground(): void {
     WindowUtil.foreground()
     this.syncContinuationSocket()
+    AppManager.easytier.ensureRuntimeConnection()
+    if (AppManager.easytier.getRunningInstances().length > 0 &&
+      (!AppManager.uiState.ext_mode || !shouldUseSubprocessRuntimeMode()) &&
+      !this.entryKernelSocketService?.isConnected()) {
+      this.entryKernelSocketService?.connect(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
+    }
   }
 
   onBackground(): void {

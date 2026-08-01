@@ -36,12 +36,9 @@ export class FavoriteCardActionService {
   private readonly startFavoriteCallback = () => {
     if (AppManager.uiState.favorite) {
       if (AppManager.easytier.isFavoritesRunning()) {
-        AppManager.easytier.stop()
+        void AppManager.easytier.stopAndWait()
       } else {
-        if (AppManager.easytier.runningNetworks.size > 0) {
-          AppManager.easytier.stop()
-        }
-        AppManager.easytier.start(AppManager.uiState.favorite, true)
+        void AppManager.easytier.startAfterStop(AppManager.uiState.favorite, true)
       }
     }
     updateFavorite()

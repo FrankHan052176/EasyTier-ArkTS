@@ -10,9 +10,12 @@ export const KERNEL_MESSAGE_TRAFFIC_STATS = 'traffic_stats'
 export const KERNEL_MESSAGE_TUN_REQUEST = 'tun_request'
 export const VPN_MESSAGE_LOGS = 'logs'
 export const VPN_MESSAGE_CONTINUE_STATE = 'continue_state'
+export const VPN_MESSAGE_RUNTIME_START_REQUEST = 'runtime_start_request'
+export const VPN_MESSAGE_RUNTIME_START_RESULT = 'runtime_start_result'
 
 export type KernelSocketMessageType = 'runtime_topology' | 'runtime_peer_event' | 'traffic_stats' | 'tun_request'
-export type VpnBridgeMessageType = KernelSocketMessageType | 'logs' | 'continue_state'
+export type VpnBridgeMessageType = KernelSocketMessageType | 'logs' | 'continue_state' | 'runtime_start_request' |
+  'runtime_start_result'
 
 export interface KernelSocketMessage {
   messageType: KernelSocketMessageType | string
@@ -69,7 +72,29 @@ export interface VpnContinueStateData {
   active: boolean
 }
 
+export interface VpnRuntimeStartRequestData {
+  instanceId: string
+  cfg: string
+  name: string
+  socketFilesDir: string
+  vpnRoutes: boolean
+  whiteList: boolean
+  blackList: string[]
+  dns: string
+  dev: boolean
+  forceGlobal: boolean
+  coreLog: boolean
+  debugLog: boolean
+}
+
+export interface VpnRuntimeStartResultData {
+  instanceId: string
+  started: boolean
+  error?: string
+}
+
 export interface VpnMessage {
   type: VpnBridgeMessageType | string
-  data: RuntimeAggregateState | VpnLogData | TrafficStatsPayload | RuntimePeerEventPayload | VpnContinueStateData
+  data: RuntimeAggregateState | VpnLogData | TrafficStatsPayload | RuntimePeerEventPayload |
+    VpnContinueStateData | VpnRuntimeStartRequestData | VpnRuntimeStartResultData
 }

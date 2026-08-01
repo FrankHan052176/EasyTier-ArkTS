@@ -161,7 +161,7 @@ export class DataUtil {
       return false
     }
     let cfg = AppManager.easytier.convertToml2NetworkConfig(cfg_toml)
-    Logger.debug("convertConfig: " + cfg, this)
+    Logger.debug(`convert TOML result length=${cfg.length}`, this)
     if (cfg.startsWith("ERROR")) {
       return false
     }

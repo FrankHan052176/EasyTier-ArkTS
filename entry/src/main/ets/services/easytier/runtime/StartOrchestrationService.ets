@@ -1,6 +1,7 @@
 import easytier from 'easytier-ohrs'
 import { ConfigJson } from '../../../config/schema/SchemaConfig'
 import { VpnExtensionAbilityController } from '../../runtime/VpnExtensionAbilityController'
+import { VpnRuntimeStartRequestData } from '../../../infrastructure/bridge/kernel/KernelBridgeTypes'
 
 export interface StartOrchestrationOptions {
   config: ConfigJson
@@ -16,26 +17,23 @@ export interface StartOrchestrationOptions {
   coreLog: boolean
   debugLog: boolean
   addNeedTun: (instanceId: string) => void
-  connectToVpnExtension: (socketName: string) => void
+  connectToVpnExtension: (socketName: string, request: VpnRuntimeStartRequestData) => void
   ensureContinuationSocket: () => void
-  requestVpnPerm: (callback: () => void) => void
-  publishStartBg: (cfg: string, uuid: string | undefined, name: string) => void
+  startEntryRuntime: (cfg: string, uuid: string | undefined, name: string, shouldProtect: boolean) => Promise<boolean>
   sendInvalidConfigToast: () => void
 }
 
-export function orchestrateInstanceStart(options: StartOrchestrationOptions): boolean {
+export async function orchestrateInstanceStart(options: StartOrchestrationOptions): Promise<boolean> {
   const cfgStr = JSON.stringify(options.config)
   if (!easytier.parseNetworkConfig(cfgStr)) {
     options.sendInvalidConfigToast()
-    return true
+    return false
   }
 
-  if (!options.config.no_tun && options.config.instance_id) {
-    options.addNeedTun(options.config.instance_id)
-  }
-
+  let started = false
   if (options.extMode) {
-    VpnExtensionAbilityController.start({
+    started = await VpnExtensionAbilityController.start({
+      instanceId: options.config.instance_id ?? '',
       cfg: cfgStr,
       name: options.name,
       socketFilesDir: options.socketFilesDir,
@@ -48,12 +46,15 @@ export function orchestrateInstanceStart(options: StartOrchestrationOptions): bo
       coreLog: options.coreLog,
       debugLog: options.debugLog,
       ensureContinuationSocket: options.ensureContinuationSocket,
-      requestVpnPerm: options.requestVpnPerm,
       connectToVpnExtension: options.connectToVpnExtension
     })
   } else {
-    options.publishStartBg(cfgStr, options.config.instance_id, options.name)
+    const shouldProtect = options.forceGlobal && (options.config.exit_nodes?.length ?? 0) > 0
+    started = await options.startEntryRuntime(cfgStr, options.config.instance_id, options.name, shouldProtect)
   }
 
-  return true
+  if (started && !options.config.no_tun && options.config.instance_id) {
+    options.addNeedTun(options.config.instance_id)
+  }
+  return started
 }

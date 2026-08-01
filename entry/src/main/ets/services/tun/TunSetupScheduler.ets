@@ -31,6 +31,13 @@ export class TunSetupScheduler {
     this.clearTimer()
   }
 
+  takePending(): TunSetupRequest | undefined {
+    const request = this.pendingRequest
+    this.pendingRequest = undefined
+    this.clearTimer()
+    return request
+  }
+
   schedule(request: TunSetupRequest): void {
     if (request.signature === this.options.getCurrentSignature() && !this.options.getInFlight()) {
       this.pendingRequest = undefined

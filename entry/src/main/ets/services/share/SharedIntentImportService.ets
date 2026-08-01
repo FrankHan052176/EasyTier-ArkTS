@@ -12,10 +12,12 @@ function isHttpUrl(text: string | undefined): boolean {
   return lower.startsWith('http://') || lower.startsWith('https://')
 }
 
+const MAX_SHARED_FILE_BYTES = 2 * 1024 * 1024
+
 @LogLocate('SharedIntentImportService')
 export class SharedIntentImportService {
   static async readUri(uri: string | undefined): Promise<ConfigTextImportResult> {
-    Logger.info(`get uri:${uri}`, 'SharedIntentImportService')
+    Logger.info(`received shared URI length=${uri?.length ?? 0}`, 'SharedIntentImportService')
     const result = await ConfigTextImportService.importText(uri ?? "")
     if (!result.success) {
       Logger.error(`readUri import failed: ${result.message}`, 'SharedIntentImportService')
@@ -37,7 +39,8 @@ export class SharedIntentImportService {
       const records = data?.getRecords()
       if (records) {
         for (const record of records) {
-          Logger.info(JSON.stringify(record))
+          Logger.info(`received shared record uri=${record.uri ? 'yes' : 'no'} content=${record.content ? 'yes' : 'no'}`,
+            'SharedIntentImportService')
           if (record.uri && record.uri.length > 0) {
             handled = (await SharedIntentImportService.importSharedFile(record.uri, cacheDir)) || handled
           } else if (record.content && record.content.length > 0) {
@@ -54,7 +57,7 @@ export class SharedIntentImportService {
     }
   }
 
-  private static copySharedFileToCache(uri: string, cacheDir?: string): string | undefined {
+  private static async copySharedFileToCache(uri: string, cacheDir?: string): Promise<string | undefined> {
     if (!cacheDir || cacheDir.length === 0) {
       Logger.error('copy shared file failed: cacheDir is empty', 'SharedIntentImportService')
       return undefined
@@ -63,10 +66,20 @@ export class SharedIntentImportService {
     let file: fileIo.File | undefined = undefined
     let outFile: fileIo.File | undefined = undefined
     try {
+      const sourceStat = fileIo.statSync(uri)
+      if (sourceStat.size <= 0 || sourceStat.size > MAX_SHARED_FILE_BYTES) {
+        Logger.error(`shared file rejected size=${sourceStat.size}`, 'SharedIntentImportService')
+        return undefined
+      }
       file = fileIo.openSync(uri, fileIo.OpenMode.READ_ONLY)
-      const destPath = `${cacheDir}/${file.name}`
+      const safeName = file.name.replace(/[\\/]/g, '_')
+      const destPath = `${cacheDir}/${safeName.length > 0 ? safeName : 'shared-config'}`
+      try {
+        fileIo.unlinkSync(destPath)
+      } catch (_) {
+      }
       outFile = fileIo.openSync(destPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
-      fileIo.copyFileSync(file.fd, outFile.fd)
+      await fileIo.copyFile(file.fd, outFile.fd)
       return outFile.path
     } catch (error) {
       Logger.error(`copy shared file failed: ${JSON.stringify(error)}`, 'SharedIntentImportService')
@@ -90,22 +103,23 @@ export class SharedIntentImportService {
   }
 
   private static async importSharedFile(uri: string, cacheDir?: string): Promise<boolean> {
-    Logger.debug(`read shared file uri: ${uri}`, 'SharedIntentImportService')
-    const shareFilePath = SharedIntentImportService.copySharedFileToCache(uri, cacheDir)
+    Logger.debug(`read shared file uri length=${uri.length}`, 'SharedIntentImportService')
+    const shareFilePath = await SharedIntentImportService.copySharedFileToCache(uri, cacheDir)
     if (!shareFilePath) {
       return false
     }
 
     try {
-      Logger.info(`copied file: ${shareFilePath}`, 'SharedIntentImportService')
+      Logger.info(`shared file copied nameLength=${shareFilePath.substring(shareFilePath.lastIndexOf('/') + 1).length}`,
+        'SharedIntentImportService')
       let readTextOptions: ReadTextOptions = {
-        offset: 1,
+        offset: 0,
         length: 0,
         encoding: 'utf-8'
       };
       let stat = fileIo.statSync(shareFilePath);
       readTextOptions.length = stat.size;
-      const content = fileIo.readTextSync(shareFilePath, readTextOptions)
+      const content = await fileIo.readText(shareFilePath, readTextOptions)
       const result = await ConfigTextImportService.importText(content)
       if (!result.success) {
         Logger.error(`import shared file failed: ${result.message}`, 'SharedIntentImportService')

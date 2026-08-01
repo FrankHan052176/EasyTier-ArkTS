@@ -7,9 +7,16 @@ import {
   VpnContinueStateData,
   VpnLogData,
   VpnMessage,
+  VpnRuntimeStartRequestData,
+  VpnRuntimeStartResultData,
+  KERNEL_MESSAGE_RUNTIME_TOPOLOGY,
+  KERNEL_MESSAGE_TRAFFIC_STATS,
   VPN_MESSAGE_CONTINUE_STATE,
-  VPN_MESSAGE_LOGS
+  VPN_MESSAGE_LOGS,
+  VPN_MESSAGE_RUNTIME_START_REQUEST,
+  VPN_MESSAGE_RUNTIME_START_RESULT
 } from './KernelBridgeTypes'
+import { decodeSocketChunk, parseVpnBridgeMessage } from './SocketCodec'
 
 const VPN_LOG_FORWARD_MAX_LINES = 80
 const VPN_LOG_FORWARD_MAX_CHARS = 12000
@@ -36,9 +43,18 @@ export class VpnBridgeServer {
   private server: socket.LocalSocketServer | undefined
   private connections: Map<number, socket.LocalSocketConnection> = new Map()
   private continuationActive: boolean = false
+  private latestTopologyRaw: string = ''
+  private latestTrafficRaw: string = ''
+  private latestStartResultRaw: string = ''
+  private runtimeGeneration: number = 0
+  private latestTopologyGeneration: number = -1
+  private latestTrafficGeneration: number = -1
+  private latestStartResultGeneration: number = -1
+  private readonly onRuntimeStartRequest: ((request: VpnRuntimeStartRequestData) => void) | undefined
 
-  constructor(logTarget: Object | string) {
+  constructor(logTarget: Object | string, onRuntimeStartRequest?: (request: VpnRuntimeStartRequestData) => void) {
     this.logTarget = logTarget
+    this.onRuntimeStartRequest = onRuntimeStartRequest
   }
 
   get connectionCount(): number {
@@ -63,11 +79,35 @@ export class VpnBridgeServer {
     })
 
     this.server.on('connect', (connection: socket.LocalSocketConnection) => {
+      let requestBuffer = ''
       Logger.debug('UI process connected to VpnServer', this.logTarget)
       this.connections.set(connection.clientId, connection)
       this.sendBridgeMessage(connection, {
         type: VPN_MESSAGE_CONTINUE_STATE,
         data: { active: this.continuationActive } as VpnContinueStateData
+      })
+      if (this.latestTopologyRaw.length > 0 && this.latestTopologyGeneration === this.runtimeGeneration) {
+        this.sendRawBridgeMessage(connection, this.latestTopologyRaw)
+      }
+      if (this.latestTrafficRaw.length > 0 && this.latestTrafficGeneration === this.runtimeGeneration) {
+        this.sendRawBridgeMessage(connection, this.latestTrafficRaw)
+      }
+      if (this.latestStartResultRaw.length > 0 && this.latestStartResultGeneration === this.runtimeGeneration) {
+        this.sendRawBridgeMessage(connection, this.latestStartResultRaw)
+      }
+      connection.on('message', (value: socket.LocalSocketMessageInfo) => {
+        try {
+          const decoded = decodeSocketChunk(requestBuffer, value.message)
+          requestBuffer = decoded.rest
+          decoded.messages.forEach((rawMessage: string) => {
+            const message = parseVpnBridgeMessage(rawMessage)
+            if (message.type === VPN_MESSAGE_RUNTIME_START_REQUEST) {
+              this.onRuntimeStartRequest?.(message.data as VpnRuntimeStartRequestData)
+            }
+          })
+        } catch (error) {
+          Logger.error(`Failed to process UI runtime request: ${JSON.stringify(error)}`, this.logTarget)
+        }
       })
       connection.on('error', (err: Object) => {
         Logger.error(`Connection error: ${JSON.stringify(err)}`, this.logTarget)
@@ -87,6 +127,34 @@ export class VpnBridgeServer {
     }
     this.server = undefined
     this.connections.clear()
+    this.latestTopologyRaw = ''
+    this.latestTrafficRaw = ''
+    this.latestStartResultRaw = ''
+    this.latestTopologyGeneration = -1
+    this.latestTrafficGeneration = -1
+    this.latestStartResultGeneration = -1
+  }
+
+  beginRuntimeGeneration(): void {
+    this.runtimeGeneration++
+    this.latestTopologyRaw = ''
+    this.latestTrafficRaw = ''
+    this.latestStartResultRaw = ''
+    this.latestTopologyGeneration = -1
+    this.latestTrafficGeneration = -1
+    this.latestStartResultGeneration = -1
+    this.publishContinuationState(false)
+  }
+
+  publishRuntimeStartResult(result: VpnRuntimeStartResultData): void {
+    this.latestStartResultRaw = JSON.stringify({
+      type: VPN_MESSAGE_RUNTIME_START_RESULT,
+      data: result
+    } as VpnMessage) + '\n'
+    this.latestStartResultGeneration = this.runtimeGeneration
+    this.connections.forEach((connection) => {
+      this.sendRawBridgeMessage(connection, this.latestStartResultRaw)
+    })
   }
 
   forwardLogs(logs: string[]): void {
@@ -104,6 +172,18 @@ export class VpnBridgeServer {
   }
 
   broadcastRaw(rawMessage: string): void {
+    try {
+      const message = parseVpnBridgeMessage(rawMessage)
+      if (message.type === KERNEL_MESSAGE_RUNTIME_TOPOLOGY) {
+        this.latestTopologyRaw = rawMessage
+        this.latestTopologyGeneration = this.runtimeGeneration
+      } else if (message.type === KERNEL_MESSAGE_TRAFFIC_STATS) {
+        this.latestTrafficRaw = rawMessage
+        this.latestTrafficGeneration = this.runtimeGeneration
+      }
+    } catch (error) {
+      Logger.error(`Failed to cache bridge snapshot: ${JSON.stringify(error)}`, this.logTarget)
+    }
     this.connections.forEach((conn) => {
       this.sendRawBridgeMessage(conn, rawMessage)
     })

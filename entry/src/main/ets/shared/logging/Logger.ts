@@ -1,4 +1,5 @@
 import easytier from 'easytier-ohrs'
+import { redactSensitiveLogText } from './LogRedaction'
 
 export const LOG_LOCATE_METADATA = Symbol('log_locate');
 
@@ -30,7 +31,7 @@ export class Logger {
 
   private static write(level: number, target: any | string, msg: string): void {
     try {
-      easytier.writeAppLog(level, this.getTarget(target), msg)
+      easytier.writeAppLog(level, this.getTarget(target), redactSensitiveLogText(msg))
     } catch (_) {
     }
   }

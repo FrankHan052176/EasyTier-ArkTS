@@ -221,11 +221,11 @@ export struct HomePage {
     controller.open()
   }
 
-  startAndStop(): void {
+  async startAndStop(): Promise<void> {
     if (AppManager.easytier.runningNetworks.size > 0) {
-      AppManager.easytier.stop()
+      await AppManager.easytier.stopAndWait()
     } else {
-      AppManager.easytier.start()
+      await AppManager.easytier.startAfterStop()
     }
   }
 

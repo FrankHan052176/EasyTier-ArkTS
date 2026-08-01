@@ -1,5 +1,6 @@
 import { AppManager } from "../../AppManager"
 import { Logger } from "../../shared/logging/Logger"
+import { sendToast } from "../../ToastUtil"
 import { ToolButton } from "../util/ToolButtons"
 
 export class AppInfo {
@@ -19,7 +20,15 @@ export class AppInfo {
 export struct BlackList_Content {
   @Local text: string = ""
 
+  private isRuntimeLocked(): boolean {
+    return AppManager.easytier.hasActiveOrStartingRuntime()
+  }
+
   private addApp(): void {
+    if (this.isRuntimeLocked()) {
+      sendToast('实例运行中，请停止后再修改 App 过滤列表', $r('sys.symbol.exclamationmark_circle'), 1)
+      return
+    }
     const pkgName = this.text.trim()
     if (pkgName.length <= 0) {
       this.text = ""
@@ -43,11 +52,13 @@ export struct BlackList_Content {
           .padding({ left: 10, right: 10 })
           .backgroundColor($r("sys.color.comp_background_tertiary"))
           .borderRadius(12)
+          .enabled(!this.isRuntimeLocked())
           .onChange((value) => {
             this.text = value
           })
         Button("添加", { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
           .borderRadius(13)
+          .enabled(!this.isRuntimeLocked())
           .onClick(() => {
             this.addApp()
           })
@@ -73,6 +84,7 @@ export struct BlackList_Content {
         bgColor: $r("sys.color.background_secondary"),
         symbolColor: [$r("sys.color.warning")]
       })
+        .enabled(!AppManager.easytier.hasActiveOrStartingRuntime())
         .margin({
           left: 10,
           right: 10
@@ -86,6 +98,16 @@ export struct BlackList_Content {
     List({space: 8}) {
       ListItem()
         .height(64)
+
+      if (this.isRuntimeLocked()) {
+        ListItem() {
+          Text('实例运行中，停止后可修改过滤模式与 App 列表')
+            .width('100%')
+            .fontSize(13)
+            .fontColor($r('sys.color.font_secondary'))
+            .padding({ left: 12, right: 12, top: 8, bottom: 8 })
+        }
+      }
 
       this.addRow()
 
@@ -145,6 +167,7 @@ struct BlackListItem {
       Toggle({ type: ToggleType.Switch, isOn: this.info?.enable ?? false })
         .selectedColor($r("sys.color.brand"))
         .switchPointColor(Color.White)
+        .enabled(!AppManager.easytier.hasActiveOrStartingRuntime())
         .onChange((isOn: boolean) => {
           if (this.info) {
             this.info.enable = isOn

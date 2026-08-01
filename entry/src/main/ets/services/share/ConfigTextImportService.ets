@@ -17,6 +17,8 @@ export interface ConfigTextImportResult {
   sourceText?: string
 }
 
+const MAX_IMPORT_TEXT_LENGTH = 2 * 1024 * 1024
+
 function isHttpUrl(text: string): boolean {
   const lower = text.toLowerCase()
   return lower.startsWith('http://') || lower.startsWith('https://')
@@ -30,6 +32,14 @@ export class ConfigTextImportService {
         success: false,
         kind: ConfigTextImportKind.Empty,
         message: '剪切板中没有内容'
+      }
+    }
+
+    if (text.length > MAX_IMPORT_TEXT_LENGTH) {
+      return {
+        success: false,
+        kind: ConfigTextImportKind.Unsupported,
+        message: '导入内容过大，请使用小于 2 MB 的配置文件'
       }
     }
 
@@ -64,7 +74,7 @@ export class ConfigTextImportService {
       }
     }
 
-    Logger.debug(`unsupported import text: ${text.substring(0, 256)}`, 'ConfigTextImportService')
+    Logger.debug(`unsupported import text length=${text.length}`, 'ConfigTextImportService')
     return {
       success: false,
       kind: ConfigTextImportKind.Unsupported,

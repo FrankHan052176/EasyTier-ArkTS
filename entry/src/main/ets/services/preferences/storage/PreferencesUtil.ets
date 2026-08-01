@@ -37,6 +37,7 @@ export class PreferenceUtil {
   
   public isInit: boolean = false
   private initialized: boolean = false
+  private initPromise: Promise<void> | undefined = undefined
 
   private getStoredFavoriteConfigId(): string | undefined {
     try {
@@ -159,10 +160,23 @@ export class PreferenceUtil {
     AppManager.data.refreshConfigIds()
   }
 
-  async init(context: Context) {
+  async init(context: Context): Promise<void> {
     if (this.initialized) {
       return
     }
+    if (this.initPromise) {
+      await this.initPromise
+      return
+    }
+    this.initPromise = this.initialize(context)
+    try {
+      await this.initPromise
+    } finally {
+      this.initPromise = undefined
+    }
+  }
+
+  private async initialize(context: Context): Promise<void> {
     this.isInit = true
     let completed = false
     try {
@@ -189,7 +203,7 @@ export class PreferenceUtil {
       s.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean;
       s.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean;
       s.vault_mode = this.preferences.getSync("vault_mode", false).valueOf() as boolean;
-      s.ext_mode = this.preferences.getSync("ext_mode", false).valueOf() as boolean;
+      s.ext_mode = this.preferences.getSync("ext_mode", true).valueOf() as boolean;
       s.ask_dlp = this.preferences.getSync("ask_dlp", false).valueOf() as boolean;
       s.cloud_auto_sync = this.preferences.getSync("cloud_auto_sync", false).valueOf() as boolean;
       s.background_keep_alive_mode = normalizeBackgroundKeepAliveMode(this.preferences.getSync("background_keep_alive_mode",
