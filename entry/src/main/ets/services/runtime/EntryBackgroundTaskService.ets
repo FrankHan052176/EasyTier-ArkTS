@@ -8,6 +8,7 @@ import { publishTextNotification } from '../../util/NoticeHelper'
 import {
   BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK,
   BACKGROUND_KEEP_ALIVE_DATA_TRANSFER,
+  BACKGROUND_KEEP_ALIVE_TASK_KEEPING,
   BackgroundKeepAliveMode,
   normalizeBackgroundKeepAliveMode
 } from '../../types/runtime/BackgroundKeepAliveTypes'
@@ -137,6 +138,10 @@ export class EntryBackgroundTaskService {
 
   async startContinuousTask(name: string | undefined): Promise<boolean> {
     this.lastKeepAliveMode = normalizeBackgroundKeepAliveMode(this.getBackgroundKeepAliveMode())
+    if (this.lastKeepAliveMode === BACKGROUND_KEEP_ALIVE_TASK_KEEPING
+      && deviceInfo.deviceType.toLowerCase() !== 'tablet') {
+      this.lastKeepAliveMode = BACKGROUND_KEEP_ALIVE_DATA_TRANSFER
+    }
     this.lastTaskName = name ?? 'EasyTier'
     if (this.hasActiveContinuousTask) {
       publishTextNotification(this.lastTaskName)
@@ -153,8 +158,7 @@ export class EntryBackgroundTaskService {
     }
     try {
       const wantAgentObj = await this.createWantAgent()
-      const modes = this.lastKeepAliveMode === BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK ?
-        [BACKGROUND_KEEP_ALIVE_AUDIO_PLAYBACK] : [BACKGROUND_KEEP_ALIVE_DATA_TRANSFER]
+      const modes: string[] = [this.lastKeepAliveMode]
       const result = await backgroundTaskManager.startBackgroundRunning(this.context, modes, wantAgentObj)
       if (generation !== this.runtimeGeneration) {
         await this.stopBackgroundTask(result.continuousTaskId)

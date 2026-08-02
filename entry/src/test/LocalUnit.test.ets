@@ -9,6 +9,11 @@ import { parseVpnBridgeMessage } from '../main/ets/infrastructure/bridge/kernel/
 import { redactSensitiveLogText } from '../main/ets/shared/logging/LogRedaction';
 import { NatTypeValue, natTypeToText } from '../main/ets/types/runtime/RuntimeTypes';
 import {
+  BACKGROUND_KEEP_ALIVE_TASK_KEEPING,
+  normalizeBackgroundKeepAliveMode
+} from '../main/ets/types/runtime/BackgroundKeepAliveTypes';
+import { runtimeModeOptions } from '../main/ets/types/runtime/RuntimeModeTypes';
+import {
   THIRD_PARTY_API_SCHEMA_VERSION,
   THIRD_PARTY_OPERATION_START_INSTANCE,
   THIRD_PARTY_REQUEST_TTL_MS,
@@ -159,6 +164,11 @@ export default function localUnitTest() {
       }
       expect(ThirdPartyApiValidator.isSnapshotFresh(snapshot, now)).assertTrue()
       expect(ThirdPartyApiValidator.isSnapshotFresh(snapshot, now + THIRD_PARTY_SNAPSHOT_TTL_MS + 1)).assertFalse()
+    });
+    it('offersTaskKeepingOnlyWhenRequestedByTabletUi', 0, () => {
+      expect(runtimeModeOptions(false).length).assertEqual(2)
+      expect(runtimeModeOptions(true).length).assertEqual(3)
+      expect(normalizeBackgroundKeepAliveMode('taskKeeping')).assertEqual(BACKGROUND_KEEP_ALIVE_TASK_KEEPING)
     });
   });
 }

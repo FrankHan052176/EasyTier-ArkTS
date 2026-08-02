@@ -24,7 +24,8 @@
         "startWindowIcon": "$media:easytier_256",
         "backgroundModes": [
           "dataTransfer",
-          "audioPlayback"
+          "audioPlayback",
+          "taskKeeping"
         ],
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
@@ -130,6 +131,9 @@
       },
       {
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING"
+      },
+      {
+        "name": "ohos.permission.KEEP_BACKGROUND_RUNNING_SYSTEM"
       },
       {
         "name": "ohos.permission.INTERNET",
