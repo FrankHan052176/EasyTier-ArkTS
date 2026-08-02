@@ -82,14 +82,14 @@ jobs:
           first_run_number=$(jq -er --arg today "$today" \
             '[.workflow_runs[] | select(.created_at | startswith($today)) | .run_number] | min' \
             <<<"$workflow_runs")
-          daily_build_number=$((10#$GITHUB_RUN_NUMBER - 10#$first_run_number + 1))
-          if (( daily_build_number < 1 || daily_build_number > 99 )); then
-            echo "Daily build number is outside the supported range: $daily_build_number" >&2
+          build_number=$((10#$GITHUB_RUN_NUMBER - 10#$first_run_number + 1))
+          if (( build_number < 1 || build_number > 99 )); then
+            echo "Daily build number is outside the supported range: $build_number" >&2
             exit 1
           fi
 
           app_version_name="${core_version}.${core_commit_count}"
-          app_version_code="${core_version//./}${day_of_year}$(printf '%02d' "$daily_build_number")"
+          app_version_code="${core_version//./}${day_of_year}$(printf '%02d' "$build_number")"
           app_version_code=$((10#$app_version_code))
           app_json=$(mktemp)
           jq --arg version_name "$app_version_name" --argjson version_code "$app_version_code" \
@@ -100,11 +100,12 @@ jobs:
           package_branch=$(printf '%s\n' "$resolved_version" | sed -E \
             's/^[0-9]+\.[0-9]+\.[0-9]+-//; s/-[0-9]+-[0-9]+-[0-9]+-g[0-9a-f]+$//')
           echo "Installed Core HAR: $CORE_HAR_PACKAGE@$resolved_version"
-          echo "App version: $app_version_name ($app_version_code)"
+          echo "App version: $app_version_name ($app_version_code), build number: $build_number"
           echo "package_branch=$package_branch" >> "$GITHUB_OUTPUT"
           echo "package_version=$resolved_version" >> "$GITHUB_OUTPUT"
           echo "app_version_name=$app_version_name" >> "$GITHUB_OUTPUT"
           echo "app_version_code=$app_version_code" >> "$GITHUB_OUTPUT"
+          echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
 
       - name: Prepare EasyTier signing configuration
         env:
