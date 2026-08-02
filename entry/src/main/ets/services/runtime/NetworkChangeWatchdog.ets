@@ -20,11 +20,6 @@ async function startStoredInstancesWorker(ids: string[]): Promise<boolean> {
   return started
 }
 
-@Concurrent
-async function startWithConfigWorker(cfgJson: string): Promise<boolean> {
-  return easytier.parseNetworkConfig(cfgJson) && easytier.runNetworkInstance(cfgJson)
-}
-
 /**
  * 在 taskpool 工作线程中执行内核软重启（停止→按存储配置拉起）。
  * 内核停止/启动是阻塞式 NAPI 调用（涉及失效网络上的套接字关闭，
@@ -38,7 +33,23 @@ export interface NetworkRestartResult {
 }
 
 export async function stopStoredInstances(ids: string[]): Promise<boolean> {
-  return await taskpool.execute(stopInstancesWorker, ids) as boolean
+  try {
+    return await taskpool.execute(stopInstancesWorker, ids) as boolean
+  } catch (error) {
+    const err = error as Error
+    Logger.error(`stop stored instances worker failed: ${err.message}`, 'VpnExtensionKernelRuntime')
+    return false
+  }
+}
+
+export async function startStoredInstances(ids: string[]): Promise<boolean> {
+  try {
+    return await taskpool.execute(startStoredInstancesWorker, ids) as boolean
+  } catch (error) {
+    const err = error as Error
+    Logger.error(`start stored instances worker failed: ${err.message}`, 'VpnExtensionKernelRuntime')
+    return false
+  }
 }
 
 export async function softRestartStoredInstances(ids: string[], shouldStart: () => boolean = () => true): Promise<NetworkRestartResult> {
@@ -50,26 +61,7 @@ export async function softRestartStoredInstances(ids: string[], shouldStart: () 
       cancelled: stopped
     }
   }
-  const started = await taskpool.execute(startStoredInstancesWorker, ids) as boolean
-  return {
-    stopped,
-    started,
-    cancelled: false
-  }
-}
-
-/** ext（子进程）模式：以持有的原始配置 JSON 重启单实例，同样走 taskpool */
-export async function softRestartWithConfig(id: string, cfgJson: string,
-  shouldStart: () => boolean = () => true): Promise<NetworkRestartResult> {
-  const stopped = await stopStoredInstances([id])
-  if (!stopped || !shouldStart()) {
-    return {
-      stopped,
-      started: false,
-      cancelled: stopped
-    }
-  }
-  const started = await taskpool.execute(startWithConfigWorker, cfgJson) as boolean
+  const started = await startStoredInstances(ids)
   return {
     stopped,
     started,

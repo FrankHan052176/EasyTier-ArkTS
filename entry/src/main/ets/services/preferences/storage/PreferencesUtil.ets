@@ -203,7 +203,6 @@ export class PreferenceUtil {
       s.noOldData = this.preferences.getSync("noOldData", false).valueOf() as boolean;
       s.holding_detector = this.preferences.getSync("holding_detector", false).valueOf() as boolean;
       s.vault_mode = this.preferences.getSync("vault_mode", false).valueOf() as boolean;
-      s.ext_mode = this.preferences.getSync("ext_mode", true).valueOf() as boolean;
       s.ask_dlp = this.preferences.getSync("ask_dlp", false).valueOf() as boolean;
       s.cloud_auto_sync = this.preferences.getSync("cloud_auto_sync", false).valueOf() as boolean;
       s.background_keep_alive_mode = normalizeBackgroundKeepAliveMode(this.preferences.getSync("background_keep_alive_mode",

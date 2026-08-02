@@ -1,14 +1,16 @@
-import { buffer } from '@kit.ArkTS'
+import { buffer, util } from '@kit.ArkTS'
 import { socket } from '@kit.NetworkKit'
 import { RuntimeAggregateState } from '../../types/runtime/RuntimeTypes'
 import {
   RuntimePeerEventPayload,
   TrafficStatsPayload,
-  VpnMessage,
-  VpnRuntimeStartRequestData,
-  VpnRuntimeStartResultData,
   VpnLogData,
-  VPN_MESSAGE_RUNTIME_START_REQUEST
+  VpnMessage,
+  VpnRuntimeCommandData,
+  VpnRuntimeCommandName,
+  VpnRuntimeCommandResultData,
+  VpnRuntimeStatusData,
+  VPN_MESSAGE_RUNTIME_COMMAND
 } from '../../infrastructure/bridge/kernel/KernelBridgeTypes'
 import {
   connectVpnExtensionSocket,
@@ -17,13 +19,14 @@ import {
 import { Logger } from '../../shared/logging/Logger'
 
 export interface VpnExtensionRuntimeClientOptions {
-  isExtMode: () => boolean
+  shouldConnect: () => boolean
   getSocketPath: (socketName: string) => string
   onTopology: (snapshot: RuntimeAggregateState) => void
   onTrafficStats: (stats: TrafficStatsPayload) => void
   onPeerEvent: (event: RuntimePeerEventPayload) => void
   onLogs: (logs: VpnLogData) => void
-  onRuntimeStartResult: (result: VpnRuntimeStartResultData) => void
+  onRuntimeCommandResult: (result: VpnRuntimeCommandResultData) => void
+  onRuntimeStatus: (status: VpnRuntimeStatusData) => void
 }
 
 export class VpnExtensionRuntimeClient {
@@ -34,8 +37,9 @@ export class VpnExtensionRuntimeClient {
   private generation: number = 0
   private connectionAttempt: number = 0
   private reconnectTimer: number = -1
-  private disconnectedWaiters: Array<() => void> = []
-  private pendingStartRequest: VpnRuntimeStartRequestData | undefined = undefined
+  private commandGeneration: number = 0
+  private inFlightRequestId: string = ''
+  private pendingCommands: VpnRuntimeCommandData[] = []
 
   constructor(options: VpnExtensionRuntimeClientOptions) {
     this.options = options
@@ -45,9 +49,9 @@ export class VpnExtensionRuntimeClient {
     return this.connected
   }
 
-  connect(socketName: string, startRequest?: VpnRuntimeStartRequestData): void {
-    if (startRequest) {
-      this.pendingStartRequest = startRequest
+  connect(socketName: string): void {
+    if (this.socketName === socketName && this.client !== undefined) {
+      return
     }
     this.generation++
     this.socketName = socketName
@@ -58,26 +62,56 @@ export class VpnExtensionRuntimeClient {
     this.connectGeneration(this.generation)
   }
 
+  enqueueCommand(command: VpnRuntimeCommandName, instanceId: string): VpnRuntimeCommandData {
+    const request: VpnRuntimeCommandData = {
+      requestId: util.generateRandomUUID().toLowerCase(),
+      generation: ++this.commandGeneration,
+      command,
+      instanceId
+    }
+    this.pendingCommands.push(request)
+    this.sendNextCommand(this.generation, this.connectionAttempt)
+    return request
+  }
+
+  cancelCommand(requestId: string): void {
+    const index = this.pendingCommands.findIndex((request: VpnRuntimeCommandData) => {
+      return request.requestId === requestId
+    })
+    if (index < 0) {
+      return
+    }
+    this.pendingCommands.splice(index, 1)
+    if (this.inFlightRequestId === requestId) {
+      this.inFlightRequestId = ''
+    }
+    this.sendNextCommand(this.generation, this.connectionAttempt)
+  }
+
   private connectGeneration(generation: number): void {
-    if (generation !== this.generation || this.socketName.length === 0 || !this.options.isExtMode()) {
+    if (generation !== this.generation || this.socketName.length === 0 || !this.options.shouldConnect()) {
       return
     }
     const attempt = ++this.connectionAttempt
     const callbacks: VpnExtensionSocketBridgeCallbacks = {
-      isExtMode: () => generation === this.generation && attempt === this.connectionAttempt && this.options.isExtMode(),
+      shouldConnect: () => {
+        return generation === this.generation && attempt === this.connectionAttempt && this.options.shouldConnect()
+      },
       getSocketPath: this.options.getSocketPath,
       onConnected: () => {
         if (generation !== this.generation || attempt !== this.connectionAttempt) {
           return
         }
         this.connected = true
-        this.sendPendingStartRequest(generation, attempt)
+        this.inFlightRequestId = ''
+        this.sendNextCommand(generation, attempt)
       },
       onDisconnected: () => {
         if (generation !== this.generation || attempt !== this.connectionAttempt) {
           return
         }
-        this.markDisconnected()
+        this.connected = false
+        this.inFlightRequestId = ''
       },
       onReconnectRequested: () => {
         this.scheduleReconnect(generation, attempt)
@@ -102,48 +136,66 @@ export class VpnExtensionRuntimeClient {
           this.options.onLogs(logs)
         }
       },
-      onRuntimeStartResult: (result: VpnRuntimeStartResultData) => {
+      onRuntimeCommandResult: (result: VpnRuntimeCommandResultData) => {
         if (generation === this.generation && attempt === this.connectionAttempt) {
-          this.options.onRuntimeStartResult(result)
+          this.options.onRuntimeCommandResult(result)
+          this.acknowledgeCommand(result.requestId)
+        }
+      },
+      onRuntimeStatus: (status: VpnRuntimeStatusData) => {
+        if (generation === this.generation && attempt === this.connectionAttempt) {
+          this.options.onRuntimeStatus(status)
         }
       }
     }
     this.client = connectVpnExtensionSocket(this.socketName, this.client, callbacks)
   }
 
-  clearRuntimeStartRequest(instanceId: string): void {
-    if (this.pendingStartRequest?.instanceId === instanceId) {
-      this.pendingStartRequest = undefined
+  private acknowledgeCommand(requestId: string): void {
+    const index = this.pendingCommands.findIndex((request: VpnRuntimeCommandData) => {
+      return request.requestId === requestId
+    })
+    if (index >= 0) {
+      this.pendingCommands.splice(index, 1)
     }
+    if (this.inFlightRequestId === requestId) {
+      this.inFlightRequestId = ''
+    }
+    this.sendNextCommand(this.generation, this.connectionAttempt)
   }
 
-  private sendPendingStartRequest(generation: number, attempt: number): void {
-    const request = this.pendingStartRequest
+  private sendNextCommand(generation: number, attempt: number): void {
     const client = this.client
-    if (!request || !client || generation !== this.generation || attempt !== this.connectionAttempt) {
+    if (!this.connected || !client || this.inFlightRequestId.length > 0 || this.pendingCommands.length === 0 ||
+      generation !== this.generation || attempt !== this.connectionAttempt) {
       return
     }
+    const request = this.pendingCommands[0]
     const rawMessage = JSON.stringify({
-      type: VPN_MESSAGE_RUNTIME_START_REQUEST,
+      type: VPN_MESSAGE_RUNTIME_COMMAND,
       data: request
     } as VpnMessage) + '\n'
+    this.inFlightRequestId = request.requestId
     client.send({ data: buffer.from(rawMessage).buffer }).then(() => {
-      Logger.info(`sent VPN runtime request instance=${request.instanceId}`, 'VpnExtensionRuntimeClient')
+      Logger.info(`sent VPN runtime command=${request.command} instance=${request.instanceId} request=${request.requestId}`,
+        'VpnExtensionRuntimeClient')
     }).catch((error: object) => {
-      Logger.error(`sending VPN runtime request failed: ${JSON.stringify(error)}`, 'VpnExtensionRuntimeClient')
+      Logger.error(`sending VPN runtime command failed: ${JSON.stringify(error)}`, 'VpnExtensionRuntimeClient')
       if (generation === this.generation && attempt === this.connectionAttempt) {
+        this.inFlightRequestId = ''
         void client.close()
       }
     })
   }
 
   private scheduleReconnect(generation: number, attempt: number): void {
-    if (generation !== this.generation || attempt !== this.connectionAttempt || !this.options.isExtMode() ||
+    if (generation !== this.generation || attempt !== this.connectionAttempt || !this.options.shouldConnect() ||
       this.reconnectTimer >= 0) {
       return
     }
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = -1
+      this.client = undefined
       this.connectGeneration(generation)
     }, 1000)
   }
@@ -162,46 +214,8 @@ export class VpnExtensionRuntimeClient {
       Logger.debug(`closing VpnExtension runtime client failed: ${JSON.stringify(error)}`, 'VpnExtensionRuntimeClient')
     }
     this.client = undefined
-    this.pendingStartRequest = undefined
-    this.markDisconnected()
-  }
-
-  waitForDisconnected(timeoutMs: number = 10000): Promise<void> {
-    if (!this.connected) {
-      return Promise.resolve()
-    }
-    return new Promise<void>((resolve, reject) => {
-      let completed = false
-      const finish = (error: Error | undefined): void => {
-        if (completed) {
-          return
-        }
-        completed = true
-        if (error) {
-          reject(error)
-        } else {
-          resolve()
-        }
-      }
-      const timeoutId = setTimeout(() => {
-        finish(new Error('VPN extension socket did not close after stop'))
-      }, timeoutMs)
-      this.disconnectedWaiters.push(() => {
-        clearTimeout(timeoutId)
-        finish(undefined)
-      })
-    })
-  }
-
-  private markDisconnected(): void {
     this.connected = false
-    if (this.disconnectedWaiters.length === 0) {
-      return
-    }
-    const waiters = this.disconnectedWaiters
-    this.disconnectedWaiters = []
-    waiters.forEach((resolve) => {
-      resolve()
-    })
+    this.inFlightRequestId = ''
+    this.pendingCommands = []
   }
 }

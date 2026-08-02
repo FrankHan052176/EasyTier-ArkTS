@@ -7,14 +7,16 @@ import {
   VpnContinueStateData,
   VpnLogData,
   VpnMessage,
-  VpnRuntimeStartRequestData,
-  VpnRuntimeStartResultData,
+  VpnRuntimeCommandData,
+  VpnRuntimeCommandResultData,
+  VpnRuntimeStatusData,
   KERNEL_MESSAGE_RUNTIME_TOPOLOGY,
   KERNEL_MESSAGE_TRAFFIC_STATS,
   VPN_MESSAGE_CONTINUE_STATE,
   VPN_MESSAGE_LOGS,
-  VPN_MESSAGE_RUNTIME_START_REQUEST,
-  VPN_MESSAGE_RUNTIME_START_RESULT
+  VPN_MESSAGE_RUNTIME_COMMAND,
+  VPN_MESSAGE_RUNTIME_COMMAND_RESULT,
+  VPN_MESSAGE_RUNTIME_STATUS
 } from './KernelBridgeTypes'
 import { decodeSocketChunk, parseVpnBridgeMessage } from './SocketCodec'
 
@@ -45,16 +47,17 @@ export class VpnBridgeServer {
   private continuationActive: boolean = false
   private latestTopologyRaw: string = ''
   private latestTrafficRaw: string = ''
-  private latestStartResultRaw: string = ''
+  private latestCommandResultRaw: string = ''
+  private latestStatusRaw: string = ''
   private runtimeGeneration: number = 0
   private latestTopologyGeneration: number = -1
   private latestTrafficGeneration: number = -1
-  private latestStartResultGeneration: number = -1
-  private readonly onRuntimeStartRequest: ((request: VpnRuntimeStartRequestData) => void) | undefined
+  private latestCommandResultGeneration: number = -1
+  private readonly onRuntimeCommand: ((command: VpnRuntimeCommandData) => void) | undefined
 
-  constructor(logTarget: Object | string, onRuntimeStartRequest?: (request: VpnRuntimeStartRequestData) => void) {
+  constructor(logTarget: Object | string, onRuntimeCommand?: (command: VpnRuntimeCommandData) => void) {
     this.logTarget = logTarget
-    this.onRuntimeStartRequest = onRuntimeStartRequest
+    this.onRuntimeCommand = onRuntimeCommand
   }
 
   get connectionCount(): number {
@@ -92,8 +95,11 @@ export class VpnBridgeServer {
       if (this.latestTrafficRaw.length > 0 && this.latestTrafficGeneration === this.runtimeGeneration) {
         this.sendRawBridgeMessage(connection, this.latestTrafficRaw)
       }
-      if (this.latestStartResultRaw.length > 0 && this.latestStartResultGeneration === this.runtimeGeneration) {
-        this.sendRawBridgeMessage(connection, this.latestStartResultRaw)
+      if (this.latestStatusRaw.length > 0) {
+        this.sendRawBridgeMessage(connection, this.latestStatusRaw)
+      }
+      if (this.latestCommandResultRaw.length > 0 && this.latestCommandResultGeneration === this.runtimeGeneration) {
+        this.sendRawBridgeMessage(connection, this.latestCommandResultRaw)
       }
       connection.on('message', (value: socket.LocalSocketMessageInfo) => {
         try {
@@ -101,8 +107,8 @@ export class VpnBridgeServer {
           requestBuffer = decoded.rest
           decoded.messages.forEach((rawMessage: string) => {
             const message = parseVpnBridgeMessage(rawMessage)
-            if (message.type === VPN_MESSAGE_RUNTIME_START_REQUEST) {
-              this.onRuntimeStartRequest?.(message.data as VpnRuntimeStartRequestData)
+            if (message.type === VPN_MESSAGE_RUNTIME_COMMAND) {
+              this.onRuntimeCommand?.(message.data as VpnRuntimeCommandData)
             }
           })
         } catch (error) {
@@ -129,31 +135,42 @@ export class VpnBridgeServer {
     this.connections.clear()
     this.latestTopologyRaw = ''
     this.latestTrafficRaw = ''
-    this.latestStartResultRaw = ''
+    this.latestCommandResultRaw = ''
+    this.latestStatusRaw = ''
     this.latestTopologyGeneration = -1
     this.latestTrafficGeneration = -1
-    this.latestStartResultGeneration = -1
+    this.latestCommandResultGeneration = -1
   }
 
   beginRuntimeGeneration(): void {
     this.runtimeGeneration++
     this.latestTopologyRaw = ''
     this.latestTrafficRaw = ''
-    this.latestStartResultRaw = ''
+    this.latestCommandResultRaw = ''
     this.latestTopologyGeneration = -1
     this.latestTrafficGeneration = -1
-    this.latestStartResultGeneration = -1
+    this.latestCommandResultGeneration = -1
     this.publishContinuationState(false)
   }
 
-  publishRuntimeStartResult(result: VpnRuntimeStartResultData): void {
-    this.latestStartResultRaw = JSON.stringify({
-      type: VPN_MESSAGE_RUNTIME_START_RESULT,
+  publishRuntimeCommandResult(result: VpnRuntimeCommandResultData): void {
+    this.latestCommandResultRaw = JSON.stringify({
+      type: VPN_MESSAGE_RUNTIME_COMMAND_RESULT,
       data: result
     } as VpnMessage) + '\n'
-    this.latestStartResultGeneration = this.runtimeGeneration
+    this.latestCommandResultGeneration = this.runtimeGeneration
     this.connections.forEach((connection) => {
-      this.sendRawBridgeMessage(connection, this.latestStartResultRaw)
+      this.sendRawBridgeMessage(connection, this.latestCommandResultRaw)
+    })
+  }
+
+  publishRuntimeStatus(status: VpnRuntimeStatusData): void {
+    this.latestStatusRaw = JSON.stringify({
+      type: VPN_MESSAGE_RUNTIME_STATUS,
+      data: status
+    } as VpnMessage) + '\n'
+    this.connections.forEach((connection) => {
+      this.sendRawBridgeMessage(connection, this.latestStatusRaw)
     })
   }
 

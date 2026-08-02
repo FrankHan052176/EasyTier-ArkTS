@@ -33,7 +33,6 @@ export class UIState {
   @Trace white_list: boolean = false
   @Trace vault_mode: boolean = false
   @Trace ask_dlp: boolean = false
-  @Trace ext_mode: boolean = true
   @Trace cloud_auto_sync: boolean = false
   @Trace background_keep_alive_mode: string = BACKGROUND_KEEP_ALIVE_DATA_TRANSFER
 
@@ -51,7 +50,7 @@ export class UIState {
   // 自动持久化：监听所有配置变量的变化并保存
   @Monitor("favorite", "selected", "core_log", "debug_log", "raw_comp_sequence", "vpn_routes", 
            "dev", "force_global", "dns", "noOldData", "holding_detector", 
-           "help2", "white_list", "vault_mode", "ask_dlp", "ext_mode", "cloud_auto_sync",
+           "help2", "white_list", "vault_mode", "ask_dlp", "cloud_auto_sync",
            "background_keep_alive_mode")
   onStateChange(monitor: IMonitor) {
     if (AppManager.preference.isInit || !AppManager.preference.preferences) {

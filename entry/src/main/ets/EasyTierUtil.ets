@@ -6,7 +6,7 @@ import { sendToast } from './ToastUtil'
 import { InstanceInfo } from './class/InstanceInfo'
 import { emitter } from '@kit.BasicServicesKit'
 import { getDefaultConfig } from './config/defaults/ConfigDefaults'
-import { JSON, taskpool } from '@kit.ArkTS'
+import { JSON } from '@kit.ArkTS'
 import { LogDataSource } from './class/data_source/LogDataSource'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { syncWholeConfig } from './ConfigSyncUtil'
@@ -16,8 +16,9 @@ import {
   RuntimePeerEventPayload,
   TrafficStatsPayload,
   VpnLogData,
-  VpnRuntimeStartRequestData,
-  VpnRuntimeStartResultData
+  VpnRuntimeCommandData,
+  VpnRuntimeCommandResultData,
+  VpnRuntimeStatusData
 } from './infrastructure/bridge/kernel/KernelBridgeTypes'
 import { getEditingConfig as getEditingStoredConfig, getStoredConfig, getStoredConfigLabel, getStoredConfigName, listStoredConfigs as listStoredConfigEntries, StoredConfigMetaLite } from './services/config/storage/StoredConfigService'
 import { orchestrateInstanceStart } from './services/easytier/runtime/StartOrchestrationService'
@@ -29,36 +30,15 @@ import { FavoriteCardSignatureState } from './services/runtime/RuntimeNotificati
 import { RuntimeStateCoordinator } from './services/runtime/RuntimeStateCoordinator'
 import { VpnExtensionAbilityController } from './services/runtime/VpnExtensionAbilityController'
 import { VpnExtensionRuntimeClient } from './services/runtime/VpnExtensionRuntimeClient'
-import { requestEntryRuntimeStart, requestEntryRuntimeStop } from './services/runtime/EntryRuntimeStopBridge'
-import { shouldUseSubprocessRuntimeMode, VPN_EXTENSION_SOCKET_NAME } from './services/runtime/AbilityRuntimePolicy'
-import {
-  NetworkRestartResult,
-  softRestartStoredInstances
-} from './services/runtime/NetworkChangeWatchdog'
+import { requestEntryKeepAliveStart, requestEntryKeepAliveStop } from './services/runtime/EntryKeepAliveBridge'
+import { VPN_EXTENSION_SOCKET_NAME } from './services/runtime/AbilityRuntimePolicy'
+import { NetworkRestartResult } from './services/runtime/NetworkChangeWatchdog'
 import {
   ENTRY_SYNC_CONTINUATION_SOCKET_EVENT,
   KERNEL_RUNTIME_PEER_EVENT,
   KERNEL_RUNTIME_TOPOLOGY_EVENT,
   KERNEL_TRAFFIC_STATS_EVENT
 } from './types/events/RuntimeEventTypes'
-
-@Concurrent
-async function stopKernelWorker(instanceIds: string[]): Promise<boolean> {
-  let stopped = true
-  instanceIds.forEach((instanceId) => {
-    if (instanceId.length > 0) {
-      if (!easytier.stopKernel(instanceId)) {
-        stopped = false
-      }
-    }
-  })
-  return stopped
-}
-
-enum RuntimeExecutionMode {
-  ENTRY = 0,
-  VPN_EXTENSION = 1
-}
 
 @LogLocate("EasyTierUtil")
 @ObservedV2
@@ -74,10 +54,10 @@ export class EasyTierUtil {
   private pendingStartIds: Set<string> = new Set()
   private pendingStopIds: Set<string> = new Set()
   private acceptedRuntimeIds: Set<string> = new Set()
-  private vpnStartResults: Map<string, boolean> = new Map()
-  private activeRuntimeMode: RuntimeExecutionMode | undefined = undefined
+  private runtimeCommandResults: Map<string, VpnRuntimeCommandResultData> = new Map()
+  private runtimeStatus: VpnRuntimeStatusData | undefined = undefined
   private vpnExtensionRuntimeClient: VpnExtensionRuntimeClient = new VpnExtensionRuntimeClient({
-    isExtMode: () => this.shouldUseExtMode(),
+    shouldConnect: () => this.initialized,
     getSocketPath: (name: string) => AppManager.uiState.getSocketPath(name),
     onTopology: (snapshot: RuntimeAggregateState) => {
       Logger.debug(`VpnExtension runtime_topology received instances=${snapshot.instances?.length ?? 0}`, this)
@@ -92,13 +72,14 @@ export class EasyTierUtil {
     onLogs: (logData: VpnLogData) => {
       this.processLogs(logData.logs)
     },
-    onRuntimeStartResult: (result: VpnRuntimeStartResultData) => {
-      if (result.instanceId.length === 0) {
-        return
-      }
-      this.vpnStartResults.set(result.instanceId, result.started)
-      this.vpnExtensionRuntimeClient.clearRuntimeStartRequest(result.instanceId)
-      Logger.info(`VPN extension kernel start result instance=${result.instanceId} started=${result.started} error=${result.error ?? ''}`, this)
+    onRuntimeCommandResult: (result: VpnRuntimeCommandResultData) => {
+      this.runtimeCommandResults.set(result.requestId, result)
+      Logger.info(`VPN runtime command result command=${result.command} instance=${result.instanceId} success=${result.success} state=${result.state} error=${result.error ?? ''}`, this)
+    },
+    onRuntimeStatus: (status: VpnRuntimeStatusData) => {
+      this.runtimeStatus = status
+      Logger.info(`VPN runtime status instance=${status.instanceId} state=${status.state} generation=${status.generation}`,
+        this)
     }
   })
   private optimisticRunningUntil: Map<string, number> = new Map()
@@ -110,7 +91,7 @@ export class EasyTierUtil {
     getInstanceName: (uuid: string) => this.getConfigName(uuid) ?? 'N/A',
     getFavoriteState: () => this.buildFavoriteCardState(),
     isVpnConnected: () => this.vpnExtensionRuntimeClient.isConnected(),
-    isExtMode: () => this.shouldUseExtMode()
+    isExtMode: () => true
   })
   private initialized: boolean = false
   private kernelRuntimeTopologyCallback: Callback<emitter.EventData> = (event: emitter.EventData) => {
@@ -127,34 +108,6 @@ export class EasyTierUtil {
     if (event?.data?.stats) {
       this.processTrafficStats(event.data.stats as TrafficStatsPayload, false)
     }
-  }
-
-  private preferredRuntimeMode(): RuntimeExecutionMode {
-    return AppManager.uiState.ext_mode && shouldUseSubprocessRuntimeMode() ?
-      RuntimeExecutionMode.VPN_EXTENSION : RuntimeExecutionMode.ENTRY
-  }
-
-  private shouldUseExtMode(): boolean {
-    const mode = this.activeRuntimeMode ?? this.preferredRuntimeMode()
-    return mode === RuntimeExecutionMode.VPN_EXTENSION
-  }
-
-  private stopKernelAsync(instanceIds: string[], reason: string): Promise<boolean> {
-    const uniqueIds: string[] = []
-    instanceIds.forEach((instanceId) => {
-      if (instanceId.length > 0 && uniqueIds.indexOf(instanceId) < 0) {
-        uniqueIds.push(instanceId)
-      }
-    })
-    if (uniqueIds.length === 0) {
-      return Promise.resolve(true)
-    }
-    return taskpool.execute(stopKernelWorker, uniqueIds).then((result: Object) => {
-      return result as boolean
-    }).catch((error: Error) => {
-      Logger.error(`stopKernelAsync failed reason=${reason}, ids=${JSON.stringify(uniqueIds)}, error=${error.message}`, this)
-      return false
-    })
   }
 
   private enqueueOperation(action: () => Promise<void>): Promise<void> {
@@ -176,9 +129,7 @@ export class EasyTierUtil {
       this.processLogs(easytier.drainLogLines())
     }, 500)
 
-    if (this.shouldUseExtMode()) {
-      this.connectToVpnExtension(VPN_EXTENSION_SOCKET_NAME)
-    }
+    this.connectToVpnExtension(VPN_EXTENSION_SOCKET_NAME)
   }
 
   destroy() {
@@ -200,8 +151,8 @@ export class EasyTierUtil {
     this.pendingStartIds.clear()
     this.pendingStopIds.clear()
     this.acceptedRuntimeIds.clear()
-    this.vpnStartResults.clear()
-    this.activeRuntimeMode = undefined
+    this.runtimeCommandResults.clear()
+    this.runtimeStatus = undefined
   }
 
   version() {
@@ -248,12 +199,12 @@ export class EasyTierUtil {
     this.runtimeStateCoordinator.processTrafficStats(stats, fromVpn)
   }
 
-  private connectToVpnExtension(socketName: string, startRequest?: VpnRuntimeStartRequestData) {
-    this.vpnExtensionRuntimeClient.connect(socketName, startRequest)
+  private connectToVpnExtension(socketName: string): void {
+    this.vpnExtensionRuntimeClient.connect(socketName)
   }
 
   public ensureRuntimeConnection(): void {
-    if (this.shouldUseExtMode() && !this.vpnExtensionRuntimeClient.isConnected()) {
+    if (!this.vpnExtensionRuntimeClient.isConnected()) {
       this.connectToVpnExtension(VPN_EXTENSION_SOCKET_NAME)
     }
   }
@@ -291,108 +242,80 @@ export class EasyTierUtil {
       Logger.error(`start config sync failed instance=${uuid}`, this)
       return false
     }
-    const runtimeMode = this.activeRuntimeMode ?? this.preferredRuntimeMode()
-    const extMode = runtimeMode === RuntimeExecutionMode.VPN_EXTENSION
     const startIntentGeneration = this.runtimeIntentGeneration
-    this.activeRuntimeMode = runtimeMode
-    if (extMode) {
-      this.vpnStartResults.delete(uuid)
+    const keepAliveStarted = await requestEntryKeepAliveStart(this.getConfigName(uuid) ?? uuid)
+    if (!keepAliveStarted) {
+      return false
     }
-    let started = await orchestrateInstanceStart({
+    const extensionReady = await orchestrateInstanceStart({
       config,
-      name: this.getConfigName(uuid) ?? uuid,
-      extMode,
+      configRootDir: AppManager.uiState.socketFilesDir,
       socketFilesDir: AppManager.uiState.socketFilesDir,
-      vpnRoutes: AppManager.uiState.vpn_routes,
-      whiteList: AppManager.uiState.white_list,
-      blackList: AppManager.preference.getBlackList(),
-      dns: AppManager.uiState.dns,
-      dev: AppManager.uiState.dev,
-      forceGlobal: AppManager.uiState.force_global,
-      coreLog: AppManager.uiState.core_log,
-      debugLog: AppManager.uiState.debug_log,
       addNeedTun: (instanceId: string) => {
         this.needTUN.add(instanceId)
       },
-      connectToVpnExtension: (socketName: string, request: VpnRuntimeStartRequestData) => {
-        this.connectToVpnExtension(socketName, request)
+      connectToVpnExtension: (socketName: string) => {
+        this.connectToVpnExtension(socketName)
+      },
+      isVpnExtensionConnected: () => {
+        return this.vpnExtensionRuntimeClient.isConnected()
       },
       ensureContinuationSocket: () => {
         EventHelper.emitterPublish(ENTRY_SYNC_CONTINUATION_SOCKET_EVENT)
-      },
-      startEntryRuntime: (cfg: string, startId: string | undefined, startName: string,
-        shouldProtect: boolean): Promise<boolean> => {
-        return requestEntryRuntimeStart(cfg, byCard ? undefined : startId, startName, shouldProtect)
       },
       sendInvalidConfigToast: () => {
         sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
       }
     })
-    if (started && extMode) {
-      started = await this.waitForRuntimeConfirmation(uuid, startIntentGeneration)
-      this.vpnStartResults.delete(uuid)
-      if (!started) {
-        if (this.isVpnStartIntentActive(startIntentGeneration)) {
-          Logger.error(`VPN extension reported a runtime start failure instance=${uuid}`, this)
-          await this.rollbackVpnStart(uuid, 'runtime start failed')
-        } else {
-          Logger.info(`VPN extension start wait cancelled instance=${uuid}`, this)
-        }
-      }
+    if (!extensionReady) {
+      await requestEntryKeepAliveStop()
+      return false
     }
-    if (!started && extMode && this.isVpnStartIntentActive(startIntentGeneration)) {
-      await this.rollbackVpnStart(uuid, 'extension start rejected')
-    }
+    const command = this.vpnExtensionRuntimeClient.enqueueCommand('start', uuid)
+    const result = await this.waitForRuntimeCommandResult(command, startIntentGeneration)
+    const started = result?.success === true && result.started !== false
     if (started) {
       if (!this.getRunningInstance(uuid)) {
         this.markOptimisticRunning(config, this.getConfigName(uuid) ?? uuid)
       }
       AppManager.runtimeStats.startLiveRefresh(true)
       this.notifyFavoriteCardChanged()
-    } else if (!extMode && this.acceptedRuntimeIds.size === 0 && this.runningNetworks.size === 0) {
-      this.activeRuntimeMode = undefined
+    } else {
+      await this.rollbackVpnStart(command, uuid, result?.error ?? 'runtime start failed')
     }
     Logger.info(`start completed instance=${uuid} result=${started}`, this)
     return started
   }
 
-  private isVpnStartIntentActive(intentGeneration: number): boolean {
-    return this.initialized && this.activeRuntimeMode === RuntimeExecutionMode.VPN_EXTENSION &&
-      this.runtimeIntentGeneration === intentGeneration
+  private isRuntimeIntentActive(intentGeneration: number): boolean {
+    return this.initialized && this.runtimeIntentGeneration === intentGeneration
   }
 
-  private async waitForRuntimeConfirmation(uuid: string, intentGeneration: number): Promise<boolean> {
-    Logger.info(`waiting for VPN authorization and runtime confirmation instance=${uuid}`, this)
-    while (this.isVpnStartIntentActive(intentGeneration)) {
-      const startResult = this.vpnStartResults.get(uuid)
-      if (startResult !== undefined) {
-        return startResult
-      }
-      if (this.getRunningInstance(uuid)) {
-        return true
+  private async waitForRuntimeCommandResult(command: VpnRuntimeCommandData,
+    intentGeneration: number): Promise<VpnRuntimeCommandResultData | undefined> {
+    Logger.info(`waiting for VPN command=${command.command} request=${command.requestId}`, this)
+    while (this.isRuntimeIntentActive(intentGeneration)) {
+      const result = this.runtimeCommandResults.get(command.requestId)
+      if (result !== undefined) {
+        this.runtimeCommandResults.delete(command.requestId)
+        return result
       }
       await new Promise<void>((resolve) => {
         setTimeout(resolve, 100)
       })
     }
-    return false
+    return undefined
   }
 
-  private async rollbackVpnStart(instanceId: string, reason: string): Promise<void> {
-    this.vpnStartResults.delete(instanceId)
+  private async rollbackVpnStart(command: VpnRuntimeCommandData, instanceId: string, reason: string): Promise<void> {
+    this.vpnExtensionRuntimeClient.cancelCommand(command.requestId)
+    this.runtimeCommandResults.delete(command.requestId)
     this.needTUN.delete(instanceId)
     this.acceptedRuntimeIds.delete(instanceId)
     this.runtimeStateCoordinator.clearRunningState()
     this.runtimeStateCoordinator.notifyRuntimeChanged()
-    this.vpnExtensionRuntimeClient.close()
-    try {
-      await VpnExtensionAbilityController.stop()
-    } catch (error) {
-      const err = error as Error
-      Logger.error(`rollback VPN extension failed reason=${reason} error=${err.message}`, this)
-    } finally {
-      this.activeRuntimeMode = undefined
-    }
+    await requestEntryKeepAliveStop()
+    Logger.error(`VPN extension start rolled back instance=${instanceId} reason=${reason}`, this)
   }
 
   public temp_start(name: string, config: ConfigJson): Promise<boolean> {
@@ -424,58 +347,44 @@ export class EasyTierUtil {
       return false
     }
     this.temporaryConfigIds.add(instanceId)
-    const runtimeMode = this.activeRuntimeMode ?? this.preferredRuntimeMode()
-    const extMode = runtimeMode === RuntimeExecutionMode.VPN_EXTENSION
     const startIntentGeneration = this.runtimeIntentGeneration
-    this.activeRuntimeMode = runtimeMode
-    if (extMode) {
-      this.vpnStartResults.delete(instanceId)
+    const keepAliveStarted = await requestEntryKeepAliveStart(name)
+    if (!keepAliveStarted) {
+      AppManager.data.delConfig(instanceId)
+      this.temporaryConfigIds.delete(instanceId)
+      return false
     }
-    let started = await orchestrateInstanceStart({
+    const extensionReady = await orchestrateInstanceStart({
       config,
-      name,
-      extMode,
+      configRootDir: AppManager.uiState.socketFilesDir,
       socketFilesDir: AppManager.uiState.socketFilesDir,
-      vpnRoutes: AppManager.uiState.vpn_routes,
-      whiteList: AppManager.uiState.white_list,
-      blackList: AppManager.preference.getBlackList(),
-      dns: AppManager.uiState.dns,
-      dev: AppManager.uiState.dev,
-      forceGlobal: AppManager.uiState.force_global,
-      coreLog: AppManager.uiState.core_log,
-      debugLog: AppManager.uiState.debug_log,
       addNeedTun: (startId: string) => {
         this.needTUN.add(startId)
       },
-      connectToVpnExtension: (socketName: string, request: VpnRuntimeStartRequestData) => {
-        this.connectToVpnExtension(socketName, request)
+      connectToVpnExtension: (socketName: string) => {
+        this.connectToVpnExtension(socketName)
+      },
+      isVpnExtensionConnected: () => {
+        return this.vpnExtensionRuntimeClient.isConnected()
       },
       ensureContinuationSocket: () => {
         EventHelper.emitterPublish(ENTRY_SYNC_CONTINUATION_SOCKET_EVENT)
-      },
-      startEntryRuntime: (cfg: string, uuid: string | undefined, startName: string,
-        shouldProtect: boolean): Promise<boolean> => {
-        return requestEntryRuntimeStart(cfg, uuid, startName, shouldProtect)
       },
       sendInvalidConfigToast: () => {
         sendToast("非法实例, 可能是序列化错误, 请上报日志.", $r("sys.symbol.exclamationmark_circle"), 1)
       }
     })
-    if (started && extMode) {
-      started = await this.waitForRuntimeConfirmation(instanceId, startIntentGeneration)
-      this.vpnStartResults.delete(instanceId)
-      if (!started) {
-        if (this.isVpnStartIntentActive(startIntentGeneration)) {
-          await this.rollbackVpnStart(instanceId, 'temporary runtime start failed')
-        } else {
-          Logger.info(`temporary VPN extension start wait cancelled instance=${instanceId}`, this)
-        }
-      }
+    if (!extensionReady) {
+      await requestEntryKeepAliveStop()
+      AppManager.data.delConfig(instanceId)
+      this.temporaryConfigIds.delete(instanceId)
+      return false
     }
-    if (!started && extMode && this.isVpnStartIntentActive(startIntentGeneration)) {
-      await this.rollbackVpnStart(instanceId, 'temporary extension start rejected')
-    }
+    const command = this.vpnExtensionRuntimeClient.enqueueCommand('start', instanceId)
+    const result = await this.waitForRuntimeCommandResult(command, startIntentGeneration)
+    const started = result?.success === true && result.started !== false
     if (!started) {
+      await this.rollbackVpnStart(command, instanceId, result?.error ?? 'temporary runtime start failed')
       AppManager.data.delConfig(instanceId)
       this.temporaryConfigIds.delete(instanceId)
       return false
@@ -523,44 +432,45 @@ export class EasyTierUtil {
     })
   }
 
+  private ensureVpnExtensionReady(): Promise<boolean> {
+    return VpnExtensionAbilityController.start({
+      configRootDir: AppManager.uiState.socketFilesDir,
+      socketFilesDir: AppManager.uiState.socketFilesDir,
+      ensureContinuationSocket: () => {
+        EventHelper.emitterPublish(ENTRY_SYNC_CONTINUATION_SOCKET_EVENT)
+      },
+      connectToVpnExtension: (socketName: string) => {
+        this.connectToVpnExtension(socketName)
+      },
+      isConnected: () => {
+        return this.vpnExtensionRuntimeClient.isConnected()
+      }
+    })
+  }
+
   private async stopInternal(): Promise<void> {
     const temporaryRunningIds = Array.from(this.temporaryConfigIds.values())
     AppManager.runtimeStats.stopLiveRefresh()
-    const runtimeMode = this.activeRuntimeMode ?? this.preferredRuntimeMode()
-    let stopError: Error | undefined = undefined
-    if (runtimeMode === RuntimeExecutionMode.VPN_EXTENSION) {
-      try {
-        await VpnExtensionAbilityController.stop(() => {
-          return this.vpnExtensionRuntimeClient.waitForDisconnected()
-        })
-      } catch (error) {
-        stopError = error as Error
-        Logger.error(`VPN extension stop failed: ${stopError.message}`, this)
+    const runtimeIds = this.getRuntimeIntentIds()
+    const instanceId = runtimeIds[0] ?? this.runtimeStatus?.instanceId ?? ''
+    if (instanceId.length > 0) {
+      const extensionReady = await this.ensureVpnExtensionReady()
+      if (!extensionReady) {
+        throw new Error('VPN extension is unavailable for runtime stop')
       }
-      if (!stopError) {
-        this.vpnExtensionRuntimeClient.close()
-      }
-    } else {
-      const runningIds = Array.from(this.runningNetworks.keys()).concat(Array.from(this.acceptedRuntimeIds.values())).filter((value) => {
-        return value.length > 0
-      }).filter((value, index, values) => values.indexOf(value) === index) as string[]
-      const kernelStopped = await this.stopKernelAsync(runningIds, 'stop_all')
-      try {
-        await requestEntryRuntimeStop()
-      } catch (error) {
-        stopError = error as Error
-        Logger.error(`entry runtime stop failed: ${stopError.message}`, this)
-      }
-      if (!kernelStopped && !stopError) {
-        stopError = new Error('kernel rejected one or more stop requests')
+      const intentGeneration = this.runtimeIntentGeneration
+      const command = this.vpnExtensionRuntimeClient.enqueueCommand('stop', instanceId)
+      const result = await this.waitForRuntimeCommandResult(command, intentGeneration)
+      if (!result?.success) {
+        throw new Error(`VPN runtime stop failed: ${result?.error ?? 'command cancelled'}`)
       }
     }
+    await requestEntryKeepAliveStop()
 
     // 底层 stop/destroy 全部结束后才清 UI，下一次 start 不会插入旧销毁事务。
     this.runtimeStateCoordinator.clearRunningState()
     this.acceptedRuntimeIds.clear()
-    this.vpnStartResults.clear()
-    this.activeRuntimeMode = undefined
+    this.runtimeCommandResults.clear()
     this.runtimeStateCoordinator.notifyRuntimeChanged()
 
     this.notifyFavoriteCardChanged(true)
@@ -572,9 +482,6 @@ export class EasyTierUtil {
     if (stack[stack.length-1] == "StatusPage") {
       HMRouterMgr.pop()
     }
-    if (stopError) {
-      throw new Error(`runtime stop incomplete: ${stopError.message}`)
-    }
   }
 
   public stopConfig(uuid: string | undefined): boolean {
@@ -584,11 +491,10 @@ export class EasyTierUtil {
     }
     this.runtimeIntentGeneration++
     const stopId = running?.configId || running?.instanceId || uuid
-    const runtimeMode = this.activeRuntimeMode ?? this.preferredRuntimeMode()
     this.pendingStopIds.add(uuid)
     this.pendingStopIds.add(stopId)
     void this.enqueueOperation(async () => {
-      await this.stopConfigInternal(uuid, stopId, running, runtimeMode)
+      await this.stopConfigInternal(uuid, stopId, running)
     }).catch((error: Error) => {
       Logger.error(`queued stop failed instance=${stopId} error=${error.message}`, this)
     }).finally(() => {
@@ -598,69 +504,9 @@ export class EasyTierUtil {
     return true
   }
 
-  private async stopConfigInternal(uuid: string, stopId: string, running: RuntimeInstanceState | undefined,
-    runtimeMode: RuntimeExecutionMode): Promise<void> {
-    if (runtimeMode === RuntimeExecutionMode.VPN_EXTENSION) {
-      await this.stopInternal()
-      return
-    }
-    const aliases: string[] = [uuid, stopId]
-    if (running) {
-      if (running.configId.length > 0 && aliases.indexOf(running.configId) < 0) {
-        aliases.push(running.configId)
-      }
-      if (running.instanceId.length > 0 && aliases.indexOf(running.instanceId) < 0) {
-        aliases.push(running.instanceId)
-      }
-    }
-    const remainingRunning = this.getRunningInstances().filter((instance: RuntimeInstanceState) => {
-      return aliases.indexOf(instance.configId) < 0 && aliases.indexOf(instance.instanceId) < 0
-    })
-    const remainingAccepted: string[] = []
-    this.acceptedRuntimeIds.forEach((id: string) => {
-      if (aliases.indexOf(id) < 0) {
-        remainingAccepted.push(id)
-      }
-    })
-    const stoppingLastRuntime = remainingRunning.length === 0 && remainingAccepted.length === 0
-    const kernelStopped = await this.stopKernelAsync([stopId], 'stop_config')
-    if (!kernelStopped) {
-      throw new Error(`kernel rejected stop request instance=${stopId}`)
-    }
-    let runtimeStopError: Error | undefined = undefined
-    if (stoppingLastRuntime) {
-      try {
-        await requestEntryRuntimeStop()
-      } catch (error) {
-        runtimeStopError = error as Error
-        Logger.error(`last Entry runtime cleanup failed: ${runtimeStopError.message}`, this)
-      }
-    }
-    aliases.forEach((id: string) => {
-      this.acceptedRuntimeIds.delete(id)
-    })
-    if (running) {
-      this.runtimeStateCoordinator.removeRunningInstanceAliases(running, uuid)
-    }
-    aliases.forEach((id: string) => {
-      if (this.temporaryConfigIds.has(id)) {
-        AppManager.data.delConfig(id)
-        this.temporaryConfigIds.delete(id)
-      }
-    })
-    if (stoppingLastRuntime) {
-      AppManager.runtimeStats.stopLiveRefresh()
-      this.activeRuntimeMode = undefined
-    }
-    this.notifyFavoriteCardChanged(true)
-    const stack = HMRouterMgr.getPathStack("MainNavigation")!.getAllPathName()
-    if (stack[stack.length-1] == "StatusPage") {
-      HMRouterMgr.pop()
-    }
-    this.runtimeStateCoordinator.notifyRuntimeChanged()
-    if (runtimeStopError) {
-      throw runtimeStopError
-    }
+  private async stopConfigInternal(_uuid: string, _stopId: string,
+    _running: RuntimeInstanceState | undefined): Promise<void> {
+    await this.stopInternal()
   }
 
   public isRunning(uuid?: string): boolean {
@@ -698,8 +544,7 @@ export class EasyTierUtil {
     return ids
   }
 
-  public restartForNetworkChange(ids: string[], beginVpnRestart: () => Promise<boolean>,
-    completeVpnRestart: (started: boolean) => Promise<void>): Promise<NetworkRestartResult> {
+  public restartForNetworkChange(ids: string[]): Promise<NetworkRestartResult> {
     const intentGeneration = this.runtimeIntentGeneration
     let result: NetworkRestartResult = {
       stopped: false,
@@ -717,28 +562,27 @@ export class EasyTierUtil {
       if (intentGeneration !== this.runtimeIntentGeneration || restartIds.length === 0) {
         return
       }
-      const vpnReady = await beginVpnRestart()
-      if (!vpnReady || intentGeneration !== this.runtimeIntentGeneration) {
-        if (vpnReady) {
-          await completeVpnRestart(false)
-        }
+      const extensionReady = await this.ensureVpnExtensionReady()
+      if (!extensionReady || intentGeneration !== this.runtimeIntentGeneration) {
         return
       }
-      try {
-        result = await softRestartStoredInstances(restartIds, () => {
-          return intentGeneration === this.runtimeIntentGeneration
-        })
-      } finally {
-        const runtimeStillWanted = intentGeneration === this.runtimeIntentGeneration
-        await completeVpnRestart(result.started && runtimeStillWanted)
-        if (!runtimeStillWanted && result.started) {
-          await this.stopKernelAsync(restartIds, 'cancelled_network_restart')
-          result = {
-            stopped: result.stopped,
-            started: false,
-            cancelled: true
-          }
-        }
+      const command = this.vpnExtensionRuntimeClient.enqueueCommand('restart', restartIds[0])
+      const commandResult = await this.waitForRuntimeCommandResult(command, intentGeneration)
+      if (!commandResult) {
+        return
+      }
+      result = {
+        stopped: commandResult.stopped ?? commandResult.success,
+        started: commandResult.started ?? commandResult.success,
+        cancelled: !commandResult.success && commandResult.error === 'runtime_restart_cancelled'
+      }
+      if (result.stopped && !result.started) {
+        AppManager.runtimeStats.stopLiveRefresh()
+        this.runtimeStateCoordinator.clearRunningState()
+        this.acceptedRuntimeIds.clear()
+        this.runtimeStateCoordinator.notifyRuntimeChanged()
+        this.notifyFavoriteCardChanged(true)
+        await requestEntryKeepAliveStop()
       }
     }).then(() => result)
   }

@@ -224,8 +224,7 @@ export class RemoteSummaryViewState {
     this.runtimeDurationText = summary.runtime?.runtimeDurationText ?? '未运行'
     this.memoryUsageText = summary.runtime?.memoryUsageText ?? '未记录'
     this.extMode = summary.settings?.ext_mode ?? false
-    this.runtimeMode =
-      runtimeModeFromSettings(summary.settings?.ext_mode ?? false, summary.settings?.background_keep_alive_mode)
+    this.runtimeMode = runtimeModeFromSettings(summary.settings?.background_keep_alive_mode)
     this.runtimeModeLabel = runtimeModeText(this.runtimeMode)
     this.devMode = summary.settings?.dev ?? false
     this.coreLog = summary.settings?.core_log ?? false

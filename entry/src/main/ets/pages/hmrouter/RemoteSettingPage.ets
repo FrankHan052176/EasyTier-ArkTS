@@ -253,7 +253,7 @@ export struct RemoteSettingPage {
   }
 
   private runtimeModeValue(): string {
-    return runtimeModeFromSettings(this.settings?.ext_mode ?? false, this.settings?.background_keep_alive_mode)
+    return runtimeModeFromSettings(this.settings?.background_keep_alive_mode)
   }
 
   private async requestPermission(kind: string): Promise<void> {
@@ -348,7 +348,7 @@ export struct RemoteSettingPage {
             .fontColor($r('sys.color.font_primary'))
             .fontSize(16)
             .maxLines(1)
-          Text(hint.length > 0 ? hint : '保活模式与子进程模式三选一')
+          Text(hint.length > 0 ? hint : '数据传输或音乐')
             .fontColor($r('sys.color.font_secondary'))
             .fontSize(12)
             .maxLines(1)

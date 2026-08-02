@@ -1,5 +1,3 @@
-import { deviceInfo } from '@kit.BasicServicesKit'
-
 export const APP_BUNDLE_NAME = 'top.frankhan.easytier'
 export const ENTRY_MODULE_NAME = 'entry'
 export const ENTRY_ABILITY_NAME = 'EntryAbility'
@@ -24,9 +22,5 @@ export function supportsStatusBarTray(): boolean {
 }
 
 export function shouldUseEntryBackgroundKeepAlive(): boolean {
-  return !supportsStatusBarTray()
-}
-
-export function shouldUseSubprocessRuntimeMode(): boolean {
-  return deviceInfo.sdkApiVersion >= 22 && !supportsStatusBarTray()
+  return true
 }

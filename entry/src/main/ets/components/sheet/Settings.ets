@@ -14,13 +14,11 @@ import { RuntimeStatsService } from '../../services/runtime/RuntimeStatsService'
 import {
   RUNTIME_MODE_AUDIO_PLAYBACK,
   RUNTIME_MODE_DATA_TRANSFER,
-  RUNTIME_MODE_SUBPROCESS,
   RuntimeModeSelectOption,
   runtimeModeFromSettings,
   runtimeModeOptions,
   runtimeModeText
 } from '../../types/runtime/RuntimeModeTypes'
-import { shouldUseSubprocessRuntimeMode, supportsStatusBarTray } from '../../services/runtime/AbilityRuntimePolicy'
 
 const CORE_REPOSITORY_URL = 'https://github.com/EasyTier/EasyTier'
 const SHELL_REPOSITORY_URL =
@@ -168,15 +166,10 @@ class RuntimeSelectOptionItem implements RuntimeSelectOption {
 }
 
 function runtimeModeValue(): string {
-  return runtimeModeFromSettings(AppManager.uiState.ext_mode, AppManager.uiState.background_keep_alive_mode)
+  return runtimeModeFromSettings(AppManager.uiState.background_keep_alive_mode)
 }
 
 function applyRuntimeMode(value: string): void {
-  if (value === RUNTIME_MODE_SUBPROCESS && shouldUseSubprocessRuntimeMode()) {
-    AppManager.uiState.ext_mode = true
-    return
-  }
-  AppManager.uiState.ext_mode = false
   AppManager.uiState.background_keep_alive_mode = value === RUNTIME_MODE_AUDIO_PLAYBACK ?
     RUNTIME_MODE_AUDIO_PLAYBACK :
     RUNTIME_MODE_DATA_TRANSFER
@@ -852,13 +845,11 @@ struct SettingHomeSheet {
           title: "内核内存占用",
           value: AppManager.runtimeStats.memoryUsageText
         })
-        if (!supportsStatusBarTray()) {
-          settingVerticalSelectorRow($r("sys.symbol.waveform"), "运行方案",
-            AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "保活模式与子进程模式三选一",
-            runtimeModeValue(), AppManager.easytier.runningNetworks.size == 0, (value: string) => {
-              applyRuntimeMode(value)
-            })
-        }
+        settingVerticalSelectorRow($r("sys.symbol.waveform"), "保活方式",
+          AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "数据传输或音乐",
+          runtimeModeValue(), AppManager.easytier.runningNetworks.size == 0, (value: string) => {
+            applyRuntimeMode(value)
+          })
         settingMenuRow($r("sys.symbol.cloud"), "云空间同步", formatSyncState(AppManager.cloudSync.syncState), () => {
           this.onNavigate('cloud_sync')
         })

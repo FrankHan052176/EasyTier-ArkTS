@@ -10,12 +10,13 @@ export const KERNEL_MESSAGE_TRAFFIC_STATS = 'traffic_stats'
 export const KERNEL_MESSAGE_TUN_REQUEST = 'tun_request'
 export const VPN_MESSAGE_LOGS = 'logs'
 export const VPN_MESSAGE_CONTINUE_STATE = 'continue_state'
-export const VPN_MESSAGE_RUNTIME_START_REQUEST = 'runtime_start_request'
-export const VPN_MESSAGE_RUNTIME_START_RESULT = 'runtime_start_result'
+export const VPN_MESSAGE_RUNTIME_COMMAND = 'runtime_command'
+export const VPN_MESSAGE_RUNTIME_COMMAND_RESULT = 'runtime_command_result'
+export const VPN_MESSAGE_RUNTIME_STATUS = 'runtime_status'
 
 export type KernelSocketMessageType = 'runtime_topology' | 'runtime_peer_event' | 'traffic_stats' | 'tun_request'
-export type VpnBridgeMessageType = KernelSocketMessageType | 'logs' | 'continue_state' | 'runtime_start_request' |
-  'runtime_start_result'
+export type VpnBridgeMessageType = KernelSocketMessageType | 'logs' | 'continue_state' | 'runtime_command' |
+  'runtime_command_result' | 'runtime_status'
 
 export interface KernelSocketMessage {
   messageType: KernelSocketMessageType | string
@@ -72,29 +73,37 @@ export interface VpnContinueStateData {
   active: boolean
 }
 
-export interface VpnRuntimeStartRequestData {
+export type VpnRuntimeCommandName = 'start' | 'restart' | 'stop' | 'status'
+export type VpnRuntimeStateName = 'idle' | 'starting' | 'running' | 'restarting' | 'stopping' | 'error'
+
+export interface VpnRuntimeCommandData {
+  requestId: string
+  generation: number
+  command: VpnRuntimeCommandName
   instanceId: string
-  cfg: string
-  name: string
-  socketFilesDir: string
-  vpnRoutes: boolean
-  whiteList: boolean
-  blackList: string[]
-  dns: string
-  dev: boolean
-  forceGlobal: boolean
-  coreLog: boolean
-  debugLog: boolean
 }
 
-export interface VpnRuntimeStartResultData {
+export interface VpnRuntimeCommandResultData {
+  requestId: string
+  generation: number
+  command: VpnRuntimeCommandName
   instanceId: string
-  started: boolean
+  success: boolean
+  state: VpnRuntimeStateName
+  stopped?: boolean
+  started?: boolean
+  error?: string
+}
+
+export interface VpnRuntimeStatusData {
+  generation: number
+  instanceId: string
+  state: VpnRuntimeStateName
   error?: string
 }
 
 export interface VpnMessage {
   type: VpnBridgeMessageType | string
   data: RuntimeAggregateState | VpnLogData | TrafficStatsPayload | RuntimePeerEventPayload |
-    VpnContinueStateData | VpnRuntimeStartRequestData | VpnRuntimeStartResultData
+    VpnContinueStateData | VpnRuntimeCommandData | VpnRuntimeCommandResultData | VpnRuntimeStatusData
 }

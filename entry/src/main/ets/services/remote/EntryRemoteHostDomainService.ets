@@ -6,15 +6,11 @@ import { CLOUD_CONFIG_CHANGED_EVENT } from '../../ConfigSyncUtil'
 import { ConfigFieldValue, ConfigJson } from '../../config/schema/SchemaConfig'
 import { getDefaultConfig } from '../../config/defaults/ConfigDefaults'
 import { RuntimeInstanceState } from '../../types/runtime/RuntimeTypes'
-import {
-  RUNTIME_MODE_SUBPROCESS,
-  normalizeRuntimeMode
-} from '../../types/runtime/RuntimeModeTypes'
+import { normalizeRuntimeMode } from '../../types/runtime/RuntimeModeTypes'
 import { getHostname } from '../../util/Conversion'
 import { EventHelper } from '../../util/EventHelper'
 import { APP_VERSION, CORE_VERSION } from '../../util/info/BuildTime'
 import { updateFavorite } from '../form/CommunicationUtil'
-import { shouldUseSubprocessRuntimeMode } from '../runtime/AbilityRuntimePolicy'
 import {
   RemoteConfigMeta,
   RemoteCreateDefaultConfigResult,
@@ -97,9 +93,9 @@ export class EntryRemoteHostDomainService {
   }
 
   remoteSettings(): RemoteSettingsState {
-    const extMode = AppManager.uiState.ext_mode && shouldUseSubprocessRuntimeMode()
     return {
-      ext_mode: extMode,
+      // 保留字段用于兼容旧版近场控制台；运行载体现在固定为 VpnExtensionAbility。
+      ext_mode: true,
       background_keep_alive_mode: normalizeRuntimeMode(AppManager.uiState.background_keep_alive_mode),
       dev: AppManager.uiState.dev,
       vpn_routes: AppManager.uiState.vpn_routes,
@@ -253,25 +249,15 @@ export class EntryRemoteHostDomainService {
     switch (key) {
       case 'runtime_mode':
         if (AppManager.easytier.runningNetworks.size === 0 && typeof value === 'string') {
-          const runtimeMode = normalizeRuntimeMode(value)
-          AppManager.uiState.ext_mode = runtimeMode === RUNTIME_MODE_SUBPROCESS
-          if (runtimeMode !== RUNTIME_MODE_SUBPROCESS) {
-            AppManager.uiState.background_keep_alive_mode = runtimeMode
-          }
+          AppManager.uiState.background_keep_alive_mode = normalizeRuntimeMode(value)
         }
         break
       case 'ext_mode':
-        if (AppManager.easytier.runningNetworks.size === 0) {
-          AppManager.uiState.ext_mode = Boolean(value) && shouldUseSubprocessRuntimeMode()
-        }
+        // 兼容旧客户端写入；Extension-only 模式不可关闭。
         break
       case 'background_keep_alive_mode':
         if (AppManager.easytier.runningNetworks.size === 0 && typeof value === 'string') {
-          const runtimeMode = normalizeRuntimeMode(value)
-          if (runtimeMode !== RUNTIME_MODE_SUBPROCESS) {
-            AppManager.uiState.ext_mode = false
-            AppManager.uiState.background_keep_alive_mode = runtimeMode
-          }
+          AppManager.uiState.background_keep_alive_mode = normalizeRuntimeMode(value)
         }
         break
       case 'dev':

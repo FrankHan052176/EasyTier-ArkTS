@@ -7,15 +7,17 @@ import {
   KERNEL_MESSAGE_TRAFFIC_STATS,
   RuntimePeerEventPayload,
   TrafficStatsPayload,
-  VpnRuntimeStartResultData,
+  VpnRuntimeCommandResultData,
+  VpnRuntimeStatusData,
   VpnLogData,
   VPN_MESSAGE_LOGS,
-  VPN_MESSAGE_RUNTIME_START_RESULT
+  VPN_MESSAGE_RUNTIME_COMMAND_RESULT,
+  VPN_MESSAGE_RUNTIME_STATUS
 } from './KernelBridgeTypes'
 import { decodeSocketChunk, parseVpnBridgeMessage } from './SocketCodec'
 
 export interface VpnExtensionSocketBridgeCallbacks {
-  isExtMode: () => boolean
+  shouldConnect: () => boolean
   getSocketPath: (socketName: string) => string
   onConnected: () => void
   onDisconnected: () => void
@@ -24,7 +26,8 @@ export interface VpnExtensionSocketBridgeCallbacks {
   onTrafficStats: (stats: TrafficStatsPayload) => void
   onPeerEvent: (event: RuntimePeerEventPayload) => void
   onLogs: (logs: VpnLogData) => void
-  onRuntimeStartResult: (result: VpnRuntimeStartResultData) => void
+  onRuntimeCommandResult: (result: VpnRuntimeCommandResultData) => void
+  onRuntimeStatus: (status: VpnRuntimeStatusData) => void
 }
 
 export function connectVpnExtensionSocket(
@@ -47,7 +50,7 @@ export function connectVpnExtensionSocket(
 
   let reconnectRequested = false
   const connect = () => {
-    if (!callbacks.isExtMode()) {
+    if (!callbacks.shouldConnect()) {
       return
     }
     client.connect(address).then(() => {
@@ -57,7 +60,7 @@ export function connectVpnExtensionSocket(
       Logger.debug(`VpnExtension socket connect failed path=${address.address.address} error=${JSON.stringify(err)}`,
         'VpnExtensionSocketBridge')
       callbacks.onDisconnected()
-      if (!reconnectRequested && callbacks.isExtMode()) {
+      if (!reconnectRequested && callbacks.shouldConnect()) {
         reconnectRequested = true
         callbacks.onReconnectRequested()
       }
@@ -79,8 +82,10 @@ export function connectVpnExtensionSocket(
           callbacks.onPeerEvent(msg.data as RuntimePeerEventPayload)
         } else if (msg.type === VPN_MESSAGE_LOGS) {
           callbacks.onLogs(msg.data as VpnLogData)
-        } else if (msg.type === VPN_MESSAGE_RUNTIME_START_RESULT) {
-          callbacks.onRuntimeStartResult(msg.data as VpnRuntimeStartResultData)
+        } else if (msg.type === VPN_MESSAGE_RUNTIME_COMMAND_RESULT) {
+          callbacks.onRuntimeCommandResult(msg.data as VpnRuntimeCommandResultData)
+        } else if (msg.type === VPN_MESSAGE_RUNTIME_STATUS) {
+          callbacks.onRuntimeStatus(msg.data as VpnRuntimeStatusData)
         }
       }
     } catch (e) {
@@ -90,7 +95,7 @@ export function connectVpnExtensionSocket(
 
   client.on('close', () => {
     callbacks.onDisconnected()
-    if (!reconnectRequested && callbacks.isExtMode()) {
+    if (!reconnectRequested && callbacks.shouldConnect()) {
       reconnectRequested = true
       callbacks.onReconnectRequested()
     }

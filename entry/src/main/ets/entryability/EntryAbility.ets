@@ -2,7 +2,7 @@ import { AbilityConstant, Configuration, UIAbility, Want, wantConstant } from '@
 import { window } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
 import { Logger, LogLocate } from '../shared/logging/Logger';
-import { BusinessError, commonEventManager, deviceInfo, emitter } from '@kit.BasicServicesKit';
+import { BusinessError, commonEventManager, deviceInfo } from '@kit.BasicServicesKit';
 import easytier from 'easytier-ohrs';
 import { JSON } from '@kit.ArkTS';
 import { BUILD_TIME } from '../util/info/BuildTime';
@@ -14,19 +14,12 @@ import { buildShareUrlSync } from '../util/ShareUtil';
 import { FavoriteCardActionService } from '../services/form/FavoriteCardActionService';
 import { ConfigFieldValue, ConfigJson } from '../config/schema/SchemaConfig';
 import { RuntimeInstanceState } from '../types/runtime/RuntimeTypes';
-import {
-  KERNEL_SOCKET_NAME
-} from '../infrastructure/bridge/kernel/KernelBridgeTypes'
 import { ContinuationSocketClient } from '../infrastructure/bridge/kernel/ContinuationSocketClient'
 import { CrashLogService } from '../services/crash/CrashLogService'
 import { MemoryDiagnosticsService } from '../services/runtime/MemoryDiagnosticsService'
 import { EntryBackgroundTaskService } from '../services/runtime/EntryBackgroundTaskService'
 import { EntryAppBootstrapService } from '../services/runtime/EntryAppBootstrapService'
-import { EntryRuntimeEventService } from '../services/runtime/EntryRuntimeEventService'
-import { EntryKernelSocketService } from '../services/runtime/EntryKernelSocketService'
 import { RemoteManageService } from '../services/remote/RemoteManageService'
-import { EntryVpnConnectionService } from '../services/tun/EntryVpnConnectionService'
-import { EntryVpnSetupRequestBuilder } from '../services/tun/EntryVpnSetupRequestBuilder'
 import {
   RemoteConfigMeta,
   RemoteCreateDefaultConfigResult,
@@ -43,15 +36,13 @@ import {
 } from '../types/events/RuntimeEventTypes'
 import { SharedIntentImportService } from '../services/share/SharedIntentImportService'
 import { StatusBarIntegrationService } from '../services/desktop/StatusBarIntegrationService'
-import { NetworkChangeWatchdog, NetworkRestartResult } from '../services/runtime/NetworkChangeWatchdog'
+import { NetworkChangeWatchdog } from '../services/runtime/NetworkChangeWatchdog'
 import { startupMark } from '../services/runtime/StartupTrace'
 import {
-  registerEntryRuntimeHandlers,
-  unregisterEntryRuntimeHandlers
-} from '../services/runtime/EntryRuntimeStopBridge'
+  registerEntryKeepAliveHandlers,
+  unregisterEntryKeepAliveHandlers
+} from '../services/runtime/EntryKeepAliveBridge'
 import {
-  shouldUseEntryBackgroundKeepAlive,
-  shouldUseSubprocessRuntimeMode,
   setStatusBarTraySupported,
   supportsStatusBarTray,
   STATUS_BAR_BACKGROUND_TERMINATE_EVENT,
@@ -68,12 +59,9 @@ const EMULATOR_WINDOW_HEIGHT_PX = 1482
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility implements EntryRemoteHostDelegate {
-  private entryVpnService: EntryVpnConnectionService | undefined = undefined
-  private entryKernelSocketService: EntryKernelSocketService | undefined = undefined
   private networkWatchdog: NetworkChangeWatchdog | undefined = undefined
   private entryBackgroundTaskService: EntryBackgroundTaskService | undefined = undefined
   private entryAppBootstrapService: EntryAppBootstrapService | undefined = undefined
-  private entryRuntimeEventService: EntryRuntimeEventService | undefined = undefined
   private statusBarIntegrationService: StatusBarIntegrationService | undefined = undefined
   private statusBarSubscriber: commonEventManager.CommonEventSubscriber | undefined = undefined
   private mainWindow: window.Window | undefined = undefined
@@ -84,7 +72,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   private continuationSocketClient: ContinuationSocketClient = new ContinuationSocketClient({
     socketName: VPN_EXTENSION_SOCKET_NAME,
     logTarget: 'EntryAbility',
-    isExtMode: () => AppManager.uiState.ext_mode && shouldUseSubprocessRuntimeMode(),
+    isExtMode: () => true,
     getSocketPath: (name: string) => AppManager.uiState.getSocketPath(name),
     onContinueState: (active: boolean) => {
       if (active) {
@@ -97,22 +85,6 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   private appReadyPromise: Promise<void> = Promise.resolve()
   private remoteHostDomain: EntryRemoteHostDomainService = new EntryRemoteHostDomainService()
   private favoriteCardActions: FavoriteCardActionService = new FavoriteCardActionService()
-  private vpnSetupRequestBuilder: EntryVpnSetupRequestBuilder = new EntryVpnSetupRequestBuilder({
-    getRuntimeSettings: () => {
-      return {
-        vpnRoutes: AppManager.uiState.vpn_routes,
-        whiteList: AppManager.uiState.white_list,
-        blackList: AppManager.preference.getBlackList(),
-        dev: AppManager.uiState.dev,
-        dns: AppManager.uiState.dns
-      }
-    }
-  })
-
-  private shouldProtectProcessNet(config?: ConfigJson): boolean {
-    return deviceInfo.sdkApiVersion >= 22 && AppManager.uiState.force_global && (config?.exit_nodes?.length ?? 0) > 0
-  }
-
   private activateMissionContinue(): void {
     this.context.setMissionContinueState(AbilityConstant.ContinueState.ACTIVE)
   }
@@ -289,63 +261,17 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     startupMark('ability.onCreate.begin')
     this.deactivateMissionContinue();
-    this.entryVpnService = new EntryVpnConnectionService({
-      context: this.context,
-      logTarget: this,
-      requestVpnPerm: (callback: () => void, errorCallback?: (error: BusinessError) => void) => {
-        AppManager.permission.requestVpnPerm(callback, () => {}, errorCallback)
-      },
-      activateMissionContinue: () => {
-        this.activateMissionContinue()
-      },
-      setTunFd: (instanceId: string, fd: number) => {
-        const attached = easytier.setTunFd(instanceId, fd)
-        Logger.info(`setTunFd sent instance=${instanceId}`, this)
-        return attached
-      }
-    })
-    this.entryKernelSocketService = new EntryKernelSocketService({
-      logTarget: this,
-      shouldConnect: () => !AppManager.uiState.ext_mode || !shouldUseSubprocessRuntimeMode(),
-      buildTunSetupRequest: (payload) => {
-        return this.vpnSetupRequestBuilder.buildFromKernelPayload(payload)
-      },
-      setupTun: (request) => {
-        void this.entryVpnService?.setupTun(request)
-      }
-    })
     this.entryBackgroundTaskService = new EntryBackgroundTaskService({
       context: this.context,
       logTarget: this,
-      runNetworkInstance: (cfg: string) => {
-        return easytier.runNetworkInstance(cfg)
-      },
-      activateMissionContinue: () => {
-        this.activateMissionContinue()
-      },
-      deactivateMissionContinue: () => {
-        this.deactivateMissionContinue()
-      },
-      refreshFavoriteCard: () => {
-        this.favoriteCardActions.refresh()
-      },
       setNotificationId: (notificationId: number) => {
         AppManager.uiState.notificationId = notificationId
       },
       clearNotificationId: () => {
         AppManager.uiState.notificationId = undefined
       },
-      destroyVpnConnection: () => {
-        if (this.entryVpnService) {
-          return this.entryVpnService.destroyVpnConnection()
-        }
-        return Promise.resolve()
-      },
       getBackgroundKeepAliveMode: () => {
         return AppManager.uiState.background_keep_alive_mode
-      },
-      shouldUseBackgroundKeepAlive: () => {
-        return shouldUseEntryBackgroundKeepAlive()
       },
       onBackgroundTaskCancelled: (reason: string) => {
         Logger.error(`background keep-alive cancelled reason=${reason}`, this)
@@ -358,35 +284,16 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
         AppManager.easytier.ensureRuntimeConnection()
       }
     })
-    registerEntryRuntimeHandlers(async (cfg: string, uuid: string | undefined, name: string | undefined,
-      shouldProtect: boolean): Promise<boolean> => {
-      if (!this.entryVpnService || !this.entryBackgroundTaskService) {
-        return false
-      }
-      await this.entryVpnService.prepareVpnAsync(shouldProtect)
-      this.entryKernelSocketService?.connect(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
-      return await this.entryBackgroundTaskService.startContinuousTask(cfg, uuid, name)
+    registerEntryKeepAliveHandlers(async (name: string | undefined): Promise<boolean> => {
+      return await this.entryBackgroundTaskService?.startContinuousTask(name) ?? false
     }, async () => {
       await this.entryBackgroundTaskService?.stopContinuousTask()
-      this.entryKernelSocketService?.close()
     })
     this.entryAppBootstrapService = new EntryAppBootstrapService({
       context: this.context,
       logTarget: this,
       syncContinuationSocket: () => {
         this.syncContinuationSocket()
-      }
-    })
-    this.entryRuntimeEventService = new EntryRuntimeEventService({
-      logTarget: this,
-      syncContinuationSocket: () => {
-        this.syncContinuationSocket()
-      },
-      buildTunSetupRequest: (data: emitter.EventData) => {
-        return this.vpnSetupRequestBuilder.buildFromEventData(data)
-      },
-      setupTun: (request) => {
-        void this.entryVpnService?.setupTun(request)
       }
     })
     this.statusBarIntegrationService = new StatusBarIntegrationService(this.context, this, () => {
@@ -403,34 +310,14 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     easytier.initLogManager(this.context.filesDir, 'ui')
     easytier.configureLogManager(false, false)
     startupMark('ability.logManager.init')
-    this.entryRuntimeEventService.start()
-    startupMark('ability.runtimeEvent.start')
-    // 切网看护：物理网络切换后对运行中的实例做内核级软重启，
-    // 解决“切网后自动重连大概率失败”的问题。
-    // ext（子进程）模式由 EasyTierAbility 里的看护自理，这里跳过。
+    // UIAbility 只检测物理网络切换并发送控制命令；Core 与 TUN 均由 VpnExtensionAbility 持有。
     this.networkWatchdog = new NetworkChangeWatchdog({
       logTarget: this,
       getRunningIds: () => {
-        if (AppManager.uiState.ext_mode && shouldUseSubprocessRuntimeMode()) {
-          return []
-        }
         return AppManager.easytier.getRuntimeIntentIds()
       },
       restartInstances: (ids: string[]) => {
-        const vpnService = this.entryVpnService
-        if (!vpnService) {
-          const cancelledResult: NetworkRestartResult = {
-            stopped: false,
-            started: false,
-            cancelled: true
-          }
-          return Promise.resolve(cancelledResult)
-        }
-        return AppManager.easytier.restartForNetworkChange(ids, () => {
-          return vpnService.beginKernelRestart()
-        }, (started: boolean) => {
-          return vpnService.completeKernelRestart(started)
-        })
+        return AppManager.easytier.restartForNetworkChange(ids)
       }
     })
     this.networkWatchdog.start()
@@ -578,11 +465,8 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     MemoryDiagnosticsService.enableSystemLeakWatcher(false)
     RemoteManageService.destroyHostSessions()
     AppManager.easytier.destroy()
-    this.entryRuntimeEventService?.stop()
-    this.stopContinuousTask()
     this.entryBackgroundTaskService?.stopTaskMonitoring()
-    unregisterEntryRuntimeHandlers()
-    this.entryKernelSocketService?.close()
+    unregisterEntryKeepAliveHandlers()
     this.continuationSocketClient.close()
     this.statusBarIntegrationService?.close()
     this.unsubscribeStatusBarTerminateEvent()
@@ -662,11 +546,6 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     WindowUtil.foreground()
     this.syncContinuationSocket()
     AppManager.easytier.ensureRuntimeConnection()
-    if (AppManager.easytier.getRunningInstances().length > 0 &&
-      (!AppManager.uiState.ext_mode || !shouldUseSubprocessRuntimeMode()) &&
-      !this.entryKernelSocketService?.isConnected()) {
-      this.entryKernelSocketService?.connect(AppManager.uiState.getSocketPath(KERNEL_SOCKET_NAME))
-    }
   }
 
   onBackground(): void {
