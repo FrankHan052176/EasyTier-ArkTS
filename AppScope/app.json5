@@ -3,8 +3,8 @@
     "bundleName": "top.frankhan.easytier",
     "cloudFileSyncEnabled": true,
     "vendor": "example",
-    "versionCode": 26420801,
-    "versionName": "2.6.4.52",
+    "versionCode": 99999999,
+    "versionName": "0.0.1",
     "icon": "$media:layered_image",
     "label": "$string:app_name"
   }
