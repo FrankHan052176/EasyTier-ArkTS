@@ -334,6 +334,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
     this.appReadyPromise = this.startStatusBarThenInitApp()
     this.appReadyPromise.then(() => {
+      this.thirdPartyApiService?.start()
       this.handleIncomingWant(want, launchParam)
       easytier.initPanicHook()
     }).catch((error: Error) => {

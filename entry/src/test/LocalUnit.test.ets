@@ -9,11 +9,13 @@ import { parseVpnBridgeMessage } from '../main/ets/infrastructure/bridge/kernel/
 import { redactSensitiveLogText } from '../main/ets/shared/logging/LogRedaction';
 import { NatTypeValue, natTypeToText } from '../main/ets/types/runtime/RuntimeTypes';
 import {
-  THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING,
-  THIRD_PARTY_OPERATION_LIST_INSTANCES,
+  THIRD_PARTY_API_SCHEMA_VERSION,
+  THIRD_PARTY_OPERATION_START_INSTANCE,
   THIRD_PARTY_REQUEST_TTL_MS,
   THIRD_PARTY_RESULT_REQUEST_EXPIRED,
+  THIRD_PARTY_SNAPSHOT_TTL_MS,
   ThirdPartyApiRequestPayload,
+  ThirdPartyApiSnapshotPayload,
   ThirdPartyApiValidator
 } from '../main/ets/services/integration/ThirdPartyApiContract';
 
@@ -100,14 +102,15 @@ export default function localUnitTest() {
       expect(result.instanceId).assertEqual('instance')
       expect(result.started).assertEqual(true)
     });
-    it('validatesThirdPartyApiListRequest', 0, () => {
+    it('validatesThirdPartyApiStartRequest', 0, () => {
       const requestId = '12345678-1234-4234-9234-123456789abc'
       const now = Date.now()
       const payload: ThirdPartyApiRequestPayload = {
-        schemaVersion: 1,
+        schemaVersion: THIRD_PARTY_API_SCHEMA_VERSION,
         requestId,
-        operation: THIRD_PARTY_OPERATION_LIST_INSTANCES,
-        issuedAt: now
+        operation: THIRD_PARTY_OPERATION_START_INSTANCE,
+        issuedAt: now,
+        instanceId: 'office-network'
       }
       const result = ThirdPartyApiValidator.validateRequest(payload, requestId, now)
       expect(result.ok).assertTrue()
@@ -116,9 +119,9 @@ export default function localUnitTest() {
       const requestId = '12345678-1234-4234-9234-123456789abc'
       const now = Date.now()
       const payload: ThirdPartyApiRequestPayload = {
-        schemaVersion: 1,
+        schemaVersion: THIRD_PARTY_API_SCHEMA_VERSION,
         requestId,
-        operation: THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING,
+        operation: THIRD_PARTY_OPERATION_START_INSTANCE,
         issuedAt: now
       }
       const result = ThirdPartyApiValidator.validateRequest(payload, requestId, now)
@@ -128,10 +131,11 @@ export default function localUnitTest() {
       const requestId = '12345678-1234-4234-9234-123456789abc'
       const now = Date.now()
       const payload: ThirdPartyApiRequestPayload = {
-        schemaVersion: 1,
+        schemaVersion: THIRD_PARTY_API_SCHEMA_VERSION,
         requestId,
-        operation: THIRD_PARTY_OPERATION_LIST_INSTANCES,
-        issuedAt: now - THIRD_PARTY_REQUEST_TTL_MS - 1
+        operation: THIRD_PARTY_OPERATION_START_INSTANCE,
+        issuedAt: now - THIRD_PARTY_REQUEST_TTL_MS - 1,
+        instanceId: 'office-network'
       }
       const result = ThirdPartyApiValidator.validateRequest(payload, requestId, now)
       expect(result.ok).assertFalse()
@@ -140,6 +144,21 @@ export default function localUnitTest() {
     it('sanitizesThirdPartyInstanceNames', 0, () => {
       const name = ThirdPartyApiValidator.safeInstanceName('  office\u0000network  ')
       expect(name).assertEqual('officenetwork')
+    });
+    it('rejectsLegacyEnsureOperation', 0, () => {
+      expect(ThirdPartyApiValidator.isOperation('ensure_instance_running')).assertFalse()
+    });
+    it('acceptsFreshThirdPartySnapshot', 0, () => {
+      const now = Date.now()
+      const snapshot: ThirdPartyApiSnapshotPayload = {
+        schemaVersion: THIRD_PARTY_API_SCHEMA_VERSION,
+        updatedAt: now,
+        ttlMs: THIRD_PARTY_SNAPSHOT_TTL_MS,
+        instances: [],
+        truncated: false
+      }
+      expect(ThirdPartyApiValidator.isSnapshotFresh(snapshot, now)).assertTrue()
+      expect(ThirdPartyApiValidator.isSnapshotFresh(snapshot, now + THIRD_PARTY_SNAPSHOT_TTL_MS + 1)).assertFalse()
     });
   });
 }

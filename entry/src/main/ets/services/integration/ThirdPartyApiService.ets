@@ -10,9 +10,6 @@ import {
   THIRD_PARTY_API_SCHEMA_VERSION,
   THIRD_PARTY_MAX_LIST_INSTANCES,
   THIRD_PARTY_MAX_SHARED_VALUE_LENGTH,
-  THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING,
-  THIRD_PARTY_OPERATION_LIST_INSTANCES,
-  THIRD_PARTY_OPERATION_QUERY_INSTANCE,
   THIRD_PARTY_RESULT_BUSY,
   THIRD_PARTY_RESULT_INSTANCE_NOT_FOUND,
   THIRD_PARTY_RESULT_INTERNAL_ERROR,
@@ -20,14 +17,20 @@ import {
   THIRD_PARTY_RESULT_OK,
   THIRD_PARTY_RESULT_REPLAYED_REQUEST,
   THIRD_PARTY_RESULT_RUNTIME_TIMEOUT,
+  THIRD_PARTY_RESULT_SNAPSHOT_PUBLISH_FAILED,
   THIRD_PARTY_RESULT_START_REJECTED,
+  THIRD_PARTY_SNAPSHOT_HEARTBEAT_MS,
+  THIRD_PARTY_SNAPSHOT_POLL_INTERVAL_MS,
+  THIRD_PARTY_SNAPSHOT_TTL_MS,
   THIRD_PARTY_STATE_RUNNING,
   THIRD_PARTY_STATE_STARTING,
   THIRD_PARTY_STATE_STOPPED,
+  RUSTDESK_PARTNER,
   ThirdPartyApiInstanceSummary,
   ThirdPartyApiPartner,
   ThirdPartyApiRequestPayload,
   ThirdPartyApiResultPayload,
+  ThirdPartyApiSnapshotPayload,
   ThirdPartyApiValidationResult,
   ThirdPartyApiValidator
 } from './ThirdPartyApiContract'
@@ -50,6 +53,10 @@ export class ThirdPartyApiService {
   private readonly context: common.UIAbilityContext
   private activePartners: Set<string> = new Set<string>()
   private consumedRequestIds: Set<string> = new Set<string>()
+  private snapshotTimer: number | undefined = undefined
+  private snapshotSignature: string = ''
+  private snapshotPublishedAt: number = 0
+  private snapshotPublishing: boolean = false
   private destroyed: boolean = false
 
   constructor(context: common.UIAbilityContext) {
@@ -60,8 +67,22 @@ export class ThirdPartyApiService {
     return ThirdPartyApiValidator.isRequestWant(want)
   }
 
+  start(): void {
+    if (this.destroyed || this.snapshotTimer !== undefined) {
+      return
+    }
+    void this.refreshSnapshot(true)
+    this.snapshotTimer = setInterval(() => {
+      void this.refreshSnapshot(false)
+    }, THIRD_PARTY_SNAPSHOT_POLL_INTERVAL_MS)
+  }
+
   destroy(): void {
     this.destroyed = true
+    if (this.snapshotTimer !== undefined) {
+      clearInterval(this.snapshotTimer)
+      this.snapshotTimer = undefined
+    }
     this.activePartners.clear()
   }
 
@@ -157,9 +178,6 @@ export class ThirdPartyApiService {
   private async execute(request: ThirdPartyApiRequestPayload): Promise<ThirdPartyApiResultPayload> {
     const requestId = request.requestId ?? ''
     const operation = request.operation ?? ''
-    if (operation === THIRD_PARTY_OPERATION_LIST_INSTANCES) {
-      return this.listInstancesResult(requestId)
-    }
     const instanceId = request.instanceId ?? ''
     if (!AppManager.easytier.getConfig(instanceId)) {
       return this.errorResult(
@@ -169,35 +187,7 @@ export class ThirdPartyApiService {
         '指定的 EasyTier 实例不存在'
       )
     }
-    if (operation === THIRD_PARTY_OPERATION_QUERY_INSTANCE) {
-      return this.instanceResult(requestId, operation, instanceId, '实例状态已读取')
-    }
-    if (operation === THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING) {
-      return await this.ensureInstanceRunning(requestId, instanceId)
-    }
-    return this.errorResult(requestId, operation, THIRD_PARTY_RESULT_INVALID_REQUEST, '请求操作不受支持')
-  }
-
-  private listInstancesResult(requestId: string): ThirdPartyApiResultPayload {
-    const stored = AppManager.easytier.listStoredConfigs()
-    const instances: ThirdPartyApiInstanceSummary[] = []
-    const count = Math.min(stored.length, THIRD_PARTY_MAX_LIST_INSTANCES)
-    for (let index = 0; index < count; index += 1) {
-      const config = stored[index]
-      instances.push(this.instanceSummary(config.configId, config.displayName))
-    }
-    const result: ThirdPartyApiResultPayload = {
-      schemaVersion: THIRD_PARTY_API_SCHEMA_VERSION,
-      requestId,
-      operation: THIRD_PARTY_OPERATION_LIST_INSTANCES,
-      issuedAt: Date.now(),
-      ok: true,
-      code: THIRD_PARTY_RESULT_OK,
-      message: 'EasyTier 实例列表已读取',
-      instances,
-      truncated: stored.length > count
-    }
-    return result
+    return await this.startInstance(requestId, instanceId, operation)
   }
 
   private instanceResult(requestId: string, operation: string, instanceId: string,
@@ -216,11 +206,20 @@ export class ThirdPartyApiService {
     return result
   }
 
-  private async ensureInstanceRunning(requestId: string, instanceId: string): Promise<ThirdPartyApiResultPayload> {
+  private async startInstance(requestId: string, instanceId: string,
+    operation: string): Promise<ThirdPartyApiResultPayload> {
     if (AppManager.easytier.getConfirmedRunningInstance(instanceId)) {
+      if (!await this.refreshSnapshot(true)) {
+        return this.errorResult(
+          requestId,
+          operation,
+          THIRD_PARTY_RESULT_SNAPSHOT_PUBLISH_FAILED,
+          '实例已运行，但实时快照发布失败'
+        )
+      }
       return this.instanceResult(
         requestId,
-        THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING,
+        operation,
         instanceId,
         'EasyTier 实例已在运行'
       )
@@ -234,7 +233,7 @@ export class ThirdPartyApiService {
       if (!startOutcome.completed) {
         return this.errorResult(
           requestId,
-          THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING,
+          operation,
           THIRD_PARTY_RESULT_RUNTIME_TIMEOUT,
           '等待 EasyTier 启动或系统 VPN 授权超时'
         )
@@ -242,7 +241,7 @@ export class ThirdPartyApiService {
       if (startOutcome.errorMessage.length > 0 || !startOutcome.value) {
         return this.errorResult(
           requestId,
-          THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING,
+          operation,
           THIRD_PARTY_RESULT_START_REJECTED,
           startOutcome.errorMessage.length > 0 ? startOutcome.errorMessage : 'EasyTier 未接受实例启动请求'
         )
@@ -252,14 +251,22 @@ export class ThirdPartyApiService {
     if (!await this.waitRuntimeReady(instanceId, RUNTIME_READY_TIMEOUT_MS)) {
       return this.errorResult(
         requestId,
-        THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING,
+        operation,
         THIRD_PARTY_RESULT_RUNTIME_TIMEOUT,
         'EasyTier 内核未在限定时间内确认实例运行'
       )
     }
+    if (!await this.refreshSnapshot(true)) {
+      return this.errorResult(
+        requestId,
+        operation,
+        THIRD_PARTY_RESULT_SNAPSHOT_PUBLISH_FAILED,
+        '实例已运行，但实时快照发布失败'
+      )
+    }
     return this.instanceResult(
       requestId,
-      THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING,
+      operation,
       instanceId,
       'EasyTier 实例已启动并由内核确认运行'
     )
@@ -277,16 +284,94 @@ export class ThirdPartyApiService {
     const summary: ThirdPartyApiInstanceSummary = {
       instanceId,
       instanceName: ThirdPartyApiValidator.safeInstanceName(instanceName),
-      state
+      state,
+      peerCount: confirmed?.peers.length ?? 0
     }
     if (confirmed) {
       const virtualIpv4 = confirmed.myNodeInfo?.virtualIpv4
       if (virtualIpv4 && virtualIpv4.length > 0) {
         summary.virtualIpv4 = virtualIpv4
       }
-      summary.peerCount = confirmed.peers.length
     }
     return summary
+  }
+
+  private buildSnapshot(updatedAt: number): ThirdPartyApiSnapshotPayload {
+    const stored = AppManager.easytier.listStoredConfigs()
+    stored.sort((left, right) => left.configId.localeCompare(right.configId))
+    const instances: ThirdPartyApiInstanceSummary[] = []
+    const count = Math.min(stored.length, THIRD_PARTY_MAX_LIST_INSTANCES)
+    for (let index = 0; index < count; index += 1) {
+      const config = stored[index]
+      instances.push(this.instanceSummary(config.configId, config.displayName))
+    }
+    const snapshot: ThirdPartyApiSnapshotPayload = {
+      schemaVersion: THIRD_PARTY_API_SCHEMA_VERSION,
+      updatedAt,
+      ttlMs: THIRD_PARTY_SNAPSHOT_TTL_MS,
+      instances,
+      truncated: stored.length > count
+    }
+    return snapshot
+  }
+
+  private async refreshSnapshot(force: boolean): Promise<boolean> {
+    if (this.destroyed) {
+      return false
+    }
+    if (this.snapshotPublishing) {
+      if (!force) {
+        return true
+      }
+      const waitStartedAt = Date.now()
+      while (this.snapshotPublishing && !this.destroyed && Date.now() - waitStartedAt < 2000) {
+        await this.delay(25)
+      }
+      if (this.snapshotPublishing || this.destroyed) {
+        return false
+      }
+    }
+
+    const now = Date.now()
+    const snapshot = this.buildSnapshot(0)
+    const signature = JSON.stringify(snapshot)
+    const heartbeatDue = now - this.snapshotPublishedAt >= THIRD_PARTY_SNAPSHOT_HEARTBEAT_MS
+    if (!force && signature === this.snapshotSignature && !heartbeatDue) {
+      return true
+    }
+    snapshot.updatedAt = now
+    const value = JSON.stringify(snapshot)
+    if (value.length === 0 || value.length > THIRD_PARTY_MAX_SHARED_VALUE_LENGTH) {
+      Logger.error('实例快照超过共享配置大小限制', TAG)
+      return false
+    }
+
+    this.snapshotPublishing = true
+    try {
+      const handle = await dataShare.createDataProxyHandle()
+      const config: dataShare.DataProxyConfig = {
+        type: dataShare.DataProxyType.SHARED_CONFIG
+      }
+      const proxyData: dataShare.ProxyData[] = [{
+        uri: RUSTDESK_PARTNER.snapshotUri,
+        value,
+        allowList: [RUSTDESK_PARTNER.appIdentifier]
+      }]
+      const results = await handle.publish(proxyData, config)
+      if (results.length !== 1 || results[0].uri !== RUSTDESK_PARTNER.snapshotUri
+        || results[0].result !== dataShare.DataProxyErrorCode.SUCCESS) {
+        Logger.error('系统拒绝发布实例快照', TAG)
+        return false
+      }
+      this.snapshotSignature = signature
+      this.snapshotPublishedAt = now
+      return true
+    } catch (error) {
+      Logger.error(`发布实例快照失败：${ThirdPartyApiService.errorMessage(error as Object)}`, TAG)
+      return false
+    } finally {
+      this.snapshotPublishing = false
+    }
   }
 
   private async waitBoolean(operation: Promise<boolean>, timeoutMs: number): Promise<AsyncBooleanOutcome> {

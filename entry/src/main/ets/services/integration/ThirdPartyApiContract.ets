@@ -1,9 +1,9 @@
 import { Want } from '@kit.AbilityKit'
 import { JSON } from '@kit.ArkTS'
 
-export const THIRD_PARTY_API_SCHEMA_VERSION = 1
-export const THIRD_PARTY_API_REQUEST_ACTION = 'top.frankhan.easytier.action.THIRD_PARTY_API_REQUEST'
-export const THIRD_PARTY_API_RESULT_ACTION = 'top.frankhan.easytier.action.THIRD_PARTY_API_RESULT'
+export const THIRD_PARTY_API_SCHEMA_VERSION = 2
+export const THIRD_PARTY_API_REQUEST_ACTION = 'top.frankhan.easytier.action.START_INSTANCE_REQUEST'
+export const THIRD_PARTY_API_RESULT_ACTION = 'top.frankhan.easytier.action.START_INSTANCE_RESULT'
 export const THIRD_PARTY_API_REQUEST_ID_KEY = 'top.frankhan.easytier.api.requestId'
 export const THIRD_PARTY_API_OPERATION_KEY = 'top.frankhan.easytier.api.operation'
 export const THIRD_PARTY_API_CALLER_BUNDLE_KEY = 'ohos.aafwk.param.callerBundleName'
@@ -13,9 +13,7 @@ export const EASYTIER_MODULE_NAME = 'entry'
 export const EASYTIER_ABILITY_NAME = 'EntryAbility'
 export const EASYTIER_APP_IDENTIFIER = '6917581172490635834'
 
-export const THIRD_PARTY_OPERATION_LIST_INSTANCES = 'list_instances'
-export const THIRD_PARTY_OPERATION_QUERY_INSTANCE = 'query_instance'
-export const THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING = 'ensure_instance_running'
+export const THIRD_PARTY_OPERATION_START_INSTANCE = 'start_instance'
 
 export const THIRD_PARTY_STATE_STOPPED = 'stopped'
 export const THIRD_PARTY_STATE_STARTING = 'starting'
@@ -29,9 +27,13 @@ export const THIRD_PARTY_RESULT_BUSY = 'BUSY'
 export const THIRD_PARTY_RESULT_INSTANCE_NOT_FOUND = 'INSTANCE_NOT_FOUND'
 export const THIRD_PARTY_RESULT_START_REJECTED = 'START_REJECTED'
 export const THIRD_PARTY_RESULT_RUNTIME_TIMEOUT = 'RUNTIME_TIMEOUT'
+export const THIRD_PARTY_RESULT_SNAPSHOT_PUBLISH_FAILED = 'SNAPSHOT_PUBLISH_FAILED'
 export const THIRD_PARTY_RESULT_INTERNAL_ERROR = 'INTERNAL_ERROR'
 
 export const THIRD_PARTY_REQUEST_TTL_MS = 5 * 60 * 1000
+export const THIRD_PARTY_SNAPSHOT_TTL_MS = 15 * 1000
+export const THIRD_PARTY_SNAPSHOT_HEARTBEAT_MS = 5 * 1000
+export const THIRD_PARTY_SNAPSHOT_POLL_INTERVAL_MS = 500
 export const THIRD_PARTY_FUTURE_CLOCK_SKEW_MS = 5000
 export const THIRD_PARTY_MAX_SHARED_VALUE_LENGTH = 4096
 export const THIRD_PARTY_MAX_INSTANCE_ID_LENGTH = 128
@@ -43,16 +45,18 @@ export class ThirdPartyApiPartner {
   appIdentifier: string
   requestUri: string
   capabilityUri: string
+  snapshotUri: string
   resultUri: string
   callbackModuleName: string
   callbackAbilityName: string
 
   constructor(bundleName: string, appIdentifier: string, requestUri: string, capabilityUri: string,
-    resultUri: string, callbackModuleName: string, callbackAbilityName: string) {
+    snapshotUri: string, resultUri: string, callbackModuleName: string, callbackAbilityName: string) {
     this.bundleName = bundleName
     this.appIdentifier = appIdentifier
     this.requestUri = requestUri
     this.capabilityUri = capabilityUri
+    this.snapshotUri = snapshotUri
     this.resultUri = resultUri
     this.callbackModuleName = callbackModuleName
     this.callbackAbilityName = callbackAbilityName
@@ -62,9 +66,10 @@ export class ThirdPartyApiPartner {
 export const RUSTDESK_PARTNER = new ThirdPartyApiPartner(
   'top.frankhan.resk',
   '6917605780518421882',
-  'datashareproxy://top.frankhan.resk/easytier_api/v1/request',
-  'datashareproxy://top.frankhan.easytier/third_party_api/v1/capabilities/rustdesk',
-  'datashareproxy://top.frankhan.easytier/third_party_api/v1/result/rustdesk',
+  'datashareproxy://top.frankhan.resk/easytier_api/v2/start_request',
+  'datashareproxy://top.frankhan.easytier/third_party_api/v2/capabilities/rustdesk',
+  'datashareproxy://top.frankhan.easytier/third_party_api/v2/instance_snapshot/rustdesk',
+  'datashareproxy://top.frankhan.easytier/third_party_api/v2/start_result/rustdesk',
   'entry',
   'EntryAbility'
 )
@@ -84,7 +89,15 @@ export interface ThirdPartyApiInstanceSummary {
   instanceName: string
   state: string
   virtualIpv4?: string
-  peerCount?: number
+  peerCount: number
+}
+
+export interface ThirdPartyApiSnapshotPayload {
+  schemaVersion: number
+  updatedAt: number
+  ttlMs: number
+  instances: ThirdPartyApiInstanceSummary[]
+  truncated: boolean
 }
 
 export interface ThirdPartyApiResultPayload {
@@ -96,8 +109,6 @@ export interface ThirdPartyApiResultPayload {
   code: string
   message: string
   instance?: ThirdPartyApiInstanceSummary
-  instances?: ThirdPartyApiInstanceSummary[]
-  truncated?: boolean
 }
 
 export class ThirdPartyApiValidationResult {
@@ -145,6 +156,30 @@ export class ThirdPartyApiValidator {
     }
   }
 
+  static parseSnapshot(value: string): ThirdPartyApiSnapshotPayload | undefined {
+    try {
+      const payload = JSON.parse(value) as ThirdPartyApiSnapshotPayload
+      if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+        return undefined
+      }
+      return payload
+    } catch (_) {
+      return undefined
+    }
+  }
+
+  static isSnapshotFresh(payload: ThirdPartyApiSnapshotPayload, now: number): boolean {
+    if (payload.schemaVersion !== THIRD_PARTY_API_SCHEMA_VERSION
+      || !Number.isSafeInteger(payload.updatedAt) || payload.updatedAt <= 0
+      || payload.ttlMs !== THIRD_PARTY_SNAPSHOT_TTL_MS
+      || payload.updatedAt - now > THIRD_PARTY_FUTURE_CLOCK_SKEW_MS
+      || now - payload.updatedAt > payload.ttlMs
+      || !Array.isArray(payload.instances)) {
+      return false
+    }
+    return true
+  }
+
   static validateRequest(payload: ThirdPartyApiRequestPayload, expectedRequestId: string,
     now: number): ThirdPartyApiValidationResult {
     if (payload.schemaVersion !== THIRD_PARTY_API_SCHEMA_VERSION) {
@@ -172,8 +207,7 @@ export class ThirdPartyApiValidator {
       return new ThirdPartyApiValidationResult(false, THIRD_PARTY_RESULT_REQUEST_EXPIRED,
         '请求已超过 5 分钟，请重新发起')
     }
-    if (payload.operation !== THIRD_PARTY_OPERATION_LIST_INSTANCES
-      && !ThirdPartyApiValidator.isInstanceId(payload.instanceId)) {
+    if (!ThirdPartyApiValidator.isInstanceId(payload.instanceId)) {
       return new ThirdPartyApiValidationResult(false, THIRD_PARTY_RESULT_INVALID_REQUEST,
         '实例 ID 无效')
     }
@@ -181,9 +215,7 @@ export class ThirdPartyApiValidator {
   }
 
   static isOperation(value: string | undefined): boolean {
-    return value === THIRD_PARTY_OPERATION_LIST_INSTANCES
-      || value === THIRD_PARTY_OPERATION_QUERY_INSTANCE
-      || value === THIRD_PARTY_OPERATION_ENSURE_INSTANCE_RUNNING
+    return value === THIRD_PARTY_OPERATION_START_INSTANCE
   }
 
   static isRequestId(value: string): boolean {

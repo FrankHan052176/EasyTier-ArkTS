@@ -1,15 +1,22 @@
 {
   "crossAppSharedConfig": [
     {
-      "uri": "datashareproxy://top.frankhan.easytier/third_party_api/v1/capabilities/rustdesk",
-      "value": "{\"schemaVersion\":1,\"protocol\":\"easytier.third_party_api\",\"providerAppIdentifier\":\"6917581172490635834\",\"requestAction\":\"top.frankhan.easytier.action.THIRD_PARTY_API_REQUEST\",\"resultAction\":\"top.frankhan.easytier.action.THIRD_PARTY_API_RESULT\",\"requestUri\":\"datashareproxy://top.frankhan.resk/easytier_api/v1/request\",\"resultUri\":\"datashareproxy://top.frankhan.easytier/third_party_api/v1/result/rustdesk\",\"operations\":[\"list_instances\",\"query_instance\",\"ensure_instance_running\"]}",
+      "uri": "datashareproxy://top.frankhan.easytier/third_party_api/v2/capabilities/rustdesk",
+      "value": "{\"schemaVersion\":2,\"protocol\":\"easytier.third_party_api\",\"providerAppIdentifier\":\"6917581172490635834\",\"requestAction\":\"top.frankhan.easytier.action.START_INSTANCE_REQUEST\",\"resultAction\":\"top.frankhan.easytier.action.START_INSTANCE_RESULT\",\"requestUri\":\"datashareproxy://top.frankhan.resk/easytier_api/v2/start_request\",\"snapshotUri\":\"datashareproxy://top.frankhan.easytier/third_party_api/v2/instance_snapshot/rustdesk\",\"resultUri\":\"datashareproxy://top.frankhan.easytier/third_party_api/v2/start_result/rustdesk\",\"snapshotTtlMs\":15000,\"operation\":\"start_instance\"}",
       "allowList": [
         "6917605780518421882"
       ]
     },
     {
-      "uri": "datashareproxy://top.frankhan.easytier/third_party_api/v1/result/rustdesk",
-      "value": "{\"schemaVersion\":1,\"requestId\":\"\",\"operation\":\"\",\"issuedAt\":0,\"ok\":false,\"code\":\"IDLE\",\"message\":\"No request has been processed\"}",
+      "uri": "datashareproxy://top.frankhan.easytier/third_party_api/v2/instance_snapshot/rustdesk",
+      "value": "{\"schemaVersion\":2,\"updatedAt\":0,\"ttlMs\":15000,\"instances\":[],\"truncated\":false}",
+      "allowList": [
+        "6917605780518421882"
+      ]
+    },
+    {
+      "uri": "datashareproxy://top.frankhan.easytier/third_party_api/v2/start_result/rustdesk",
+      "value": "{\"schemaVersion\":2,\"requestId\":\"\",\"operation\":\"start_instance\",\"issuedAt\":0,\"ok\":false,\"code\":\"IDLE\",\"message\":\"No start request has been processed\"}",
       "allowList": [
         "6917605780518421882"
       ]
