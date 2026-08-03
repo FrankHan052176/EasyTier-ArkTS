@@ -847,6 +847,11 @@ struct SettingHomeSheet {
           title: "内核内存占用",
           value: AppManager.runtimeStats.memoryUsageText
         })
+        SettingValueRow({
+          symbol: $r("sys.symbol.waveform"),
+          title: "运行采样",
+          value: AppManager.runtimeStats.snapshotFreshnessText
+        })
         settingVerticalSelectorRow($r("sys.symbol.waveform"), "保活方式",
           AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "数据传输或音乐",
           runtimeModeValue(), AppManager.easytier.runningNetworks.size == 0, (value: string) => {
@@ -911,7 +916,7 @@ export function SettingLogs_Content() {
     }
 
     ListItemGroup({ header: settingGroupHeader("分享") }) {
-      settingButtonRow($r("sys.symbol.doc"), "分享崩溃日志", "分享", () => {
+      settingButtonRow($r("sys.symbol.doc"), "分享运行诊断", "分享", () => {
         AppManager.easytier.writeAndShareCrashLog()
       })
       LogSharePickerRow()

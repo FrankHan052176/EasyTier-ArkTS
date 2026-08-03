@@ -28,8 +28,12 @@ import { LogCenterService } from './services/logging/LogCenterService'
 import { findRunningInstance, listRunningInstances } from './services/runtime/RuntimeStateReducer'
 import { FavoriteCardSignatureState } from './services/runtime/RuntimeNotificationService'
 import { RuntimeStateCoordinator } from './services/runtime/RuntimeStateCoordinator'
+import { RUNTIME_STATS_STALE_AFTER_MS } from './services/runtime/RuntimeStatsService'
 import { VpnExtensionAbilityController } from './services/runtime/VpnExtensionAbilityController'
-import { VpnExtensionRuntimeClient } from './services/runtime/VpnExtensionRuntimeClient'
+import {
+  VpnExtensionRuntimeClient,
+  VpnExtensionRuntimeHealthSnapshot
+} from './services/runtime/VpnExtensionRuntimeClient'
 import { requestEntryKeepAliveStart, requestEntryKeepAliveStop } from './services/runtime/EntryKeepAliveBridge'
 import { VPN_EXTENSION_SOCKET_NAME } from './services/runtime/AbilityRuntimePolicy'
 import { NetworkRestartResult } from './services/runtime/NetworkChangeWatchdog'
@@ -40,6 +44,21 @@ import {
   KERNEL_TRAFFIC_STATS_EVENT
 } from './types/events/RuntimeEventTypes'
 
+const KERNEL_HEARTBEAT_STALE_AFTER_MS = 5000
+
+export interface RuntimeHealthSummary {
+  state: string
+  text: string
+  warning: boolean
+  checkedAt: number
+  bridge: VpnExtensionRuntimeHealthSnapshot
+  runtimeStatsUpdatedAt: number
+}
+
+const FOREGROUND_LOG_DRAIN_INTERVAL_MS = 500
+const BACKGROUND_LOG_DRAIN_INTERVAL_MS = 5000
+const BACKGROUND_RUNTIME_REFRESH_INTERVAL_MS = 5000
+
 @LogLocate("EasyTierUtil")
 @ObservedV2
 export class EasyTierUtil {
@@ -49,6 +68,9 @@ export class EasyTierUtil {
   @Trace needTUN: Set<string> = new Set()
   @Trace temporaryConfigIds: Set<string> = new Set()
   private logTimer: number | undefined
+  private uiForeground: boolean = true
+  private lastBackgroundTopologyAt: number = 0
+  private lastBackgroundTrafficAt: number = 0
   private operationQueue: Promise<void> = Promise.resolve()
   private runtimeIntentGeneration: number = 0
   private pendingStartIds: Set<string> = new Set()
@@ -125,9 +147,7 @@ export class EasyTierUtil {
     EventHelper.emitterListener(KERNEL_RUNTIME_PEER_EVENT, this.kernelRuntimePeerEventCallback)
     EventHelper.emitterListener(KERNEL_TRAFFIC_STATS_EVENT, this.kernelTrafficStatsCallback)
 
-    this.logTimer = setInterval(() => {
-      this.processLogs(easytier.drainLogLines())
-    }, 500)
+    this.restartLogDrainTimer()
 
     this.connectToVpnExtension(VPN_EXTENSION_SOCKET_NAME)
   }
@@ -141,10 +161,7 @@ export class EasyTierUtil {
     EventHelper.emitterOff(KERNEL_RUNTIME_TOPOLOGY_EVENT, this.kernelRuntimeTopologyCallback)
     EventHelper.emitterOff(KERNEL_RUNTIME_PEER_EVENT, this.kernelRuntimePeerEventCallback)
     EventHelper.emitterOff(KERNEL_TRAFFIC_STATS_EVENT, this.kernelTrafficStatsCallback)
-    if (this.logTimer !== undefined) {
-      clearInterval(this.logTimer)
-      this.logTimer = undefined
-    }
+    this.stopLogDrainTimer()
     this.runtimeStateCoordinator.clearRunningState()
     this.runtimeStateCoordinator.reset()
     this.vpnExtensionRuntimeClient.close()
@@ -153,6 +170,42 @@ export class EasyTierUtil {
     this.acceptedRuntimeIds.clear()
     this.runtimeCommandResults.clear()
     this.runtimeStatus = undefined
+    this.lastBackgroundTopologyAt = 0
+    this.lastBackgroundTrafficAt = 0
+  }
+
+  setUiForeground(foreground: boolean): void {
+    if (this.uiForeground === foreground) {
+      return
+    }
+    this.uiForeground = foreground
+    if (foreground) {
+      this.lastBackgroundTopologyAt = 0
+      this.lastBackgroundTrafficAt = 0
+    }
+    if (!this.initialized) {
+      return
+    }
+    this.restartLogDrainTimer()
+    if (foreground) {
+      this.processLogs(easytier.drainLogLines())
+    }
+  }
+
+  private restartLogDrainTimer(): void {
+    this.stopLogDrainTimer()
+    const intervalMs = this.uiForeground ? FOREGROUND_LOG_DRAIN_INTERVAL_MS : BACKGROUND_LOG_DRAIN_INTERVAL_MS
+    this.logTimer = setInterval(() => {
+      this.processLogs(easytier.drainLogLines())
+    }, intervalMs)
+  }
+
+  private stopLogDrainTimer(): void {
+    if (this.logTimer === undefined) {
+      return
+    }
+    clearInterval(this.logTimer)
+    this.logTimer = undefined
   }
 
   version() {
@@ -182,6 +235,13 @@ export class EasyTierUtil {
   }
 
   private processRuntimeSnapshot(snapshot: RuntimeAggregateState, fromVpn: boolean = true, includeTraffic: boolean = true): void {
+    const now = Date.now()
+    if (!this.uiForeground && now - this.lastBackgroundTopologyAt < BACKGROUND_RUNTIME_REFRESH_INTERVAL_MS) {
+      return
+    }
+    if (!this.uiForeground) {
+      this.lastBackgroundTopologyAt = now
+    }
     this.runtimeStateCoordinator.processRuntimeSnapshot(snapshot, fromVpn, includeTraffic)
   }
 
@@ -196,6 +256,13 @@ export class EasyTierUtil {
   }
 
   processTrafficStats(stats: TrafficStatsPayload, fromVpn: boolean = true): void {
+    const now = Date.now()
+    if (!this.uiForeground && now - this.lastBackgroundTrafficAt < BACKGROUND_RUNTIME_REFRESH_INTERVAL_MS) {
+      return
+    }
+    if (!this.uiForeground) {
+      this.lastBackgroundTrafficAt = now
+    }
     this.runtimeStateCoordinator.processTrafficStats(stats, fromVpn)
   }
 
@@ -206,6 +273,90 @@ export class EasyTierUtil {
   public ensureRuntimeConnection(): void {
     if (!this.vpnExtensionRuntimeClient.isConnected()) {
       this.connectToVpnExtension(VPN_EXTENSION_SOCKET_NAME)
+    }
+  }
+
+  public isVpnExtensionConnected(): boolean {
+    return this.vpnExtensionRuntimeClient.isConnected()
+  }
+
+  public getRuntimeHealthSummary(now: number = Date.now()): RuntimeHealthSummary {
+    const bridge = this.vpnExtensionRuntimeClient.getHealthSnapshot()
+    const runtimeStatsUpdatedAt = AppManager.runtimeStats.snapshotUpdatedAt
+    if (!this.hasActiveOrStartingRuntime()) {
+      return {
+        state: 'stopped',
+        text: '实例未运行',
+        warning: false,
+        checkedAt: now,
+        bridge,
+        runtimeStatsUpdatedAt
+      }
+    }
+    if (!bridge.connected) {
+      const statsStale = AppManager.runtimeStats.isSnapshotStale(now)
+      return {
+        state: statsStale ? 'extension_unresponsive' : 'bridge_disconnected',
+        text: statsStale ? '状态不可确认：VPN 扩展可能已冻结或被系统暂停' :
+          '状态不可确认：UI 与 VPN 扩展连接已断开',
+        warning: true,
+        checkedAt: now,
+        bridge,
+        runtimeStatsUpdatedAt
+      }
+    }
+    if (runtimeStatsUpdatedAt <= 0 && bridge.connectedAt > 0 &&
+      now - bridge.connectedAt <= RUNTIME_STATS_STALE_AFTER_MS) {
+      return {
+        state: 'checking',
+        text: '正在确认 VPN 扩展与内核运行状态',
+        warning: false,
+        checkedAt: now,
+        bridge,
+        runtimeStatsUpdatedAt
+      }
+    }
+    if (AppManager.runtimeStats.isSnapshotStale(now)) {
+      const ageSeconds = runtimeStatsUpdatedAt > 0 ? Math.max(0, Math.trunc((now - runtimeStatsUpdatedAt) / 1000)) : 0
+      return {
+        state: 'extension_stats_timeout',
+        text: runtimeStatsUpdatedAt > 0 ? `状态不可确认：VPN 扩展采样已中断 ${ageSeconds} 秒` :
+          '状态不可确认：尚未收到 VPN 扩展采样',
+        warning: true,
+        checkedAt: now,
+        bridge,
+        runtimeStatsUpdatedAt
+      }
+    }
+    const heartbeatReference = bridge.lastTrafficStatsAt > 0 ? bridge.lastTrafficStatsAt : bridge.connectedAt
+    const heartbeatAgeMs = heartbeatReference > 0 ? now - heartbeatReference : KERNEL_HEARTBEAT_STALE_AFTER_MS + 1
+    if (heartbeatAgeMs > KERNEL_HEARTBEAT_STALE_AFTER_MS) {
+      return {
+        state: 'kernel_timeout',
+        text: `状态不可确认：内核响应已超时 ${Math.trunc(heartbeatAgeMs / 1000)} 秒`,
+        warning: true,
+        checkedAt: now,
+        bridge,
+        runtimeStatsUpdatedAt
+      }
+    }
+    if (bridge.lastTrafficStatsAt <= 0) {
+      return {
+        state: 'checking',
+        text: '正在确认内核运行状态',
+        warning: false,
+        checkedAt: now,
+        bridge,
+        runtimeStatsUpdatedAt
+      }
+    }
+    return {
+      state: 'healthy',
+      text: '内核与 VPN 扩展响应正常',
+      warning: false,
+      checkedAt: now,
+      bridge,
+      runtimeStatsUpdatedAt
     }
   }
 

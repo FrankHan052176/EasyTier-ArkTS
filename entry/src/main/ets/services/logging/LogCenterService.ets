@@ -8,6 +8,9 @@ import { Logger, LogLocate } from '../../shared/logging/Logger'
 import { sendToast } from '../../ToastUtil'
 import { CrashLogService } from '../crash/CrashLogService'
 import { LogFileEntry } from '../../types/logging/LogFileTypes'
+import { getRuntimeStatsFilePath } from '../runtime/RuntimeStatsService'
+
+const DIAGNOSTIC_REPORT_FILE = 'easytier-diagnostics.txt'
 
 const SHARE_EXCLUDED_ABILITIES: systemShare.ShareAbilityType[] = [
   systemShare.ShareAbilityType.PRINT,
@@ -41,6 +44,35 @@ function unlinkQuietly(path: string): void {
   try {
     fileIo.unlinkSync(path)
   } catch (_) {
+  }
+}
+
+function readTextQuietly(path: string): string {
+  try {
+    return fileIo.readTextSync(path)
+  } catch (_) {
+    return ''
+  }
+}
+
+function writeTextReplacing(path: string, text: string): void {
+  const tempPath = `${path}.tmp`
+  let file: fileIo.File | null = null
+  unlinkQuietly(tempPath)
+  try {
+    file = fileIo.openSync(tempPath, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE)
+    fileIo.writeSync(file.fd, text)
+    fileIo.closeSync(file)
+    file = null
+    unlinkQuietly(path)
+    fileIo.renameSync(tempPath, path)
+  } catch (error) {
+    closeFileQuietly(file)
+    unlinkQuietly(tempPath)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error(`writeTextReplacing failed: ${JSON.stringify(error)}`)
   }
 }
 
@@ -130,21 +162,30 @@ export class LogCenterService {
 
   static writeAndShareCrashLog(): void {
     const context = getContext()
-    const filePath = CrashLogService.getLogPath(context.filesDir)
+    const filePath = `${context.filesDir}/${DIAGNOSTIC_REPORT_FILE}`
     try {
-      if (Number(fileIo.statSync(filePath).size) <= 0) {
-        sendToast('暂无崩溃日志', $r('sys.symbol.doc'), 1)
-        return
-      }
-    } catch (_) {
-      sendToast('暂无崩溃日志', $r('sys.symbol.doc'), 1)
-      return
-    }
-
-    try {
-      showFileShare(context, filePath, '分享崩溃日志', 'systemShareCrashLog')
+      AppManager.runtimeStats.refreshFromDisk()
+      const health = AppManager.easytier.getRuntimeHealthSummary()
+      const systemEvents = readTextQuietly(CrashLogService.getLogPath(context.filesDir))
+      const runtimeStats = readTextQuietly(getRuntimeStatsFilePath(context.filesDir))
+      const report = [
+        '# EasyTier HarmonyOS runtime diagnostics',
+        `generatedAt=${new Date().toISOString()}`,
+        '',
+        '## Current runtime health',
+        JSON.stringify(health, undefined, 2),
+        '',
+        '## Runtime memory samples',
+        runtimeStats.length > 0 ? runtimeStats : 'No runtime memory samples recorded.',
+        '',
+        '## System exit, freeze and resource events',
+        systemEvents.length > 0 ? systemEvents : 'No system diagnostic events recorded.',
+        ''
+      ].join('\n')
+      writeTextReplacing(filePath, report)
+      showFileShare(context, filePath, '分享运行诊断', 'systemShareRuntimeDiagnostics')
     } catch (err) {
-      Logger.error(`崩溃日志分享失败. Code: ${err.code}, message: ${err.message}`, 'LogCenterService')
+      Logger.error(`运行诊断分享失败. Code: ${err.code}, message: ${err.message}`, 'LogCenterService')
     }
   }
 }

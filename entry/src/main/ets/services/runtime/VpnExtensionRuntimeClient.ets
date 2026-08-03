@@ -29,6 +29,14 @@ export interface VpnExtensionRuntimeClientOptions {
   onRuntimeStatus: (status: VpnRuntimeStatusData) => void
 }
 
+export interface VpnExtensionRuntimeHealthSnapshot {
+  connected: boolean
+  connectedAt: number
+  disconnectedAt: number
+  lastMessageAt: number
+  lastTrafficStatsAt: number
+}
+
 export class VpnExtensionRuntimeClient {
   private readonly options: VpnExtensionRuntimeClientOptions
   private client: socket.LocalSocket | undefined = undefined
@@ -40,6 +48,10 @@ export class VpnExtensionRuntimeClient {
   private commandGeneration: number = 0
   private inFlightRequestId: string = ''
   private pendingCommands: VpnRuntimeCommandData[] = []
+  private connectedAt: number = 0
+  private disconnectedAt: number = 0
+  private lastMessageAt: number = 0
+  private lastTrafficStatsAt: number = 0
 
   constructor(options: VpnExtensionRuntimeClientOptions) {
     this.options = options
@@ -47,6 +59,16 @@ export class VpnExtensionRuntimeClient {
 
   isConnected(): boolean {
     return this.connected
+  }
+
+  getHealthSnapshot(): VpnExtensionRuntimeHealthSnapshot {
+    return {
+      connected: this.connected,
+      connectedAt: this.connectedAt,
+      disconnectedAt: this.disconnectedAt,
+      lastMessageAt: this.lastMessageAt,
+      lastTrafficStatsAt: this.lastTrafficStatsAt
+    }
   }
 
   connect(socketName: string): void {
@@ -103,6 +125,9 @@ export class VpnExtensionRuntimeClient {
           return
         }
         this.connected = true
+        this.connectedAt = Date.now()
+        this.lastMessageAt = this.connectedAt
+        this.lastTrafficStatsAt = 0
         this.inFlightRequestId = ''
         this.sendNextCommand(generation, attempt)
       },
@@ -111,6 +136,7 @@ export class VpnExtensionRuntimeClient {
           return
         }
         this.connected = false
+        this.disconnectedAt = Date.now()
         this.inFlightRequestId = ''
       },
       onReconnectRequested: () => {
@@ -118,32 +144,40 @@ export class VpnExtensionRuntimeClient {
       },
       onTopology: (snapshot: RuntimeAggregateState) => {
         if (generation === this.generation && attempt === this.connectionAttempt) {
+          this.lastMessageAt = Date.now()
           this.options.onTopology(snapshot)
         }
       },
       onTrafficStats: (stats: TrafficStatsPayload) => {
         if (generation === this.generation && attempt === this.connectionAttempt) {
+          const now = Date.now()
+          this.lastMessageAt = now
+          this.lastTrafficStatsAt = now
           this.options.onTrafficStats(stats)
         }
       },
       onPeerEvent: (event: RuntimePeerEventPayload) => {
         if (generation === this.generation && attempt === this.connectionAttempt) {
+          this.lastMessageAt = Date.now()
           this.options.onPeerEvent(event)
         }
       },
       onLogs: (logs: VpnLogData) => {
         if (generation === this.generation && attempt === this.connectionAttempt) {
+          this.lastMessageAt = Date.now()
           this.options.onLogs(logs)
         }
       },
       onRuntimeCommandResult: (result: VpnRuntimeCommandResultData) => {
         if (generation === this.generation && attempt === this.connectionAttempt) {
+          this.lastMessageAt = Date.now()
           this.options.onRuntimeCommandResult(result)
           this.acknowledgeCommand(result.requestId)
         }
       },
       onRuntimeStatus: (status: VpnRuntimeStatusData) => {
         if (generation === this.generation && attempt === this.connectionAttempt) {
+          this.lastMessageAt = Date.now()
           this.options.onRuntimeStatus(status)
         }
       }
@@ -215,6 +249,10 @@ export class VpnExtensionRuntimeClient {
     }
     this.client = undefined
     this.connected = false
+    this.connectedAt = 0
+    this.disconnectedAt = Date.now()
+    this.lastMessageAt = 0
+    this.lastTrafficStatsAt = 0
     this.inFlightRequestId = ''
     this.pendingCommands = []
   }

@@ -9,6 +9,11 @@ import {
 } from '../types/runtime/BackgroundKeepAliveTypes';
 import { shouldUseEntryBackgroundKeepAlive } from '../services/runtime/AbilityRuntimePolicy';
 
+const LIVE_VIEW_MIN_UPDATE_INTERVAL_MS = 5000
+const LIVE_VIEW_UNCHANGED_HEARTBEAT_MS = 30000
+let lastLiveViewSignature: string = ''
+let lastLiveViewPublishedAt: number = 0
+
 function shouldUseLiveViewNotification(): boolean {
   return shouldUseEntryBackgroundKeepAlive() && normalizeBackgroundKeepAliveMode(AppManager.uiState.background_keep_alive_mode) ===
     BACKGROUND_KEEP_ALIVE_DATA_TRANSFER
@@ -47,6 +52,8 @@ export function publishTextNotification(instance_name: string): void {
       Logger.error(`实况窗通知发布失败, nid: ${AppManager.uiState.notificationId}, code: ${err.code}, message:${err.message}`, "NoticeHelper")
     }
   })
+  lastLiveViewSignature = ''
+  lastLiveViewPublishedAt = Date.now()
 }
 
 export async function updateTextNotification(instance_name: string, instanceInfo: InstanceInfo): Promise<void> {
@@ -55,6 +62,15 @@ export async function updateTextNotification(instance_name: string, instanceInfo
   }
   const text = `${instanceInfo.getUploadRate().toFixed(1)}${instanceInfo.getUploadRateUnit()} ↑ ${instanceInfo.getDownloadRate().toFixed(1)}${instanceInfo.getDownloadRateUnit()} ↓`
   const progressValue = Math.min(100, Math.max(0, (instanceInfo.getUploadRate() / (instanceInfo.getUploadRate() + 10)) * 100))
+  const now = Date.now()
+  const signature = `${instance_name}:${text}:${progressValue.toFixed(1)}`
+  const elapsedMs = now - lastLiveViewPublishedAt
+  if (elapsedMs < LIVE_VIEW_MIN_UPDATE_INTERVAL_MS ||
+    (signature === lastLiveViewSignature && elapsedMs < LIVE_VIEW_UNCHANGED_HEARTBEAT_MS)) {
+    return
+  }
+  lastLiveViewSignature = signature
+  lastLiveViewPublishedAt = now
   const updateRequest = buildLiveViewRequest(instance_name, text, progressValue)
   notificationManager.publish(updateRequest, (err: BusinessError) => {
     if (err) {

@@ -14,6 +14,7 @@ import { Protocol, protocolBGColor, protocolColor } from '../../util/Conversion'
 import { WindowUtil } from '../../WindowUtil'
 import { harmonyShare } from '@kit.ShareKit'
 import { buildShareData } from '../../util/ShareUtil'
+import { RuntimeHealthSummary } from '../../EasyTierUtil'
 
 @HMRouter({ pageUrl: "StatusPage" })
 @ComponentV2
@@ -29,13 +30,15 @@ export struct StatusPage {
   @Local tx_rate: number = 0
   @Local rx_unit: string = "B/s"
   @Local tx_unit: string = "B/s"
+  @Local runtimeHealthText: string = "正在确认运行状态"
+  @Local runtimeHealthWarning: boolean = false
   @Local updateTimer: number = -1
   private knockShareRegistered: boolean = false
   private gesturesShareRegistered: boolean = false
 
   @Computed
   get instanceInfo() {
-    return AppManager.easytier.instanceInfos.get(this.uuid)?.peers
+    return this.runtimeHealthWarning ? undefined : AppManager.easytier.instanceInfos.get(this.uuid)?.peers
   }
 
   aboutToAppear(): void {
@@ -93,7 +96,18 @@ export struct StatusPage {
   }
 
   private updateRuntimeDisplay(): void {
-    let instanceInfo = AppManager.easytier.instanceInfos.get(this.uuid)
+    AppManager.runtimeStats.refreshFromDisk()
+    const health: RuntimeHealthSummary = AppManager.easytier.getRuntimeHealthSummary()
+    this.runtimeHealthText = health.text
+    this.runtimeHealthWarning = health.warning
+    if (health.warning) {
+      this.rx_rate = 0
+      this.tx_rate = 0
+      this.rx_unit = "B/s"
+      this.tx_unit = "B/s"
+      return
+    }
+    const instanceInfo = AppManager.easytier.instanceInfos.get(this.uuid)
     if (!instanceInfo) {
       return
     }
@@ -238,6 +252,22 @@ export struct StatusPage {
           .height(71)
         // 自身信息
         Column({ space: 20 }) {
+          Row({ space: 6 }) {
+            SymbolGlyph(this.runtimeHealthWarning ? $r("sys.symbol.exclamationmark_circle") :
+              $r("sys.symbol.checkmark_circle"))
+              .fontSize(14)
+              .fontColor([this.runtimeHealthWarning ? '#f59e0b' : $r("sys.color.brand")])
+            Text(this.runtimeHealthText)
+              .fontSize(12)
+              .fontColor(this.runtimeHealthWarning ? '#b45309' : $r("sys.color.font_secondary"))
+              .maxLines(2)
+              .layoutWeight(1)
+          }
+          .width('100%')
+          .padding({ left: 10, right: 10, top: 7, bottom: 7 })
+          .borderRadius(10)
+          .backgroundColor(this.runtimeHealthWarning ? '#1Af59e0b' : $r("sys.color.comp_background_tertiary"))
+
           Row() {
             Column() {
               Row({ space: 8 }) {

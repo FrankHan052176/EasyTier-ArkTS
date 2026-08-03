@@ -278,12 +278,15 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
       },
       onBackgroundTaskCancelled: (reason: string) => {
         Logger.error(`background keep-alive cancelled reason=${reason}`, this)
+        CrashLogService.recordRuntimeSignal(this.context.filesDir, 'continuous_task_cancelled', reason)
       },
       onBackgroundTaskSuspended: (reason: string) => {
         Logger.warn(`background keep-alive suspended reason=${reason}`, this)
+        CrashLogService.recordRuntimeSignal(this.context.filesDir, 'continuous_task_suspended', reason)
         publishTextNotification('后台保活已暂停，打开应用后将自动恢复')
       },
       onBackgroundTaskActive: () => {
+        CrashLogService.recordRuntimeSignal(this.context.filesDir, 'continuous_task_active', '')
         AppManager.easytier.ensureRuntimeConnection()
       }
     })
@@ -309,6 +312,7 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     this.favoriteCardActions.start(this.callee)
     startupMark('ability.onCreate.services')
     CrashLogService.init(this.context.filesDir)
+    CrashLogService.recordLastExit(this.context.filesDir, launchParam)
     startupMark('ability.crashLog.init')
     easytier.initLogManager(this.context.filesDir, 'ui')
     easytier.configureLogManager(false, false)
@@ -543,9 +547,6 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
         Logger.error('Failed to load the content. Cause: ' + JSON.stringify(err), this);
         return;
       }
-      windowStage.getMainWindow().then((win) => {
-        win.setWindowKeepScreenOn(true)
-      })
     });
   }
 
@@ -558,12 +559,16 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
 
   onForeground(): void {
     WindowUtil.foreground()
+    AppManager.easytier.setUiForeground(true)
+    AppManager.runtimeStats.setUiForeground(true)
     this.syncContinuationSocket()
     AppManager.easytier.ensureRuntimeConnection()
   }
 
   onBackground(): void {
     WindowUtil.background()
+    AppManager.easytier.setUiForeground(false)
+    AppManager.runtimeStats.setUiForeground(false)
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {
