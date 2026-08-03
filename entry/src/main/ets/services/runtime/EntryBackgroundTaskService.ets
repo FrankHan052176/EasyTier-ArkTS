@@ -138,8 +138,7 @@ export class EntryBackgroundTaskService {
 
   async startContinuousTask(name: string | undefined): Promise<boolean> {
     this.lastKeepAliveMode = normalizeBackgroundKeepAliveMode(this.getBackgroundKeepAliveMode())
-    if (this.lastKeepAliveMode === BACKGROUND_KEEP_ALIVE_TASK_KEEPING
-      && deviceInfo.deviceType.toLowerCase() !== 'tablet') {
+    if (this.lastKeepAliveMode === BACKGROUND_KEEP_ALIVE_TASK_KEEPING) {
       this.lastKeepAliveMode = BACKGROUND_KEEP_ALIVE_DATA_TRANSFER
     }
     this.lastTaskName = name ?? 'EasyTier'

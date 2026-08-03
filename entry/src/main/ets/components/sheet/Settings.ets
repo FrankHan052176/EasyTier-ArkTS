@@ -14,7 +14,6 @@ import { RuntimeStatsService } from '../../services/runtime/RuntimeStatsService'
 import {
   RUNTIME_MODE_AUDIO_PLAYBACK,
   RUNTIME_MODE_DATA_TRANSFER,
-  RUNTIME_MODE_TASK_KEEPING,
   RuntimeModeSelectOption,
   runtimeModeFromSettings,
   runtimeModeOptions,
@@ -167,14 +166,12 @@ class RuntimeSelectOptionItem implements RuntimeSelectOption {
 }
 
 function runtimeModeValue(): string {
-  return runtimeModeFromSettings(AppManager.uiState.background_keep_alive_mode)
+  return runtimeModeFromSettings(AppManager.uiState.background_keep_alive_mode) === RUNTIME_MODE_AUDIO_PLAYBACK ?
+    RUNTIME_MODE_AUDIO_PLAYBACK :
+    RUNTIME_MODE_DATA_TRANSFER
 }
 
 function applyRuntimeMode(value: string): void {
-  if (value === RUNTIME_MODE_TASK_KEEPING && deviceInfo.deviceType.toLowerCase() === 'tablet') {
-    AppManager.uiState.background_keep_alive_mode = RUNTIME_MODE_TASK_KEEPING
-    return
-  }
   AppManager.uiState.background_keep_alive_mode = value === RUNTIME_MODE_AUDIO_PLAYBACK ?
     RUNTIME_MODE_AUDIO_PLAYBACK :
     RUNTIME_MODE_DATA_TRANSFER
@@ -483,7 +480,7 @@ function settingVerticalSelectorRow(symbol: Resource, title: string, hint: strin
       .layoutWeight(1)
 
       VerticalSettingSelector({
-        options: runtimeModeOptions(deviceInfo.deviceType.toLowerCase() === 'tablet'),
+        options: runtimeModeOptions(),
         selected: selected,
         canSelect: enabled,
         onChange: onChange
