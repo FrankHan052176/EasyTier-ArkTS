@@ -184,6 +184,7 @@ export class RuntimeStateCoordinator {
     }
 
     this.runtimeTrafficStatsActiveUntil = Date.now() + 3000
+    const sampledAtMs = stats.sampledAtMs > 0 ? stats.sampledAtMs : Date.now()
     for (const instanceStats of stats.instances ?? []) {
       const instanceId = instanceStats.instanceId
       const configId = instanceStats.configId
@@ -199,7 +200,7 @@ export class RuntimeStateCoordinator {
       if (!this.options.instanceInfos.has(key)) {
         this.options.instanceInfos.set(key, new InstanceInfo())
       }
-      this.options.instanceInfos.get(key)!.updateTraffic(instanceStats)
+      this.options.instanceInfos.get(key)!.updateTraffic(instanceStats, sampledAtMs)
       this.updateNotification(key)
     }
   }

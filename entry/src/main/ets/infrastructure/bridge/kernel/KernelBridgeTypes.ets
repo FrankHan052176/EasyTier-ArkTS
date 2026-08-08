@@ -56,6 +56,7 @@ export interface InstanceTrafficStats {
 }
 
 export interface TrafficStatsPayload {
+  sampledAtMs: number
   instances: InstanceTrafficStats[]
 }
 

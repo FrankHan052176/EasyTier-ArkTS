@@ -34,6 +34,17 @@ interface ParsedUrlValue {
   port: string
 }
 
+export function normalizeUrlHost(domain: string): string {
+  const value = domain.trim()
+  if (value.startsWith('[') && value.endsWith(']')) {
+    return value
+  }
+  if (value.includes(':')) {
+    return '[' + value + ']'
+  }
+  return value
+}
+
 function protocolRequiresPort(protocol: Protocol): boolean {
   return protocol === Protocol.TCP || protocol === Protocol.UDP || protocol === Protocol.QUIC ||
     protocol === Protocol.WG || protocol === Protocol.TCP6 || protocol === Protocol.UDP6 ||
@@ -69,7 +80,7 @@ function splitHostAndPort(value: string): ParsedUrlValue | undefined {
     return undefined
   }
   const parsed: ParsedUrlValue = {
-    domain: value.substring(0, index),
+    domain: normalizeUrlHost(value.substring(0, index)),
     port: value.substring(index + 1)
   }
   return parsed
@@ -468,10 +479,11 @@ export class Url implements FieldValue {
     if (protocolUsesRawTarget(this.proto)) {
       return this.proto + "://" + this.domain
     }
+    const domain = normalizeUrlHost(this.domain)
     if (this.port.length === 0 && protocolSupportsOptionalPort(this.proto)) {
-      return this.proto + "://" + this.domain
+      return this.proto + "://" + domain
     }
-    return this.proto + "://" + this.domain + ":" + this.port
+    return this.proto + "://" + domain + ":" + this.port
   }
 
   checkValid(): boolean {

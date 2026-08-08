@@ -1,5 +1,4 @@
 import { convertToProtocol, Protocol } from '../util/Conversion'
-import { CircleArray } from './container/CircleArray'
 import { PeerInfoDataSource } from './data_source/PeerInfoDataSource'
 import { NatTypeValue, RuntimeInstanceState, RuntimePeerConnInfo, RuntimePeerInfo, RuntimeRouteView } from '../types/runtime/RuntimeTypes'
 import { InstanceTrafficStats } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
@@ -66,7 +65,6 @@ export class PeerInfo {
   @Trace latency_us: number = -1
   @Trace loss: number = 0
   @Trace byte_rate: number = 0
-  @Trace byte_arr: CircleArray<number> = new CircleArray(10)
   @Trace last_bytes: number = 0
   private last_sample_at_ms: number = -1
   @Trace ip: string
@@ -91,7 +89,6 @@ export class PeerInfo {
       return
     }
     if (byte < this.last_bytes) {
-      this.byte_arr.clear()
       this.byte_rate = 0
       this.last_bytes = byte
       this.last_sample_at_ms = sampledAtMs
@@ -101,10 +98,9 @@ export class PeerInfo {
     if (elapsedSeconds <= 0) {
       return
     }
-    this.byte_arr.push((byte - this.last_bytes) / elapsedSeconds)
+    this.byte_rate = (byte - this.last_bytes) / elapsedSeconds
     this.last_bytes = byte
     this.last_sample_at_ms = sampledAtMs
-    this.byte_rate = this.byte_arr.average
   }
 
   getRate(): number {
@@ -141,10 +137,8 @@ export class PeerInfo {
 export class InstanceInfo {
   @Trace peers: PeerInfoDataSource = new PeerInfoDataSource()
   @Trace private download_rate: number = 0
-  @Trace private download_arr: CircleArray<number> = new CircleArray(10)
   @Trace private last_download: number = -1
   @Trace private upload_rate: number = 0
-  @Trace private upload_arr: CircleArray<number> = new CircleArray(10)
   @Trace private last_upload: number = -1
   private last_traffic_sample_at_ms: number = -1
   @Trace udp_nat: NatTypeValue = NatTypeValue.Unknown
@@ -335,8 +329,6 @@ export class InstanceInfo {
       return
     }
     if (rxBytes < this.last_download || txBytes < this.last_upload) {
-      this.download_arr.clear()
-      this.upload_arr.clear()
       this.download_rate = 0
       this.upload_rate = 0
       this.last_download = rxBytes
@@ -348,10 +340,8 @@ export class InstanceInfo {
     if (elapsedSeconds <= 0) {
       return
     }
-    this.download_arr.push((rxBytes - this.last_download) / elapsedSeconds)
-    this.upload_arr.push((txBytes - this.last_upload) / elapsedSeconds)
-    this.download_rate = this.download_arr.average
-    this.upload_rate = this.upload_arr.average
+    this.download_rate = (rxBytes - this.last_download) / elapsedSeconds
+    this.upload_rate = (txBytes - this.last_upload) / elapsedSeconds
     this.last_download = rxBytes
     this.last_upload = txBytes
     this.last_traffic_sample_at_ms = sampledAtMs

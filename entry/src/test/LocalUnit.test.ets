@@ -13,6 +13,7 @@ import {
   normalizeBackgroundKeepAliveMode
 } from '../main/ets/types/runtime/BackgroundKeepAliveTypes';
 import { runtimeModeOptions } from '../main/ets/types/runtime/RuntimeModeTypes';
+import { Url } from '../main/ets/class/config/Url';
 import {
   THIRD_PARTY_API_SCHEMA_VERSION,
   THIRD_PARTY_OPERATION_START_INSTANCE,
@@ -77,21 +78,34 @@ export default function localUnitTest() {
         txBytes: 1024,
         peers: []
       }
+      const latest: InstanceTrafficStats = {
+        configId: 'config',
+        instanceId: 'instance',
+        rxBytes: 6144,
+        txBytes: 3072,
+        peers: []
+      }
       info.updateTraffic(baseline, 1000)
       info.updateTraffic(next, 3000)
-      expect(info.getDownloadRate()).assertEqual(1)
+      info.updateTraffic(latest, 4000)
+      expect(info.getDownloadRate()).assertEqual(4)
       expect(info.getDownloadRateUnit()).assertEqual('KB/s')
-      expect(info.getUploadRate()).assertEqual(512)
-      expect(info.getUploadRateUnit()).assertEqual('B/s')
+      expect(info.getUploadRate()).assertEqual(2)
+      expect(info.getUploadRateUnit()).assertEqual('KB/s')
     });
-    it('averagesPeerTrafficRatesAndResetsRolledBackCounters', 0, () => {
+    it('normalizesUnbracketedIpv6PeerUrl', 0, () => {
+      const url = new Url()
+      expect(url.fromString('tcp://2001:db8::1:11010')).assertTrue()
+      expect(url.toString()).assertEqual('tcp://[2001:db8::1]:11010')
+    });
+    it('usesLatestPeerTrafficSampleAndResetsRolledBackCounters', 0, () => {
       const peer = new PeerInfo(1, 'peer', 1, '10.0.0.2')
       peer.push(0, 1000)
       peer.push(1024, 2000)
-      peer.push(3072, 4000)
-      expect(peer.getRate()).assertEqual(1)
+      peer.push(5120, 3000)
+      expect(peer.getRate()).assertEqual(4)
       expect(peer.getRateUnit()).assertEqual('KB/s')
-      peer.push(0, 5000)
+      peer.push(0, 4000)
       expect(peer.getRate()).assertEqual(0)
     });
     it('rendersNatTypesAsText', 0, () => {
