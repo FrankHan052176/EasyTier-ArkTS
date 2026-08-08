@@ -48,6 +48,8 @@ export interface RemoteSettingsState {
   core_log: boolean
   debug_log: boolean
   distributePerm: boolean
+  deviceType: string
+  sdkApiVersion: number
 }
 
 export interface RemoteSummary {

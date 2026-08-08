@@ -16,7 +16,9 @@ import { Logger } from '../shared/logging/Logger'
 import { VPN_EXTENSION_SOCKET_NAME } from '../services/runtime/AbilityRuntimePolicy'
 import {
   NetworkRestartResult,
+  softRestartOneShotInstance,
   softRestartStoredInstances,
+  startOneShotInstance,
   startStoredInstances,
   stopStoredInstances
 } from '../services/runtime/NetworkChangeWatchdog'
@@ -28,6 +30,13 @@ import { VpnExtensionTunService, VpnExtensionTunSettings } from '../services/tun
 const VPN_LIFECYCLE_DOMAIN = 0x9527
 const VPN_LIFECYCLE_TAG = 'ET_VPN_EXT'
 const MAX_PROCESSED_COMMANDS = 64
+
+interface NearbyHostCommandData {
+  requestId: string
+  operation: string
+  instanceId: string
+  configJson?: string
+}
 
 function vpnLifecycleInfo(message: string): void {
   hilog.info(VPN_LIFECYCLE_DOMAIN, VPN_LIFECYCLE_TAG, '%{public}s', message)
@@ -58,6 +67,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   private configRootDir: string = ''
   private socketFilesDir: string = ''
   private currentInstanceId: string = ''
+  private currentOneShotConfigJson: string = ''
   private runtimeState: VpnRuntimeStateName = 'idle'
   private runtimeStatusGeneration: number = 0
   private lifecycleGeneration: number = 0
@@ -109,6 +119,10 @@ export default class EasyTierAbility extends VpnExtensionAbility {
         vpnLifecycleError(`initConfigStore failed root=${this.configRootDir}`)
         return false
       }
+      if (!easytier.startNearbyManagementHost()) {
+        vpnLifecycleError('nearby management host failed to start')
+        return false
+      }
       easytier.initPanicHook()
       if (settings.coreLog) {
         easytier.initTracingSubscriber()
@@ -129,7 +143,50 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     }
     this.timer = setInterval(() => {
       this.bridgeServer.forwardLogs(easytier.drainLogLines())
+      this.drainNearbyHostCommands()
     }, 500)
+  }
+
+  private drainNearbyHostCommands(): void {
+    const commands = easytier.drainNearbyHostCommands() as NearbyHostCommandData[]
+    for (const command of commands) {
+      const operation = this.commandQueue.catch(() => {}).then(async () => {
+        const result = await this.processNearbyHostCommand(command)
+        easytier.completeNearbyHostCommand(command.requestId, result.success, result.error)
+      })
+      this.commandQueue = operation.catch((error: Error) => {
+        Logger.error(`nearby host command failed request=${command.requestId}: ${error.message}`, 'EasyTierAbility')
+        easytier.completeNearbyHostCommand(command.requestId, false, error.message)
+      })
+    }
+  }
+
+  private async processNearbyHostCommand(command: NearbyHostCommandData): Promise<VpnRuntimeCommandResultData> {
+    const runtimeCommand: VpnRuntimeCommandData = {
+      requestId: command.requestId,
+      generation: ++this.runtimeStatusGeneration,
+      command: command.operation === 'stop' ? 'stop' : 'start',
+      instanceId: command.instanceId
+    }
+    if (command.operation === 'stop') {
+      return await this.stopRuntime(runtimeCommand)
+    }
+    if (command.operation !== 'start_once' || !command.configJson) {
+      return this.buildCommandResult(runtimeCommand, false, 'nearby_host_command_invalid')
+    }
+    let config: ConfigJson
+    try {
+      config = JSON.parse(command.configJson) as ConfigJson
+    } catch (_) {
+      return this.buildCommandResult(runtimeCommand, false, 'one_shot_config_invalid')
+    }
+    if (config.instance_id !== command.instanceId) {
+      return this.buildCommandResult(runtimeCommand, false, 'one_shot_config_instance_mismatch')
+    }
+    const normalizedConfig = JSON.stringify(config)
+    return await this.startRuntimeWithConfig(runtimeCommand, config, async () => {
+      return await startOneShotInstance(normalizedConfig)
+    }, normalizedConfig)
   }
 
   private handleRuntimeCommand(command: VpnRuntimeCommandData): void {
@@ -180,16 +237,6 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   }
 
   private async startRuntime(command: VpnRuntimeCommandData): Promise<VpnRuntimeCommandResultData> {
-    if (!this.processInitialized) {
-      return this.buildCommandResult(command, false, 'extension_process_not_initialized')
-    }
-    if (this.runtimeState === 'running' && this.currentInstanceId === command.instanceId) {
-      return this.buildCommandResult(command, true, undefined, false, true)
-    }
-    if (this.currentInstanceId.length > 0 || this.runtimeState === 'starting' || this.runtimeState === 'restarting' ||
-      this.runtimeState === 'stopping') {
-      return this.buildCommandResult(command, false, 'another_runtime_is_active')
-    }
     const rawConfig = easytier.getConfig(command.instanceId)
     if (!rawConfig) {
       return this.buildCommandResult(command, false, 'stored_config_not_found')
@@ -204,7 +251,24 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     if (configInstanceId && configInstanceId !== command.instanceId) {
       return this.buildCommandResult(command, false, 'stored_config_instance_mismatch')
     }
+    return await this.startRuntimeWithConfig(command, config, async () => {
+      return await startStoredInstances([command.instanceId])
+    })
+  }
 
+  private async startRuntimeWithConfig(command: VpnRuntimeCommandData, config: ConfigJson,
+    startKernel: () => Promise<boolean>, oneShotConfigJson: string = ''): Promise<VpnRuntimeCommandResultData> {
+    if (!this.processInitialized) {
+      return this.buildCommandResult(command, false, 'extension_process_not_initialized')
+    }
+    if (this.runtimeState === 'running' && this.currentInstanceId === command.instanceId) {
+      return this.buildCommandResult(command, true, undefined, false, true)
+    }
+    if (this.currentInstanceId.length > 0 || this.runtimeState === 'starting' || this.runtimeState === 'restarting' ||
+      this.runtimeState === 'stopping') {
+      return this.buildCommandResult(command, false, 'another_runtime_is_active')
+    }
+    this.currentOneShotConfigJson = ''
     const settings = VpnExtensionSettingsRepository.load(this.context)
     easytier.configureLogManager(settings.coreLog, settings.debugLog)
     const tunSettings: VpnExtensionTunSettings = {
@@ -236,13 +300,14 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       if (this.destroyed || lifecycleGeneration !== this.lifecycleGeneration) {
         throw new Error('runtime_start_cancelled')
       }
-      const started = await startStoredInstances([command.instanceId])
+      const started = await startKernel()
       if (!started || this.destroyed || lifecycleGeneration !== this.lifecycleGeneration) {
         if (started) {
           await stopStoredInstances([command.instanceId])
         }
         throw new Error(started ? 'runtime_start_cancelled' : 'kernel_start_rejected')
       }
+      this.currentOneShotConfigJson = oneShotConfigJson
       startRuntimeStatsRecording(this.context.filesDir)
       this.kernelSocketService.connect(this.configRootDir + '/' + KERNEL_SOCKET_NAME)
       this.transitionTo('running')
@@ -252,6 +317,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       await this.tunService.destroy()
       this.tunService = undefined
       this.currentInstanceId = ''
+      this.currentOneShotConfigJson = ''
       stopRuntimeStatsRecording()
       this.transitionTo('error', err.message)
       return this.buildCommandResult(command, false, err.message, false, false)
@@ -271,9 +337,10 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     this.beginKernelGeneration()
     let result: NetworkRestartResult
     try {
-      result = await softRestartStoredInstances([command.instanceId], () => {
-        return !this.destroyed && lifecycleGeneration === this.lifecycleGeneration
-      })
+      const shouldStart = () => !this.destroyed && lifecycleGeneration === this.lifecycleGeneration
+      result = this.currentOneShotConfigJson.length > 0 ?
+        await softRestartOneShotInstance(command.instanceId, this.currentOneShotConfigJson, shouldStart) :
+        await softRestartStoredInstances([command.instanceId], shouldStart)
     } catch (error) {
       await tunService.completeKernelRestart(false)
       const err = error as Error
@@ -303,6 +370,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       await tunService.destroy()
       this.tunService = undefined
       this.currentInstanceId = ''
+      this.currentOneShotConfigJson = ''
       this.bridgeServer.publishContinuationState(false)
     }
     this.transitionTo('error', result.cancelled ? 'runtime_restart_cancelled' : 'kernel_restart_failed')
@@ -335,6 +403,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     } finally {
       this.tunService = undefined
       this.currentInstanceId = ''
+      this.currentOneShotConfigJson = ''
       this.bridgeServer.publishContinuationState(false)
     }
     this.transitionTo('idle')
@@ -417,8 +486,10 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     } finally {
       this.tunService = undefined
       this.currentInstanceId = ''
+      this.currentOneShotConfigJson = ''
       this.bridgeServer.publishContinuationState(false)
       this.bridgeServer.close()
+      easytier.stopNearbyManagementHost()
     }
   }
 }

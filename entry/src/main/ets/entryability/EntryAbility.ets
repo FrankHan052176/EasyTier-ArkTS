@@ -12,25 +12,12 @@ import { HMRouterMgr } from '@hadss/hmrouter';
 import { AppManager } from '../AppManager';
 import { buildShareUrlSync } from '../util/ShareUtil';
 import { FavoriteCardActionService } from '../services/form/FavoriteCardActionService';
-import { ConfigFieldValue, ConfigJson } from '../config/schema/SchemaConfig';
-import { RuntimeInstanceState } from '../types/runtime/RuntimeTypes';
 import { ContinuationSocketClient } from '../infrastructure/bridge/kernel/ContinuationSocketClient'
 import { CrashLogService } from '../services/crash/CrashLogService'
 import { MemoryDiagnosticsService } from '../services/runtime/MemoryDiagnosticsService'
 import { EntryBackgroundTaskService } from '../services/runtime/EntryBackgroundTaskService'
 import { EntryAppBootstrapService } from '../services/runtime/EntryAppBootstrapService'
 import { RemoteManageService } from '../services/remote/RemoteManageService'
-import {
-  RemoteConfigMeta,
-  RemoteCreateDefaultConfigResult,
-  RemoteGetConfigResult,
-  RemoteGetFieldsResult,
-  RemoteHostHandler,
-  RemoteSettingsState,
-  RemoteSummary
-} from '../services/remote/RemoteManageTypes'
-import { EntryRemoteHostDelegate, EntryRemoteHostService } from '../services/remote/EntryRemoteHostService'
-import { EntryRemoteHostDomainService } from '../services/remote/EntryRemoteHostDomainService'
 import {
   UPDATE_COLOR_MODE_EVENT
 } from '../types/events/RuntimeEventTypes'
@@ -49,6 +36,7 @@ import {
   VPN_EXTENSION_SOCKET_NAME
 } from '../services/runtime/AbilityRuntimePolicy'
 import { ThirdPartyApiService } from '../services/integration/ThirdPartyApiService'
+import { ConfigJson } from '../config/schema/SchemaConfig'
 
 /**
  * 模拟器测试用的手机比例窗口尺寸（px），仅在 productModel === 'emulator' 时生效。
@@ -59,7 +47,7 @@ const EMULATOR_WINDOW_WIDTH_PX = 722
 const EMULATOR_WINDOW_HEIGHT_PX = 1482
 
 @LogLocate("EntryAbility")
-export default class EntryAbility extends UIAbility implements EntryRemoteHostDelegate {
+export default class EntryAbility extends UIAbility {
   private networkWatchdog: NetworkChangeWatchdog | undefined = undefined
   private entryBackgroundTaskService: EntryBackgroundTaskService | undefined = undefined
   private entryAppBootstrapService: EntryAppBootstrapService | undefined = undefined
@@ -85,7 +73,6 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
   })
   private appReadyPromise: Promise<void> = Promise.resolve()
   private thirdPartyApiService: ThirdPartyApiService | undefined = undefined
-  private remoteHostDomain: EntryRemoteHostDomainService = new EntryRemoteHostDomainService()
   private favoriteCardActions: FavoriteCardActionService = new FavoriteCardActionService()
   private activateMissionContinue(): void {
     this.context.setMissionContinueState(AbilityConstant.ContinueState.ACTIVE)
@@ -308,7 +295,6 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
       this.terminateApplication()
     })
     this.subscribeStatusBarTerminateEvent()
-    RemoteManageService.setHostHandlerProvider(() => this.createRemoteHostHandler())
     this.favoriteCardActions.start(this.callee)
     startupMark('ability.onCreate.services')
     CrashLogService.init(this.context.filesDir)
@@ -348,78 +334,8 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
 
   onCollaborate(wantParam: Record<string, Object>): AbilityConstant.CollaborateResult {
     Logger.info("onCollaborate", this)
-    const result = RemoteManageService.handleCollaborate(this.context, wantParam)
+    const result = RemoteManageService.handleCollaborate(this.context, wantParam, this.appReadyPromise)
     return result === 0 ? AbilityConstant.CollaborateResult.ACCEPT : AbilityConstant.CollaborateResult.REJECT
-  }
-
-  private createRemoteHostHandler(): RemoteHostHandler {
-    return EntryRemoteHostService.createHandler(this)
-  }
-
-  remoteWaitReady(): Promise<void> {
-    return this.appReadyPromise
-  }
-
-  remoteManageConnected(): void {
-  }
-
-  remoteManageDisconnected(): void {
-  }
-
-  remoteConfigList(): RemoteConfigMeta[] {
-    return this.remoteHostDomain.remoteConfigList()
-  }
-
-  remoteSettings(): RemoteSettingsState {
-    return this.remoteHostDomain.remoteSettings()
-  }
-
-  remoteSummary(): RemoteSummary {
-    return this.remoteHostDomain.remoteSummary()
-  }
-
-  remoteGetConfig(configId: string): RemoteGetConfigResult | undefined {
-    return this.remoteHostDomain.remoteGetConfig(configId)
-  }
-
-  remoteGetRuntimeInstance(configId: string): RuntimeInstanceState | undefined {
-    return this.remoteHostDomain.remoteGetRuntimeInstance(configId)
-  }
-
-  remoteGetConfigFields(configId: string, fields: string[]): RemoteGetFieldsResult {
-    return this.remoteHostDomain.remoteGetConfigFields(configId, fields)
-  }
-
-  remoteSetConfigField(configId: string, field: string, value: ConfigFieldValue): boolean {
-    return this.remoteHostDomain.remoteSetConfigField(configId, field, value)
-  }
-
-  remoteSaveConfig(configId: string, displayName: string, config: ConfigJson): boolean {
-    return this.remoteHostDomain.remoteSaveConfig(configId, displayName, config)
-  }
-
-  remoteCreateDefaultConfig(displayName: string): RemoteCreateDefaultConfigResult | undefined {
-    return this.remoteHostDomain.remoteCreateDefaultConfig(displayName)
-  }
-
-  remoteImportConfig(config: ConfigJson, displayName: string): RemoteCreateDefaultConfigResult | undefined {
-    return this.remoteHostDomain.remoteImportConfig(config, displayName)
-  }
-
-  remoteDeleteConfig(configId: string): boolean {
-    return this.remoteHostDomain.remoteDeleteConfig(configId)
-  }
-
-  remoteRenameConfig(configId: string, displayName: string): boolean {
-    return this.remoteHostDomain.remoteRenameConfig(configId, displayName)
-  }
-
-  remoteSetSetting(key: string, value: boolean | string): RemoteSettingsState {
-    return this.remoteHostDomain.remoteSetSetting(key, value)
-  }
-
-  async remoteRequestPermission(kind: string): Promise<RemoteSettingsState> {
-    return this.remoteHostDomain.remoteRequestPermission(kind)
   }
 
   async initApp() {
@@ -499,8 +415,8 @@ export default class EntryAbility extends UIAbility implements EntryRemoteHostDe
     if (AppManager.easytier.runningNetworks.size > 0) {
       let uuid = AppManager.easytier.runningNetworks.keys().next().value as string
       let cfg: ConfigJson | undefined = AppManager.easytier.getConfig(uuid)
-      Logger.debug(`continuation config found id=${cfg.instance_id ?? ''}`, this)
       if (cfg) {
+        Logger.debug(`continuation config found id=${cfg.instance_id ?? ''}`, this)
         wantParam['data'] = await buildShareUrlSync(cfg, true)
         wantParam[wantConstant.Params.SUPPORT_CONTINUE_SOURCE_EXIT_KEY] = false;
         AppManager.easytier.stop()

@@ -1,79 +1,130 @@
 import { Context } from '@kit.AbilityKit'
-import { BusinessError } from '@kit.BasicServicesKit'
-import { JSON } from '@kit.ArkTS'
+import { JSON, util } from '@kit.ArkTS'
+import { BusinessError, deviceInfo } from '@kit.BasicServicesKit'
 import { abilityConnectionManager, distributedDeviceManager } from '@kit.DistributedServiceKit'
-import { Logger } from '../../shared/logging/Logger'
-import { EventHelper } from '../../util/EventHelper'
+import easytier from 'easytier-ohrs'
+import { AppManager } from '../../AppManager'
 import { ConfigFieldValue, ConfigJson } from '../../config/schema/SchemaConfig'
 import { RuntimeInstanceState } from '../../types/runtime/RuntimeTypes'
 import {
-  REMOTE_MANAGE_PROTOCOL_VERSION,
-  REMOTE_MANAGE_SERVICE_NAME,
+  BACKGROUND_KEEP_ALIVE_TASK_KEEPING,
+  normalizeBackgroundKeepAliveMode
+} from '../../types/runtime/BackgroundKeepAliveTypes'
+import { ENTRY_SYNC_CONTINUATION_SOCKET_EVENT } from '../../types/events/RuntimeEventTypes'
+import { EventHelper } from '../../util/EventHelper'
+import { Logger } from '../../shared/logging/Logger'
+import {
+  APP_BUNDLE_NAME,
+  ENTRY_ABILITY_NAME,
+  ENTRY_MODULE_NAME,
+  VPN_EXTENSION_SOCKET_NAME
+} from '../runtime/AbilityRuntimePolicy'
+import { VpnExtensionAbilityController } from '../runtime/VpnExtensionAbilityController'
+import {
+  CoreManagementRpcClient,
+  CoreNetworkInstanceRunningInfo,
+  CoreNetworkMeta,
+  CoreUuid,
+  coreUuidToString,
+  mapCoreRuntimeInstance
+} from './CoreManagementRpc'
+import {
   RemoteActionSummaryResult,
   RemoteBooleanResult,
-  RemoteConfigIdPayload,
   RemoteConfigMeta,
-  RemoteConnectParameters,
   RemoteCreateDefaultConfigResult,
   RemoteDeviceLite,
-  RemoteDisplayNamePayload,
-  RemoteExportTomlResult,
+  RemoteFieldValueResult,
   RemoteGetConfigResult,
   RemoteGetFieldsResult,
-  RemoteGetFieldsPayload,
-  RemoteHostHandler,
-  RemoteImportConfigPayload,
-  RemoteListConfigsResult,
-  RemotePermissionPayload,
-  RemoteRenameConfigPayload,
-  RemoteRpcNotify,
-  RemoteRpcRequest,
-  RemoteRpcResponse,
-  RemoteSaveConfigPayload,
+  RemoteRuntimeInstanceLite,
   RemoteSettingsState,
-  RemoteSetConfigFieldPayload,
-  RemoteSetSettingPayload,
-  RemoteSummary,
-  RemoteWireFrame
-} from './RemoteManageTypes'
-import {
-  buildRemoteWireFrames,
-  isRemoteWireFrameValid,
-  reassembleRemoteFrame,
-  RemoteIncomingPacket,
-  REMOTE_SEND_MESSAGE_MAX_BYTES,
-  utf8ByteLength
-} from './RemoteWireCodec'
-import { APP_BUNDLE_NAME, ENTRY_ABILITY_NAME, ENTRY_MODULE_NAME } from '../runtime/AbilityRuntimePolicy'
+  RemoteSummary
+} from './RemoteManageDtos'
 
-const REMOTE_RPC_TIMEOUT_MS = 12000
-const REMOTE_NOTIFY_SUMMARY_DIRTY = 'summaryDirty'
+const REMOTE_MANAGE_SERVICE_NAME = 'easytier.nearby.core-management.v1'
+const REMOTE_MANAGE_PROTOCOL = 'easytier-core-rpc'
+const REMOTE_MANAGE_PROTOCOL_VERSION = '1'
+const PACKET_PUMP_INTERVAL_MS = 8
+const PRIVATE_SCHEMA_VERSION = 1
+const PRIVATE_PACKET_KIND_RPC = 1
+const PRIVATE_PACKET_KIND_SETTINGS = 2
+const PRIVATE_REQUEST_TIMEOUT_MS = 5000
+const HOST_PROXY_RETRY_COUNT = 20
+const HOST_PROXY_RETRY_INTERVAL_MS = 100
+const MAX_BUFFERED_HOST_RPC_PACKETS = 64
+const PRIVATE_OPERATION_GET_SETTINGS = 'get_settings'
+const PRIVATE_OPERATION_UPDATE_SETTING = 'update_setting'
 
 export const REMOTE_MANAGE_CONNECTION_EVENT = 'remote_manage_connection'
 export const REMOTE_MANAGE_SUMMARY_DIRTY_EVENT = 'remote_manage_summary_dirty'
-
-interface RemotePendingRequest {
-  resolve: (payloadJson: string | undefined) => void
-  reject: (error: Error) => void
-  timer: number
-}
 
 interface RemoteErrorLike {
   code?: number | string
   message?: string
 }
 
+interface RemoteManageConnectParameters extends Record<string, string> {
+  protocol: string
+  version: string
+}
+
 interface RemoteSessionRuntime {
   sessionId: number
+  sessionKey: string
   role: 'client' | 'host'
   deviceName: string
   connected: boolean
-  hostLifecycleActive: boolean
-  pending: Map<string, RemotePendingRequest>
-  incoming: Map<string, RemoteIncomingPacket>
+  closed: boolean
+  coreReady: boolean
+  corePreparing: boolean
+  pendingCorePackets: Uint8Array[]
+  appReady: Promise<void>
+  privatePacketQueue: Promise<void>
+  pumping: boolean
+  pumpTimer: number
   connectCallback: Callback<abilityConnectionManager.EventCallbackInfo>
   disconnectCallback: Callback<abilityConnectionManager.EventCallbackInfo>
-  receiveMessageCallback: Callback<abilityConnectionManager.EventCallbackInfo>
+  receiveDataCallback: Callback<abilityConnectionManager.EventCallbackInfo>
+}
+
+interface NearbyOhosEnvelope {
+  schemaVersion: number
+  kind: string
+  requestId: string
+  operation: string
+  payloadJson?: string
+  ok?: boolean
+  error?: string
+}
+
+interface RemoteSettingUpdatePayload {
+  key: string
+  valueBoolean?: boolean
+  valueString?: string
+}
+
+class RemotePrivatePendingRequest {
+  sessionKey: string
+  operation: string
+  timer: number
+  resolve: (value: string | undefined) => void
+  reject: (reason?: Object) => void
+
+  constructor(sessionKey: string, operation: string, timer: number,
+    resolve: (value: string | undefined) => void, reject: (reason?: Object) => void) {
+    this.sessionKey = sessionKey
+    this.operation = operation
+    this.timer = timer
+    this.resolve = resolve
+    this.reject = reject
+  }
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds)
+  })
 }
 
 function safeErrorText(error: Object | string | undefined): string {
@@ -102,20 +153,29 @@ function safeErrorText(error: Object | string | undefined): string {
   }
 }
 
+function emptyRemoteSettings(): RemoteSettingsState {
+  return {
+    ext_mode: false,
+    background_keep_alive_mode: '',
+    dev: false,
+    vpn_routes: false,
+    force_global: false,
+    dns: '',
+    core_log: false,
+    debug_log: false,
+    distributePerm: false,
+    deviceType: '',
+    sdkApiVersion: 0
+  }
+}
+
 class RemoteManageServiceClass {
-  private requestSeq: number = 0
-  private packetSeq: number = 0
   private clientConnectGeneration: number = 0
   private clientRuntime: RemoteSessionRuntime | undefined = undefined
   private hostRuntimes: Map<number, RemoteSessionRuntime> = new Map()
-  private hostHandlerProvider: (() => RemoteHostHandler) | undefined = undefined
   private lastSummary: RemoteSummary | undefined = undefined
   private fieldSaveQueues: Map<string, Promise<void>> = new Map()
-  private hostSummaryDirtyNotifyTimer: number = -1
-
-  setHostHandlerProvider(provider: () => RemoteHostHandler): void {
-    this.hostHandlerProvider = provider
-  }
+  private pendingPrivateRequests: Map<string, RemotePrivatePendingRequest> = new Map()
 
   listAvailableDevices(deviceManager: distributedDeviceManager.DeviceManager): RemoteDeviceLite[] {
     try {
@@ -139,22 +199,19 @@ class RemoteManageServiceClass {
   }
 
   get currentSessionKey(): string | undefined {
-    return this.clientRuntime ? `${this.clientRuntime.sessionId}` : undefined
+    return this.clientRuntime?.sessionKey
   }
 
   get currentDeviceName(): string {
     return this.clientRuntime?.deviceName ?? ''
   }
 
-  isCurrentSession(sessionKey: string | undefined): boolean {
-    if (!sessionKey || !this.clientRuntime) {
-      return false
-    }
-    return `${this.clientRuntime.sessionId}` === sessionKey
-  }
-
   get cachedSummary(): RemoteSummary | undefined {
     return this.lastSummary
+  }
+
+  isCurrentSession(sessionKey: string | undefined): boolean {
+    return !!sessionKey && this.clientRuntime?.sessionKey === sessionKey
   }
 
   getConfigName(configId: string | undefined): string | undefined {
@@ -178,10 +235,10 @@ class RemoteManageServiceClass {
       abilityName: ENTRY_ABILITY_NAME,
       serviceName: REMOTE_MANAGE_SERVICE_NAME
     }
-    const parameterModel = new RemoteConnectParameters()
-    parameterModel.protocol = REMOTE_MANAGE_SERVICE_NAME
-    parameterModel.version = `${REMOTE_MANAGE_PROTOCOL_VERSION}`
-    const parameters = JSON.parse(JSON.stringify(parameterModel)) as Record<string, string>
+    const parameters: RemoteManageConnectParameters = {
+      protocol: REMOTE_MANAGE_PROTOCOL,
+      version: REMOTE_MANAGE_PROTOCOL_VERSION
+    }
     const connectOptions: abilityConnectionManager.ConnectOptions = {
       needSendData: true,
       startOptions: abilityConnectionManager.StartOptionParams.START_IN_FOREGROUND,
@@ -198,7 +255,16 @@ class RemoteManageServiceClass {
     } catch (error) {
       throw new Error(`创建协同会话失败: ${safeErrorText(error as Object)}`)
     }
-    const runtime = this.createRuntime(sessionId, 'client', device.deviceName)
+    let runtime: RemoteSessionRuntime
+    try {
+      runtime = this.createRuntime(sessionId, 'client', device.deviceName)
+    } catch (error) {
+      try {
+        abilityConnectionManager.destroyAbilityConnectionSession(sessionId)
+      } catch (_) {
+      }
+      throw new Error(safeErrorText(error as Object))
+    }
     if (generation !== this.clientConnectGeneration) {
       this.cleanupRuntime(runtime, true)
       throw new Error('连接请求已取消')
@@ -214,7 +280,8 @@ class RemoteManageServiceClass {
         throw new Error(this.formatConnectFailure(result))
       }
       runtime.connected = true
-      const summary = await this.requestSummary(`${sessionId}`)
+      await this.flushOutboundPackets(runtime)
+      const summary = await this.requestSummary(runtime.sessionKey)
       if (generation !== this.clientConnectGeneration || this.clientRuntime?.sessionId !== sessionId) {
         throw new Error('连接请求已被新的会话替换')
       }
@@ -237,6 +304,361 @@ class RemoteManageServiceClass {
     this.closeClientRuntime(true)
   }
 
+  destroyHostSessions(): void {
+    Array.from(this.hostRuntimes.values()).forEach((runtime) => {
+      this.cleanupRuntime(runtime, true)
+    })
+    this.hostRuntimes.clear()
+  }
+
+  handleCollaborate(context: Context, wantParam: Record<string, Object>, appReady: Promise<void>): number {
+    const collabParam = wantParam['ohos.extra.param.key.supportCollaborateIndex'] as Record<string, Object>
+    if (!collabParam) {
+      Logger.error('[RemoteManageHost] missing collaborate param', 'RemoteManageService')
+      return 1
+    }
+    const peerInfo = (collabParam['PeerInfo'] ??
+      collabParam['ohos.collaboration.key.peerInfo']) as abilityConnectionManager.PeerInfo
+    const connectOptions = (collabParam['ConnectOption'] ??
+      collabParam['ohos.collaboration.key.connectOptions']) as abilityConnectionManager.ConnectOptions
+    const token = collabParam['ohos.dms.collabToken'] as string
+    if (!peerInfo || !connectOptions || !token || peerInfo.bundleName !== APP_BUNDLE_NAME ||
+      peerInfo.moduleName !== ENTRY_MODULE_NAME || peerInfo.abilityName !== ENTRY_ABILITY_NAME ||
+      connectOptions.needSendData === false) {
+      this.rejectCollaborate(token, 'invalid EasyTier Core management collaboration')
+      return 1
+    }
+    const parameters = connectOptions.parameters
+    if (!parameters || parameters['protocol'] !== REMOTE_MANAGE_PROTOCOL ||
+      parameters['version'] !== REMOTE_MANAGE_PROTOCOL_VERSION) {
+      this.rejectCollaborate(token, 'unsupported EasyTier Core management protocol')
+      return 1
+    }
+    try {
+      if (context.filesDir.length === 0 || !easytier.initConfigStore(context.filesDir)) {
+        this.rejectCollaborate(token, 'Core config store is unavailable')
+        return 1
+      }
+    } catch (error) {
+      this.rejectCollaborate(token, `initialize Core config store failed: ${safeErrorText(error as Object)}`)
+      return 1
+    }
+    let sessionId = -1
+    try {
+      sessionId = abilityConnectionManager.createAbilityConnectionSession(
+        REMOTE_MANAGE_SERVICE_NAME,
+        context,
+        peerInfo,
+        connectOptions
+      )
+    } catch (error) {
+      this.rejectCollaborate(token, `create Core management session failed: ${safeErrorText(error as Object)}`)
+      return 1
+    }
+    let runtime: RemoteSessionRuntime
+    try {
+      runtime = this.createRuntime(sessionId, 'host', peerInfo.deviceId, appReady)
+    } catch (error) {
+      try {
+        abilityConnectionManager.destroyAbilityConnectionSession(sessionId)
+      } catch (_) {
+      }
+      this.rejectCollaborate(token, safeErrorText(error as Object))
+      return 1
+    }
+    this.hostRuntimes.set(sessionId, runtime)
+    this.registerSessionEvents(runtime)
+    void this.prepareHostCoreRuntime(context, runtime)
+    abilityConnectionManager.acceptConnect(sessionId, token).then(() => {
+      runtime.connected = true
+      Logger.info(`[RemoteManageHost] accepted Core RPC session=${sessionId}`, 'RemoteManageService')
+    }).catch((error: BusinessError) => {
+      Logger.error(`[RemoteManageHost] accept failed: ${safeErrorText(error)}`, 'RemoteManageService')
+      this.hostRuntimes.delete(sessionId)
+      this.cleanupRuntime(runtime, true)
+    })
+    return 0
+  }
+
+  async requestSummary(expectedSessionKey?: string): Promise<RemoteSummary> {
+    const rpc = this.clientRpc(expectedSessionKey)
+    const ids = await rpc.listInstanceIds()
+    const metas = await rpc.listInstanceMetas(ids)
+    const runningInfo = await rpc.collectNetworkInfo(ids)
+    const metaById = new Map<string, CoreNetworkMeta>()
+    metas.forEach((meta: CoreNetworkMeta) => {
+      if (meta.inst_id) {
+        metaById.set(coreUuidToString(meta.inst_id), meta)
+      }
+    })
+    const configs: RemoteConfigMeta[] = []
+    const runtimes: RemoteRuntimeInstanceLite[] = []
+    let coreVersion = ''
+    for (const idValue of ids) {
+      const instanceId = coreUuidToString(idValue)
+      const meta = metaById.get(instanceId)
+      const displayName = meta?.instance_name || meta?.network_name || instanceId
+      let config: ConfigJson | undefined = undefined
+      try {
+        config = await rpc.getNetworkConfig(instanceId)
+      } catch (_) {
+      }
+      const info = runningInfo[instanceId]
+      const runtime = mapCoreRuntimeInstance(instanceId, displayName, config, info)
+      if (!coreVersion && info?.my_node_info?.version) {
+        coreVersion = info.my_node_info.version
+      }
+      configs.push({
+        configId: instanceId,
+        displayName,
+        running: runtime.running
+      })
+      runtimes.push({
+        configId: runtime.configId,
+        instanceId: runtime.instanceId,
+        displayName: runtime.displayName,
+        running: runtime.running,
+        myNodeInfo: runtime.myNodeInfo,
+        peerCount: runtime.peers.length,
+        routeCount: runtime.routes.length
+      })
+    }
+    const runningConfigs = runtimes.filter((instance) => instance.running)
+    let settings = emptyRemoteSettings()
+    try {
+      settings = await this.getSettings(expectedSessionKey)
+    } catch (error) {
+      Logger.warn(`[RemoteManageClient] private settings unavailable: ${safeErrorText(error as Object)}`,
+        'RemoteManageService')
+    }
+    const summary: RemoteSummary = {
+      coreVersion,
+      deviceName: this.currentDeviceName,
+      sdkApiVersion: settings.sdkApiVersion,
+      configs,
+      runtime: {
+        configCount: configs.length,
+        runningCount: runningConfigs.length,
+        runningConfigs,
+        runtimeDurationText: runningConfigs.length > 0 ? 'Core RPC 在线' : '未运行',
+        memoryUsageText: 'Core RPC 未提供'
+      },
+      settings
+    }
+    if (expectedSessionKey && !this.isCurrentSession(expectedSessionKey)) {
+      throw new Error('远端连接已变化，请重新进入页面')
+    }
+    this.lastSummary = summary
+    return summary
+  }
+
+  async listConfigs(expectedSessionKey?: string): Promise<RemoteConfigMeta[]> {
+    return (await this.requestSummary(expectedSessionKey)).configs
+  }
+
+  async getConfig(configId: string, expectedSessionKey?: string): Promise<RemoteGetConfigResult | undefined> {
+    const rpc = this.clientRpc(expectedSessionKey)
+    const config: ConfigJson | undefined = await rpc.getNetworkConfig(configId)
+    if (!config) {
+      return undefined
+    }
+    return {
+      configId,
+      displayName: this.getConfigName(configId) ?? configId,
+      config
+    }
+  }
+
+  async getRuntimeInstance(configId: string, expectedSessionKey?: string): Promise<RuntimeInstanceState | undefined> {
+    const rpc = this.clientRpc(expectedSessionKey)
+    const uuid = this.uuidValue(configId)
+    const infoMap = await rpc.collectNetworkInfo([uuid])
+    const info = infoMap[configId]
+    if (!info) {
+      return undefined
+    }
+    let config: ConfigJson | undefined = undefined
+    try {
+      config = await rpc.getNetworkConfig(configId)
+    } catch (_) {
+    }
+    return mapCoreRuntimeInstance(configId, this.getConfigName(configId) ?? configId, config, info)
+  }
+
+  async getConfigFields(configId: string, fields: string[], expectedSessionKey?: string): Promise<RemoteGetFieldsResult> {
+    const remote = await this.getConfig(configId, expectedSessionKey)
+    const values: RemoteFieldValueResult[] = []
+    for (const field of fields) {
+      const value: ConfigFieldValue = remote === undefined
+        ? undefined
+        : remote.config[field] as ConfigFieldValue
+      values.push({
+        field,
+        rawValue: value === undefined ? undefined : JSON.stringify(value),
+        found: value !== undefined
+      })
+    }
+    return { values }
+  }
+
+  setConfigFieldQueued(configId: string, field: string, value: ConfigFieldValue, expectedSessionKey?: string): void {
+    const queueKey = `${expectedSessionKey ?? this.currentSessionKey ?? ''}:${configId}:${field}`
+    const previous = this.fieldSaveQueues.get(queueKey) ?? Promise.resolve()
+    const next = previous.catch(() => {
+    }).then(async () => {
+      const remote = await this.getConfig(configId, expectedSessionKey)
+      if (!remote) {
+        throw new Error('Core 实例配置不存在')
+      }
+      remote.config[field] = value
+      const saved = await this.saveConfig(configId, remote.displayName, remote.config, expectedSessionKey)
+      if (!saved) {
+        throw new Error('Core 拒绝更新实例配置')
+      }
+    }).catch((error: Error) => {
+      Logger.error(`[RemoteCoreRpc] update field failed config=${configId} field=${field}: ${error.message}`,
+        'RemoteManageService')
+    })
+    this.fieldSaveQueues.set(queueKey, next)
+    next.then(() => {
+      if (this.fieldSaveQueues.get(queueKey) === next) {
+        this.fieldSaveQueues.delete(queueKey)
+      }
+    })
+  }
+
+  async saveConfig(_configId: string, _displayName: string, _config: ConfigJson,
+    _expectedSessionKey?: string): Promise<boolean> {
+    return false
+  }
+
+  async createDefaultConfig(_displayName: string,
+    _expectedSessionKey?: string): Promise<RemoteCreateDefaultConfigResult | undefined> {
+    return undefined
+  }
+
+  async importConfig(_config: ConfigJson, _displayName: string,
+    _expectedSessionKey?: string): Promise<RemoteCreateDefaultConfigResult | undefined> {
+    return undefined
+  }
+
+  async deleteConfig(configId: string, expectedSessionKey?: string): Promise<boolean> {
+    const ok = await this.clientRpc(expectedSessionKey).deleteNetworkInstance(configId)
+    if (ok) {
+      this.removeCachedConfig(configId)
+      this.markSummaryDirty()
+    }
+    return ok
+  }
+
+  async renameConfig(_configId: string, _displayName: string, _expectedSessionKey?: string): Promise<boolean> {
+    return false
+  }
+
+  async startConfig(configId: string, expectedSessionKey?: string): Promise<RemoteActionSummaryResult> {
+    const summary = await this.requestSummary(expectedSessionKey)
+    const running = summary.runtime.runningConfigs.some((instance) => instance.instanceId === configId)
+    return { ok: running, summary }
+  }
+
+  async deployConfigOnce(configId: string, config: ConfigJson,
+    expectedSessionKey?: string): Promise<RemoteActionSummaryResult> {
+    const before = await this.requestSummary(expectedSessionKey)
+    if (before.runtime.runningCount > 0) {
+      throw new Error('受控设备已有运行实例，请先停止')
+    }
+    let oneShotConfig: ConfigJson
+    oneShotConfig = JSON.parse(JSON.stringify(config)) as ConfigJson
+    oneShotConfig.instance_id = configId
+    oneShotConfig.hostname = this.currentDeviceName
+    const accepted = await this.clientRpc(expectedSessionKey).runNetworkConfig(configId, oneShotConfig)
+    const summary = await this.requestSummary(expectedSessionKey)
+    const running = summary.runtime.runningConfigs.some((instance) => instance.instanceId === configId)
+    return { ok: accepted && running, summary }
+  }
+
+  async stopConfig(configId: string, expectedSessionKey?: string): Promise<RemoteActionSummaryResult> {
+    const ok = await this.deleteConfig(configId, expectedSessionKey)
+    const summary = await this.requestSummary(expectedSessionKey)
+    return { ok, summary }
+  }
+
+  async exportToml(configId: string, expectedSessionKey?: string): Promise<string | undefined> {
+    const config: ConfigJson | undefined = await this.clientRpc(expectedSessionKey).getNetworkConfig(configId)
+    if (!config) {
+      return undefined
+    }
+    return this.clientRpc(expectedSessionKey).validateNetworkConfig(config)
+  }
+
+  async getSettings(expectedSessionKey?: string): Promise<RemoteSettingsState> {
+    const payloadJson = await this.requestPrivate(PRIVATE_OPERATION_GET_SETTINGS, undefined, expectedSessionKey)
+    if (!payloadJson) {
+      throw new Error('受控端没有返回应用设置')
+    }
+    return JSON.parse(payloadJson) as RemoteSettingsState
+  }
+
+  async setSetting(key: string, value: boolean | string,
+    expectedSessionKey?: string): Promise<RemoteSettingsState> {
+    const payload: RemoteSettingUpdatePayload = { key }
+    if (typeof value === 'boolean') {
+      payload.valueBoolean = value
+    } else {
+      payload.valueString = value
+    }
+    const payloadJson = await this.requestPrivate(
+      PRIVATE_OPERATION_UPDATE_SETTING,
+      JSON.stringify(payload),
+      expectedSessionKey
+    )
+    if (!payloadJson) {
+      throw new Error('受控端没有返回更新后的设置')
+    }
+    const settings = JSON.parse(payloadJson) as RemoteSettingsState
+    if (this.lastSummary) {
+      this.lastSummary.settings = settings
+      this.lastSummary.sdkApiVersion = settings.sdkApiVersion
+    }
+    return settings
+  }
+
+  async requestPermission(_kind: string, _expectedSessionKey?: string): Promise<RemoteSettingsState> {
+    throw new Error('跨设备会话不能替对端申请 HarmonyOS 权限')
+  }
+
+  markSummaryDirty(): void {
+    EventHelper.emitterPublish(REMOTE_MANAGE_SUMMARY_DIRTY_EVENT, {
+      data: {
+        sessionKey: this.currentSessionKey ?? ''
+      }
+    })
+  }
+
+  private clientRpc(expectedSessionKey?: string): CoreManagementRpcClient {
+    const runtime = this.clientRuntime
+    if (!runtime || !runtime.connected || runtime.closed) {
+      throw new Error('远端未连接')
+    }
+    if (expectedSessionKey && runtime.sessionKey !== expectedSessionKey) {
+      throw new Error('远端连接已变化，请重新进入页面')
+    }
+    return new CoreManagementRpcClient(runtime.sessionKey)
+  }
+
+  private uuidValue(configId: string): CoreUuid {
+    const compact = configId.replace(/-/g, '')
+    if (!/^[0-9a-fA-F]{32}$/.test(compact)) {
+      throw new Error(`无效的 Core 实例 ID: ${configId}`)
+    }
+    return {
+      part1: Number.parseInt(compact.substring(0, 8), 16),
+      part2: Number.parseInt(compact.substring(8, 16), 16),
+      part3: Number.parseInt(compact.substring(16, 24), 16),
+      part4: Number.parseInt(compact.substring(24, 32), 16)
+    }
+  }
+
   private closeClientRuntime(destroy: boolean): void {
     const runtime = this.clientRuntime
     if (!runtime) {
@@ -254,318 +676,430 @@ class RemoteManageServiceClass {
     this.publishClientConnectionState()
   }
 
-  destroyHostSessions(): void {
-    Array.from(this.hostRuntimes.values()).forEach((runtime) => {
-      this.cleanupRuntime(runtime, true)
-    })
-    this.hostRuntimes.clear()
-  }
-
-  handleCollaborate(context: Context, wantParam: Record<string, Object>): number {
-    const collabParam = wantParam['ohos.extra.param.key.supportCollaborateIndex'] as Record<string, Object>
-    if (!collabParam) {
-      Logger.error('[RemoteManageHost] missing collaborate param', 'RemoteManageService')
-      return 1
+  private createRuntime(sessionId: number, role: 'client' | 'host', deviceName: string,
+    appReady: Promise<void> = Promise.resolve()): RemoteSessionRuntime {
+    const sessionKey = `${role}:${sessionId}`
+    if (role === 'client' && !easytier.openNearbyManagementSession(sessionKey, false)) {
+      throw new Error('无法创建 Core 管理 RPC 端点')
     }
-    const peerInfo = (collabParam['PeerInfo'] ?? collabParam['ohos.collaboration.key.peerInfo']) as abilityConnectionManager.PeerInfo
-    const connectOptions = (collabParam['ConnectOption'] ??
-      collabParam['ohos.collaboration.key.connectOptions']) as abilityConnectionManager.ConnectOptions
-    const token = collabParam['ohos.dms.collabToken'] as string
-    if (!peerInfo || !connectOptions || !token) {
-      Logger.error('[RemoteManageHost] invalid collaborate param', 'RemoteManageService')
-      try {
-        if (token) {
-          abilityConnectionManager.reject(token, 'invalid EasyTier remote manage param')
-        }
-      } catch (_) {
-      }
-      return 1
-    }
-    const parameters = connectOptions.parameters
-    if (!parameters || parameters['protocol'] !== REMOTE_MANAGE_SERVICE_NAME ||
-      parameters['version'] !== `${REMOTE_MANAGE_PROTOCOL_VERSION}`) {
-      Logger.error('[RemoteManageHost] unsupported remote manage protocol', 'RemoteManageService')
-      try {
-        abilityConnectionManager.reject(token, 'unsupported EasyTier remote manage protocol')
-      } catch (_) {
-      }
-      return 1
-    }
-    let sessionId = -1
-    try {
-      sessionId = abilityConnectionManager.createAbilityConnectionSession(
-        REMOTE_MANAGE_SERVICE_NAME,
-        context,
-        peerInfo,
-        connectOptions
-      )
-    } catch (error) {
-      const reason = `create EasyTier remote manage session failed: ${safeErrorText(error as Object)}`
-      Logger.error(`[RemoteManageHost] ${reason}`, 'RemoteManageService')
-      try {
-        abilityConnectionManager.reject(token, reason)
-      } catch (_) {
-      }
-      return 1
-    }
-    const runtime = this.createRuntime(sessionId, 'host', peerInfo.deviceId)
-    this.hostRuntimes.set(sessionId, runtime)
-    this.registerSessionEvents(runtime)
-    abilityConnectionManager.acceptConnect(sessionId, token).then(() => {
+    const runtime = {} as RemoteSessionRuntime
+    runtime.sessionId = sessionId
+    runtime.sessionKey = sessionKey
+    runtime.role = role
+    runtime.deviceName = deviceName
+    runtime.connected = false
+    runtime.closed = false
+    runtime.coreReady = role === 'client'
+    runtime.corePreparing = false
+    runtime.pendingCorePackets = []
+    runtime.appReady = appReady
+    runtime.privatePacketQueue = Promise.resolve()
+    runtime.pumping = false
+    runtime.pumpTimer = -1
+    runtime.connectCallback = (callbackInfo: abilityConnectionManager.EventCallbackInfo) => {
       runtime.connected = true
-      this.notifyHostConnected(runtime)
-      Logger.info(`[RemoteManageHost] accepted session=${sessionId}`, 'RemoteManageService')
-    }).catch((error: BusinessError) => {
-      Logger.error(`[RemoteManageHost] accept failed: ${safeErrorText(error)}`, 'RemoteManageService')
-      this.hostRuntimes.delete(sessionId)
+      Logger.info(`[RemoteManage] connect role=${role} session=${callbackInfo.sessionId}`, 'RemoteManageService')
+    }
+    runtime.disconnectCallback = (callbackInfo: abilityConnectionManager.EventCallbackInfo) => {
+      Logger.info(`[RemoteManage] disconnect role=${role} session=${callbackInfo.sessionId}`, 'RemoteManageService')
+      if (role === 'client' && this.clientRuntime?.sessionId === sessionId) {
+        this.clientRuntime = undefined
+        this.lastSummary = undefined
+        this.publishClientConnectionState()
+      }
+      if (role === 'host') {
+        this.hostRuntimes.delete(sessionId)
+      }
       this.cleanupRuntime(runtime, true)
-    })
-    return 0
-  }
-
-  async requestSummary(expectedSessionKey?: string): Promise<RemoteSummary> {
-    const payload = this.parseResponse<RemoteSummary>(await this.request('summary', undefined, expectedSessionKey))
-    if (!payload) {
-      throw new Error('远端状态为空')
     }
-    if (expectedSessionKey && !this.isCurrentSession(expectedSessionKey)) {
-      throw new Error('远端连接已变化，请重新进入页面')
-    }
-    this.lastSummary = payload
-    return this.lastSummary
-  }
-
-  async listConfigs(expectedSessionKey?: string): Promise<RemoteConfigMeta[]> {
-    const payload = this.parseResponse<RemoteListConfigsResult>(await this.request('listConfigs', undefined, expectedSessionKey))
-    return payload?.configs ?? []
-  }
-
-  async getConfig(configId: string, expectedSessionKey?: string): Promise<RemoteGetConfigResult | undefined> {
-    const requestPayload: RemoteConfigIdPayload = { configId }
-    return this.parseResponse<RemoteGetConfigResult>(
-      await this.request('getConfig', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-  }
-
-  async getRuntimeInstance(configId: string, expectedSessionKey?: string): Promise<RuntimeInstanceState | undefined> {
-    const requestPayload: RemoteConfigIdPayload = { configId }
-    return this.parseResponse<RuntimeInstanceState>(
-      await this.request('getRuntimeInstance', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-  }
-
-  async getConfigFields(configId: string, fields: string[], expectedSessionKey?: string): Promise<RemoteGetFieldsResult> {
-    const requestPayload: RemoteGetFieldsPayload = { configId, fields }
-    const payload = this.parseResponse<RemoteGetFieldsResult>(
-      await this.request('getConfigFields', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    if (!payload) {
-      throw new Error('远端字段响应为空')
-    }
-    return payload
-  }
-
-  setConfigFieldQueued(configId: string, field: string, value: ConfigFieldValue, expectedSessionKey?: string): void {
-    const requestPayload: RemoteSetConfigFieldPayload = {
-      configId,
-      field,
-      value
-    }
-    const queueKey = `${expectedSessionKey ?? this.currentSessionKey ?? ''}:${configId}:${field}`
-    const previous = this.fieldSaveQueues.get(queueKey) ?? Promise.resolve()
-    const next = previous.catch(() => {
-    }).then(async () => {
-      const payloadJson = await this.request('setConfigField', this.stringifyPayload(requestPayload), expectedSessionKey)
-      const payload = this.parseResponse<RemoteBooleanResult>(payloadJson)
-      if (!payload?.ok) {
-        Logger.error(`[RemoteEditSession] remote edit save rejected config=${configId} field=${field}`,
-          'RemoteManageService')
+    runtime.receiveDataCallback = (callbackInfo: abilityConnectionManager.EventCallbackInfo) => {
+      if (!callbackInfo.data || runtime.closed) {
+        return
       }
-    }).catch((error: Error) => {
-      Logger.error(`[RemoteEditSession] remote edit save failed config=${configId} field=${field}: ${error.message}`,
+      const packet = new Uint8Array(callbackInfo.data)
+      const packetKind = easytier.nearbyManagementPacketKind(packet)
+      if (packetKind === PRIVATE_PACKET_KIND_SETTINGS) {
+        const privatePacket = new Uint8Array(packet.byteLength)
+        privatePacket.set(packet)
+        if (runtime.role === 'host') {
+          const operation = runtime.privatePacketQueue.catch(() => {}).then(async () => {
+            await this.handlePrivatePacket(runtime, privatePacket)
+          })
+          runtime.privatePacketQueue = operation.catch((error: Error) => {
+            Logger.error(`[RemoteManageHost] private request failed: ${error.message}`, 'RemoteManageService')
+          })
+        } else {
+          void this.handlePrivatePacket(runtime, privatePacket)
+        }
+        return
+      }
+      if (packetKind !== PRIVATE_PACKET_KIND_RPC) {
+        Logger.warn(`[RemoteManage] rejected malformed packet session=${runtime.sessionId}`, 'RemoteManageService')
+        return
+      }
+      if (runtime.role === 'host' && !runtime.coreReady) {
+        if (runtime.pendingCorePackets.length >= MAX_BUFFERED_HOST_RPC_PACKETS) {
+          Logger.error(`[RemoteManageHost] Core packet buffer is full session=${runtime.sessionId}`,
+            'RemoteManageService')
+          return
+        }
+        const buffered = new Uint8Array(packet.byteLength)
+        buffered.set(packet)
+        runtime.pendingCorePackets.push(buffered)
+        const context = AppManager.content.context
+        if (context) {
+          void this.prepareHostCoreRuntime(context, runtime)
+        }
+        return
+      }
+      this.pushCorePacket(runtime, packet)
+    }
+    runtime.pumpTimer = setInterval(() => {
+      void this.flushOutboundPackets(runtime)
+    }, PACKET_PUMP_INTERVAL_MS)
+    return runtime
+  }
+
+  private async prepareHostCoreRuntime(context: Context, runtime: RemoteSessionRuntime): Promise<void> {
+    if (runtime.role !== 'host' || runtime.closed || runtime.coreReady || runtime.corePreparing) {
+      return
+    }
+    runtime.corePreparing = true
+    try {
+      const started = await VpnExtensionAbilityController.start({
+        configRootDir: context.filesDir,
+        socketFilesDir: context.filesDir,
+        ensureContinuationSocket: () => {
+          EventHelper.emitterPublish(ENTRY_SYNC_CONTINUATION_SOCKET_EVENT)
+        },
+        connectToVpnExtension: (_socketName: string) => {
+          AppManager.easytier.ensureRuntimeConnection()
+        },
+        isConnected: () => {
+          return AppManager.easytier.isVpnExtensionConnected()
+        }
+      })
+      if (!started || runtime.closed) {
+        throw new Error('VpnExtensionAbility 未就绪')
+      }
+      for (let retry = 0; retry < HOST_PROXY_RETRY_COUNT && !runtime.closed; retry++) {
+        if (easytier.openNearbyManagementSession(runtime.sessionKey, true)) {
+          runtime.coreReady = true
+          this.flushBufferedCorePackets(runtime)
+          await this.flushOutboundPackets(runtime)
+          return
+        }
+        await delay(HOST_PROXY_RETRY_INTERVAL_MS)
+      }
+      throw new Error('Core 管理宿主连接超时')
+    } catch (error) {
+      Logger.error(`[RemoteManageHost] prepare Core host failed session=${runtime.sessionId}: ` +
+        safeErrorText(error as Object), 'RemoteManageService')
+    } finally {
+      runtime.corePreparing = false
+    }
+  }
+
+  private flushBufferedCorePackets(runtime: RemoteSessionRuntime): void {
+    if (!runtime.coreReady || runtime.closed) {
+      return
+    }
+    const packets = runtime.pendingCorePackets.splice(0, runtime.pendingCorePackets.length)
+    for (const packet of packets) {
+      if (!this.pushCorePacket(runtime, packet)) {
+        break
+      }
+    }
+  }
+
+  private pushCorePacket(runtime: RemoteSessionRuntime, packet: Uint8Array): boolean {
+    const accepted = easytier.pushNearbyManagementPacket(runtime.sessionKey, packet)
+    if (!accepted) {
+      Logger.warn(`[RemoteManage] Core rejected packet session=${runtime.sessionId}`, 'RemoteManageService')
+      return false
+    }
+    void this.flushOutboundPackets(runtime)
+    return true
+  }
+
+  private async handlePrivatePacket(runtime: RemoteSessionRuntime, packet: Uint8Array): Promise<void> {
+    const raw = easytier.decodeNearbyOhosPacket(packet)
+    if (!raw) {
+      Logger.warn(`[RemoteManage] private packet decode failed session=${runtime.sessionId}`, 'RemoteManageService')
+      return
+    }
+    let envelope: NearbyOhosEnvelope
+    try {
+      envelope = JSON.parse(raw) as NearbyOhosEnvelope
+    } catch (_) {
+      return
+    }
+    if (runtime.role === 'host' && envelope.kind === 'request') {
+      await this.handlePrivateHostRequest(runtime, envelope)
+      return
+    }
+    if (runtime.role === 'client' && envelope.kind === 'response') {
+      this.handlePrivateClientResponse(runtime, envelope)
+      return
+    }
+    Logger.warn(`[RemoteManage] private packet role mismatch session=${runtime.sessionId}`, 'RemoteManageService')
+  }
+
+  private async handlePrivateHostRequest(runtime: RemoteSessionRuntime, request: NearbyOhosEnvelope): Promise<void> {
+    let payloadJson: string | undefined = undefined
+    let error: string | undefined = undefined
+    try {
+      await runtime.appReady
+      if (request.operation === PRIVATE_OPERATION_GET_SETTINGS) {
+        payloadJson = JSON.stringify(this.readHostSettings())
+      } else if (request.operation === PRIVATE_OPERATION_UPDATE_SETTING) {
+        if (!request.payloadJson) {
+          throw new Error('设置请求缺少载荷')
+        }
+        const update = JSON.parse(request.payloadJson) as RemoteSettingUpdatePayload
+        this.applyHostSetting(update)
+        payloadJson = JSON.stringify(this.readHostSettings())
+      } else {
+        throw new Error('不支持的 HarmonyOS 私有设置操作')
+      }
+    } catch (caught) {
+      error = safeErrorText(caught as Object)
+    }
+    const response: NearbyOhosEnvelope = {
+      schemaVersion: PRIVATE_SCHEMA_VERSION,
+      kind: 'response',
+      requestId: request.requestId,
+      operation: request.operation,
+      payloadJson,
+      ok: error === undefined,
+      error
+    }
+    try {
+      await this.sendPrivateEnvelope(runtime, response)
+    } catch (sendError) {
+      Logger.error(`[RemoteManageHost] private response failed: ${safeErrorText(sendError as Object)}`,
         'RemoteManageService')
-    })
-    this.fieldSaveQueues.set(queueKey, next)
-    next.then(() => {
-      if (this.fieldSaveQueues.get(queueKey) === next) {
-        this.fieldSaveQueues.delete(queueKey)
+    }
+  }
+
+  private handlePrivateClientResponse(runtime: RemoteSessionRuntime, response: NearbyOhosEnvelope): void {
+    const pending = this.pendingPrivateRequests.get(response.requestId)
+    if (!pending || pending.sessionKey !== runtime.sessionKey) {
+      return
+    }
+    this.pendingPrivateRequests.delete(response.requestId)
+    clearTimeout(pending.timer)
+    if (pending.operation !== response.operation) {
+      pending.reject(new Error('受控端设置响应操作不匹配'))
+      return
+    }
+    if (response.ok !== true) {
+      pending.reject(new Error(response.error ?? '受控端拒绝设置请求'))
+      return
+    }
+    pending.resolve(response.payloadJson)
+  }
+
+  private readHostSettings(): RemoteSettingsState {
+    return {
+      ext_mode: false,
+      background_keep_alive_mode: AppManager.uiState.background_keep_alive_mode,
+      dev: AppManager.uiState.dev,
+      vpn_routes: AppManager.uiState.vpn_routes,
+      force_global: AppManager.uiState.force_global,
+      dns: AppManager.uiState.dns,
+      core_log: AppManager.uiState.core_log,
+      debug_log: AppManager.uiState.debug_log,
+      distributePerm: AppManager.permission.isGetDistributePerm(),
+      deviceType: deviceInfo.deviceType,
+      sdkApiVersion: deviceInfo.sdkApiVersion
+    }
+  }
+
+  private applyHostSetting(update: RemoteSettingUpdatePayload): void {
+    if (AppManager.easytier.hasActiveOrStartingRuntime()) {
+      throw new Error('受控设备运行中，请停止实例后再修改设置')
+    }
+    const key = update.key
+    if (key === 'background_keep_alive_mode') {
+      if (update.valueString === undefined) {
+        throw new Error('保活模式值无效')
       }
-    })
+      const mode = normalizeBackgroundKeepAliveMode(update.valueString)
+      if (mode === BACKGROUND_KEEP_ALIVE_TASK_KEEPING && deviceInfo.deviceType.toLowerCase() !== 'tablet') {
+        throw new Error('计算任务保活仅支持平板设备')
+      }
+      AppManager.uiState.background_keep_alive_mode = mode
+      return
+    }
+    if (key === 'dns') {
+      const dns = update.valueString?.trim() ?? ''
+      if (dns.length === 0 || dns.length > 253 || /[\u0000-\u001f\u007f]/.test(dns)) {
+        throw new Error('DNS 设置无效')
+      }
+      AppManager.uiState.dns = dns
+      return
+    }
+    if (update.valueBoolean === undefined) {
+      throw new Error('布尔设置值无效')
+    }
+    if (key === 'dev') {
+      AppManager.uiState.dev = update.valueBoolean
+    } else if (key === 'vpn_routes') {
+      AppManager.uiState.vpn_routes = update.valueBoolean
+    } else if (key === 'force_global') {
+      AppManager.uiState.force_global = update.valueBoolean
+    } else if (key === 'core_log') {
+      AppManager.uiState.core_log = update.valueBoolean
+    } else if (key === 'debug_log') {
+      AppManager.uiState.debug_log = update.valueBoolean
+    } else {
+      throw new Error('不支持的远端设置项')
+    }
   }
 
-  async saveConfig(configId: string, displayName: string, config: ConfigJson, expectedSessionKey?: string): Promise<boolean> {
-    const requestPayload: RemoteSaveConfigPayload = { configId, displayName, config }
-    const payload = this.parseResponse<RemoteBooleanResult>(
-      await this.request('saveConfig', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    const ok = payload?.ok ?? false
-    if (ok) {
-      this.markSummaryDirty()
-    }
-    return ok
-  }
-
-  async createDefaultConfig(displayName: string, expectedSessionKey?: string): Promise<RemoteCreateDefaultConfigResult | undefined> {
-    const requestPayload: RemoteDisplayNamePayload = { displayName }
-    const result = this.parseResponse<RemoteCreateDefaultConfigResult>(
-      await this.request('createDefaultConfig', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    if (result) {
-      this.markSummaryDirty()
-    }
-    return result
-  }
-
-  async importConfig(config: ConfigJson, displayName: string,
-    expectedSessionKey?: string): Promise<RemoteCreateDefaultConfigResult | undefined> {
-    const requestPayload: RemoteImportConfigPayload = { config, displayName }
-    const result = this.parseResponse<RemoteCreateDefaultConfigResult>(
-      await this.request('importConfig', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    if (result) {
-      this.markSummaryDirty()
-    }
-    return result
-  }
-
-  async deleteConfig(configId: string, expectedSessionKey?: string): Promise<boolean> {
-    const requestPayload: RemoteConfigIdPayload = { configId }
-    const payload = this.parseResponse<RemoteBooleanResult>(
-      await this.request('deleteConfig', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    const ok = payload?.ok ?? false
-    if (ok) {
-      this.removeCachedConfig(configId)
-      this.markSummaryDirty()
-    }
-    return ok
-  }
-
-  async renameConfig(configId: string, displayName: string, expectedSessionKey?: string): Promise<boolean> {
-    const requestPayload: RemoteRenameConfigPayload = { configId, displayName }
-    const payload = this.parseResponse<RemoteBooleanResult>(
-      await this.request('renameConfig', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    const ok = payload?.ok ?? false
-    if (ok) {
-      this.updateCachedConfigName(configId, displayName)
-      this.markSummaryDirty()
-    }
-    return ok
-  }
-
-  async startConfig(configId: string, expectedSessionKey?: string): Promise<RemoteActionSummaryResult> {
-    const requestPayload: RemoteConfigIdPayload = { configId }
-    const payload = this.parseResponse<RemoteActionSummaryResult>(
-      await this.request('startConfig', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    if (payload?.summary) {
-      this.lastSummary = payload.summary
-    }
-    if (payload?.ok) {
-      this.markSummaryDirty()
-    }
-    return payload ?? { ok: false }
-  }
-
-  async stopConfig(configId: string, expectedSessionKey?: string): Promise<RemoteActionSummaryResult> {
-    const requestPayload: RemoteConfigIdPayload = { configId }
-    const payload = this.parseResponse<RemoteActionSummaryResult>(
-      await this.request('stopConfig', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    if (payload?.summary) {
-      this.lastSummary = payload.summary
-    }
-    if (payload?.ok) {
-      this.markSummaryDirty()
-    }
-    return payload ?? { ok: false }
-  }
-
-  async exportToml(configId: string, expectedSessionKey?: string): Promise<string | undefined> {
-    const requestPayload: RemoteConfigIdPayload = { configId }
-    const payload = this.parseResponse<RemoteExportTomlResult>(
-      await this.request('exportToml', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    return payload?.toml
-  }
-
-  async getSettings(expectedSessionKey?: string): Promise<RemoteSettingsState> {
-    const payload = this.parseResponse<RemoteSettingsState>(await this.request('getSettings', undefined, expectedSessionKey))
-    if (!payload) {
-      throw new Error('远端设置为空')
-    }
-    return payload
-  }
-
-  async setSetting(key: string, value: boolean | string, expectedSessionKey?: string): Promise<RemoteSettingsState> {
-    const requestPayload: RemoteSetSettingPayload = {
-      key,
-      valueBoolean: typeof value === 'boolean' ? value : undefined,
-      valueString: typeof value === 'string' ? value : undefined
-    }
-    const payload = this.parseResponse<RemoteSettingsState>(
-      await this.request('setSetting', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    if (!payload) {
-      throw new Error('远端设置为空')
-    }
-    this.updateCachedSettings(payload)
-    this.markSummaryDirty()
-    return payload
-  }
-
-  async requestPermission(kind: string, expectedSessionKey?: string): Promise<RemoteSettingsState> {
-    const requestPayload: RemotePermissionPayload = { kind }
-    const payload = this.parseResponse<RemoteSettingsState>(
-      await this.request('requestPermission', this.stringifyPayload(requestPayload), expectedSessionKey)
-    )
-    if (!payload) {
-      throw new Error('远端设置为空')
-    }
-    this.updateCachedSettings(payload)
-    this.markSummaryDirty()
-    return payload
-  }
-
-  private async request(op: string, payloadJson?: string, expectedSessionKey?: string,
-    timeoutMs: number = REMOTE_RPC_TIMEOUT_MS): Promise<string | undefined> {
+  private requestPrivate(operation: string, payloadJson: string | undefined,
+    expectedSessionKey?: string): Promise<string | undefined> {
     const runtime = this.clientRuntime
-    if (!runtime || !runtime.connected) {
-      throw new Error('远端未连接')
+    if (!runtime || !runtime.connected || runtime.closed) {
+      return Promise.reject(new Error('远端未连接'))
     }
-    if (expectedSessionKey && `${runtime.sessionId}` !== expectedSessionKey) {
-      throw new Error('远端连接已变化，请重新进入页面')
+    if (expectedSessionKey && expectedSessionKey !== runtime.sessionKey) {
+      return Promise.reject(new Error('远端连接已变化，请重新进入页面'))
     }
-    const id = `r${Date.now()}_${++this.requestSeq}`
-    const request: RemoteRpcRequest = { id, op, payloadJson }
-    const promise = new Promise<string | undefined>((resolve: (payloadJson: string | undefined) => void,
-      reject: (error: Error) => void) => {
+    const requestId = util.generateRandomUUID().toLowerCase()
+    const request: NearbyOhosEnvelope = {
+      schemaVersion: PRIVATE_SCHEMA_VERSION,
+      kind: 'request',
+      requestId,
+      operation,
+      payloadJson
+    }
+    return new Promise<string | undefined>((resolve, reject) => {
       const timer = setTimeout(() => {
-        runtime.pending.delete(id)
-        reject(new Error(`远端请求超时: ${op}`))
-      }, timeoutMs)
-      runtime.pending.set(id, {
-        resolve,
-        reject,
-        timer
+        const pending = this.pendingPrivateRequests.get(requestId)
+        if (!pending) {
+          return
+        }
+        this.pendingPrivateRequests.delete(requestId)
+        pending.reject(new Error('受控端设置请求超时'))
+      }, PRIVATE_REQUEST_TIMEOUT_MS)
+      this.pendingPrivateRequests.set(requestId,
+        new RemotePrivatePendingRequest(runtime.sessionKey, operation, timer, resolve, reject))
+      this.sendPrivateEnvelope(runtime, request).catch((error: Error) => {
+        const pending = this.pendingPrivateRequests.get(requestId)
+        if (!pending) {
+          return
+        }
+        this.pendingPrivateRequests.delete(requestId)
+        clearTimeout(pending.timer)
+        pending.reject(error)
       })
     })
-    try {
-      await this.sendPacket(runtime, request)
-    } catch (error) {
-      const pending = runtime.pending.get(id)
-      if (pending) {
-        clearTimeout(pending.timer)
-        runtime.pending.delete(id)
-        pending.reject(new Error(safeErrorText(error as Object)))
-      }
-    }
-    return promise
   }
 
-  private stringifyPayload(payload: Object): string {
-    return JSON.stringify(payload)
+  private async sendPrivateEnvelope(runtime: RemoteSessionRuntime, envelope: NearbyOhosEnvelope): Promise<void> {
+    if (runtime.closed || !runtime.connected) {
+      throw new Error('跨端会话已断开')
+    }
+    const encoded = easytier.encodeNearbyOhosPacket(JSON.stringify(envelope)) as Uint8Array | undefined
+    if (!encoded) {
+      throw new Error('HarmonyOS 私有设置包编码失败')
+    }
+    const data = new Uint8Array(encoded.byteLength)
+    data.set(encoded)
+    await abilityConnectionManager.sendData(runtime.sessionId, data.buffer)
+  }
+
+  private registerSessionEvents(runtime: RemoteSessionRuntime): void {
+    abilityConnectionManager.on('connect', runtime.sessionId, runtime.connectCallback)
+    abilityConnectionManager.on('disconnect', runtime.sessionId, runtime.disconnectCallback)
+    abilityConnectionManager.on('receiveData', runtime.sessionId, runtime.receiveDataCallback)
+  }
+
+  private cleanupRuntime(runtime: RemoteSessionRuntime, destroy: boolean): void {
+    if (runtime.closed) {
+      return
+    }
+    runtime.closed = true
+    runtime.connected = false
+    runtime.pendingCorePackets = []
+    this.rejectPrivateRequests(runtime.sessionKey, '跨端会话已断开')
+    if (runtime.pumpTimer >= 0) {
+      clearInterval(runtime.pumpTimer)
+      runtime.pumpTimer = -1
+    }
+    try {
+      abilityConnectionManager.off('connect', runtime.sessionId, runtime.connectCallback)
+    } catch (_) {
+    }
+    try {
+      abilityConnectionManager.off('disconnect', runtime.sessionId, runtime.disconnectCallback)
+    } catch (_) {
+    }
+    try {
+      abilityConnectionManager.off('receiveData', runtime.sessionId, runtime.receiveDataCallback)
+    } catch (_) {
+    }
+    easytier.closeNearbyManagementSession(runtime.sessionKey)
+    runtime.coreReady = false
+    if (destroy) {
+      try {
+        abilityConnectionManager.destroyAbilityConnectionSession(runtime.sessionId)
+      } catch (_) {
+      }
+    }
+  }
+
+  private rejectPrivateRequests(sessionKey: string, reason: string): void {
+    const requestIds: string[] = []
+    this.pendingPrivateRequests.forEach((pending: RemotePrivatePendingRequest, requestId: string) => {
+      if (pending.sessionKey === sessionKey) {
+        requestIds.push(requestId)
+      }
+    })
+    for (const requestId of requestIds) {
+      const pending = this.pendingPrivateRequests.get(requestId)
+      if (!pending) {
+        continue
+      }
+      this.pendingPrivateRequests.delete(requestId)
+      clearTimeout(pending.timer)
+      pending.reject(new Error(reason))
+    }
+  }
+
+  private async flushOutboundPackets(runtime: RemoteSessionRuntime): Promise<void> {
+    if (runtime.closed || runtime.pumping || !runtime.connected || !runtime.coreReady) {
+      return
+    }
+    runtime.pumping = true
+    try {
+      const packets = easytier.drainNearbyManagementPackets(runtime.sessionKey)
+      for (const packet of packets) {
+        if (runtime.closed || !runtime.connected) {
+          return
+        }
+        const data = new Uint8Array(packet.byteLength)
+        data.set(packet)
+        await abilityConnectionManager.sendData(runtime.sessionId, data.buffer)
+      }
+    } catch (error) {
+      Logger.error(`[RemoteManage] Core packet pump failed: ${safeErrorText(error as Object)}`, 'RemoteManageService')
+    } finally {
+      runtime.pumping = false
+    }
+  }
+
+  private rejectCollaborate(token: string | undefined, reason: string): void {
+    Logger.error(`[RemoteManageHost] ${reason}`, 'RemoteManageService')
+    if (!token) {
+      return
+    }
+    try {
+      abilityConnectionManager.reject(token, reason)
+    } catch (_) {
+    }
   }
 
   private formatConnectFailure(result: abilityConnectionManager.ConnectResult): string {
@@ -584,25 +1118,9 @@ class RemoteManageServiceClass {
       case 4:
         return '对端未实现协同入口，请确认 EasyTier 版本'
       case 5:
-        return '系统内部错误，请检查对端是否安装 EasyTier、协同权限是否授权，以及系统协同能力是否可用'
+        return '系统内部错误，请检查对端版本、协同权限与系统协同能力'
       default:
         return `未知连接错误 ${result.errorCode ?? 'unknown'}`
-    }
-  }
-
-  private updateCachedSettings(settings: RemoteSettingsState): void {
-    if (this.lastSummary) {
-      this.lastSummary.settings = settings
-    }
-  }
-
-  private updateCachedConfigName(configId: string, displayName: string): void {
-    if (!this.lastSummary) {
-      return
-    }
-    const target = this.lastSummary.configs.find((item) => item.configId === configId)
-    if (target) {
-      target.displayName = displayName
     }
   }
 
@@ -611,7 +1129,11 @@ class RemoteManageServiceClass {
       return
     }
     this.lastSummary.configs = this.lastSummary.configs.filter((item) => item.configId !== configId)
+    this.lastSummary.runtime.runningConfigs = this.lastSummary.runtime.runningConfigs.filter((item) => {
+      return item.configId !== configId && item.instanceId !== configId
+    })
     this.lastSummary.runtime.configCount = this.lastSummary.configs.length
+    this.lastSummary.runtime.runningCount = this.lastSummary.runtime.runningConfigs.length
   }
 
   private publishClientConnectionState(): void {
@@ -622,336 +1144,6 @@ class RemoteManageServiceClass {
         deviceName: this.currentDeviceName
       }
     })
-  }
-
-  markSummaryDirty(): void {
-    EventHelper.emitterPublish(REMOTE_MANAGE_SUMMARY_DIRTY_EVENT, {
-      data: {
-        sessionKey: this.currentSessionKey ?? ''
-      }
-    })
-  }
-
-  notifyHostSummaryDirty(): void {
-    if (this.hostSummaryDirtyNotifyTimer >= 0) {
-      return
-    }
-    this.hostSummaryDirtyNotifyTimer = setTimeout(() => {
-      this.hostSummaryDirtyNotifyTimer = -1
-      const notify: RemoteRpcNotify = { event: REMOTE_NOTIFY_SUMMARY_DIRTY }
-      Array.from(this.hostRuntimes.values()).forEach((runtime) => {
-        if (!runtime.connected) {
-          return
-        }
-        this.sendPacket(runtime, notify).catch((error: Error) => {
-          Logger.error(`[RemoteManageHost] send notify failed: ${error.message}`, 'RemoteManageService')
-        })
-      })
-    }, 250)
-  }
-
-  private parseResponse<T>(payloadJson: string | undefined): T | undefined {
-    if (!payloadJson || payloadJson.length === 0) {
-      return undefined
-    }
-    try {
-      return JSON.parse(payloadJson) as T
-    } catch (_) {
-      return undefined
-    }
-  }
-
-  private parseRequestPayload<T>(request: RemoteRpcRequest): T | undefined {
-    if (!request.payloadJson || request.payloadJson.length === 0) {
-      return undefined
-    }
-    try {
-      return JSON.parse(request.payloadJson) as T
-    } catch (_) {
-      return undefined
-    }
-  }
-
-  private createRuntime(sessionId: number, role: 'client' | 'host', deviceName: string): RemoteSessionRuntime {
-    const runtime: RemoteSessionRuntime = {
-      sessionId,
-      role,
-      deviceName,
-      connected: false,
-      hostLifecycleActive: false,
-      pending: new Map(),
-      incoming: new Map(),
-      connectCallback: (callbackInfo: abilityConnectionManager.EventCallbackInfo) => {
-        runtime.connected = true
-        Logger.info(`[RemoteManage] connect role=${role} session=${callbackInfo.sessionId}`, 'RemoteManageService')
-      },
-      disconnectCallback: (callbackInfo: abilityConnectionManager.EventCallbackInfo) => {
-        Logger.info(`[RemoteManage] disconnect role=${role} session=${callbackInfo.sessionId}`, 'RemoteManageService')
-        if (role === 'client' && this.clientRuntime?.sessionId === sessionId) {
-          this.clientRuntime = undefined
-          this.lastSummary = undefined
-          this.publishClientConnectionState()
-        }
-        if (role === 'host') {
-          this.hostRuntimes.delete(sessionId)
-        }
-        this.cleanupRuntime(runtime, true)
-      },
-      receiveMessageCallback: (callbackInfo: abilityConnectionManager.EventCallbackInfo) => {
-        if (!callbackInfo.msg) {
-          return
-        }
-        this.onRawMessage(runtime, callbackInfo.msg)
-      }
-    }
-    return runtime
-  }
-
-  private registerSessionEvents(runtime: RemoteSessionRuntime): void {
-    abilityConnectionManager.on('connect', runtime.sessionId, runtime.connectCallback)
-    abilityConnectionManager.on('disconnect', runtime.sessionId, runtime.disconnectCallback)
-    abilityConnectionManager.on('receiveMessage', runtime.sessionId, runtime.receiveMessageCallback)
-  }
-
-  private cleanupRuntime(runtime: RemoteSessionRuntime, destroy: boolean): void {
-    this.notifyHostDisconnected(runtime)
-    try {
-      abilityConnectionManager.off('connect', runtime.sessionId, runtime.connectCallback)
-    } catch (_) {
-    }
-    try {
-      abilityConnectionManager.off('disconnect', runtime.sessionId, runtime.disconnectCallback)
-    } catch (_) {
-    }
-    try {
-      abilityConnectionManager.off('receiveMessage', runtime.sessionId, runtime.receiveMessageCallback)
-    } catch (_) {
-    }
-    runtime.connected = false
-    runtime.incoming.clear()
-    runtime.pending.forEach((pending) => {
-      clearTimeout(pending.timer)
-      pending.reject(new Error('远端连接已断开'))
-    })
-    runtime.pending.clear()
-    if (destroy) {
-      try {
-        abilityConnectionManager.destroyAbilityConnectionSession(runtime.sessionId)
-      } catch (_) {
-      }
-    }
-  }
-
-  private notifyHostConnected(runtime: RemoteSessionRuntime): void {
-    if (runtime.role !== 'host' || runtime.hostLifecycleActive) {
-      return
-    }
-    runtime.hostLifecycleActive = true
-    try {
-      this.hostHandlerProvider?.().onRemoteManageConnected?.()
-    } catch (error) {
-      Logger.error(`[RemoteManageHost] notify connected failed: ${safeErrorText(error as Object)}`,
-        'RemoteManageService')
-    }
-  }
-
-  private notifyHostDisconnected(runtime: RemoteSessionRuntime): void {
-    if (runtime.role !== 'host' || !runtime.hostLifecycleActive) {
-      return
-    }
-    runtime.hostLifecycleActive = false
-    try {
-      this.hostHandlerProvider?.().onRemoteManageDisconnected?.()
-    } catch (error) {
-      Logger.error(`[RemoteManageHost] notify disconnected failed: ${safeErrorText(error as Object)}`,
-        'RemoteManageService')
-    }
-  }
-
-  private async sendPacket(runtime: RemoteSessionRuntime,
-    packet: RemoteRpcRequest | RemoteRpcResponse | RemoteRpcNotify): Promise<void> {
-    const raw = JSON.stringify(packet)
-    const packetId = `p${Date.now()}_${++this.packetSeq}`
-    const frames = buildRemoteWireFrames(raw, packetId)
-    for (const frame of frames) {
-      const frameText = JSON.stringify(frame)
-      if (utf8ByteLength(frameText) > REMOTE_SEND_MESSAGE_MAX_BYTES) {
-        throw new Error('远端消息分片超过 1KB 限制')
-      }
-      await abilityConnectionManager.sendMessage(runtime.sessionId, frameText)
-    }
-  }
-
-  private onRawMessage(runtime: RemoteSessionRuntime, rawMessage: string): void {
-    let frame: RemoteWireFrame
-    try {
-      frame = JSON.parse(rawMessage) as RemoteWireFrame
-    } catch (error) {
-      Logger.error(`[RemoteManage] parse frame failed: ${safeErrorText(error as Object)}`, 'RemoteManageService')
-      return
-    }
-    if (!isRemoteWireFrameValid(frame)) {
-      return
-    }
-    const packetText = reassembleRemoteFrame(runtime.incoming, frame)
-    if (packetText === undefined) {
-      return
-    }
-    try {
-      if (runtime.role === 'client') {
-        const packet = JSON.parse(packetText) as RemoteRpcResponse | RemoteRpcNotify
-        if ((packet as RemoteRpcNotify).event !== undefined) {
-          this.onClientNotify(packet as RemoteRpcNotify)
-        } else {
-          this.onClientPacket(runtime, packet as RemoteRpcResponse)
-        }
-      } else {
-        const request = JSON.parse(packetText) as RemoteRpcRequest
-        this.onHostPacket(runtime, request)
-      }
-    } catch (error) {
-      Logger.error(`[RemoteManage] parse packet failed: ${safeErrorText(error as Object)}`, 'RemoteManageService')
-    }
-  }
-
-  private onClientNotify(notify: RemoteRpcNotify): void {
-    if (notify.event === REMOTE_NOTIFY_SUMMARY_DIRTY) {
-      this.markSummaryDirty()
-    }
-  }
-
-  private onClientPacket(runtime: RemoteSessionRuntime, response: RemoteRpcResponse): void {
-    const pending = runtime.pending.get(response.id)
-    if (!pending) {
-      return
-    }
-    clearTimeout(pending.timer)
-    runtime.pending.delete(response.id)
-    if (response.ok) {
-      pending.resolve(response.payloadJson)
-    } else {
-      pending.reject(new Error(response.error ?? '远端请求失败'))
-    }
-  }
-
-  private onHostPacket(runtime: RemoteSessionRuntime, request: RemoteRpcRequest): void {
-    this.handleHostRequest(request).then((payloadJson) => {
-      const response: RemoteRpcResponse = {
-        id: request.id,
-        ok: true,
-        payloadJson
-      }
-      this.sendPacket(runtime, response).catch((error: Error) => {
-        Logger.error(`[RemoteManageHost] send response failed: ${error.message}`, 'RemoteManageService')
-      })
-    }).catch((error: Error) => {
-      const response: RemoteRpcResponse = {
-        id: request.id,
-        ok: false,
-        error: error.message
-      }
-      this.sendPacket(runtime, response).catch(() => {
-      })
-    })
-  }
-
-  private async handleHostRequest(request: RemoteRpcRequest): Promise<string | undefined> {
-    const provider = this.hostHandlerProvider
-    if (!provider) {
-      throw new Error('远端管理服务未初始化')
-    }
-    const handler = provider()
-    await handler.waitReady()
-    switch (request.op) {
-      case 'summary':
-      case 'hello':
-        return this.stringifyPayload(handler.summary())
-      case 'listConfigs': {
-        const result: RemoteListConfigsResult = { configs: handler.listConfigs() }
-        return this.stringifyPayload(result)
-      }
-      case 'getConfig': {
-        const payload = this.parseRequestPayload<RemoteConfigIdPayload>(request)
-        const result = payload ? handler.getConfig(payload.configId) : undefined
-        return result ? this.stringifyPayload(result) : undefined
-      }
-      case 'getRuntimeInstance': {
-        const payload = this.parseRequestPayload<RemoteConfigIdPayload>(request)
-        const result = payload ? handler.getRuntimeInstance(payload.configId) : undefined
-        return result ? this.stringifyPayload(result) : undefined
-      }
-      case 'getConfigFields': {
-        const payload = this.parseRequestPayload<RemoteGetFieldsPayload>(request)
-        return payload ? this.stringifyPayload(handler.getConfigFields(payload.configId, payload.fields)) : undefined
-      }
-      case 'setConfigField': {
-        const payload = this.parseRequestPayload<RemoteSetConfigFieldPayload>(request)
-        const result: RemoteBooleanResult = {
-          ok: payload ? handler.setConfigField(payload.configId, payload.field, payload.value) : false
-        }
-        return this.stringifyPayload(result)
-      }
-      case 'saveConfig': {
-        const payload = this.parseRequestPayload<RemoteSaveConfigPayload>(request)
-        const result: RemoteBooleanResult = {
-          ok: payload ? handler.saveConfig(payload.configId, payload.displayName, payload.config) : false
-        }
-        return this.stringifyPayload(result)
-      }
-      case 'createDefaultConfig': {
-        const payload = this.parseRequestPayload<RemoteDisplayNamePayload>(request)
-        const result = payload ? handler.createDefaultConfig(payload.displayName) : undefined
-        return result ? this.stringifyPayload(result) : undefined
-      }
-      case 'importConfig': {
-        const payload = this.parseRequestPayload<RemoteImportConfigPayload>(request)
-        const result = payload ? handler.importConfig(payload.config, payload.displayName) : undefined
-        return result ? this.stringifyPayload(result) : undefined
-      }
-      case 'deleteConfig': {
-        const payload = this.parseRequestPayload<RemoteConfigIdPayload>(request)
-        const result: RemoteBooleanResult = { ok: payload ? handler.deleteConfig(payload.configId) : false }
-        return this.stringifyPayload(result)
-      }
-      case 'renameConfig': {
-        const payload = this.parseRequestPayload<RemoteRenameConfigPayload>(request)
-        const result: RemoteBooleanResult = {
-          ok: payload ? handler.renameConfig(payload.configId, payload.displayName) : false
-        }
-        return this.stringifyPayload(result)
-      }
-      case 'startConfig': {
-        const payload = this.parseRequestPayload<RemoteConfigIdPayload>(request)
-        const ok = payload ? handler.startConfig(payload.configId) : false
-        const result: RemoteActionSummaryResult = { ok, summary: handler.summary() }
-        return this.stringifyPayload(result)
-      }
-      case 'stopConfig': {
-        const payload = this.parseRequestPayload<RemoteConfigIdPayload>(request)
-        const ok = payload ? handler.stopConfig(payload.configId) : false
-        const result: RemoteActionSummaryResult = { ok, summary: handler.summary() }
-        return this.stringifyPayload(result)
-      }
-      case 'exportToml': {
-        const payload = this.parseRequestPayload<RemoteConfigIdPayload>(request)
-        const result: RemoteExportTomlResult = { toml: payload ? handler.exportToml(payload.configId) ?? '' : '' }
-        return this.stringifyPayload(result)
-      }
-      case 'getSettings':
-        return this.stringifyPayload(handler.getSettings())
-      case 'setSetting': {
-        const payload = this.parseRequestPayload<RemoteSetSettingPayload>(request)
-        const value: boolean | string = payload?.valueString !== undefined ? payload.valueString : payload?.valueBoolean ?? false
-        return payload ? this.stringifyPayload(handler.setSetting(payload.key, value)) : undefined
-      }
-      case 'requestPermission': {
-        const payload = this.parseRequestPayload<RemotePermissionPayload>(request)
-        const settings = await handler.requestPermission(payload?.kind ?? '')
-        return this.stringifyPayload(settings)
-      }
-      default:
-        throw new Error(`未知远端请求: ${request.op}`)
-    }
   }
 }
 

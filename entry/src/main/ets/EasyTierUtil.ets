@@ -665,8 +665,10 @@ export class EasyTierUtil {
   }
 
   public hasActiveOrStartingRuntime(): boolean {
+    const runtimeState = this.runtimeStatus?.state
     return this.runningNetworks.size > 0 || this.acceptedRuntimeIds.size > 0 ||
-      this.pendingStartIds.size > 0 || this.pendingStopIds.size > 0
+      this.pendingStartIds.size > 0 || this.pendingStopIds.size > 0 || runtimeState === 'starting' ||
+      runtimeState === 'running' || runtimeState === 'restarting' || runtimeState === 'stopping'
   }
 
   public getRunningInstance(uuid?: string): RuntimeInstanceState | undefined {
@@ -700,6 +702,12 @@ export class EasyTierUtil {
 
   public getRuntimeIntentIds(): string[] {
     const ids: string[] = []
+    const runtimeState = this.runtimeStatus?.state
+    const runtimeStatusId = this.runtimeStatus?.instanceId ?? ''
+    if (runtimeStatusId.length > 0 && (runtimeState === 'starting' || runtimeState === 'running' ||
+      runtimeState === 'restarting' || runtimeState === 'stopping')) {
+      ids.push(runtimeStatusId)
+    }
     this.acceptedRuntimeIds.forEach((id: string) => {
       if (id.length > 0 && ids.indexOf(id) < 0) {
         ids.push(id)

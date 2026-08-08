@@ -20,6 +20,11 @@ async function startStoredInstancesWorker(ids: string[]): Promise<boolean> {
   return started
 }
 
+@Concurrent
+async function startOneShotInstanceWorker(configJson: string): Promise<boolean> {
+  return easytier.runNetworkInstance(configJson)
+}
+
 /**
  * 在 taskpool 工作线程中执行内核软重启（停止→按存储配置拉起）。
  * 内核停止/启动是阻塞式 NAPI 调用（涉及失效网络上的套接字关闭，
@@ -52,6 +57,16 @@ export async function startStoredInstances(ids: string[]): Promise<boolean> {
   }
 }
 
+export async function startOneShotInstance(configJson: string): Promise<boolean> {
+  try {
+    return await taskpool.execute(startOneShotInstanceWorker, configJson) as boolean
+  } catch (error) {
+    const err = error as Error
+    Logger.error(`start one-shot instance worker failed: ${err.message}`, 'VpnExtensionKernelRuntime')
+    return false
+  }
+}
+
 export async function softRestartStoredInstances(ids: string[], shouldStart: () => boolean = () => true): Promise<NetworkRestartResult> {
   const stopped = await stopStoredInstances(ids)
   if (!stopped || !shouldStart()) {
@@ -62,6 +77,24 @@ export async function softRestartStoredInstances(ids: string[], shouldStart: () 
     }
   }
   const started = await startStoredInstances(ids)
+  return {
+    stopped,
+    started,
+    cancelled: false
+  }
+}
+
+export async function softRestartOneShotInstance(instanceId: string, configJson: string,
+  shouldStart: () => boolean = () => true): Promise<NetworkRestartResult> {
+  const stopped = await stopStoredInstances([instanceId])
+  if (!stopped || !shouldStart()) {
+    return {
+      stopped,
+      started: false,
+      cancelled: stopped
+    }
+  }
+  const started = await startOneShotInstance(configJson)
   return {
     stopped,
     started,

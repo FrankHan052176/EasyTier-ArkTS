@@ -146,6 +146,32 @@ export class DataUtil {
     return config
   }
 
+  public copyConfig(sourceId: string): string | undefined {
+    if (isCloudResetting()) {
+      return undefined
+    }
+    const raw: ConfigJson | undefined = AppManager.easytier.getConfig(sourceId)
+    if (!raw) {
+      return undefined
+    }
+    let config: ConfigJson
+    try {
+      config = JSON.parse(JSON.stringify(raw)) as ConfigJson
+    } catch (_) {
+      return undefined
+    }
+    const copyId = this.safeUUID()
+    config.instance_id = copyId
+    const sourceName = easytier.getConfigDisplayNameById(sourceId) ?? sourceId
+    if (!syncWholeConfig(copyId, `${sourceName} 副本`, config)) {
+      return undefined
+    }
+    this.refreshConfigIds()
+    AppManager.uiState.selected = copyId
+    EventHelper.emitterPublish(CLOUD_CONFIG_CHANGED_EVENT)
+    return copyId
+  }
+
   public readConfig(uuid: string, name: string, config: ConfigJson): ConfigJson {
     this.refreshConfigIds()
     AppManager.uiState.editingInstance = uuid

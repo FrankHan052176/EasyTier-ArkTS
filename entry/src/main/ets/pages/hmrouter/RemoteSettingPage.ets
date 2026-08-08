@@ -170,7 +170,7 @@ struct RemoteRuntimeSelector {
 }
 
 function isRemoteSettingCategory(category: string): boolean {
-  return category === 'runtime' || category === 'advanced' || category === 'logs' || category === 'permissions'
+  return category === 'runtime' || category === 'advanced' || category === 'logs'
 }
 
 @HMRouter({ pageUrl: 'RemoteSettingPage' })
@@ -243,7 +243,7 @@ export struct RemoteSettingPage {
 
   private async setRuntimeMode(value: string): Promise<void> {
     try {
-      this.settings = await RemoteManageService.setSetting('runtime_mode', value, this.remoteSessionId)
+      this.settings = await RemoteManageService.setSetting('background_keep_alive_mode', value, this.remoteSessionId)
       if (this.summary) {
         this.summary.settings = this.settings
       }
@@ -256,15 +256,8 @@ export struct RemoteSettingPage {
     return runtimeModeFromSettings(this.settings?.background_keep_alive_mode)
   }
 
-  private async requestPermission(kind: string): Promise<void> {
-    try {
-      this.settings = await RemoteManageService.requestPermission(kind, this.remoteSessionId)
-      if (this.summary) {
-        this.summary.settings = this.settings
-      }
-    } catch (_) {
-      sendToast('请求远端权限失败', $r('sys.symbol.exclamationmark_circle'), 1)
-    }
+  private canModify(): boolean {
+    return (this.summary?.runtime.runningCount ?? 0) === 0
   }
 
   @Builder
@@ -308,38 +301,6 @@ export struct RemoteSettingPage {
   }
 
   @Builder
-  private permissionRow(title: string, value: boolean, kind: string) {
-    ListItem() {
-      Row() {
-        Text(title)
-          .fontColor($r('sys.color.font_primary'))
-          .fontSize(16)
-        if (value) {
-          Text('已授权')
-            .fontColor($r('sys.color.font_primary'))
-            .fontSize(16)
-        } else {
-          Button('授权', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
-            .borderRadius(13)
-            .onClick(() => this.requestPermission(kind))
-        }
-      }
-      .height(49)
-      .borderRadius(18)
-      .alignItems(VerticalAlign.Center)
-      .justifyContent(FlexAlign.SpaceBetween)
-      .width('100%')
-      .backgroundColor($r('sys.color.comp_background_primary'))
-      .shadow({
-        radius: 7,
-        color: '#1F000000'
-      })
-      .padding({ left: 12, right: 8 })
-    }
-    .margin({ bottom: 10 })
-  }
-
-  @Builder
   private runtimeSelectorRow(title: string, hint: string, selected: string, enabled: boolean) {
     ListItem() {
       Row() {
@@ -358,7 +319,7 @@ export struct RemoteSettingPage {
         .alignItems(HorizontalAlign.Start)
 
         RemoteRuntimeSelector({
-          options: runtimeModeOptions(),
+          options: runtimeModeOptions((this.settings?.deviceType ?? '').toLowerCase() === 'tablet'),
           selected: selected,
           canSelect: enabled,
           onChange: (value: string) => {
@@ -391,7 +352,7 @@ export struct RemoteSettingPage {
       this.runtimeSelectorRow('运行方案',
         (this.summary?.runtime.runningCount ?? 0) > 0 ? '运行时禁止切换' : '',
         this.runtimeModeValue(),
-        (this.summary?.runtime.runningCount ?? 0) === 0)
+        this.canModify())
     }
   }
 
@@ -399,9 +360,11 @@ export struct RemoteSettingPage {
   private advancedContent() {
     ListItemGroup({ header: remoteSettingHeader('网络高级') }) {
       if ((this.summary?.sdkApiVersion ?? deviceInfo.sdkApiVersion) < 20) {
-        this.switchRow('路由表模式', '', 'vpn_routes', this.settings?.vpn_routes ?? false)
+        this.switchRow('路由表模式', this.canModify() ? '' : '运行中不可修改', 'vpn_routes',
+          this.settings?.vpn_routes ?? false, this.canModify())
       }
-      this.switchRow('高级模式', '', 'dev', this.settings?.dev ?? false)
+      this.switchRow('高级模式', this.canModify() ? '' : '运行中不可修改', 'dev', this.settings?.dev ?? false,
+        this.canModify())
       if (this.settings?.dev) {
         ListItem() {
           Row() {
@@ -414,6 +377,8 @@ export struct RemoteSettingPage {
               .backgroundColor(Color.Transparent)
               .height('100%')
               .layoutWeight(1)
+              .enabled(this.canModify())
+              .opacity(this.canModify() ? 1 : 0.5)
               .onChange((value: string) => this.setText('dns', value.length > 0 ? value : '223.5.5.5'))
           }
           .height(49)
@@ -429,7 +394,8 @@ export struct RemoteSettingPage {
           .padding({ left: 12, right: 12 })
         }
         .margin({ bottom: 10 })
-        this.switchRow('添加全局路由', '', 'force_global', this.settings?.force_global ?? true)
+        this.switchRow('添加全局路由', this.canModify() ? '' : '运行中不可修改', 'force_global',
+          this.settings?.force_global ?? true, this.canModify())
       }
     }
   }
@@ -437,15 +403,10 @@ export struct RemoteSettingPage {
   @Builder
   private logsContent() {
     ListItemGroup({ header: remoteSettingHeader('日志') }) {
-      this.switchRow('记录内核日志', '', 'core_log', this.settings?.core_log ?? false)
-      this.switchRow('记录调试日志', '', 'debug_log', this.settings?.debug_log ?? false)
-    }
-  }
-
-  @Builder
-  private permissionsContent() {
-    ListItemGroup({ header: remoteSettingHeader('权限') }) {
-      this.permissionRow('分布式权限', this.settings?.distributePerm ?? false, 'distributed')
+      this.switchRow('记录内核日志', this.canModify() ? '' : '运行中不可修改', 'core_log',
+        this.settings?.core_log ?? false, this.canModify())
+      this.switchRow('记录调试日志', this.canModify() ? '' : '运行中不可修改', 'debug_log',
+        this.settings?.debug_log ?? false, this.canModify())
     }
   }
 
@@ -460,8 +421,6 @@ export struct RemoteSettingPage {
           this.advancedContent()
         } else if (this.category === 'logs') {
           this.logsContent()
-        } else if (this.category === 'permissions') {
-          this.permissionsContent()
         }
         ListItem()
           .height(120)

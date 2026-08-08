@@ -2,7 +2,6 @@ import { InstanceInfo } from '../../class/InstanceInfo'
 import { RuntimeInstanceState } from '../../types/runtime/RuntimeTypes'
 import { updateTextNotification as updateLiveTextNotification } from '../../util/NoticeHelper'
 import { updateFavorite } from '../form/CommunicationUtil'
-import { RemoteManageService } from '../remote/RemoteManageService'
 import { buildRuntimeNotifySignature } from './RuntimeStateReducer'
 
 export interface FavoriteCardSignatureState {
@@ -31,7 +30,6 @@ export class RuntimeNotificationService {
       return
     }
     this.runtimeNotifySignature = signature
-    RemoteManageService.notifyHostSummaryDirty()
     this.notifyFavoriteCardChanged(favoriteState)
   }
 

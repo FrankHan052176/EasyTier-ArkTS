@@ -479,30 +479,7 @@ export struct EditPage {
           subTitle: this.remoteEditing && this.remoteDeviceName.length > 0 ? this.remoteDeviceName : this.uuid!
         },
         menu: {
-          value: this.remoteEditing ? [
-	            HdsMenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), async () => {
-	              const configId = this.uuid!
-	              try {
-	                const ok = await RemoteManageService.deleteConfig(configId, this.remoteSessionId)
-	                if (ok) {
-	                  sendToast('远端配置已删除', $r('sys.symbol.checkmark_circle'), 0)
-	                  HMRouterMgr.pop()
-	                } else {
-	                  sendToast('删除失败', $r('sys.symbol.exclamationmark_circle'), 1)
-	                }
-	              } catch (error) {
-	                Logger.error(`[RemoteEditSession] remote delete failed: ${(error as Error).message}`, 'EditPage')
-	                sendToast('删除失败', $r('sys.symbol.exclamationmark_circle'), 1)
-	              }
-	            }),
-            HdsMenuButton($r("app.string.i18_rename"), $r("sys.symbol.pencil_line_1"), () => {
-              EventHelper.emitterPublish("edit_open_sheet", {
-                data: {
-                  type: "rename"
-                }
-              })
-            })
-          ] : [
+          value: this.remoteEditing ? [] : [
             HdsMenuButton($r("app.string.i18_favorite"),
               AppManager.data.isFavorite(this.uuid!) ? $r("sys.symbol.star_fill") : $r("sys.symbol.star"), () => {
                 AppManager.data.changeFavorite(this.uuid!)
@@ -530,6 +507,12 @@ export struct EditPage {
                   this.disposeShareMenuContent(contentNode)
                 })
               }, this.share_menu_id),
+            HdsMenuButton('复制配置', $r("sys.symbol.doc"), () => {
+              const copiedId = AppManager.data.copyConfig(this.uuid!)
+              sendToast(copiedId ? '已复制配置' : '复制配置失败',
+                copiedId ? $r('sys.symbol.checkmark_circle') : $r('sys.symbol.exclamationmark_circle'),
+                copiedId ? 0 : 1)
+            }),
             HdsMenuButton($r("app.string.i18_delete"), $r("sys.symbol.trash"), () => {
               HMRouterMgr.pop()
               AppManager.data.delConfig(this.uuid!)
