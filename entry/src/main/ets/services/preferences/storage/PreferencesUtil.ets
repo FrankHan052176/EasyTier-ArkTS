@@ -273,8 +273,18 @@ export class PreferenceUtil {
     }
   }
 
-  updateSequence(sequence: string) {
-    AppManager.uiState.raw_comp_sequence = sequence;
+  updateSequence(sequence: string): void {
+    AppManager.uiState.raw_comp_sequence = sequence
+    if (!this.preferences) {
+      Logger.error('persist layout sequence failed: preferences not initialized', this)
+      return
+    }
+    try {
+      this.preferences.putSync('raw_comp_sequence', sequence)
+      this.preferences.flushSync()
+    } catch (error) {
+      Logger.error(`persist layout sequence failed: ${JSON.stringify(error)}`, this)
+    }
   }
 
   refreshFavoriteFromStore(): void {
