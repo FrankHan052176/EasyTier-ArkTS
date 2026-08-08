@@ -68,6 +68,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   private socketFilesDir: string = ''
   private currentInstanceId: string = ''
   private currentOneShotConfigJson: string = ''
+  private currentOneShotRequestId: string = ''
   private runtimeState: VpnRuntimeStateName = 'idle'
   private runtimeStatusGeneration: number = 0
   private lifecycleGeneration: number = 0
@@ -152,7 +153,11 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     for (const command of commands) {
       const operation = this.commandQueue.catch(() => {}).then(async () => {
         const result = await this.processNearbyHostCommand(command)
-        easytier.completeNearbyHostCommand(command.requestId, result.success, result.error)
+        const completed = easytier.completeNearbyHostCommand(command.requestId, result.success, result.error)
+        if (!completed && command.operation === 'start_once' && result.success &&
+          this.currentOneShotRequestId === command.requestId) {
+          await this.rollbackUnacknowledgedNearbyStart(command)
+        }
       })
       this.commandQueue = operation.catch((error: Error) => {
         Logger.error(`nearby host command failed request=${command.requestId}: ${error.message}`, 'EasyTierAbility')
@@ -186,7 +191,30 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     const normalizedConfig = JSON.stringify(config)
     return await this.startRuntimeWithConfig(runtimeCommand, config, async () => {
       return await startOneShotInstance(normalizedConfig)
-    }, normalizedConfig)
+    }, normalizedConfig, command.requestId)
+  }
+
+  private async rollbackUnacknowledgedNearbyStart(command: NearbyHostCommandData): Promise<void> {
+    if (this.currentOneShotRequestId !== command.requestId || this.currentInstanceId !== command.instanceId) {
+      return
+    }
+    Logger.warn(`rolling back unacknowledged nearby start request=${command.requestId}`, 'EasyTierAbility')
+    const rollbackCommand: VpnRuntimeCommandData = {
+      requestId: command.requestId,
+      generation: ++this.runtimeStatusGeneration,
+      command: 'stop',
+      instanceId: command.instanceId
+    }
+    try {
+      const result = await this.stopRuntime(rollbackCommand)
+      if (!result.success) {
+        Logger.error(`nearby start rollback failed request=${command.requestId}: ${result.error ?? 'unknown'}`,
+          'EasyTierAbility')
+      }
+    } catch (error) {
+      const err = error as Error
+      Logger.error(`nearby start rollback threw request=${command.requestId}: ${err.message}`, 'EasyTierAbility')
+    }
   }
 
   private handleRuntimeCommand(command: VpnRuntimeCommandData): void {
@@ -257,7 +285,8 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   }
 
   private async startRuntimeWithConfig(command: VpnRuntimeCommandData, config: ConfigJson,
-    startKernel: () => Promise<boolean>, oneShotConfigJson: string = ''): Promise<VpnRuntimeCommandResultData> {
+    startKernel: () => Promise<boolean>, oneShotConfigJson: string = '',
+    oneShotRequestId: string = ''): Promise<VpnRuntimeCommandResultData> {
     if (!this.processInitialized) {
       return this.buildCommandResult(command, false, 'extension_process_not_initialized')
     }
@@ -269,6 +298,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       return this.buildCommandResult(command, false, 'another_runtime_is_active')
     }
     this.currentOneShotConfigJson = ''
+    this.currentOneShotRequestId = ''
     const settings = VpnExtensionSettingsRepository.load(this.context)
     easytier.configureLogManager(settings.coreLog, settings.debugLog)
     const tunSettings: VpnExtensionTunSettings = {
@@ -308,6 +338,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
         throw new Error(started ? 'runtime_start_cancelled' : 'kernel_start_rejected')
       }
       this.currentOneShotConfigJson = oneShotConfigJson
+      this.currentOneShotRequestId = oneShotRequestId
       startRuntimeStatsRecording(this.context.filesDir)
       this.kernelSocketService.connect(this.configRootDir + '/' + KERNEL_SOCKET_NAME)
       this.transitionTo('running')
@@ -318,6 +349,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       this.tunService = undefined
       this.currentInstanceId = ''
       this.currentOneShotConfigJson = ''
+      this.currentOneShotRequestId = ''
       stopRuntimeStatsRecording()
       this.transitionTo('error', err.message)
       return this.buildCommandResult(command, false, err.message, false, false)
@@ -371,6 +403,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       this.tunService = undefined
       this.currentInstanceId = ''
       this.currentOneShotConfigJson = ''
+      this.currentOneShotRequestId = ''
       this.bridgeServer.publishContinuationState(false)
     }
     this.transitionTo('error', result.cancelled ? 'runtime_restart_cancelled' : 'kernel_restart_failed')
@@ -380,6 +413,8 @@ export default class EasyTierAbility extends VpnExtensionAbility {
 
   private async stopRuntime(command: VpnRuntimeCommandData): Promise<VpnRuntimeCommandResultData> {
     if (this.currentInstanceId.length === 0) {
+      this.currentOneShotConfigJson = ''
+      this.currentOneShotRequestId = ''
       this.transitionTo('idle')
       return this.buildCommandResult(command, true, undefined, true, false)
     }
@@ -404,6 +439,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       this.tunService = undefined
       this.currentInstanceId = ''
       this.currentOneShotConfigJson = ''
+      this.currentOneShotRequestId = ''
       this.bridgeServer.publishContinuationState(false)
     }
     this.transitionTo('idle')
@@ -487,6 +523,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       this.tunService = undefined
       this.currentInstanceId = ''
       this.currentOneShotConfigJson = ''
+      this.currentOneShotRequestId = ''
       this.bridgeServer.publishContinuationState(false)
       this.bridgeServer.close()
       easytier.stopNearbyManagementHost()

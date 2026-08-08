@@ -10,16 +10,13 @@ import {
   BACKGROUND_KEEP_ALIVE_TASK_KEEPING,
   normalizeBackgroundKeepAliveMode
 } from '../../types/runtime/BackgroundKeepAliveTypes'
-import { ENTRY_SYNC_CONTINUATION_SOCKET_EVENT } from '../../types/events/RuntimeEventTypes'
 import { EventHelper } from '../../util/EventHelper'
 import { Logger } from '../../shared/logging/Logger'
 import {
   APP_BUNDLE_NAME,
   ENTRY_ABILITY_NAME,
-  ENTRY_MODULE_NAME,
-  VPN_EXTENSION_SOCKET_NAME
+  ENTRY_MODULE_NAME
 } from '../runtime/AbilityRuntimePolicy'
-import { VpnExtensionAbilityController } from '../runtime/VpnExtensionAbilityController'
 import {
   CoreManagementRpcClient,
   CoreNetworkInstanceRunningInfo,
@@ -45,7 +42,9 @@ import {
 const REMOTE_MANAGE_SERVICE_NAME = 'easytier.nearby.core-management.v1'
 const REMOTE_MANAGE_PROTOCOL = 'easytier-core-rpc'
 const REMOTE_MANAGE_PROTOCOL_VERSION = '1'
-const PACKET_PUMP_INTERVAL_MS = 8
+const PACKET_PUMP_ACTIVE_INTERVAL_MS = 8
+const PACKET_PUMP_IDLE_INTERVAL_MS = 100
+const PACKET_PUMP_ACTIVE_EMPTY_ROUNDS = 8
 const PRIVATE_SCHEMA_VERSION = 1
 const PRIVATE_PACKET_KIND_RPC = 1
 const PRIVATE_PACKET_KIND_SETTINGS = 2
@@ -53,6 +52,10 @@ const PRIVATE_REQUEST_TIMEOUT_MS = 5000
 const HOST_PROXY_RETRY_COUNT = 20
 const HOST_PROXY_RETRY_INTERVAL_MS = 100
 const MAX_BUFFERED_HOST_RPC_PACKETS = 64
+const MAX_REMOTE_MANAGE_HOST_SESSIONS = 8
+const MAX_PENDING_PRIVATE_REQUESTS = 32
+const MAX_QUEUED_PRIVATE_PACKETS = 32
+const MAX_REMOTE_PACKET_BYTES = 64 * 1024
 const PRIVATE_OPERATION_GET_SETTINGS = 'get_settings'
 const PRIVATE_OPERATION_UPDATE_SETTING = 'update_setting'
 
@@ -81,8 +84,11 @@ interface RemoteSessionRuntime {
   pendingCorePackets: Uint8Array[]
   appReady: Promise<void>
   privatePacketQueue: Promise<void>
+  privatePacketsPending: number
   pumping: boolean
   pumpTimer: number
+  pumpDelayMs: number
+  pumpEmptyRounds: number
   connectCallback: Callback<abilityConnectionManager.EventCallbackInfo>
   disconnectCallback: Callback<abilityConnectionManager.EventCallbackInfo>
   receiveDataCallback: Callback<abilityConnectionManager.EventCallbackInfo>
@@ -322,9 +328,12 @@ class RemoteManageServiceClass {
     const connectOptions = (collabParam['ConnectOption'] ??
       collabParam['ohos.collaboration.key.connectOptions']) as abilityConnectionManager.ConnectOptions
     const token = collabParam['ohos.dms.collabToken'] as string
-    if (!peerInfo || !connectOptions || !token || peerInfo.bundleName !== APP_BUNDLE_NAME ||
+    if (!peerInfo || !connectOptions || typeof token !== 'string' || token.length === 0 ||
+      typeof peerInfo.deviceId !== 'string' || peerInfo.deviceId.length === 0 ||
+      peerInfo.bundleName !== APP_BUNDLE_NAME ||
       peerInfo.moduleName !== ENTRY_MODULE_NAME || peerInfo.abilityName !== ENTRY_ABILITY_NAME ||
-      connectOptions.needSendData === false) {
+      peerInfo.serviceName !== REMOTE_MANAGE_SERVICE_NAME ||
+      connectOptions.needSendData !== true) {
       this.rejectCollaborate(token, 'invalid EasyTier Core management collaboration')
       return 1
     }
@@ -332,6 +341,10 @@ class RemoteManageServiceClass {
     if (!parameters || parameters['protocol'] !== REMOTE_MANAGE_PROTOCOL ||
       parameters['version'] !== REMOTE_MANAGE_PROTOCOL_VERSION) {
       this.rejectCollaborate(token, 'unsupported EasyTier Core management protocol')
+      return 1
+    }
+    if (this.hostRuntimes.size >= MAX_REMOTE_MANAGE_HOST_SESSIONS) {
+      this.rejectCollaborate(token, 'too many EasyTier Core management sessions')
       return 1
     }
     try {
@@ -370,7 +383,11 @@ class RemoteManageServiceClass {
     this.registerSessionEvents(runtime)
     void this.prepareHostCoreRuntime(context, runtime)
     abilityConnectionManager.acceptConnect(sessionId, token).then(() => {
+      if (runtime.closed) {
+        return
+      }
       runtime.connected = true
+      this.schedulePacketPump(runtime, PACKET_PUMP_ACTIVE_INTERVAL_MS)
       Logger.info(`[RemoteManageHost] accepted Core RPC session=${sessionId}`, 'RemoteManageService')
     }).catch((error: BusinessError) => {
       Logger.error(`[RemoteManageHost] accept failed: ${safeErrorText(error)}`, 'RemoteManageService')
@@ -398,13 +415,8 @@ class RemoteManageServiceClass {
       const instanceId = coreUuidToString(idValue)
       const meta = metaById.get(instanceId)
       const displayName = meta?.instance_name || meta?.network_name || instanceId
-      let config: ConfigJson | undefined = undefined
-      try {
-        config = await rpc.getNetworkConfig(instanceId)
-      } catch (_) {
-      }
       const info = runningInfo[instanceId]
-      const runtime = mapCoreRuntimeInstance(instanceId, displayName, config, info)
+      const runtime = mapCoreRuntimeInstance(instanceId, displayName, undefined, info)
       if (!coreVersion && info?.my_node_info?.version) {
         coreVersion = info.my_node_info.version
       }
@@ -477,12 +489,7 @@ class RemoteManageServiceClass {
     if (!info) {
       return undefined
     }
-    let config: ConfigJson | undefined = undefined
-    try {
-      config = await rpc.getNetworkConfig(configId)
-    } catch (_) {
-    }
-    return mapCoreRuntimeInstance(configId, this.getConfigName(configId) ?? configId, config, info)
+    return mapCoreRuntimeInstance(configId, this.getConfigName(configId) ?? configId, undefined, info)
   }
 
   async getConfigFields(configId: string, fields: string[], expectedSessionKey?: string): Promise<RemoteGetFieldsResult> {
@@ -694,10 +701,14 @@ class RemoteManageServiceClass {
     runtime.pendingCorePackets = []
     runtime.appReady = appReady
     runtime.privatePacketQueue = Promise.resolve()
+    runtime.privatePacketsPending = 0
     runtime.pumping = false
     runtime.pumpTimer = -1
+    runtime.pumpDelayMs = 0
+    runtime.pumpEmptyRounds = PACKET_PUMP_ACTIVE_EMPTY_ROUNDS
     runtime.connectCallback = (callbackInfo: abilityConnectionManager.EventCallbackInfo) => {
       runtime.connected = true
+      this.schedulePacketPump(runtime, PACKET_PUMP_ACTIVE_INTERVAL_MS)
       Logger.info(`[RemoteManage] connect role=${role} session=${callbackInfo.sessionId}`, 'RemoteManageService')
     }
     runtime.disconnectCallback = (callbackInfo: abilityConnectionManager.EventCallbackInfo) => {
@@ -717,15 +728,30 @@ class RemoteManageServiceClass {
         return
       }
       const packet = new Uint8Array(callbackInfo.data)
+      if (packet.byteLength === 0 || packet.byteLength > MAX_REMOTE_PACKET_BYTES) {
+        this.failRuntime(runtime, `invalid packet size: ${packet.byteLength}`)
+        return
+      }
       const packetKind = easytier.nearbyManagementPacketKind(packet)
       if (packetKind === PRIVATE_PACKET_KIND_SETTINGS) {
         const privatePacket = new Uint8Array(packet.byteLength)
         privatePacket.set(packet)
         if (runtime.role === 'host') {
+          if (runtime.privatePacketsPending >= MAX_QUEUED_PRIVATE_PACKETS) {
+            Logger.warn(`[RemoteManageHost] private request queue is full session=${runtime.sessionId}`,
+              'RemoteManageService')
+            return
+          }
+          runtime.privatePacketsPending += 1
           const operation = runtime.privatePacketQueue.catch(() => {}).then(async () => {
-            await this.handlePrivatePacket(runtime, privatePacket)
+            if (!runtime.closed) {
+              await this.handlePrivatePacket(runtime, privatePacket)
+            }
           })
-          runtime.privatePacketQueue = operation.catch((error: Error) => {
+          runtime.privatePacketQueue = operation.then(() => {
+            runtime.privatePacketsPending -= 1
+          }).catch((error: Error) => {
+            runtime.privatePacketsPending -= 1
             Logger.error(`[RemoteManageHost] private request failed: ${error.message}`, 'RemoteManageService')
           })
         } else {
@@ -734,7 +760,7 @@ class RemoteManageServiceClass {
         return
       }
       if (packetKind !== PRIVATE_PACKET_KIND_RPC) {
-        Logger.warn(`[RemoteManage] rejected malformed packet session=${runtime.sessionId}`, 'RemoteManageService')
+        this.failRuntime(runtime, 'rejected malformed packet')
         return
       }
       if (runtime.role === 'host' && !runtime.coreReady) {
@@ -754,9 +780,6 @@ class RemoteManageServiceClass {
       }
       this.pushCorePacket(runtime, packet)
     }
-    runtime.pumpTimer = setInterval(() => {
-      void this.flushOutboundPackets(runtime)
-    }, PACKET_PUMP_INTERVAL_MS)
     return runtime
   }
 
@@ -766,21 +789,8 @@ class RemoteManageServiceClass {
     }
     runtime.corePreparing = true
     try {
-      const started = await VpnExtensionAbilityController.start({
-        configRootDir: context.filesDir,
-        socketFilesDir: context.filesDir,
-        ensureContinuationSocket: () => {
-          EventHelper.emitterPublish(ENTRY_SYNC_CONTINUATION_SOCKET_EVENT)
-        },
-        connectToVpnExtension: (_socketName: string) => {
-          AppManager.easytier.ensureRuntimeConnection()
-        },
-        isConnected: () => {
-          return AppManager.easytier.isVpnExtensionConnected()
-        }
-      })
-      if (!started || runtime.closed) {
-        throw new Error('VpnExtensionAbility 未就绪')
+      if (!easytier.initConfigStore(context.filesDir) || !easytier.startNearbyManagementHost() || runtime.closed) {
+        throw new Error('主进程 Core 管理宿主未就绪')
       }
       for (let retry = 0; retry < HOST_PROXY_RETRY_COUNT && !runtime.closed; retry++) {
         if (easytier.openNearbyManagementSession(runtime.sessionKey, true)) {
@@ -795,6 +805,8 @@ class RemoteManageServiceClass {
     } catch (error) {
       Logger.error(`[RemoteManageHost] prepare Core host failed session=${runtime.sessionId}: ` +
         safeErrorText(error as Object), 'RemoteManageService')
+      this.hostRuntimes.delete(runtime.sessionId)
+      this.cleanupRuntime(runtime, true)
     } finally {
       runtime.corePreparing = false
     }
@@ -815,10 +827,11 @@ class RemoteManageServiceClass {
   private pushCorePacket(runtime: RemoteSessionRuntime, packet: Uint8Array): boolean {
     const accepted = easytier.pushNearbyManagementPacket(runtime.sessionKey, packet)
     if (!accepted) {
-      Logger.warn(`[RemoteManage] Core rejected packet session=${runtime.sessionId}`, 'RemoteManageService')
+      this.failRuntime(runtime, 'Core rejected packet')
       return false
     }
-    void this.flushOutboundPackets(runtime)
+    runtime.pumpEmptyRounds = 0
+    this.schedulePacketPump(runtime, PACKET_PUMP_ACTIVE_INTERVAL_MS)
     return true
   }
 
@@ -967,6 +980,9 @@ class RemoteManageServiceClass {
     if (expectedSessionKey && expectedSessionKey !== runtime.sessionKey) {
       return Promise.reject(new Error('远端连接已变化，请重新进入页面'))
     }
+    if (this.pendingPrivateRequests.size >= MAX_PENDING_PRIVATE_REQUESTS) {
+      return Promise.reject(new Error('受控端设置请求过多，请稍后重试'))
+    }
     const requestId = util.generateRandomUUID().toLowerCase()
     const request: NearbyOhosEnvelope = {
       schemaVersion: PRIVATE_SCHEMA_VERSION,
@@ -1008,7 +1024,21 @@ class RemoteManageServiceClass {
     }
     const data = new Uint8Array(encoded.byteLength)
     data.set(encoded)
-    await abilityConnectionManager.sendData(runtime.sessionId, data.buffer)
+    await this.sendSessionData(runtime, data)
+  }
+
+  private async sendSessionData(runtime: RemoteSessionRuntime, data: Uint8Array): Promise<void> {
+    if (data.byteLength === 0 || data.byteLength > MAX_REMOTE_PACKET_BYTES) {
+      this.failRuntime(runtime, `invalid outbound packet size: ${data.byteLength}`)
+      throw new Error('跨端数据包大小无效')
+    }
+    try {
+      await abilityConnectionManager.sendData(runtime.sessionId, data.buffer)
+    } catch (error) {
+      const reason = `sendData failed: ${safeErrorText(error as Object)}`
+      this.failRuntime(runtime, reason)
+      throw new Error(reason)
+    }
   }
 
   private registerSessionEvents(runtime: RemoteSessionRuntime): void {
@@ -1026,8 +1056,9 @@ class RemoteManageServiceClass {
     runtime.pendingCorePackets = []
     this.rejectPrivateRequests(runtime.sessionKey, '跨端会话已断开')
     if (runtime.pumpTimer >= 0) {
-      clearInterval(runtime.pumpTimer)
+      clearTimeout(runtime.pumpTimer)
       runtime.pumpTimer = -1
+      runtime.pumpDelayMs = 0
     }
     try {
       abilityConnectionManager.off('connect', runtime.sessionId, runtime.connectCallback)
@@ -1049,6 +1080,27 @@ class RemoteManageServiceClass {
       } catch (_) {
       }
     }
+  }
+
+  private failRuntime(runtime: RemoteSessionRuntime, reason: string): void {
+    if (runtime.closed) {
+      return
+    }
+    Logger.error(`[RemoteManage] closing invalid session=${runtime.sessionId}: ${reason}`, 'RemoteManageService')
+    if (runtime.role === 'client' && this.clientRuntime?.sessionId === runtime.sessionId) {
+      this.clientRuntime = undefined
+      this.lastSummary = undefined
+      this.publishClientConnectionState()
+    } else if (runtime.role === 'host') {
+      this.hostRuntimes.delete(runtime.sessionId)
+    }
+    try {
+      if (runtime.connected) {
+        abilityConnectionManager.disconnect(runtime.sessionId)
+      }
+    } catch (_) {
+    }
+    this.cleanupRuntime(runtime, true)
   }
 
   private rejectPrivateRequests(sessionKey: string, reason: string): void {
@@ -1074,21 +1126,53 @@ class RemoteManageServiceClass {
       return
     }
     runtime.pumping = true
+    let packetCount = 0
     try {
       const packets = easytier.drainNearbyManagementPackets(runtime.sessionKey)
+      packetCount = packets.length
       for (const packet of packets) {
         if (runtime.closed || !runtime.connected) {
           return
         }
         const data = new Uint8Array(packet.byteLength)
         data.set(packet)
-        await abilityConnectionManager.sendData(runtime.sessionId, data.buffer)
+        await this.sendSessionData(runtime, data)
       }
     } catch (error) {
       Logger.error(`[RemoteManage] Core packet pump failed: ${safeErrorText(error as Object)}`, 'RemoteManageService')
     } finally {
       runtime.pumping = false
+      if (!runtime.closed && runtime.connected && runtime.coreReady) {
+        if (packetCount > 0) {
+          runtime.pumpEmptyRounds = 0
+        } else if (runtime.pumpEmptyRounds < PACKET_PUMP_ACTIVE_EMPTY_ROUNDS) {
+          runtime.pumpEmptyRounds += 1
+        }
+        const delayMs = runtime.pumpEmptyRounds < PACKET_PUMP_ACTIVE_EMPTY_ROUNDS
+          ? PACKET_PUMP_ACTIVE_INTERVAL_MS
+          : PACKET_PUMP_IDLE_INTERVAL_MS
+        this.schedulePacketPump(runtime, delayMs)
+      }
     }
+  }
+
+  private schedulePacketPump(runtime: RemoteSessionRuntime, delayMs: number): void {
+    if (runtime.closed || !runtime.connected || !runtime.coreReady) {
+      return
+    }
+    if (runtime.pumpTimer >= 0) {
+      if (runtime.pumpDelayMs <= delayMs) {
+        return
+      }
+      clearTimeout(runtime.pumpTimer)
+      runtime.pumpTimer = -1
+    }
+    runtime.pumpDelayMs = delayMs
+    runtime.pumpTimer = setTimeout(() => {
+      runtime.pumpTimer = -1
+      runtime.pumpDelayMs = 0
+      void this.flushOutboundPackets(runtime)
+    }, delayMs)
   }
 
   private rejectCollaborate(token: string | undefined, reason: string): void {
