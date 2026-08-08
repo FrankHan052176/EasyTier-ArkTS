@@ -23,7 +23,13 @@ import {
 } from '../types/events/RuntimeEventTypes'
 import { SharedIntentImportService } from '../services/share/SharedIntentImportService'
 import { StatusBarIntegrationService } from '../services/desktop/StatusBarIntegrationService'
-import { NetworkChangeWatchdog } from '../services/runtime/NetworkChangeWatchdog'
+import {
+  NetworkChangeWatchdog,
+  NetworkRestartResult,
+  startOneShotInstance,
+  startStoredInstances,
+  stopStoredInstances
+} from '../services/runtime/NetworkChangeWatchdog'
 import { startupMark } from '../services/runtime/StartupTrace'
 import {
   registerEntryKeepAliveHandlers,
@@ -37,6 +43,23 @@ import {
 } from '../services/runtime/AbilityRuntimePolicy'
 import { ThirdPartyApiService } from '../services/integration/ThirdPartyApiService'
 import { ConfigJson } from '../config/schema/SchemaConfig'
+import { KERNEL_SOCKET_NAME } from '../infrastructure/bridge/kernel/KernelBridgeTypes'
+import { EntryKernelSocketService } from '../services/runtime/EntryKernelSocketService'
+import {
+  EntryRuntimeStartRequest,
+  registerEntryRuntimeHandlers,
+  unregisterEntryRuntimeHandlers
+} from '../services/runtime/EntryRuntimeStopBridge'
+import { EntryVpnConnectionService } from '../services/tun/EntryVpnConnectionService'
+import { EntryVpnSetupRequestBuilder } from '../services/tun/EntryVpnSetupRequestBuilder'
+import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../services/runtime/RuntimeStatsService'
+
+interface NearbyHostCommandData {
+  requestId: string
+  operation: string
+  instanceId: string
+  configJson?: string
+}
 
 /**
  * 模拟器测试用的手机比例窗口尺寸（px），仅在 productModel === 'emulator' 时生效。
@@ -48,6 +71,8 @@ const EMULATOR_WINDOW_HEIGHT_PX = 1482
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
+  private entryVpnService: EntryVpnConnectionService | undefined = undefined
+  private entryKernelSocketService: EntryKernelSocketService | undefined = undefined
   private networkWatchdog: NetworkChangeWatchdog | undefined = undefined
   private entryBackgroundTaskService: EntryBackgroundTaskService | undefined = undefined
   private entryAppBootstrapService: EntryAppBootstrapService | undefined = undefined
@@ -61,7 +86,7 @@ export default class EntryAbility extends UIAbility {
   private continuationSocketClient: ContinuationSocketClient = new ContinuationSocketClient({
     socketName: VPN_EXTENSION_SOCKET_NAME,
     logTarget: 'EntryAbility',
-    isExtMode: () => true,
+    isExtMode: () => false,
     getSocketPath: (name: string) => AppManager.uiState.getSocketPath(name),
     onContinueState: (active: boolean) => {
       if (active) {
@@ -74,6 +99,19 @@ export default class EntryAbility extends UIAbility {
   private appReadyPromise: Promise<void> = Promise.resolve()
   private thirdPartyApiService: ThirdPartyApiService | undefined = undefined
   private favoriteCardActions: FavoriteCardActionService = new FavoriteCardActionService()
+  private nearbyHostTimer: number | undefined = undefined
+  private nearbyHostCommandQueue: Promise<void> = Promise.resolve()
+  private vpnSetupRequestBuilder: EntryVpnSetupRequestBuilder = new EntryVpnSetupRequestBuilder({
+    getRuntimeSettings: () => {
+      return {
+        vpnRoutes: AppManager.uiState.vpn_routes,
+        whiteList: AppManager.uiState.white_list,
+        blackList: AppManager.preference.getBlackList(),
+        dev: AppManager.uiState.dev,
+        dns: AppManager.uiState.dns
+      }
+    }
+  })
   private activateMissionContinue(): void {
     this.context.setMissionContinueState(AbilityConstant.ContinueState.ACTIVE)
   }
@@ -247,10 +285,138 @@ export default class EntryAbility extends UIAbility {
     })
   }
 
+  private shouldProtectProcessNet(config: ConfigJson): boolean {
+    return deviceInfo.sdkApiVersion >= 22 && AppManager.uiState.force_global &&
+      (config.exit_nodes?.length ?? 0) > 0
+  }
+
+  private startNearbyHostCommandDrain(): void {
+    if (this.nearbyHostTimer !== undefined) {
+      return
+    }
+    this.nearbyHostTimer = setInterval(() => {
+      this.drainNearbyHostCommands()
+    }, 500)
+  }
+
+  private stopNearbyHostCommandDrain(): void {
+    if (this.nearbyHostTimer === undefined) {
+      return
+    }
+    clearInterval(this.nearbyHostTimer)
+    this.nearbyHostTimer = undefined
+  }
+
+  private drainNearbyHostCommands(): void {
+    const commands = easytier.drainNearbyHostCommands() as NearbyHostCommandData[]
+    for (const command of commands) {
+      const operation = this.nearbyHostCommandQueue.catch(() => {}).then(async () => {
+        let success = false
+        let error = ''
+        if (command.operation === 'stop') {
+          try {
+            await AppManager.easytier.stopAndWait()
+            success = true
+          } catch (stopError) {
+            error = (stopError as Error).message
+          }
+        } else if (command.operation === 'start_once' && command.configJson) {
+          let config: ConfigJson | undefined = undefined
+          try {
+            config = JSON.parse(command.configJson) as ConfigJson
+          } catch (_) {
+            error = 'one_shot_config_invalid'
+          }
+          if (config && config.instance_id === command.instanceId) {
+            success = await AppManager.easytier.startNearbyOneShot(command.requestId, command.configJson)
+            if (!success) {
+              error = 'one_shot_runtime_start_failed'
+            }
+          } else if (error.length === 0) {
+            error = 'one_shot_config_instance_mismatch'
+          }
+        } else {
+          error = 'nearby_host_command_invalid'
+        }
+        const completed = easytier.completeNearbyHostCommand(command.requestId, success,
+          error.length > 0 ? error : undefined)
+        if (!completed && success && command.operation === 'start_once') {
+          await AppManager.easytier.rollbackNearbyOneShot(command.requestId)
+        }
+      })
+      this.nearbyHostCommandQueue = operation.catch((error: Error) => {
+        Logger.error(`nearby host command failed request=${command.requestId}: ${error.message}`, this)
+        easytier.completeNearbyHostCommand(command.requestId, false, error.message)
+      })
+    }
+  }
+
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     startupMark('ability.onCreate.begin')
     this.thirdPartyApiService = new ThirdPartyApiService(this.context)
     this.deactivateMissionContinue();
+    this.entryVpnService = new EntryVpnConnectionService({
+      context: this.context,
+      logTarget: this,
+      requestVpnPerm: (callback: () => void, errorCallback?: (error: BusinessError) => void) => {
+        AppManager.permission.requestVpnPerm(callback, () => {}, errorCallback)
+      },
+      activateMissionContinue: () => {
+        this.activateMissionContinue()
+      },
+      setTunFd: (instanceId: string, fd: number) => {
+        const attached = easytier.setTunFd(instanceId, fd)
+        Logger.info(`setTunFd sent instance=${instanceId} attached=${attached}`, this)
+        return attached
+      }
+    })
+    this.entryKernelSocketService = new EntryKernelSocketService({
+      logTarget: this,
+      shouldConnect: () => true,
+      buildTunSetupRequest: (payload) => {
+        return this.vpnSetupRequestBuilder.buildFromKernelPayload(payload)
+      },
+      setupTun: (request) => {
+        void this.entryVpnService?.setupTun(request)
+      }
+    })
+    registerEntryRuntimeHandlers(async (request: EntryRuntimeStartRequest): Promise<boolean> => {
+      const vpnService = this.entryVpnService
+      if (!vpnService) {
+        return false
+      }
+      let config: ConfigJson
+      try {
+        config = JSON.parse(request.configJson) as ConfigJson
+      } catch (_) {
+        return false
+      }
+      if (config.instance_id !== request.instanceId) {
+        return false
+      }
+      if (!config.no_tun) {
+        await vpnService.prepareVpnAsync(this.shouldProtectProcessNet(config))
+      }
+      this.entryKernelSocketService?.connect(this.context.filesDir + '/' + KERNEL_SOCKET_NAME)
+      const started = request.oneShot ? await startOneShotInstance(request.configJson) :
+        await startStoredInstances([request.instanceId])
+      if (started) {
+        startRuntimeStatsRecording(this.context.filesDir)
+        return true
+      }
+      this.entryKernelSocketService?.close()
+      await vpnService.destroyVpnConnection()
+      return false
+    }, async (instanceIds: string[]): Promise<boolean> => {
+      if (instanceIds.length > 0 && !await stopStoredInstances(instanceIds)) {
+        return false
+      }
+      stopRuntimeStatsRecording()
+      this.entryKernelSocketService?.close()
+      await this.entryVpnService?.destroyVpnConnection()
+      this.deactivateMissionContinue()
+      return true
+    })
     this.entryBackgroundTaskService = new EntryBackgroundTaskService({
       context: this.context,
       logTarget: this,
@@ -274,7 +440,6 @@ export default class EntryAbility extends UIAbility {
       },
       onBackgroundTaskActive: () => {
         CrashLogService.recordRuntimeSignal(this.context.filesDir, 'continuous_task_active', '')
-        AppManager.easytier.ensureRuntimeConnection()
       }
     })
     registerEntryKeepAliveHandlers(async (name: string | undefined): Promise<boolean> => {
@@ -302,15 +467,40 @@ export default class EntryAbility extends UIAbility {
     startupMark('ability.crashLog.init')
     easytier.initLogManager(this.context.filesDir, 'ui')
     easytier.configureLogManager(false, false)
+    if (!easytier.initConfigStore(this.context.filesDir)) {
+      Logger.error('main-process Core config store initialization failed', this)
+    } else if (!easytier.startNearbyManagementHost()) {
+      Logger.error('main-process nearby management host failed to start', this)
+    } else {
+      this.startNearbyHostCommandDrain()
+    }
     startupMark('ability.logManager.init')
-    // UIAbility 只检测物理网络切换并发送控制命令；Core 与 TUN 均由 VpnExtensionAbility 持有。
+    // Main-process runtime owns Core, TUN and physical-network restart transactions.
     this.networkWatchdog = new NetworkChangeWatchdog({
       logTarget: this,
       getRunningIds: () => {
         return AppManager.easytier.getRuntimeIntentIds()
       },
       restartInstances: (ids: string[]) => {
-        return AppManager.easytier.restartForNetworkChange(ids)
+        const vpnService = this.entryVpnService
+        if (!vpnService) {
+          const cancelledResult: NetworkRestartResult = {
+            stopped: false,
+            started: false,
+            cancelled: true
+          }
+          return Promise.resolve(cancelledResult)
+        }
+        return AppManager.easytier.restartForNetworkChange(ids, () => {
+          return vpnService.beginKernelRestart()
+        }, async (started: boolean, stopped: boolean): Promise<void> => {
+          await vpnService.completeKernelRestart(started, stopped)
+          if (stopped && !started) {
+            stopRuntimeStatsRecording()
+            this.entryKernelSocketService?.close()
+            this.deactivateMissionContinue()
+          }
+        })
       }
     })
     this.networkWatchdog.start()
@@ -397,10 +587,15 @@ export default class EntryAbility extends UIAbility {
     this.networkWatchdog?.stop()
     this.networkWatchdog = undefined
     MemoryDiagnosticsService.enableSystemLeakWatcher(false)
+    void RemoteManageService.disconnect()
     RemoteManageService.destroyHostSessions()
+    this.stopNearbyHostCommandDrain()
+    easytier.stopNearbyManagementHost()
     AppManager.easytier.destroy()
     this.entryBackgroundTaskService?.stopTaskMonitoring()
     unregisterEntryKeepAliveHandlers()
+    unregisterEntryRuntimeHandlers()
+    this.entryKernelSocketService?.close()
     this.continuationSocketClient.close()
     this.statusBarIntegrationService?.close()
     this.unsubscribeStatusBarTerminateEvent()
@@ -478,13 +673,13 @@ export default class EntryAbility extends UIAbility {
     AppManager.easytier.setUiForeground(true)
     AppManager.runtimeStats.setUiForeground(true)
     this.syncContinuationSocket()
-    AppManager.easytier.ensureRuntimeConnection()
   }
 
   onBackground(): void {
     WindowUtil.background()
     AppManager.easytier.setUiForeground(false)
     AppManager.runtimeStats.setUiForeground(false)
+    void RemoteManageService.disconnect()
   }
 
   onConfigurationUpdate(newConfig: Configuration): void {
