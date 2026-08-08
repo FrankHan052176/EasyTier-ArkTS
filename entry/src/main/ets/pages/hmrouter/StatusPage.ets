@@ -7,14 +7,17 @@ import { LengthMetrics } from '@kit.ArkUI'
 import { AppManager, Sfp2vp, Svp2fp } from '../../AppManager'
 import { DiscoverBall } from '../../components/status/DiscoverBall'
 import { HdsMenuButton } from '../Components'
-import { PeerInfo } from '../../class/InstanceInfo'
+import { InstanceInfo, PeerInfo } from '../../class/InstanceInfo'
 import { ConfigJson } from '../../config/schema/SchemaConfig'
-import { NatTypeValue, natTypeToText } from '../../types/runtime/RuntimeTypes'
+import { NatTypeValue, natTypeToText, RuntimeInstanceState } from '../../types/runtime/RuntimeTypes'
 import { Protocol, protocolBGColor, protocolColor } from '../../util/Conversion'
 import { WindowUtil } from '../../WindowUtil'
 import { harmonyShare } from '@kit.ShareKit'
 import { buildShareData } from '../../util/ShareUtil'
 import { RuntimeHealthSummary } from '../../EasyTierUtil'
+import { RemoteStatusParam } from '../../types/navigation/PageParam'
+import { RemoteManageService } from '../../services/remote/RemoteManageService'
+import { sendToast } from '../../ToastUtil'
 
 @HMRouter({ pageUrl: "StatusPage" })
 @ComponentV2
@@ -32,22 +35,46 @@ export struct StatusPage {
   @Local tx_unit: string = "B/s"
   @Local runtimeHealthText: string = "正在确认运行状态"
   @Local runtimeHealthWarning: boolean = false
+  @Local remoteMode: boolean = false
+  @Local remoteDeviceName: string = ""
+  @Local stopping: boolean = false
   @Local updateTimer: number = -1
+  private remoteSessionId: string = ""
+  private remoteRefreshRunning: boolean = false
+  private remoteInstanceInfo: InstanceInfo = new InstanceInfo()
   private knockShareRegistered: boolean = false
   private gesturesShareRegistered: boolean = false
 
   @Computed
   get instanceInfo() {
-    return this.runtimeHealthWarning ? undefined : AppManager.easytier.instanceInfos.get(this.uuid)?.peers
+    if (this.runtimeHealthWarning) {
+      return undefined
+    }
+    return this.remoteMode ? this.remoteInstanceInfo.peers : AppManager.easytier.instanceInfos.get(this.uuid)?.peers
   }
 
   aboutToAppear(): void {
-    this.uuid = HMRouterMgr.getCurrentParam() as string;
-    this.name = AppManager.easytier.getConfigName(this.uuid) ?? "临时配置"
-    this.config = AppManager.easytier.getConfig(this.uuid) ?? null
-    this.ip = this.config?.dhcp ? "waiting" : (this.config?.virtual_ipv4 ?? "N/A")
+    const rawParam = HMRouterMgr.getCurrentParam()
+    if (typeof rawParam === 'string') {
+      this.setupLocalStatus(rawParam)
+    } else {
+      const remoteParam = rawParam as RemoteStatusParam
+      if (remoteParam.source !== 'remote') {
+        sendToast('状态页参数无效', $r('sys.symbol.exclamationmark_circle'), 1)
+        setTimeout(() => HMRouterMgr.pop(), 0)
+        return
+      }
+      this.setupRemoteStatus(remoteParam)
+      if (!RemoteManageService.isCurrentSession(this.remoteSessionId)) {
+        sendToast('远端连接已变化，请重新进入状态页', $r('sys.symbol.exclamationmark_circle'), 1)
+        setTimeout(() => HMRouterMgr.pop(), 0)
+        return
+      }
+    }
     this.startUpdateTimer()
-    this.registerShareCallbacks()
+    if (!this.remoteMode) {
+      this.registerShareCallbacks()
+    }
   }
 
   aboutToDisappear(): void {
@@ -84,7 +111,7 @@ export struct StatusPage {
     this.updateRuntimeDisplay()
     this.updateTimer = setInterval(() => {
       this.updateRuntimeDisplay()
-    }, 1000)
+    }, this.remoteMode ? 3000 : 1000)
   }
 
   private stopUpdateTimer(): void {
@@ -96,6 +123,10 @@ export struct StatusPage {
   }
 
   private updateRuntimeDisplay(): void {
+    if (this.remoteMode) {
+      void this.refreshRemoteRuntime()
+      return
+    }
     AppManager.runtimeStats.refreshFromDisk()
     const health: RuntimeHealthSummary = AppManager.easytier.getRuntimeHealthSummary()
     this.runtimeHealthText = health.text
@@ -122,6 +153,94 @@ export struct StatusPage {
     this.udp_nat = instanceInfo.udp_nat
     this.tcp_nat = instanceInfo.tcp_nat
     this.ip = instanceInfo.ip
+  }
+
+  private setupLocalStatus(uuid: string): void {
+    this.remoteMode = false
+    this.uuid = uuid
+    this.name = AppManager.easytier.getConfigName(this.uuid) ?? "临时配置"
+    this.config = AppManager.easytier.getConfig(this.uuid) ?? null
+    this.ip = this.config?.dhcp ? "waiting" : (this.config?.virtual_ipv4 ?? "N/A")
+  }
+
+  private setupRemoteStatus(param: RemoteStatusParam): void {
+    this.remoteMode = true
+    this.uuid = param.configId
+    this.name = param.title || param.configId
+    this.remoteSessionId = param.remoteSessionId ?? RemoteManageService.currentSessionKey ?? ''
+    this.remoteDeviceName = param.remoteDeviceName ?? RemoteManageService.currentDeviceName
+    this.runtimeHealthText = '正在同步受控实例状态'
+    this.ip = 'waiting'
+  }
+
+  private async refreshRemoteRuntime(): Promise<void> {
+    if (this.remoteRefreshRunning) {
+      return
+    }
+    if (!RemoteManageService.isCurrentSession(this.remoteSessionId)) {
+      this.runtimeHealthWarning = true
+      this.runtimeHealthText = '远端连接已断开'
+      this.resetRemoteRates()
+      return
+    }
+    this.remoteRefreshRunning = true
+    try {
+      const instance: RuntimeInstanceState | undefined =
+        await RemoteManageService.getRuntimeInstance(this.uuid, this.remoteSessionId)
+      if (!instance || !instance.running) {
+        this.runtimeHealthWarning = true
+        this.runtimeHealthText = '受控实例已停止'
+        this.resetRemoteRates()
+        return
+      }
+      this.remoteInstanceInfo.update(instance, true)
+      this.runtimeHealthWarning = false
+      this.runtimeHealthText = '受控实例运行正常'
+      this.ip = this.remoteInstanceInfo.ip
+      this.udp_nat = this.remoteInstanceInfo.udp_nat
+      this.tcp_nat = this.remoteInstanceInfo.tcp_nat
+      this.rx_rate = this.remoteInstanceInfo.getDownloadRate()
+      this.rx_unit = this.remoteInstanceInfo.getDownloadRateUnit()
+      this.tx_rate = this.remoteInstanceInfo.getUploadRate()
+      this.tx_unit = this.remoteInstanceInfo.getUploadRateUnit()
+    } catch (_) {
+      this.runtimeHealthWarning = true
+      this.runtimeHealthText = '远端状态暂不可用'
+      this.resetRemoteRates()
+    } finally {
+      this.remoteRefreshRunning = false
+    }
+  }
+
+  private resetRemoteRates(): void {
+    this.rx_rate = 0
+    this.tx_rate = 0
+    this.rx_unit = 'B/s'
+    this.tx_unit = 'B/s'
+  }
+
+  private async stopRuntime(): Promise<void> {
+    if (!this.remoteMode) {
+      AppManager.easytier.stop()
+      return
+    }
+    if (this.stopping || !RemoteManageService.isCurrentSession(this.remoteSessionId)) {
+      return
+    }
+    this.stopping = true
+    try {
+      const result = await RemoteManageService.stopConfig(this.uuid, this.remoteSessionId)
+      if (result.ok) {
+        sendToast('受控实例已停止', $r('sys.symbol.checkmark_circle'), 0)
+        HMRouterMgr.pop()
+      } else {
+        sendToast('停止受控实例失败', $r('sys.symbol.exclamationmark_circle'), 1)
+      }
+    } catch (error) {
+      sendToast(`停止失败：${(error as Error).message}`, $r('sys.symbol.exclamationmark_circle'), 1)
+    } finally {
+      this.stopping = false
+    }
   }
 
   getRouteCost(cost: number): string {
@@ -271,7 +390,7 @@ export struct StatusPage {
           Row() {
             Column() {
               Row({ space: 8 }) {
-                Text(this.config?.hostname ?? "N/A")
+                Text(this.remoteMode ? this.remoteDeviceName : (this.config?.hostname ?? "N/A"))
                   .fontSize(12)
                   .fontColor($r("sys.color.font_secondary"))
                   .fontWeight(FontWeight.Bold)
@@ -483,12 +602,12 @@ export struct StatusPage {
       content: {
         title: {
           mainTitle: this.name,
-          subTitle: this.uuid
+          subTitle: this.remoteMode ? this.remoteDeviceName : this.uuid
         },
         menu: {
           value: [
-            HdsMenuButton("停止运行", $r("sys.symbol.pause_fill"), () => {
-              AppManager.easytier.stop()
+            HdsMenuButton(this.stopping ? "停止中" : "停止运行", $r("sys.symbol.pause_fill"), () => {
+              void this.stopRuntime()
             })
           ]
         }

@@ -1,4 +1,4 @@
-import { HMRouter, HMRouterMgr } from '@hadss/hmrouter'
+import { HMLifecycleState, HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { common } from '@kit.AbilityKit'
 import { IapService } from '../../services/iap/IapService'
 import { HdsNavigation, HdsNavigationTitleMode, hdsMaterial, TitleBarStyleOptions } from '@kit.UIDesignKit'
@@ -26,6 +26,18 @@ import {
 
 interface RemoteSummaryDirtyEventPayload {
   sessionKey?: string
+}
+
+interface RemoteDeviceSelectOption {
+  value: string
+}
+
+class RemoteDeviceSelectOptionItem implements RemoteDeviceSelectOption {
+  value: string
+
+  constructor(value: string) {
+    this.value = value
+  }
 }
 
 function remoteTitleStyle(): TitleBarStyleOptions {
@@ -96,38 +108,34 @@ function remoteGroupHeader(title: string) {
 function remoteInfoPill(text: string, active: boolean = false) {
   Text(text)
     .fontSize(12)
-    .fontColor(active ? $r('sys.color.brand_font') : $r('sys.color.font_secondary'))
+    .fontColor(active ? $r('sys.color.brand') : $r('sys.color.font_secondary'))
     .padding({ left: 8, right: 8, top: 4, bottom: 4 })
     .borderRadius(10)
-    .backgroundColor(active ? $r('sys.color.brand') : $r('sys.color.comp_background_secondary'))
+    .backgroundColor($r('sys.color.comp_background_tertiary'))
 }
 
 @Builder
 function remoteEmptyCard(icon: Resource, text: string) {
-  Column({ space: 8 }) {
+  Row({ space: 10 }) {
     SymbolGlyph(icon)
-      .fontSize(24)
+      .fontSize(20)
       .fontColor([$r('sys.color.font_secondary')])
     Text(text)
-      .fontSize(15)
+      .fontSize(14)
       .fontColor($r('sys.color.font_secondary'))
   }
-  .height(112)
-  .justifyContent(FlexAlign.Center)
-  .alignItems(HorizontalAlign.Center)
+  .height(64)
+  .padding({ left: 14, right: 14 })
+  .alignItems(VerticalAlign.Center)
   .remoteCardStyle()
 }
 
-@Extend(Column)
+@Styles
 function remoteCardStyle() {
   .width('100%')
-  .borderRadius(18)
+  .borderRadius(16)
   .backgroundColor($r('sys.color.comp_background_primary'))
-  .shadow({
-    radius: 7,
-    color: '#1F000000'
-  })
-    .padding(12)
+  .padding(14)
 }
 
 @HMRouter({ pageUrl: 'RemoteControlPage' })
@@ -142,7 +150,17 @@ export struct RemoteControlPage {
   @Local deployingConfigId: string = ''
   @Local stopping: boolean = false
   @Local summaryView: RemoteSummaryViewState = new RemoteSummaryViewState()
+  @Local consoleAuthorized: boolean = IapService.isRemoteControlUnlocked()
   private summaryRefreshTimer: number = -1
+  private summaryRefreshRunning: boolean = false
+  private summaryRefreshPending: boolean = false
+  private pageVisible: boolean = false
+  private pageActivated: boolean = false
+  private lifecycleOwner = HMRouterMgr.getCurrentLifecycleOwner()
+  private backPressedCallback = (): boolean => {
+    void RemoteManageService.disconnect()
+    return false
+  }
   private remoteConnectionCallback = (_data: emitter.EventData) => {
     this.connected = RemoteManageService.connected
     this.summaryView.apply(this.connected ? RemoteManageService.cachedSummary : undefined)
@@ -159,20 +177,40 @@ export struct RemoteControlPage {
   /** 跨设备控制为付费能力：非卡片入口进入时兜底校验 remote_control 权益 */
   private enforceEntitlement(): void {
     if (IapService.isRemoteControlUnlocked()) {
+      this.consoleAuthorized = true
+      this.activateConsole()
       return
     }
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
     IapService.ensureEntitlementLoaded(context).then((owned: boolean) => {
-      if (!owned) {
-        sendToast('请先在主页解锁跨设备控制', $r('sys.symbol.exclamationmark_circle'), 1)
-        HMRouterMgr.pop()
+      if (!this.pageVisible) {
+        return
       }
+      if (!owned) {
+        this.closeUnauthorizedConsole()
+        return
+      }
+      this.consoleAuthorized = true
+      this.activateConsole()
     }).catch(() => {
+      if (this.pageVisible) {
+        this.closeUnauthorizedConsole()
+      }
     })
   }
 
   aboutToAppear(): void {
+    this.pageVisible = true
+    this.lifecycleOwner?.removeObserver(HMLifecycleState.onBackPressed, this.backPressedCallback)
+    this.lifecycleOwner?.addObserver(HMLifecycleState.onBackPressed, this.backPressedCallback)
     this.enforceEntitlement()
+  }
+
+  private activateConsole(): void {
+    if (!this.pageVisible || this.pageActivated) {
+      return
+    }
+    this.pageActivated = true
     EventHelper.emitterOff(REMOTE_MANAGE_CONNECTION_EVENT, this.remoteConnectionCallback)
     EventHelper.emitterOff(REMOTE_MANAGE_SUMMARY_DIRTY_EVENT, this.remoteSummaryDirtyCallback)
     EventHelper.emitterListener(REMOTE_MANAGE_CONNECTION_EVENT, this.remoteConnectionCallback)
@@ -187,9 +225,20 @@ export struct RemoteControlPage {
   }
 
   aboutToDisappear(): void {
+    this.pageVisible = false
+    this.pageActivated = false
+    this.summaryRefreshPending = false
     EventHelper.emitterOff(REMOTE_MANAGE_CONNECTION_EVENT, this.remoteConnectionCallback)
     EventHelper.emitterOff(REMOTE_MANAGE_SUMMARY_DIRTY_EVENT, this.remoteSummaryDirtyCallback)
+    this.lifecycleOwner?.removeObserver(HMLifecycleState.onBackPressed, this.backPressedCallback)
     this.stopSummaryRefreshTimer()
+  }
+
+  private closeUnauthorizedConsole(): void {
+    this.consoleAuthorized = false
+    void RemoteManageService.disconnect()
+    sendToast('请先在主页解锁跨设备控制', $r('sys.symbol.exclamationmark_circle'), 1)
+    HMRouterMgr.pop()
   }
 
   private startSummaryRefreshTimer(): void {
@@ -235,6 +284,21 @@ export struct RemoteControlPage {
     return this.devices.find((device) => (device.networkId ?? device.deviceId) === this.selectedDeviceId)
   }
 
+  @Computed
+  get deviceSelectOptions(): RemoteDeviceSelectOption[] {
+    return this.devices.map((device: RemoteDeviceLite) => {
+      return new RemoteDeviceSelectOptionItem(device.deviceName)
+    })
+  }
+
+  @Computed
+  get selectedDeviceIndex(): number {
+    const index = this.devices.findIndex((device: RemoteDeviceLite) => {
+      return (device.networkId ?? device.deviceId) === this.selectedDeviceId
+    })
+    return index >= 0 ? index : 0
+  }
+
   private async connect(): Promise<void> {
     const device = this.currentDevice()
     if (!device || !AppManager.content.context) {
@@ -265,18 +329,33 @@ export struct RemoteControlPage {
   }
 
   private async refreshSummary(): Promise<void> {
+    if (this.summaryRefreshRunning) {
+      this.summaryRefreshPending = true
+      return
+    }
     if (!RemoteManageService.connected) {
       this.connected = false
       this.summaryView.clear()
+      this.summaryRefreshPending = false
       return
     }
+    this.summaryRefreshRunning = true
     try {
       this.summaryView.apply(await RemoteManageService.requestSummary())
       this.connected = true
     } catch (error) {
+      await RemoteManageService.disconnect()
       this.connected = false
       this.summaryView.clear()
       sendToast('刷新远端状态失败', $r('sys.symbol.exclamationmark_circle'), 1)
+    } finally {
+      this.summaryRefreshRunning = false
+      if (this.summaryRefreshPending) {
+        this.summaryRefreshPending = false
+        if (this.pageVisible && this.pageActivated && RemoteManageService.connected) {
+          void this.refreshSummary()
+        }
+      }
     }
   }
 
@@ -366,8 +445,9 @@ export struct RemoteControlPage {
       return
     }
     HMRouterMgr.push({
-      pageUrl: 'RemoteStatusPage',
+      pageUrl: 'StatusPage',
       param: {
+        source: 'remote',
         configId: instance.instanceId,
         title: instance.displayName || instance.instanceId,
         remoteSessionId: session,
@@ -394,204 +474,194 @@ export struct RemoteControlPage {
 
   @Builder
   private deviceSelector() {
-    ListItemGroup({ header: remoteGroupHeader('设备') }) {
+    ListItemGroup({ header: remoteGroupHeader('受控设备') }) {
       if (this.devices.length === 0) {
         ListItem() {
-          Column() {
-            Text('暂无可用设备')
-              .fontSize(16)
-              .fontColor($r('sys.color.font_secondary'))
-          }
-          .remoteCardStyle()
+          remoteEmptyCard($r('sys.symbol.superdevice'), '暂无可用设备，请确认设备在线')
         }
-        .margin({ bottom: 10 })
+        .margin({ bottom: 8 })
       } else {
-        ForEach(this.devices, (device: RemoteDeviceLite) => {
-          ListItem() {
-            Row() {
-              Column() {
-                Text(device.deviceName)
-                  .fontSize(16)
+        ListItem() {
+          Column({ space: 10 }) {
+            Row({ space: 8 }) {
+              SymbolGlyph(this.connected ? $r('sys.symbol.checkmark_circle_fill') :
+                $r('sys.symbol.superdevice'))
+                .fontSize(20)
+                .fontColor([this.connected ? $r('sys.color.brand') : $r('sys.color.font_secondary')])
+              Column({ space: 2 }) {
+                Text(this.connected ? '协同连接已建立' : '选择同账号在线设备')
+                  .fontSize(14)
                   .fontColor($r('sys.color.font_primary'))
-                  .maxLines(1)
-                Text(device.networkId ?? device.deviceId)
-                  .fontSize(11)
+                Text(this.connected ? '可查看状态、下发一次性配置并管理运行实例' : '连接前不会读取对端配置')
+                  .fontSize(12)
                   .fontColor($r('sys.color.font_secondary'))
-                  .maxLines(1)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .margin({ top: 3 })
+                  .maxLines(2)
               }
               .layoutWeight(1)
               .alignItems(HorizontalAlign.Start)
-
-              if (this.selectedDeviceId === (device.networkId ?? device.deviceId)) {
-                SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
-                  .fontColor([$r('sys.color.brand')])
-                  .fontSize(20)
-              }
+              remoteInfoPill(this.connected ? '已连接' : '未连接', this.connected)
             }
             .width('100%')
-            .height(58)
-            .padding({ left: 12, right: 12 })
-            .borderRadius(18)
-            .backgroundColor($r('sys.color.comp_background_primary'))
-            .shadow({
-              radius: 7,
-              color: '#1F000000'
-            })
-            .onClick(() => this.selectDevice(device))
-          }
-          .margin({ bottom: 10 })
-        }, (device: RemoteDeviceLite) => device.networkId ?? device.deviceId)
-      }
-      ListItem() {
-        Row({ space: 10 }) {
-          Button(this.connected ? '断开' : (this.connecting ? '连接中' : '连接'),
-            { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.EMPHASIZED, role: ButtonRole.NORMAL })
-            .layoutWeight(1)
-            .borderRadius(13)
-            .enabled(!this.connecting)
-            .onClick(() => {
-              if (this.connected) {
-                this.disconnect()
-              } else {
-                this.connect()
+
+            Select(this.deviceSelectOptions)
+              .selected(this.selectedDeviceIndex)
+              .value(this.selectedDeviceName || this.devices[this.selectedDeviceIndex].deviceName)
+              .width('100%')
+              .height(42)
+              .controlSize(ControlSize.SMALL)
+              .font({ size: 14, weight: FontWeight.Medium })
+              .fontColor($r('sys.color.font_primary'))
+              .selectedOptionBgColor($r('sys.color.brand'))
+              .selectedOptionFontColor('#FFFFFFFF')
+              .optionBgColor($r('sys.color.comp_background_primary'))
+              .optionFontColor($r('sys.color.font_primary'))
+              .menuBackgroundColor($r('sys.color.comp_background_primary'))
+              .borderRadius(12)
+              .enabled(!this.connected)
+              .opacity(this.connected ? 0.72 : 1)
+              .onSelect((index: number) => {
+                if (!this.connected && index >= 0 && index < this.devices.length) {
+                  this.selectDevice(this.devices[index])
+                }
+              })
+
+            Row({ space: 8 }) {
+              Button(this.connected ? '断开连接' : (this.connecting ? '连接中' : '连接此设备'), {
+                type: ButtonType.Normal,
+                buttonStyle: this.connected ? ButtonStyleMode.NORMAL : ButtonStyleMode.EMPHASIZED,
+                role: this.connected ? ButtonRole.ERROR : ButtonRole.NORMAL
+              })
+                .layoutWeight(1)
+                .height(40)
+                .borderRadius(12)
+                .enabled(!this.connecting)
+                .onClick(() => {
+                  if (this.connected) {
+                    void this.disconnect()
+                  } else {
+                    void this.connect()
+                  }
+                })
+              Button({ type: ButtonType.Circle, stateEffect: true }) {
+                SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+                  .fontSize(19)
               }
-            })
-          Button('刷新设备', { type: ButtonType.Normal, buttonStyle: ButtonStyleMode.NORMAL, role: ButtonRole.NORMAL })
-            .layoutWeight(1)
-            .borderRadius(13)
-            .onClick(() => this.refreshDevices())
+              .width(40)
+              .height(40)
+              .buttonStyle(ButtonStyleMode.NORMAL)
+              .accessibilityText('刷新设备')
+              .onClick(() => this.refreshDevices())
+            }
+            .width('100%')
+          }
+          .remoteCardStyle()
         }
-        .width('100%')
+        .margin({ bottom: 8 })
       }
-      .margin({ bottom: 10 })
     }
+  }
+
+  @Builder
+  private summaryMetric(label: string, value: string) {
+    Column({ space: 3 }) {
+      Text(value)
+        .fontSize(16)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+      Text(label)
+        .fontSize(11)
+        .fontColor($r('sys.color.font_secondary'))
+    }
+    .layoutWeight(1)
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
   private runtimeSummary() {
     ListItemGroup({ header: remoteGroupHeader('运行状态') }) {
       ListItem() {
-        Column() {
-          Column({ space: 10 }) {
-            Row({ space: 8 }) {
-              remoteInfoPill(this.connected ? '已连接' : '未连接', this.connected)
-              if (this.summaryView.deviceName.length > 0) {
-                remoteInfoPill(this.summaryView.deviceName)
-              }
-              if (this.summaryView.coreVersion.length > 0) {
-                remoteInfoPill(`Core ${this.summaryView.coreVersion}`)
-              }
-            }
-            .width('100%')
-            .alignItems(VerticalAlign.Center)
-
-            Row() {
-                Text('配置数量')
-                  .fontSize(14)
-                  .fontColor($r('sys.color.font_secondary'))
-                Blank()
-                Text(this.connected ? `${this.summaryView.configCount}` : '--')
-                  .fontSize(16)
-                  .fontColor($r('sys.color.font_primary'))
-              }
-            .width('100%')
-            Row() {
-                Text('运行配置')
-                  .fontSize(14)
-                  .fontColor($r('sys.color.font_secondary'))
-                Blank()
-                Text(this.connected ? `${this.summaryView.runningCount}` : '--')
-                  .fontSize(16)
-                  .fontColor($r('sys.color.font_primary'))
-              }
-            .width('100%')
-            Row() {
-                Text('运行时长')
-                  .fontSize(14)
-                  .fontColor($r('sys.color.font_secondary'))
-                Blank()
-                Text(this.connected ? this.summaryView.runtimeDurationText : '--')
-                  .fontSize(16)
-                  .fontColor($r('sys.color.font_primary'))
-              }
-            .width('100%')
-              Row() {
-                  Text('内存占用')
-                    .fontSize(14)
-                  .fontColor($r('sys.color.font_secondary'))
-                Blank()
-                Text(this.connected ? this.summaryView.memoryUsageText : '--')
-                  .fontSize(16)
-                  .fontColor($r('sys.color.font_primary'))
-                }
-              .width('100%')
-            }
-            .width('100%')
+        Column({ space: 12 }) {
+          Row() {
+            Text('Core')
+              .fontSize(12)
+              .fontColor($r('sys.color.font_secondary'))
+            Blank()
+            Text(this.summaryView.coreVersion || '版本未知')
+              .fontSize(12)
+              .fontColor($r('sys.color.font_secondary'))
           }
+          .width('100%')
+          Row({ space: 12 }) {
+            this.summaryMetric('配置', `${this.summaryView.configCount}`)
+            this.summaryMetric('运行中', `${this.summaryView.runningCount}`)
+            this.summaryMetric('运行时长', this.summaryView.runtimeDurationText)
+            this.summaryMetric('内存', this.summaryView.memoryUsageText)
+          }
+          .width('100%')
+        }
+            .width('100%')
         .remoteCardStyle()
       }
-      .margin({ bottom: 10 })
+      .margin({ bottom: 8 })
       if (this.summaryView.runningCount > 0) {
         LazyForEach(this.summaryView.runtimes, (instance: RemoteRuntimeRowModel) => {
           ListItem() {
-            Column({ space: 6 }) {
-              Row({ space: 8 }) {
-                remoteInfoPill('运行中', true)
-                Text(instance.displayName)
+            Row({ space: 12 }) {
+              SymbolGlyph($r('sys.symbol.checkmark_circle_fill'))
+                .fontSize(20)
+                .fontColor([$r('sys.color.brand')])
+              Column({ space: 3 }) {
+                Text(instance.displayName || '未命名实例')
                   .fontSize(14)
+                  .fontWeight(FontWeight.Medium)
                   .fontColor($r('sys.color.font_primary'))
                   .maxLines(1)
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .layoutWeight(1)
-              }
-              .width('100%')
-              Row() {
-                Text(instance.virtualIpv4)
+                Text(`${instance.virtualIpv4} · 节点 ${instance.peerCount} · 路由 ${instance.routeCount}`)
                   .fontSize(12)
                   .fontColor($r('sys.color.font_secondary'))
-                Blank()
-                Text(`节点 ${instance.peerCount} · 路由 ${instance.routeCount}`)
-                  .fontSize(12)
-                  .fontColor($r('sys.color.font_secondary'))
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
               }
-              .width('100%')
-              Button('查看状态', {
-                type: ButtonType.Normal,
-                buttonStyle: ButtonStyleMode.NORMAL,
-                role: ButtonRole.NORMAL
-              })
-                .width('100%')
-                .height(36)
-                .borderRadius(12)
-                .onClick(() => this.openStatus(instance))
+              .layoutWeight(1)
+              .alignItems(HorizontalAlign.Start)
+              Text('运行中')
+                .fontSize(12)
+                .fontColor($r('sys.color.brand'))
+              SymbolGlyph($r('sys.symbol.chevron_forward'))
+                .fontSize(16)
+                .fontColor([$r('sys.color.font_secondary')])
             }
+            .height(58)
+            .padding({ left: 14, right: 12 })
             .remoteCardStyle()
+            .onClick(() => this.openStatus(instance))
           }
-          .margin({ bottom: 10 })
+          .margin({ bottom: 8 })
         }, (instance: RemoteRuntimeRowModel) => instance.rowKey)
-      } else if (this.connected) {
+      } else {
         ListItem() {
           remoteEmptyCard($r('sys.symbol.pause_circle'), '当前没有运行中的远端配置')
         }
-        .margin({ bottom: 10 })
+        .margin({ bottom: 8 })
       }
     }
   }
 
   @Builder
   private configList() {
-    ListItemGroup({ header: remoteGroupHeader('本机配置') }) {
+    ListItemGroup({ header: remoteGroupHeader('下发本机配置') }) {
       if (this.localConfigs.length === 0) {
         ListItem() {
           remoteEmptyCard($r('sys.symbol.doc'), '本机暂无可下发配置')
         }
-        .margin({ bottom: 10 })
+        .margin({ bottom: 8 })
       } else {
         ForEach(this.localConfigs, (config: StoredConfigMetaLite) => {
           ListItem() {
-            Column({ space: 10 }) {
+            Column({ space: 9 }) {
               Row() {
                 Column() {
                   Text(config.displayName || config.configId)
@@ -620,7 +690,8 @@ export struct RemoteControlPage {
                   role: ButtonRole.NORMAL
                 })
                   .layoutWeight(1)
-                  .borderRadius(13)
+                  .height(38)
+                  .borderRadius(12)
                   .enabled(this.connected && this.summaryView.runningCount === 0 &&
                     this.deployingConfigId.length === 0)
                   .onClick(() => this.deployLocalConfig(config))
@@ -630,7 +701,8 @@ export struct RemoteControlPage {
                   role: ButtonRole.NORMAL
                 })
                   .layoutWeight(1)
-                  .borderRadius(13)
+                  .height(38)
+                  .borderRadius(12)
                   .onClick(() => this.editLocalConfig(config.configId))
                 Button('复制', {
                   type: ButtonType.Normal,
@@ -638,14 +710,15 @@ export struct RemoteControlPage {
                   role: ButtonRole.NORMAL
                 })
                   .layoutWeight(1)
-                  .borderRadius(13)
+                  .height(38)
+                  .borderRadius(12)
                   .onClick(() => this.copyLocalConfig(config.configId))
               }
               .width('100%')
             }
             .remoteCardStyle()
           }
-          .margin({ bottom: 10 })
+          .margin({ bottom: 8 })
         }, (config: StoredConfigMetaLite) => config.configId)
       }
     }
@@ -655,55 +728,72 @@ export struct RemoteControlPage {
   private remoteSettings() {
     ListItemGroup({ header: remoteGroupHeader('受控端设置') }) {
       ListItem() {
-        Row({ space: 8 }) {
-          Button('运行与保活', {
-            type: ButtonType.Normal,
-            buttonStyle: ButtonStyleMode.NORMAL,
-            role: ButtonRole.NORMAL
-          })
-            .layoutWeight(1)
-            .borderRadius(13)
-            .onClick(() => this.openRemoteSetting('runtime', '运行与保活'))
-          Button('高级设置', {
-            type: ButtonType.Normal,
-            buttonStyle: ButtonStyleMode.NORMAL,
-            role: ButtonRole.NORMAL
-          })
-            .layoutWeight(1)
-            .borderRadius(13)
-            .onClick(() => this.openRemoteSetting('advanced', '高级设置'))
-          Button('日志', {
-            type: ButtonType.Normal,
-            buttonStyle: ButtonStyleMode.NORMAL,
-            role: ButtonRole.NORMAL
-          })
-            .layoutWeight(1)
-            .borderRadius(13)
-            .onClick(() => this.openRemoteSetting('logs', '日志与调试'))
+        Column() {
+          this.remoteSettingEntry($r('sys.symbol.arrow_up_and_down_square_portrait'), '运行与保活',
+            this.summaryView.runtimeModeLabel,
+            () => this.openRemoteSetting('runtime', '运行与保活'))
+          Divider().color($r('sys.color.comp_divider')).margin({ left: 40 })
+          this.remoteSettingEntry($r('sys.symbol.network_acceleration'), '高级设置',
+            this.summaryView.devMode ? '高级模式已开启' : '网络与 DNS',
+            () => this.openRemoteSetting('advanced', '高级设置'))
+          Divider().color($r('sys.color.comp_divider')).margin({ left: 40 })
+          this.remoteSettingEntry($r('sys.symbol.doc'), '日志与调试',
+            this.summaryView.coreLog || this.summaryView.debugLog ? '日志记录已开启' : '日志记录已关闭',
+            () => this.openRemoteSetting('logs', '日志与调试'))
         }
         .width('100%')
+        .remoteCardStyle()
       }
-      .margin({ bottom: 10 })
+      .margin({ bottom: 8 })
     }
+  }
+
+  @Builder
+  private remoteSettingEntry(icon: Resource, title: string, subtitle: string, action: () => void) {
+    Row({ space: 10 }) {
+      SymbolGlyph(icon)
+        .fontSize(18)
+        .fontColor([$r('sys.color.font_secondary')])
+      Column({ space: 2 }) {
+        Text(title)
+          .fontSize(14)
+          .fontColor($r('sys.color.font_primary'))
+        Text(subtitle)
+          .fontSize(11)
+          .fontColor($r('sys.color.font_secondary'))
+          .maxLines(1)
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+      SymbolGlyph($r('sys.symbol.chevron_forward'))
+        .fontSize(16)
+        .fontColor([$r('sys.color.font_secondary')])
+    }
+    .width('100%')
+    .height(52)
+    .onClick(action)
   }
 
   build() {
     HdsNavigation() {
       List() {
         ListItem()
-          .height(64)
+          .height(56)
         this.deviceSelector()
-        this.runtimeSummary()
+        if (this.connected) {
+          this.runtimeSummary()
+        }
         this.configList()
         if (this.connected) {
           this.remoteSettings()
         }
         ListItem()
-          .height(120)
+          .height(80)
       }
       .width('100%')
       .height('100%')
       .padding({ left: 15, right: 15 })
+      .enabled(this.consoleAuthorized)
       .scrollBar(BarState.Auto)
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
       .scrollBar(BarState.Off)
@@ -716,7 +806,7 @@ export struct RemoteControlPage {
             subTitle: this.connected ? this.currentConnectedDeviceName() : '选择受控设备'
           },
         menu: {
-          value: this.connected && this.summaryView.runningCount > 0 ? [
+          value: !this.consoleAuthorized ? [] : this.connected && this.summaryView.runningCount > 0 ? [
             HdsMenuButton(this.stopping ? '停止中' : '停止', $r('sys.symbol.stop_circle'), () => {
               this.stopRemoteInstance()
             }),

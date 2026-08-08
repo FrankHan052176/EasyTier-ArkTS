@@ -20,7 +20,7 @@ async function showPaywall(uiContext: UIContext, context: common.UIAbilityContex
   try {
     const result = await uiContext.getPromptAction().showDialog({
       title: '解锁跨设备控制',
-      message: `跨设备控制为增值功能，解锁后可远程查看、编辑并启停其他设备上的 EasyTier 实例。${priceText}`,
+      message: `跨设备控制为增值功能，解锁后可查看其他设备状态、一次性下发本机配置并启停受控实例。${priceText}`,
       buttons: [
         { text: price.length > 0 ? `购买 ${price}` : '立即购买', color: '#0A59F7' },
         { text: '恢复购买', color: '#0A59F7' },

@@ -161,6 +161,30 @@
       "value": "解析网络配置"
     },
     {
+      "name": "config_generator_placeholder",
+      "value": "生成的 TOML 配置将显示在这里"
+    },
+    {
+      "name": "generate_config",
+      "value": "生成配置"
+    },
+    {
+      "name": "copy_config",
+      "value": "复制配置"
+    },
+    {
+      "name": "config_copied",
+      "value": "已复制"
+    },
+    {
+      "name": "config_generation_failed",
+      "value": "生成失败"
+    },
+    {
+      "name": "config_copy_failed",
+      "value": "复制失败"
+    },
+    {
       "name": "retain_network_instance",
       "value": "保留网络实例"
     },

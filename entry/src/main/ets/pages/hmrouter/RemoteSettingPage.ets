@@ -75,7 +75,7 @@ function remoteSettingHeader(title: string) {
     .width('100%')
     .fontSize(14)
     .fontColor($r('sys.color.font_secondary'))
-    .padding({ top: 10, left: 5, bottom: 3 })
+    .padding({ top: 8, left: 5, bottom: 4 })
 }
 
 @Builder
@@ -84,26 +84,24 @@ function remoteValueRow(title: string, value: string) {
     Row() {
       Text(title)
         .fontColor($r('sys.color.font_primary'))
-        .fontSize(16)
+        .fontSize(14)
       Text(value)
         .fontColor($r('sys.color.font_primary'))
-        .fontSize(16)
+        .fontSize(14)
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
     }
-    .height(49)
-    .borderRadius(18)
+    .height(46)
     .alignItems(VerticalAlign.Center)
     .justifyContent(FlexAlign.SpaceBetween)
     .width('100%')
     .backgroundColor($r('sys.color.comp_background_primary'))
-    .shadow({
-      radius: 7,
-      color: '#1F000000'
+    .border({
+      width: { bottom: 1 },
+      color: { bottom: $r('sys.color.comp_divider') }
     })
     .padding({ left: 12, right: 12 })
   }
-  .margin({ bottom: 10 })
 }
 
 interface RemoteSelectOption {
@@ -182,6 +180,7 @@ export struct RemoteSettingPage {
   @Local settings: RemoteSettingsState | undefined = RemoteManageService.cachedSummary?.settings
   @Local remoteSessionId: string = ''
   @Local remoteDeviceName: string = ''
+  @Local stopping: boolean = false
 
   aboutToAppear(): void {
     const param = HMRouterMgr.getCurrentParam() as RemoteSettingPageParam
@@ -260,6 +259,30 @@ export struct RemoteSettingPage {
     return (this.summary?.runtime.runningCount ?? 0) === 0
   }
 
+  private async stopRemoteInstance(): Promise<void> {
+    const running = this.summary?.runtime.runningConfigs[0]
+    if (!running || this.stopping) {
+      return
+    }
+    this.stopping = true
+    try {
+      const result = await RemoteManageService.stopConfig(running.instanceId, this.remoteSessionId)
+      if (result.summary) {
+        this.summary = result.summary
+        this.settings = result.summary.settings
+      } else if (result.ok) {
+        await this.refresh()
+      }
+      sendToast(result.ok ? '受控实例已停止' : '停止受控实例失败',
+        result.ok ? $r('sys.symbol.checkmark_circle') : $r('sys.symbol.exclamationmark_circle'),
+        result.ok ? 0 : 1)
+    } catch (_) {
+      sendToast('停止受控实例失败', $r('sys.symbol.exclamationmark_circle'), 1)
+    } finally {
+      this.stopping = false
+    }
+  }
+
   @Builder
   private switchRow(title: string, hint: string, key: string, value: boolean, enabled: boolean = true) {
     ListItem() {
@@ -267,7 +290,7 @@ export struct RemoteSettingPage {
         Column() {
           Text(title)
             .fontColor($r('sys.color.font_primary'))
-            .fontSize(16)
+            .fontSize(14)
           if (hint.length > 0) {
             Text(hint)
               .fontColor($r('sys.color.font_secondary'))
@@ -285,19 +308,17 @@ export struct RemoteSettingPage {
           .enabled(enabled)
           .onChange((isOn: boolean) => this.setSwitch(key, isOn))
       }
-      .height(hint.length > 0 ? 58 : 49)
-      .borderRadius(18)
+      .height(hint.length > 0 ? 54 : 48)
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
       .backgroundColor($r('sys.color.comp_background_primary'))
-      .shadow({
-        radius: 7,
-        color: '#1F000000'
+      .border({
+        width: { bottom: 1 },
+        color: { bottom: $r('sys.color.comp_divider') }
       })
       .padding({ left: 12, right: 12 })
     }
-    .margin({ bottom: 10 })
   }
 
   @Builder
@@ -307,7 +328,7 @@ export struct RemoteSettingPage {
         Column() {
           Text(title)
             .fontColor($r('sys.color.font_primary'))
-            .fontSize(16)
+            .fontSize(14)
             .maxLines(1)
           Text(hint.length > 0 ? hint : '数据传输或音乐')
             .fontColor($r('sys.color.font_secondary'))
@@ -327,19 +348,17 @@ export struct RemoteSettingPage {
           }
         })
       }
-      .height(58)
-      .borderRadius(18)
+      .height(54)
       .alignItems(VerticalAlign.Center)
       .justifyContent(FlexAlign.SpaceBetween)
       .width('100%')
       .backgroundColor($r('sys.color.comp_background_primary'))
-      .shadow({
-        radius: 7,
-        color: '#1F000000'
+      .border({
+        width: { bottom: 1 },
+        color: { bottom: $r('sys.color.comp_divider') }
       })
       .padding({ left: 12, right: 12 })
     }
-    .margin({ bottom: 10 })
   }
 
   @Builder
@@ -370,7 +389,7 @@ export struct RemoteSettingPage {
           Row() {
             Text('自定义 DNS')
               .fontColor($r('sys.color.font_primary'))
-              .fontSize(16)
+              .fontSize(14)
             TextInput({ text: this.settings?.dns ?? '', placeholder: '223.5.5.5' })
               .padding(0)
               .textAlign(TextAlign.End)
@@ -381,19 +400,17 @@ export struct RemoteSettingPage {
               .opacity(this.canModify() ? 1 : 0.5)
               .onChange((value: string) => this.setText('dns', value.length > 0 ? value : '223.5.5.5'))
           }
-          .height(49)
-          .borderRadius(18)
+          .height(48)
           .alignItems(VerticalAlign.Center)
           .justifyContent(FlexAlign.SpaceBetween)
           .width('100%')
           .backgroundColor($r('sys.color.comp_background_primary'))
-          .shadow({
-            radius: 7,
-            color: '#1F000000'
+          .border({
+            width: { bottom: 1 },
+            color: { bottom: $r('sys.color.comp_divider') }
           })
           .padding({ left: 12, right: 12 })
         }
-        .margin({ bottom: 10 })
         this.switchRow('添加全局路由', this.canModify() ? '' : '运行中不可修改', 'force_global',
           this.settings?.force_global ?? true, this.canModify())
       }
@@ -414,7 +431,25 @@ export struct RemoteSettingPage {
     HdsNavigation() {
       List() {
         ListItem()
-          .height(64)
+          .height(56)
+        if (!this.canModify()) {
+          ListItem() {
+            Row({ space: 8 }) {
+              SymbolGlyph($r('sys.symbol.lock_fill'))
+                .fontSize(16)
+                .fontColor([$r('sys.color.font_secondary')])
+              Text('受控实例运行中，停止后才能修改这些设置')
+                .fontSize(13)
+                .fontColor($r('sys.color.font_secondary'))
+                .layoutWeight(1)
+            }
+            .width('100%')
+            .padding({ left: 12, right: 12, top: 9, bottom: 9 })
+            .borderRadius(12)
+            .backgroundColor($r('sys.color.comp_background_tertiary'))
+          }
+          .margin({ bottom: 8 })
+        }
         if (this.category === 'runtime') {
           this.runtimeContent()
         } else if (this.category === 'advanced') {
@@ -423,7 +458,7 @@ export struct RemoteSettingPage {
           this.logsContent()
         }
         ListItem()
-          .height(120)
+          .height(80)
       }
       .width('100%')
       .height('100%')
@@ -438,7 +473,14 @@ export struct RemoteSettingPage {
           subTitle: this.remoteDeviceName
         },
         menu: {
-          value: [HdsMenuButton('刷新', $r('sys.symbol.arrow_2_circlepath'), () => this.refresh())]
+          value: this.canModify() ? [
+            HdsMenuButton('刷新', $r('sys.symbol.arrow_2_circlepath'), () => this.refresh())
+          ] : [
+            HdsMenuButton(this.stopping ? '停止中' : '停止', $r('sys.symbol.stop_circle'), () => {
+              void this.stopRemoteInstance()
+            }),
+            HdsMenuButton('刷新', $r('sys.symbol.arrow_2_circlepath'), () => this.refresh())
+          ]
         }
       }
     })

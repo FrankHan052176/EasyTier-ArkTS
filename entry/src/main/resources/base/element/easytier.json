@@ -161,6 +161,30 @@
       "value": "Parse Network Config"
     },
     {
+      "name": "config_generator_placeholder",
+      "value": "Generated TOML configuration appears here"
+    },
+    {
+      "name": "generate_config",
+      "value": "Generate Config"
+    },
+    {
+      "name": "copy_config",
+      "value": "Copy Config"
+    },
+    {
+      "name": "config_copied",
+      "value": "Copied"
+    },
+    {
+      "name": "config_generation_failed",
+      "value": "Generation failed"
+    },
+    {
+      "name": "config_copy_failed",
+      "value": "Copy failed"
+    },
+    {
       "name": "retain_network_instance",
       "value": "Retain Network Instance"
     },

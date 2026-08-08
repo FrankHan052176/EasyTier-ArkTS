@@ -13,7 +13,8 @@ export interface RemoteSettingPageParam {
   remoteDeviceName?: string
 }
 
-export interface RemoteStatusPageParam {
+export interface RemoteStatusParam {
+  source: string
   configId: string
   title: string
   remoteSessionId?: string
