@@ -1257,8 +1257,8 @@ export function SettingAbout_Content() {
 
     ListItemGroup({ header: settingGroupHeader("赞助者") }) {
       settingSponsorRow($r("sys.symbol.cloud"), "腾讯 EdgeOne", "CDN 加速和安全防护赞助", EDGEONE_URL)
-      settingSponsorRow($r("sys.symbol.house"), "浪浪云", "公共服务器赞助", LANGLANG_URL)
-      settingSponsorRow($r("sys.symbol.cloud"), "雨云", "公共服务器赞助", RAINCLOUD_URL)
+      settingSponsorRow($r("sys.symbol.house"), "浪浪云", "赞助", LANGLANG_URL)
+      settingSponsorRow($r("sys.symbol.cloud"), "雨云", "赞助", RAINCLOUD_URL)
       settingSponsorQrCard()
     }
 
