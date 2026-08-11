@@ -282,6 +282,9 @@ export struct HomePage {
     if (AppManager.uiState.raw_comp_sequence.includes('Control_')) {
       return this.homeDefaultCardSequence()
     }
+    if (AppManager.uiState.raw_comp_sequence.length === 0) {
+      return []
+    }
     const parsed: CompSizeWithPos[] = []
     const seen: string[] = []
     AppManager.uiState.raw_comp_sequence.split('|').forEach((value: string) => {
@@ -308,18 +311,6 @@ export struct HomePage {
         width: width,
         height: height
       } as CompSizeWithPos)
-    })
-
-    HOME_DEFAULT_CARD_SEQUENCE.forEach((item: CompSizeWithPos) => {
-      if (!seen.includes(item.type)) {
-        parsed.push({
-          type: item.type,
-          x: item.x,
-          y: item.y,
-          width: item.width,
-          height: item.height
-        } as CompSizeWithPos)
-      }
     })
     return parsed.length > 0 ? parsed : this.homeDefaultCardSequence()
   }
