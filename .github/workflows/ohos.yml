@@ -182,7 +182,7 @@ jobs:
           signed_app=$(find build/outputs/publish \
             -type f -name '*-signed.app' -print -quit)
           test -n "$signed_app"
-          app_name="EasyTier-${{ steps.core_har.outputs.app_version_name }}"
+          app_name="EasyTier-${{ steps.core_har.outputs.app_version_name }}-${{ steps.channel.outputs.channel }}"
           app_path="$RUNNER_TEMP/$app_name.app"
           mv "$signed_app" "$app_path"
           echo "name=$app_name" >> "$GITHUB_OUTPUT"
