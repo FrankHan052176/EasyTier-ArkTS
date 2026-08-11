@@ -1,6 +1,12 @@
 # AGC API CI
 
-The `ohos` workflow uploads the signed `publish/release` App and submits an AGC test version through the AppGallery Connect API Client flow.
+The `ohos` workflow builds the signed `publish/release` App and uses the AppGallery Connect API Client flow.
+
+Normal `main` and Core dispatch runs upload the App, register its package and submit an
+invitation test version. A published GitHub Release uses the same publish signing
+configuration, but only uploads and registers the App package in AGC; it waits for package
+processing and deliberately does not create, update or submit an AGC test version. The formal
+AppGallery version remains a manual release operation.
 
 Configure these repository Secrets:
 

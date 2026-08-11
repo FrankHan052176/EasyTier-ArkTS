@@ -3,6 +3,8 @@ name: ohos
 on:
   push:
     branches: [main]
+  release:
+    types: [published]
   repository_dispatch:
     types: [core-har-published]
   workflow_dispatch:
@@ -30,7 +32,39 @@ jobs:
       - name: Checkout ArkTS app
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
           persist-credentials: false
+
+      - name: Resolve release channel
+        id: channel
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || '' }}
+          RELEASE_PUBLISHED_AT: ${{ github.event.release.published_at || '' }}
+        run: |
+          set -euo pipefail
+          channel=development
+          submit_agc_version=1
+          release_date=
+          if [[ "$GITHUB_EVENT_NAME" == "release" ]]; then
+            channel=stable
+            submit_agc_version=0
+            if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Published release tag must look like vX.Y.Z.N: $RELEASE_TAG" >&2
+              exit 1
+            fi
+            release_date="${RELEASE_PUBLISHED_AT%%T*}"
+            if [[ ! "$release_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              echo "Published release date is invalid: $RELEASE_PUBLISHED_AT" >&2
+              exit 1
+            fi
+          fi
+          echo "EASYTIER_RELEASE_CHANNEL=$channel" >> "$GITHUB_ENV"
+          echo "EASYTIER_RELEASE_DATE=$release_date" >> "$GITHUB_ENV"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "submit_agc_version=$submit_agc_version" >> "$GITHUB_OUTPUT"
+          echo "release_date=$release_date" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Build channel: $channel; AGC version submit: $submit_agc_version"
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -50,6 +84,8 @@ jobs:
           CODEARTS_PRIVATE_OHPM_READ: ${{ secrets.CODEARTS_PRIVATE_OHPM_READ }}
           CORE_HAR_REGISTRY: https://devrepo.devcloud.cn-north-4.huaweicloud.com/artgalaxy/api/ohpm/cn-north-4_c07b1b38744f424b8d87a86532d38003_ohpm_1/
           GH_TOKEN: ${{ github.token }}
+          BUILD_CHANNEL: ${{ steps.channel.outputs.channel }}
+          RELEASE_TAG: ${{ steps.channel.outputs.release_tag }}
         run: |
           set -euo pipefail
           trap 'rm -f "$HOME/.ohpm/.ohpmrc"' EXIT
@@ -91,6 +127,10 @@ jobs:
           app_version_name="${core_version}.${core_commit_count}"
           app_version_code="${core_version//./}${day_of_year}$(printf '%02d' "$build_number")"
           app_version_code=$((10#$app_version_code))
+          if [[ "$BUILD_CHANNEL" == "stable" && "$RELEASE_TAG" != "v${app_version_name}" ]]; then
+            echo "Release tag must match computed App version: expected v${app_version_name}, got $RELEASE_TAG" >&2
+            exit 1
+          fi
           app_json=$(mktemp)
           jq --arg version_name "$app_version_name" --argjson version_code "$app_version_code" \
             '.app.versionName = $version_name | .app.versionCode = $version_code' \
@@ -129,6 +169,8 @@ jobs:
         env:
           CORE_HAR_BRANCH: ${{ steps.core_har.outputs.package_branch }}
           CORE_HAR_VERSION: ${{ steps.core_har.outputs.package_version }}
+          EASYTIER_RELEASE_CHANNEL: ${{ steps.channel.outputs.channel }}
+          EASYTIER_RELEASE_DATE: ${{ steps.channel.outputs.release_date }}
         run: |
           set -euo pipefail
           npm config set registry=https://registry.npmjs.org/ --location=user
@@ -154,7 +196,17 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-      - name: Upload and submit AGC test version
+      - name: Validate AGC credentials for stable upload
+        if: ${{ steps.channel.outputs.channel == 'stable' }}
+        env:
+          AGC_CLIENT_ID: ${{ secrets.AGC_CLIENT_ID }}
+          AGC_CLIENT_SECRET: ${{ secrets.AGC_CLIENT_SECRET }}
+          AGC_APP_ID: ${{ secrets.AGC_APP_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$AGC_CLIENT_ID" && test -n "$AGC_CLIENT_SECRET" && test -n "$AGC_APP_ID"
+
+      - name: Upload package to AGC
         if: ${{ env.AGC_CLIENT_ID != '' && env.AGC_CLIENT_SECRET != '' && env.AGC_APP_ID != '' }}
         id: agc
         env:
@@ -162,6 +214,7 @@ jobs:
           AGC_EVENT_NAME: ${{ github.event_name }}
           AGC_RUN_ATTEMPT: ${{ github.run_attempt }}
           AGC_NOTIFY_ON_PUSH: "1"
+          AGC_SUBMIT_VERSION: ${{ steps.channel.outputs.submit_agc_version }}
           AGC_APP_NAME_PREFIX: EasyTier
           AGC_CORE_HAR_VERSION: ${{ steps.core_har.outputs.package_version }}
           AGC_PUSH_COMMIT_MESSAGE: ${{ github.event.head_commit.message }}

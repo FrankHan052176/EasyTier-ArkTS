@@ -55,6 +55,12 @@ function loadAppInfo() {
     const data = fs.readFileSync(appInfo);
     return JSON.parse(data.toString());
 }
+function resolveReleaseChannel(): string {
+    return process.env.EASYTIER_RELEASE_CHANNEL === "stable" ? "stable" : "development"
+}
+function resolveReleaseDate(): string {
+    return process.env.EASYTIER_RELEASE_DATE ?? ""
+}
 function updateBuildTime() {
     const now = new Date();
     const buildTimeString = now.toISOString();
@@ -67,7 +73,7 @@ function updateBuildTime() {
     try {
         fs.writeFileSync(
           build_time_file,
-            `export const BUILD_TIME:string = "${buildTimeString}"\nexport const APP_VERSION:string = "${info["app"]["versionName"]}"\nexport const APP_VERSION_CODE:string = "${info["app"]["versionCode"]}"\nexport const CORE_VERSION:string = "${coreVersion}"`
+            `export const BUILD_TIME:string = "${buildTimeString}"\nexport const APP_VERSION:string = "${info["app"]["versionName"]}"\nexport const APP_VERSION_CODE:string = "${info["app"]["versionCode"]}"\nexport const CORE_VERSION:string = "${coreVersion}"\nexport const APP_CHANNEL:string = "${resolveReleaseChannel()}"\nexport const APP_RELEASE_DATE:string = "${resolveReleaseDate()}"`
         );
         console.log(`> hvigor Build time updated : ${buildTimeString}`);
     } catch (error) {

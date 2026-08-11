@@ -7,8 +7,13 @@ set -euo pipefail
 
 AGC_API_DOMAIN="${AGC_API_DOMAIN:-connect-api.cloud.huawei.com}"
 AGC_APP_FILE="${1:-${AGC_APP_FILE:-}}"
+AGC_SUBMIT_VERSION="${AGC_SUBMIT_VERSION:-1}"
 if [[ -z "$AGC_APP_FILE" || ! -f "$AGC_APP_FILE" ]]; then
   echo "Signed App file is missing." >&2
+  exit 1
+fi
+if [[ "$AGC_SUBMIT_VERSION" != "0" && "$AGC_SUBMIT_VERSION" != "1" ]]; then
+  echo "AGC_SUBMIT_VERSION must be 0 or 1." >&2
   exit 1
 fi
 
@@ -227,14 +232,17 @@ if [[ "$notify_on_push" == "1" && "$event_name" == "push" && "$run_attempt" == "
   need_notify=1
 fi
 
-create_response=$(curl --silent --show-error --fail-with-body \
-  --request POST "$api_base/publish/v2/test/app/version?appId=$app_id_q" \
-  "${api_headers[@]}" \
-  --data "$(jq -cn \
-    --arg desc "$test_desc" \
-    '{releaseType: 6, testType: 3, testDesc: $desc, onshelfSelfDetect: 0}')")
-check_ret "$create_response"
-version_id=$(jq -er '.versionId // empty' <<<"$create_response")
+version_id=""
+if [[ "$AGC_SUBMIT_VERSION" == "1" ]]; then
+  create_response=$(curl --silent --show-error --fail-with-body \
+    --request POST "$api_base/publish/v2/test/app/version?appId=$app_id_q" \
+    "${api_headers[@]}" \
+    --data "$(jq -cn \
+      --arg desc "$test_desc" \
+      '{releaseType: 6, testType: 3, testDesc: $desc, onshelfSelfDetect: 0}')")
+  check_ret "$create_response"
+  version_id=$(jq -er '.versionId // empty' <<<"$create_response")
+fi
 release_package_id=$(add_package 2)
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
@@ -249,6 +257,11 @@ fi
 poll_attempts="${AGC_POLL_ATTEMPTS:-30}"
 poll_seconds="${AGC_POLL_SECONDS:-20}"
 wait_for_package "$release_package_id"
+
+if [[ "$AGC_SUBMIT_VERSION" == "0" ]]; then
+  echo "AGC package uploaded and processed without submitting a version (release_package=$release_package_id)"
+  exit 0
+fi
 
 duration_days="${AGC_TEST_DURATION_DAYS:-14}"
 if ! [[ "$duration_days" =~ ^[1-9][0-9]*$ ]]; then
