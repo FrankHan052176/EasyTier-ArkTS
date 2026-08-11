@@ -101,26 +101,33 @@ export struct ChangelogPage {
         .fontSize(13)
         .fontColor($r('sys.color.font_tertiary'))
 
-      if (entry.downloadUrl.length > 0) {
-        Button() {
-          Row({ space: 8 }) {
-            SymbolGlyph($r('sys.symbol.arrow_down'))
-              .fontSize(18)
-              .fontColor([$r('sys.color.font_on_primary')])
+      if (APP_CHANNEL === 'stable' && entry.downloadUrl.length > 0) {
+        Column({ space: 8 }) {
+          Text('开发版更新更频繁，适合尝鲜用户')
+            .fontSize(13)
+            .fontColor($r('sys.color.font_tertiary'))
 
-            Text('获取开发版')
-              .fontSize(14)
-              .fontWeight(FontWeight.Medium)
-              .fontColor($r('sys.color.font_on_primary'))
+          Button() {
+            Row({ space: 8 }) {
+              SymbolGlyph($r('sys.symbol.arrow_down'))
+                .fontSize(18)
+                .fontColor([$r('sys.color.font_on_primary')])
+
+              Text('获取开发版')
+                .fontSize(14)
+                .fontWeight(FontWeight.Medium)
+                .fontColor($r('sys.color.font_on_primary'))
+            }
           }
+          .height(40)
+          .padding({ left: 20, right: 20 })
+          .type(ButtonType.Capsule)
+          .backgroundColor($r('sys.color.brand'))
+          .onClick(() => {
+            this.openDownload(entry.downloadUrl);
+          })
         }
-        .height(40)
-        .padding({ left: 20, right: 20 })
-        .type(ButtonType.Capsule)
-        .backgroundColor($r('sys.color.brand'))
-        .onClick(() => {
-          this.openDownload(entry.downloadUrl);
-        })
+        .alignItems(HorizontalAlign.Start)
       }
 
       Column() {

@@ -24,7 +24,7 @@ export class ChangelogEntry {
   }
 }
 
-export const CHANGELOG_REVISION: string = '2026-08-11.1';
+export const CHANGELOG_REVISION: string = '2026-08-11.2';
 export const DEVELOPMENT_DOWNLOAD_URL: string = 'https://appgallery.huawei.com/apptest/2MsGy1dzT1T';
 
 /**
@@ -46,8 +46,7 @@ export const CHANGELOG_ENTRIES: ChangelogEntry[] = [
       '修复流量速率统计、纯 IPv6 Peer 地址、路由刷新、实例停止阻塞和状态内存泄漏。',
       '新增可信三方应用的实例状态共享与按需启动接口。',
       '主页组件支持排序、隐藏和持久保存，完善教程、帮助、更新日志与运行诊断。'
-    ],
-    DEVELOPMENT_DOWNLOAD_URL
+    ]
   ),
   new ChangelogEntry(
     ChangelogChannel.STABLE,
@@ -77,7 +76,8 @@ export function buildStableChangelogEntries(version: string, releaseDate: string
           releaseDate.length > 0 ? releaseDate : entry.date.replace('更新至 ', ''),
           '当前正式发布',
           entry.summary,
-          entry.changes
+          entry.changes,
+          DEVELOPMENT_DOWNLOAD_URL
         ));
         promoted = true;
       }
