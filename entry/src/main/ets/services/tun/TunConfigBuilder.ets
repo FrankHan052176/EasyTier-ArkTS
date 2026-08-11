@@ -80,8 +80,8 @@ export function buildTunRoutes(options: TunRouteBuildOptions): TunRouteBuildResu
 export function buildTunVpnConfig(options: TunVpnConfigBuildOptions): TunVpnConfigBuildResult {
   const appList = buildTunVpnAppList(options.blackList)
   const routeResult = buildTunRoutes(options)
-  const dnsAddresses = options.magicDNS ? [MAGIC_DNS_ADDRESS] :
-    (options.dev ? [options.dnsAddress || DEFAULT_DNS_ADDRESS] : [DEFAULT_DNS_ADDRESS])
+  const dnsAddresses: string[] | undefined = options.magicDNS ? [MAGIC_DNS_ADDRESS] :
+    (options.dev ? [options.dnsAddress || DEFAULT_DNS_ADDRESS] : undefined)
   return {
     routes: routeResult.routes,
     parsedRoutes: routeResult.parsedRoutes,
