@@ -30,12 +30,12 @@ import { Logger } from '../../shared/logging/Logger';
 import { EasyTierProRecommendationDialog } from '../../components/util/EasyTierProRecommendationDialog';
 import { EasyTierProPromotionService } from '../../services/easytier/EasyTierProPromotionService';
 
-const HOME_CARD_TYPES: string[] = ['Instances', 'Logs', 'Favorite', 'SharedPeers', 'QQ']
+const HOME_CARD_TYPES: string[] = ['Instances', 'Logs', 'Favorite', 'RemoteControl', 'QQ']
 const HOME_DEFAULT_CARD_SEQUENCE: CompSizeWithPos[] = [
   { type: 'Instances', x: 0, y: 0, width: 2, height: 1 },
   { type: 'Logs', x: 2, y: 0, width: 2, height: 1 },
   { type: 'Favorite', x: 4, y: 0, width: 2, height: 1 },
-  { type: 'SharedPeers', x: 0, y: 1, width: 2, height: 1 },
+  { type: 'RemoteControl', x: 0, y: 1, width: 2, height: 1 },
   { type: 'QQ', x: 2, y: 1, width: 2, height: 1 }
 ]
 
@@ -47,7 +47,7 @@ function buildHomeComp(type: string) {
     HomeLogsCard()
   } else if (type === 'Favorite') {
     Favorite()
-  } else if (type === 'SharedPeers') {
+  } else if (type === 'RemoteControl') {
     RemoteControl()
   } else if (type === 'QQ') {
     QQGroups()
@@ -275,11 +275,14 @@ export struct HomePage {
   }
 
   private normalizeHomeCardType(type: string): string {
-    return type === 'RemoteControl' ? 'SharedPeers' : type
+    return type === 'SharedPeers' ? 'RemoteControl' : type
   }
 
   private homeCardSequence(): CompSizeWithPos[] {
-    if (AppManager.uiState.raw_comp_sequence.includes('Control_')) {
+    const hasLegacyControlCard = AppManager.uiState.raw_comp_sequence.split('|').some((value: string) => {
+      return value.split('_')[0] === 'Control'
+    })
+    if (hasLegacyControlCard) {
       return this.homeDefaultCardSequence()
     }
     if (AppManager.uiState.raw_comp_sequence.length === 0) {

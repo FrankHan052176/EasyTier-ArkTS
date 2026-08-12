@@ -5,7 +5,7 @@ import easytier from 'easytier-ohrs';
 import { MemoryDiagnosticsService } from '../../services/runtime/MemoryDiagnosticsService';
 import { BACKGROUND_KEEP_ALIVE_DATA_TRANSFER } from '../../types/runtime/BackgroundKeepAliveTypes';
 
-const DEFAULT_SEQUENCE = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
+const DEFAULT_SEQUENCE = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|RemoteControl_1_2_1_1'
 
 @LogLocate("UIState")
 @ObservedV2

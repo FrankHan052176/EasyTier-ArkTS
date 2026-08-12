@@ -229,8 +229,8 @@ export struct UI_Content {
       return $r('app.string.logging')
     } else if (type === 'Favorite') {
       return $r('app.string.i18_favorite')
-    } else if (type === 'SharedPeers') {
-      return $r('app.string.peer_info')
+    } else if (type === 'RemoteControl') {
+      return '跨设备控制'
     } else if (type === 'QQ') {
       return 'QQ群'
     }
@@ -244,8 +244,8 @@ export struct UI_Content {
       return $r('sys.symbol.list_bullet_square')
     } else if (type === 'Favorite') {
       return $r('sys.symbol.star_fill')
-    } else if (type === 'SharedPeers') {
-      return $r('sys.symbol.share')
+    } else if (type === 'RemoteControl') {
+      return $r('sys.symbol.local_and_rectangle')
     } else if (type === 'QQ') {
       return $r('sys.symbol.message_on_message')
     }

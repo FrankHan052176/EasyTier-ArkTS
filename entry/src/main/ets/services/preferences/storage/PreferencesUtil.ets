@@ -17,13 +17,18 @@ import {
   BACKGROUND_KEEP_ALIVE_DATA_TRANSFER,
   normalizeBackgroundKeepAliveMode
 } from '../../../types/runtime/BackgroundKeepAliveTypes';
+import {
+  HomeLayoutMigrationResult,
+  migrateHomeLayoutSequence
+} from '../HomeLayoutMigration';
 
 interface StoredConfigMetaLite {
   configId: string
   favorite: boolean
 }
 
-const defaultSequence = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|SharedPeers_1_2_1_1'
+const defaultSequence = 'Instances_0_0_2_1|Favorite_0_1_1_1|Logs_1_1_1_1|QQ_0_2_1_1|RemoteControl_1_2_1_1'
+const HOME_LAYOUT_VERSION_KEY = 'home_layout_version'
 
 @LogLocate("PreferenceUtil")
 @ObservedV2
@@ -207,7 +212,15 @@ export class PreferenceUtil {
       s.cloud_auto_sync = this.preferences.getSync("cloud_auto_sync", false).valueOf() as boolean;
       s.background_keep_alive_mode = normalizeBackgroundKeepAliveMode(this.preferences.getSync("background_keep_alive_mode",
         BACKGROUND_KEEP_ALIVE_DATA_TRANSFER).valueOf() as string);
-      s.raw_comp_sequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string;
+      const storedSequence = this.preferences.getSync("raw_comp_sequence", defaultSequence).valueOf() as string;
+      const storedLayoutVersion = this.preferences.getSync(HOME_LAYOUT_VERSION_KEY, 0).valueOf() as number
+      const layoutMigration: HomeLayoutMigrationResult = migrateHomeLayoutSequence(storedSequence, storedLayoutVersion)
+      s.raw_comp_sequence = layoutMigration.sequence
+      if (layoutMigration.changed) {
+        this.preferences.putSync('raw_comp_sequence', layoutMigration.sequence)
+        this.preferences.putSync(HOME_LAYOUT_VERSION_KEY, layoutMigration.version)
+        this.preferences.flushSync()
+      }
       s.help2 = this.preferences.getSync("help2", true).valueOf() as boolean;
 
       // 记录启动时内核相关的状态

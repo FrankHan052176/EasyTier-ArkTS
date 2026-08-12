@@ -2,8 +2,8 @@ import { describe, beforeAll, beforeEach, afterEach, afterAll, it, expect } from
 import { InstanceInfo, PeerInfo } from '../main/ets/class/InstanceInfo';
 import {
   InstanceTrafficStats,
-  VpnRuntimeStartResultData,
-  VPN_MESSAGE_RUNTIME_START_RESULT
+  VpnRuntimeStatusData,
+  VPN_MESSAGE_RUNTIME_STATUS
 } from '../main/ets/infrastructure/bridge/kernel/KernelBridgeTypes';
 import { parseVpnBridgeMessage } from '../main/ets/infrastructure/bridge/kernel/SocketCodec';
 import { redactSensitiveLogText } from '../main/ets/shared/logging/LogRedaction';
@@ -14,6 +14,10 @@ import {
 } from '../main/ets/types/runtime/BackgroundKeepAliveTypes';
 import { runtimeModeOptions } from '../main/ets/types/runtime/RuntimeModeTypes';
 import { Url } from '../main/ets/class/config/Url';
+import {
+  HOME_LAYOUT_SCHEMA_VERSION,
+  migrateHomeLayoutSequence
+} from '../main/ets/services/preferences/HomeLayoutMigration';
 import {
   THIRD_PARTY_API_SCHEMA_VERSION,
   THIRD_PARTY_OPERATION_START_INSTANCE,
@@ -58,7 +62,7 @@ export default function localUnitTest() {
       const json = '{"network_secret":"top-secret","password":"pw","instance_id":"safe"}'
       const toml = 'network_secret = "top-secret"'
       const redacted = redactSensitiveLogText(`${json} ${toml}`)
-      expect(redacted).assertNotContain('top-secret')
+      expect(redacted.includes('top-secret')).assertFalse()
       expect(redacted).assertContain('[REDACTED]')
       expect(redacted).assertContain('instance_id')
     });
@@ -113,13 +117,14 @@ export default function localUnitTest() {
       expect(natTypeToText(NatTypeValue.PortRestricted)).assertEqual('端口受限型')
       expect(natTypeToText(NatTypeValue.Unknown)).assertEqual('未知')
     });
-    it('parsesVpnRuntimeStartResult', 0, () => {
+    it('parsesVpnRuntimeStatus', 0, () => {
       const message = parseVpnBridgeMessage(
-        '{"type":"runtime_start_result","data":{"instanceId":"instance","started":true}}')
-      expect(message.type).assertEqual(VPN_MESSAGE_RUNTIME_START_RESULT)
-      const result = message.data as VpnRuntimeStartResultData
-      expect(result.instanceId).assertEqual('instance')
-      expect(result.started).assertEqual(true)
+        '{"type":"runtime_status","data":{"generation":2,"instanceId":"instance","state":"running"}}')
+      expect(message.type).assertEqual(VPN_MESSAGE_RUNTIME_STATUS)
+      const status = message.data as VpnRuntimeStatusData
+      expect(status.generation).assertEqual(2)
+      expect(status.instanceId).assertEqual('instance')
+      expect(status.state).assertEqual('running')
     });
     it('validatesThirdPartyApiStartRequest', 0, () => {
       const requestId = '12345678-1234-4234-9234-123456789abc'
@@ -183,6 +188,27 @@ export default function localUnitTest() {
       expect(runtimeModeOptions(false).length).assertEqual(2)
       expect(runtimeModeOptions(true).length).assertEqual(3)
       expect(normalizeBackgroundKeepAliveMode('taskKeeping')).assertEqual(BACKGROUND_KEEP_ALIVE_TASK_KEEPING)
+    });
+    it('replacesVisibleLegacyCardWithRemoteControl', 0, () => {
+      const oldSequence = 'Instances_0_0_2_1|SharedPeers_0_2_2_1|QQ_0_3_1_1'
+      const migrated = migrateHomeLayoutSequence(oldSequence, 0)
+      expect(migrated.sequence).assertContain('RemoteControl_0_2_2_1')
+      expect(migrated.sequence.includes('SharedPeers')).assertFalse()
+      expect(migrated.version).assertEqual(HOME_LAYOUT_SCHEMA_VERSION)
+    });
+    it('addsNewRemoteControlCardToCustomizedLayoutOnce', 0, () => {
+      const oldSequence = 'Instances_0_0_2_1|QQ_0_2_1_1'
+      const migrated = migrateHomeLayoutSequence(oldSequence, 0)
+      expect(migrated.sequence).assertContain('RemoteControl_0_3_2_1')
+
+      const hiddenAgain = 'Instances_0_0_2_1|QQ_0_2_1_1'
+      const current = migrateHomeLayoutSequence(hiddenAgain, HOME_LAYOUT_SCHEMA_VERSION)
+      expect(current.sequence).assertEqual(hiddenAgain)
+      expect(current.changed).assertFalse()
+    });
+    it('showsNewRemoteControlCardWhenAllOlderCardsWereHidden', 0, () => {
+      const migrated = migrateHomeLayoutSequence('', 0)
+      expect(migrated.sequence).assertEqual('RemoteControl_0_0_2_1')
     });
   });
 }
