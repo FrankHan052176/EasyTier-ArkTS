@@ -3,6 +3,8 @@ import { HMRouterMgr } from '@hadss/hmrouter'
 import { APP_VERSION, APP_VERSION_CODE, BUILD_TIME, CORE_VERSION } from '../../util/info/BuildTime'
 import { EventHelper } from '../../util/EventHelper'
 import { openRemoteControlGated } from '../../services/iap/RemoteControlGate'
+import { IapDebugEntitlementOverride, IapService } from '../../services/iap/IapService'
+import BuildProfile from 'BuildProfile'
 import { deviceInfo } from '@kit.BasicServicesKit'
 import { sendToast } from '../../ToastUtil'
 import { cloudSync } from '@kit.CoreFileKit'
@@ -165,6 +167,24 @@ class RuntimeSelectOptionItem implements RuntimeSelectOption {
   }
 }
 
+class IapEntitlementSelectOption implements RuntimeSelectOption {
+  value: string
+
+  constructor(value: string) {
+    this.value = value
+  }
+}
+
+function iapEntitlementOverrideText(value: string): string {
+  if (value === 'grant') {
+    return '强制授予'
+  }
+  if (value === 'revoke') {
+    return '强制收回'
+  }
+  return '跟随真实 IAP'
+}
+
 function runtimeModeValue(): string {
   return runtimeModeFromSettings(AppManager.uiState.background_keep_alive_mode) === RUNTIME_MODE_AUDIO_PLAYBACK ?
     RUNTIME_MODE_AUDIO_PLAYBACK :
@@ -175,6 +195,74 @@ function applyRuntimeMode(value: string): void {
   AppManager.uiState.background_keep_alive_mode = value === RUNTIME_MODE_AUDIO_PLAYBACK ?
     RUNTIME_MODE_AUDIO_PLAYBACK :
     RUNTIME_MODE_DATA_TRANSFER
+}
+
+function iapEntitlementOptions(): IapEntitlementSelectOption[] {
+  return [
+    new IapEntitlementSelectOption('real'),
+    new IapEntitlementSelectOption('grant'),
+    new IapEntitlementSelectOption('revoke')
+  ]
+}
+
+function iapEntitlementSelectedIndex(value: string): number {
+  if (value === 'grant') {
+    return 1
+  }
+  if (value === 'revoke') {
+    return 2
+  }
+  return 0
+}
+
+@Builder
+function settingIapEntitlementRow(selected: string, onChange: (value: string) => void) {
+  ListItem() {
+    Row() {
+      Column() {
+        Text('测试权益')
+          .fontColor($r("sys.color.font_primary"))
+          .fontSize(16)
+        Text('仅 Debug 包生效，不修改真实订单')
+          .fontColor($r("sys.color.font_secondary"))
+          .fontSize(12)
+          .margin({ top: 1 })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
+      Select(iapEntitlementOptions())
+        .selected(iapEntitlementSelectedIndex(selected))
+        .value(iapEntitlementOverrideText(selected))
+        .width(132)
+        .height(40)
+        .controlSize(ControlSize.SMALL)
+        .font({ size: 14, weight: FontWeight.Medium })
+        .fontColor($r('sys.color.font_primary'))
+        .selectedOptionBgColor($r('sys.color.brand'))
+        .selectedOptionFontColor('#FFFFFFFF')
+        .optionBgColor($r('sys.color.comp_background_primary'))
+        .optionFont({ size: 14, weight: FontWeight.Medium })
+        .optionFontColor($r('sys.color.font_primary'))
+        .optionWidth(132)
+        .menuBackgroundColor($r('sys.color.comp_background_primary'))
+        .borderRadius(14)
+        .onSelect((index: number) => {
+          const options = iapEntitlementOptions()
+          if (index >= 0 && index < options.length) {
+            onChange(options[index].value)
+          }
+        })
+    }
+    .height(58)
+    .borderRadius(18)
+    .alignItems(VerticalAlign.Center)
+    .justifyContent(FlexAlign.SpaceBetween)
+    .width('100%')
+    .backgroundColor($r("sys.color.comp_background_primary"))
+    .shadow({ radius: 7, color: '#1F000000' })
+    .padding({ left: 10, right: 8, top: 7, bottom: 7 })
+  }
+  .margin({ bottom: 8 })
 }
 
 function permissionSummary(): string {
@@ -921,6 +1009,18 @@ export function SettingLogs_Content() {
       })
       LogSharePickerRow()
     }
+
+    if (BuildProfile.DEBUG) {
+      ListItemGroup({ header: settingGroupHeader("IAP 测试") }) {
+        settingIapEntitlementRow(IapService.getDebugEntitlementOverride(), (value: string) => {
+            if (value !== 'real' && value !== 'grant' && value !== 'revoke') {
+              return
+            }
+            IapService.setDebugEntitlementOverride(value as IapDebugEntitlementOverride)
+            sendToast(`已切换为${IapService.debugEntitlementOverrideText()}`, $r('sys.symbol.checkmark_circle'), 0)
+          })
+      }
+    }
   }
   .width('100%')
   .height('100%')
@@ -1244,6 +1344,23 @@ export function SettingAbout_Content() {
         EventHelper.emitterPublish("home_close_sheet")
         HMRouterMgr.push({ pageUrl: 'ChangelogPage' })
       })
+    }
+
+    ListItemGroup({ header: settingGroupHeader("购买服务") }) {
+      settingButtonRow($r("sys.symbol.list_square_bill"), "申请退款", "申请", () => {
+        const context = AppManager.content.context as common.UIAbilityContext | undefined
+        if (!context) {
+          sendToast('应用上下文尚未就绪，请稍后重试', $r('sys.symbol.exclamationmark_circle'), 1)
+          return
+        }
+        void IapService.requestRefund(context)
+      })
+      ListItem() {
+        Text("退款由华为应用内支付处理，申请提交后以华为审核结果为准。")
+          .fontSize(12)
+          .fontColor($r("sys.color.font_secondary"))
+          .margin({ left: 10, right: 10, bottom: 10 })
+      }
     }
 
     ListItemGroup({ header: settingGroupHeader("仓库") }) {

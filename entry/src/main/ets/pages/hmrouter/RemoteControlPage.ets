@@ -1,6 +1,9 @@
 import { HMLifecycleState, HMRouter, HMRouterMgr } from '@hadss/hmrouter'
 import { common } from '@kit.AbilityKit'
-import { IapService } from '../../services/iap/IapService'
+import {
+  IapService,
+  REMOTE_CONTROL_ENTITLEMENT_CHANGED_EVENT
+} from '../../services/iap/IapService'
 import { HdsNavigation, HdsNavigationTitleMode, hdsMaterial, TitleBarStyleOptions } from '@kit.UIDesignKit'
 import { LengthMetrics } from '@kit.ArkUI'
 import { deviceInfo, emitter } from '@kit.BasicServicesKit'
@@ -173,20 +176,20 @@ export struct RemoteControlPage {
     }
     this.refreshSummary()
   }
+  private entitlementChangedCallback = (_data: emitter.EventData) => {
+    if (this.pageVisible && this.pageActivated && !IapService.isRemoteControlUnlocked()) {
+      this.closeUnauthorizedConsole('购买权益已失效，跨设备控制已断开')
+    }
+  }
 
   /** 跨设备控制为付费能力：非卡片入口进入时兜底校验 remote_control 权益 */
   private enforceEntitlement(): void {
-    if (IapService.isRemoteControlUnlocked()) {
-      this.consoleAuthorized = true
-      this.activateConsole()
-      return
-    }
     const context = this.getUIContext().getHostContext() as common.UIAbilityContext
-    IapService.ensureEntitlementLoaded(context).then((owned: boolean) => {
+    IapService.refreshEntitlementForGate(context).then((owned: boolean) => {
       if (!this.pageVisible) {
         return
       }
-      if (!owned) {
+      if (!owned && !IapService.isRemoteControlUnlocked()) {
         this.closeUnauthorizedConsole()
         return
       }
@@ -201,6 +204,8 @@ export struct RemoteControlPage {
 
   aboutToAppear(): void {
     this.pageVisible = true
+    EventHelper.emitterOff(REMOTE_CONTROL_ENTITLEMENT_CHANGED_EVENT, this.entitlementChangedCallback)
+    EventHelper.emitterListener(REMOTE_CONTROL_ENTITLEMENT_CHANGED_EVENT, this.entitlementChangedCallback)
     this.lifecycleOwner?.removeObserver(HMLifecycleState.onBackPressed, this.backPressedCallback)
     this.lifecycleOwner?.addObserver(HMLifecycleState.onBackPressed, this.backPressedCallback)
     this.enforceEntitlement()
@@ -228,16 +233,21 @@ export struct RemoteControlPage {
     this.pageVisible = false
     this.pageActivated = false
     this.summaryRefreshPending = false
+    EventHelper.emitterOff(REMOTE_CONTROL_ENTITLEMENT_CHANGED_EVENT, this.entitlementChangedCallback)
     EventHelper.emitterOff(REMOTE_MANAGE_CONNECTION_EVENT, this.remoteConnectionCallback)
     EventHelper.emitterOff(REMOTE_MANAGE_SUMMARY_DIRTY_EVENT, this.remoteSummaryDirtyCallback)
     this.lifecycleOwner?.removeObserver(HMLifecycleState.onBackPressed, this.backPressedCallback)
     this.stopSummaryRefreshTimer()
   }
 
-  private closeUnauthorizedConsole(): void {
+  private closeUnauthorizedConsole(message: string = '请先在主页解锁跨设备控制'): void {
+    if (!this.pageVisible) {
+      return
+    }
+    this.pageVisible = false
     this.consoleAuthorized = false
     void RemoteManageService.disconnect()
-    sendToast('请先在主页解锁跨设备控制', $r('sys.symbol.exclamationmark_circle'), 1)
+    sendToast(message, $r('sys.symbol.exclamationmark_circle'), 1)
     HMRouterMgr.pop()
   }
 

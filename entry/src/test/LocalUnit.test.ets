@@ -18,6 +18,18 @@ import {
   HOME_LAYOUT_SCHEMA_VERSION,
   migrateHomeLayoutSequence
 } from '../main/ets/services/preferences/HomeLayoutMigration';
+import { cloudSyncStartErrorMessage } from '../main/ets/services/cloud/CloudConfigSyncService';
+import {
+  IAP_ENTITLEMENT_GATE_CACHE_MS,
+  IAP_ENTITLEMENT_OFFLINE_GRACE_MS,
+  applyIapDebugEntitlementOverride,
+  isIapDebugEntitlementOverride,
+  isIapEntitlementGateCacheFresh,
+  isIapPromotionalPrice,
+  isIapPromotionalJwsInitialTransportError,
+  isIapEntitlementValidationFresh,
+  parseIapPromotionalJwsResult
+} from '../main/ets/services/iap/IapService';
 import {
   THIRD_PARTY_API_SCHEMA_VERSION,
   THIRD_PARTY_OPERATION_START_INSTANCE,
@@ -209,6 +221,83 @@ export default function localUnitTest() {
     it('showsNewRemoteControlCardWhenAllOlderCardsWereHidden', 0, () => {
       const migrated = migrateHomeLayoutSequence('', 0)
       expect(migrated.sequence).assertEqual('RemoteControl_0_0_2_1')
+    });
+    it('describesCloudSyncStartErrors', 0, () => {
+      expect(cloudSyncStartErrorMessage(22400001, '上传配置')).assertContain('云空间服务尚未就绪')
+      expect(cloudSyncStartErrorMessage(22400002, '上传配置')).assertContain('当前网络不可用')
+      expect(cloudSyncStartErrorMessage(22400003, '上传配置')).assertContain('当前电量过低')
+      expect(cloudSyncStartErrorMessage(13600001, '上传配置')).assertContain('系统服务通信异常')
+      expect(cloudSyncStartErrorMessage(123, '上传配置')).assertContain('错误码 123')
+    });
+    it('limitsOfflineIapEntitlementGrace', 0, () => {
+      const now = 2000000000000
+      expect(isIapEntitlementValidationFresh(now, now)).assertTrue()
+      expect(isIapEntitlementValidationFresh(now - IAP_ENTITLEMENT_OFFLINE_GRACE_MS, now)).assertTrue()
+      expect(isIapEntitlementValidationFresh(now - IAP_ENTITLEMENT_OFFLINE_GRACE_MS - 1, now)).assertFalse()
+      expect(isIapEntitlementValidationFresh(now + 1, now)).assertFalse()
+    });
+    it('reusesRecentOnlineIapEntitlementForGate', 0, () => {
+      const now = 2000000000000
+      expect(isIapEntitlementGateCacheFresh(now, now)).assertTrue()
+      expect(isIapEntitlementGateCacheFresh(now - IAP_ENTITLEMENT_GATE_CACHE_MS, now)).assertTrue()
+      expect(isIapEntitlementGateCacheFresh(now - IAP_ENTITLEMENT_GATE_CACHE_MS - 1, now)).assertFalse()
+      expect(isIapEntitlementGateCacheFresh(now + 1, now)).assertFalse()
+      expect(isIapEntitlementGateCacheFresh(0, now)).assertFalse()
+    });
+    it('keepsDebugIapOverrideSeparateFromRealEntitlement', 0, () => {
+      expect(isIapDebugEntitlementOverride('real')).assertTrue()
+      expect(isIapDebugEntitlementOverride('grant')).assertTrue()
+      expect(isIapDebugEntitlementOverride('revoke')).assertTrue()
+      expect(isIapDebugEntitlementOverride('invalid')).assertFalse()
+      expect(applyIapDebugEntitlementOverride(false, 'grant', true)).assertTrue()
+      expect(applyIapDebugEntitlementOverride(true, 'revoke', true)).assertFalse()
+      expect(applyIapDebugEntitlementOverride(false, 'grant', false)).assertFalse()
+      expect(applyIapDebugEntitlementOverride(true, 'revoke', false)).assertTrue()
+    });
+    it('recognizesIapPromotionalPriceFromMicroPrices', 0, () => {
+      expect(isIapPromotionalPrice(6000000, 12000000)).assertTrue()
+      expect(isIapPromotionalPrice(12000000, 12000000)).assertFalse()
+      expect(isIapPromotionalPrice(13000000, 12000000)).assertFalse()
+      expect(isIapPromotionalPrice(-1, 12000000)).assertFalse()
+      expect(isIapPromotionalPrice(6000000.5, 12000000)).assertFalse()
+    });
+    it('parsesIapPromotionalJwsHttpResponse', 0, () => {
+      const now = 2000000000
+      const body = JSON.stringify({
+        ok: true,
+        offerId: 'tfree1',
+        expiresAt: now + 300,
+        jwsRepresentation: 'header.payload.signature'
+      })
+      const response = JSON.stringify({
+        body: body,
+        statusCode: '200'
+      })
+      const result = parseIapPromotionalJwsResult(response, 'tfree1', now)
+      expect(result.offerId).assertEqual('tfree1')
+      expect(result.expiresAt).assertEqual(now + 300)
+    });
+    it('rejectsMismatchedOrExpiredIapPromotionalJws', 0, () => {
+      const now = 2000000000
+      const mismatched = JSON.stringify({
+        ok: true,
+        offerId: 'other',
+        expiresAt: now + 300,
+        jwsRepresentation: 'header.payload.signature'
+      })
+      const expired = JSON.stringify({
+        ok: true,
+        offerId: 'tfree1',
+        expiresAt: now,
+        jwsRepresentation: 'header.payload.signature'
+      })
+      expect(() => parseIapPromotionalJwsResult(mismatched, 'tfree1', now)).assertThrowError(Error)
+      expect(() => parseIapPromotionalJwsResult(expired, 'tfree1', now)).assertThrowError(Error)
+    });
+    it('retriesOnlyInitialPromotionalJwsHttpTaskCreationFailure', 0, () => {
+      expect(isIapPromotionalJwsInitialTransportError(0, 'create http task error.')).assertTrue()
+      expect(isIapPromotionalJwsInitialTransportError(1008210001, 'Network connection error.')).assertFalse()
+      expect(isIapPromotionalJwsInitialTransportError(0, 'other client error')).assertFalse()
     });
   });
 }

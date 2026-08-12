@@ -53,6 +53,7 @@ import {
 import { EntryVpnConnectionService } from '../services/tun/EntryVpnConnectionService'
 import { EntryVpnSetupRequestBuilder } from '../services/tun/EntryVpnSetupRequestBuilder'
 import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../services/runtime/RuntimeStatsService'
+import { IapService } from '../services/iap/IapService'
 
 interface NearbyHostCommandData {
   requestId: string
@@ -673,6 +674,7 @@ export default class EntryAbility extends UIAbility {
     AppManager.easytier.setUiForeground(true)
     AppManager.runtimeStats.setUiForeground(true)
     this.syncContinuationSocket()
+    void IapService.refreshEntitlementOnForeground(this.context)
   }
 
   onBackground(): void {

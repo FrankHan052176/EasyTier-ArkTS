@@ -15,14 +15,19 @@ function pushRemoteControlPage(beforePush?: () => void): void {
 
 async function showPaywall(uiContext: UIContext, context: common.UIAbilityContext,
   beforePush?: () => void): Promise<void> {
-  const price = await IapService.queryPrice(context)
-  const priceText = price.length > 0 ? `\n价格：${price}` : ''
+  const quote = await IapService.queryPrice(context)
+  let priceText = ''
+  if (quote.promotional) {
+    priceText = `\n促销价：${quote.price}\n原价：${quote.originalPrice}`
+  } else if (quote.price.length > 0) {
+    priceText = `\n价格：${quote.price}`
+  }
   try {
     const result = await uiContext.getPromptAction().showDialog({
       title: '解锁跨设备控制',
-      message: `跨设备控制为增值功能，解锁后可查看其他设备状态、一次性下发本机配置并启停受控实例。${priceText}`,
+      message: `跨设备控制为增值功能，解锁后可查看其他设备状态、一次性下发本机配置并启停受控实例。\n\n本功能依赖鸿蒙软总线，仅能控制一定范围内同账号的鸿蒙设备，请慎重购买。${priceText}`,
       buttons: [
-        { text: price.length > 0 ? `购买 ${price}` : '立即购买', color: '#0A59F7' },
+        { text: quote.price.length > 0 ? `购买 ${quote.price}` : '立即购买', color: '#0A59F7' },
         { text: '恢复购买', color: '#0A59F7' },
         { text: '取消', color: '#99182431' }
       ]
@@ -51,17 +56,13 @@ async function showPaywall(uiContext: UIContext, context: common.UIAbilityContex
  * 已解锁直接进入，未解锁弹出购买/恢复购买对话框。
  */
 export function openRemoteControlGated(uiContext: UIContext, beforePush?: () => void): void {
-  if (IapService.isRemoteControlUnlocked()) {
-    pushRemoteControlPage(beforePush)
-    return
-  }
   if (gateBusy) {
     return
   }
   gateBusy = true
   const context = uiContext.getHostContext() as common.UIAbilityContext
-  IapService.ensureEntitlementLoaded(context).then((owned: boolean) => {
-    if (owned) {
+  IapService.refreshEntitlementForGate(context).then((owned: boolean) => {
+    if (owned || IapService.isRemoteControlUnlocked()) {
       pushRemoteControlPage(beforePush)
       return
     }
