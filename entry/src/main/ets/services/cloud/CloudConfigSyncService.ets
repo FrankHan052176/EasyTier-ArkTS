@@ -385,16 +385,6 @@ export class CloudConfigSyncService {
     return { ok, errorCode, errorMessage, snapshotInvalid }
   }
 
-  private async clearInvalidCloudSnapshot(): Promise<void> {
-    this.removeFileIfExists(this.cloudDbPath())
-    this.removeFileIfExists(`${this.cloudDbPath()}-wal`)
-    this.removeFileIfExists(`${this.cloudDbPath()}-shm`)
-    this.removeFileIfExists(this.cloudMetaPath())
-    this.refreshMetaState()
-    this.lastSyncMessage = '云端快照无效，已清理云端同步文件，请重新上传本地配置'
-    await this.safeStartFileSync('清理无效云端快照')
-  }
-
   private logSnapshotImportFailure(context: string, result: SnapshotImportResult): void {
     Logger.error(`${context} failed code=${result.errorCode} invalid=${result.snapshotInvalid} msg=${result.errorMessage}`, this)
   }
@@ -448,11 +438,7 @@ export class CloudConfigSyncService {
       if (!importResult.ok) {
         this.pendingImport = undefined
         this.logSnapshotImportFailure('resumePendingImport', importResult)
-        if (importResult.snapshotInvalid) {
-          await this.clearInvalidCloudSnapshot()
-          return
-        }
-        this.lastSyncMessage = '云端快照缓存完成，但导入失败；为避免误删，已保留云端快照'
+        this.lastSyncMessage = '云端快照格式不兼容或导入失败；已保留云端备份，请稍后重试'
         return
       }
       this.pendingImport = undefined
@@ -537,11 +523,7 @@ export class CloudConfigSyncService {
       const importResult = this.importSnapshotFromCloud(cloudMeta.updatedAt)
       if (!importResult.ok) {
         this.logSnapshotImportFailure('updateFromCloud', importResult)
-        if (importResult.snapshotInvalid) {
-          await this.clearInvalidCloudSnapshot()
-          return
-        }
-        this.lastSyncMessage = '云端快照导入失败；为避免误删，已保留云端快照，请检查后重试'
+        this.lastSyncMessage = '云端快照格式不兼容或导入失败；已保留云端备份，请稍后重试'
         return
       }
       this.lastSyncMessage = '已用云端快照更新本地配置'
@@ -568,11 +550,7 @@ export class CloudConfigSyncService {
         const importResult = this.importSnapshotFromCloud(cloudMeta.updatedAt)
         if (!importResult.ok) {
           this.logSnapshotImportFailure('syncIfNeeded', importResult)
-          if (importResult.snapshotInvalid) {
-            await this.clearInvalidCloudSnapshot()
-            return
-          }
-          this.lastSyncMessage = '云端快照导入失败；为避免误删，已保留云端快照，请检查后重试'
+          this.lastSyncMessage = '云端快照格式不兼容或导入失败；已保留云端备份，请稍后重试'
           return
         }
         this.lastSyncMessage = '已自动使用较新的云端快照更新本地'
