@@ -1,5 +1,6 @@
 import { common } from '@kit.AbilityKit'
 import { JSON } from '@kit.ArkTS'
+import { BusinessError } from '@kit.BasicServicesKit'
 import { cloudSync, fileIo, fileUri } from '@kit.CoreFileKit'
 import easytier from 'easytier-ohrs'
 import { AppManager } from '../../AppManager'
@@ -12,6 +13,23 @@ import { FAVORITE_CARD_REFRESH_EVENT } from '../form/FavoriteCardState'
 const CLOUD_SYNC_DIR = 'easytier-sync'
 const CLOUD_DB_FILE = 'easytier-config-store.db'
 const META_FILE = 'sync-meta.json'
+const CLOUD_STATUS_NOT_READY = 22400001
+const CLOUD_READY_RETRY_DELAYS_MS: number[] = [1000, 3000, 10000, 30000]
+
+export function cloudSyncStartErrorMessage(code: number, reason: string): string {
+  switch (code) {
+    case CLOUD_STATUS_NOT_READY:
+      return `${reason}暂不可用：云空间服务尚未就绪，请确认已登录华为账号并稍后重试`
+    case 22400002:
+      return `${reason}暂不可用：当前网络不可用，请检查网络后重试`
+    case 22400003:
+      return `${reason}暂不可用：当前电量过低，请充电后重试`
+    case 13600001:
+      return `${reason}失败：云空间系统服务通信异常，请稍后重试`
+    default:
+      return code > 0 ? `${reason}失败（错误码 ${code}），请稍后重试` : `${reason}失败，请稍后重试`
+  }
+}
 
 interface SyncMeta {
   version: number
@@ -28,6 +46,12 @@ interface SnapshotImportResult {
 interface PendingImportRequest {
   updatedAt: string
   successMessage: string
+}
+
+interface FileSyncStartResult {
+  completed: boolean
+  errorCode: number
+  errorMessage: string
 }
 
 interface SnapshotApi extends ESObject {
@@ -64,6 +88,10 @@ export class CloudConfigSyncService {
   private pendingImport: PendingImportRequest | undefined = undefined
   private syncInFlight: boolean = false
   private syncProgressGeneration: number = 0
+  private fileSyncStartInFlight: Promise<FileSyncStartResult> | undefined = undefined
+  private cloudReadyRetryTimer: number | undefined = undefined
+  private cloudReadyRetryAttempt: number = 0
+  private cloudReadyRetryGeneration: number = 0
   private readonly fileSyncCallback = (pg: cloudSync.SyncProgress) => {
     this.syncProgressGeneration++
     this.syncState = pg.state
@@ -72,6 +100,7 @@ export class CloudConfigSyncService {
       return
     }
     if (pg.state === cloudSync.SyncState.COMPLETED) {
+      this.cancelCloudReadyRetry()
       if (AppManager.uiState.cloud_auto_sync) {
         this.scheduleAutoSync(300)
       }
@@ -125,7 +154,7 @@ export class CloudConfigSyncService {
     this.cloudFileCache.on('progress', this.cacheProgressCallback)
     EventHelper.emitterListener(CLOUD_CONFIG_CHANGED_EVENT, this.configChangedCallback)
     if (AppManager.uiState.cloud_auto_sync) {
-      void this.safeStartFileSync('自动同步初始化')
+      this.beginCloudReadySync()
     }
     this.initialized = true
   }
@@ -452,19 +481,112 @@ export class CloudConfigSyncService {
     }
   }
 
-  private async safeStartFileSync(reason: string): Promise<boolean> {
+  private fileSyncStartFailure(error: Object): FileSyncStartResult {
+    const businessError = error as BusinessError
+    const errorCode = typeof businessError.code === 'number' ? businessError.code : 0
+    const errorMessage = typeof businessError.message === 'string' ? businessError.message : String(error)
+    return { completed: false, errorCode, errorMessage }
+  }
+
+  private async startFileSync(): Promise<FileSyncStartResult> {
     const startGeneration = this.syncProgressGeneration
     try {
       await this.fileSync.start()
       const completed = await this.waitForSyncCompletion(15000, startGeneration)
-      if (!completed) {
-        this.lastSyncMessage = `${reason}未完成，请检查同步状态`
-      }
-      return completed
+      return { completed, errorCode: 0, errorMessage: '' }
     } catch (error) {
-      Logger.error(`safeStartFileSync failed reason=${reason} err=${JSON.stringify(error)}`, this)
-      this.lastSyncMessage = `${reason}失败，请检查下方错误信息`
-      return false
+      return this.fileSyncStartFailure(error)
+    }
+  }
+
+  private async safeStartFileSync(reason: string, requireNewCycle: boolean = false): Promise<FileSyncStartResult> {
+    if (requireNewCycle && this.fileSyncStartInFlight !== undefined) {
+      const previous = this.fileSyncStartInFlight
+      await previous
+      if (this.fileSyncStartInFlight === previous) {
+        this.fileSyncStartInFlight = undefined
+      }
+    }
+    if (this.fileSyncStartInFlight === undefined) {
+      this.fileSyncStartInFlight = this.startFileSync()
+    }
+    const inFlight = this.fileSyncStartInFlight
+    let result: FileSyncStartResult
+    try {
+      result = await inFlight
+    } finally {
+      if (this.fileSyncStartInFlight === inFlight) {
+        this.fileSyncStartInFlight = undefined
+      }
+    }
+    if (result.completed) {
+      return result
+    }
+    if (result.errorCode > 0) {
+      Logger.error(`safeStartFileSync failed reason=${reason} code=${result.errorCode} message=${result.errorMessage}`, this)
+      this.lastSyncMessage = cloudSyncStartErrorMessage(result.errorCode, reason)
+    } else {
+      this.lastSyncMessage = `${reason}未完成，请检查同步状态`
+    }
+    return result
+  }
+
+  private async waitForFileSyncCycle(): Promise<void> {
+    const inFlight = this.fileSyncStartInFlight
+    if (inFlight !== undefined) {
+      await inFlight
+    }
+  }
+
+  private cancelCloudReadyRetry(): void {
+    this.cloudReadyRetryGeneration++
+    this.cloudReadyRetryAttempt = 0
+    if (this.cloudReadyRetryTimer !== undefined) {
+      clearTimeout(this.cloudReadyRetryTimer)
+      this.cloudReadyRetryTimer = undefined
+    }
+  }
+
+  private beginCloudReadySync(): void {
+    this.cancelCloudReadyRetry()
+    const generation = this.cloudReadyRetryGeneration
+    void this.retryCloudReadySync(generation)
+  }
+
+  private scheduleCloudReadyRetry(generation: number): void {
+    if (!AppManager.uiState.cloud_auto_sync || this.resettingSyncData ||
+      generation !== this.cloudReadyRetryGeneration || this.cloudReadyRetryTimer !== undefined) {
+      return
+    }
+    if (this.cloudReadyRetryAttempt >= CLOUD_READY_RETRY_DELAYS_MS.length) {
+      this.lastSyncMessage = '云空间服务仍未就绪，请确认已登录华为账号后手动重试'
+      return
+    }
+    const delay = CLOUD_READY_RETRY_DELAYS_MS[this.cloudReadyRetryAttempt]
+    this.cloudReadyRetryAttempt++
+    this.lastSyncMessage = '云空间服务尚未就绪，将稍后自动重试'
+    this.cloudReadyRetryTimer = setTimeout(() => {
+      this.cloudReadyRetryTimer = undefined
+      void this.retryCloudReadySync(generation)
+    }, delay)
+  }
+
+  private async retryCloudReadySync(generation: number): Promise<void> {
+    if (!AppManager.uiState.cloud_auto_sync || this.resettingSyncData ||
+      generation !== this.cloudReadyRetryGeneration) {
+      return
+    }
+    const result = await this.safeStartFileSync('自动同步初始化')
+    if (generation !== this.cloudReadyRetryGeneration) {
+      if (!AppManager.uiState.cloud_auto_sync) {
+        this.lastSyncMessage = '已关闭自动同步'
+      }
+      return
+    }
+    if (result.completed) {
+      this.cancelCloudReadyRetry()
+    } else if (result.errorCode === CLOUD_STATUS_NOT_READY) {
+      this.scheduleCloudReadyRetry(generation)
     }
   }
 
@@ -491,11 +613,12 @@ export class CloudConfigSyncService {
 
   async uploadToCloud(): Promise<void> {
     await this.runExclusive(async () => {
+      await this.waitForFileSyncCycle()
       const localTs = this.syncLocalMetaFromDb()
       if (!this.exportSnapshotToCloud(localTs)) {
         throw new Error('export snapshot failed')
       }
-      if (!await this.safeStartFileSync('上传配置')) {
+      if (!(await this.safeStartFileSync('上传配置', true)).completed) {
         throw new Error('file sync upload did not complete')
       }
       this.lastSyncMessage = '已生成本地快照并上传到云端'
@@ -504,6 +627,7 @@ export class CloudConfigSyncService {
 
   async updateFromCloud(): Promise<void> {
     await this.runExclusive(async () => {
+      await this.waitForFileSyncCycle()
       const cloudMeta = this.readCloudMeta()
       if (cloudMeta.updatedAt === '0') {
         this.lastSyncMessage = '云端尚无配置快照'
@@ -532,6 +656,7 @@ export class CloudConfigSyncService {
 
   async syncIfNeeded(): Promise<void> {
     await this.runExclusive(async () => {
+      await this.waitForFileSyncCycle()
       const localTs = this.syncLocalMetaFromDb()
       const cloudTs = this.readCloudMeta().updatedAt
       const compare = this.compareTimestamp(localTs, cloudTs)
@@ -539,8 +664,11 @@ export class CloudConfigSyncService {
         if (!this.exportSnapshotToCloud(localTs)) {
           throw new Error('export snapshot failed')
         }
-        if (await this.safeStartFileSync('自动同步上传')) {
+        const result = await this.safeStartFileSync('自动同步上传', true)
+        if (result.completed) {
           this.lastSyncMessage = '已自动上传较新的本地快照'
+        } else if (result.errorCode === CLOUD_STATUS_NOT_READY) {
+          this.scheduleCloudReadyRetry(this.cloudReadyRetryGeneration)
         }
       } else if (compare < 0) {
         const cloudMeta = this.readCloudMeta()
@@ -581,8 +709,9 @@ export class CloudConfigSyncService {
     this.refreshMetaState()
     if (enabled) {
       this.lastSyncMessage = '已开启自动同步，将优先采用较新的快照'
-      void this.safeStartFileSync('自动同步初始化')
+      this.beginCloudReadySync()
     } else {
+      this.cancelCloudReadyRetry()
       this.lastSyncMessage = '已关闭自动同步'
     }
   }
@@ -592,6 +721,7 @@ export class CloudConfigSyncService {
       const context = this.requireContext()
       this.resettingSyncData = true
       setCloudResetting(true)
+      this.cancelCloudReadyRetry()
       if (this.reconcileTimer !== undefined) {
         clearTimeout(this.reconcileTimer)
         this.reconcileTimer = undefined
@@ -599,6 +729,7 @@ export class CloudConfigSyncService {
       this.pendingImport = undefined
       this.resetMetaState()
       try {
+        await this.waitForFileSyncCycle()
         try {
           await this.cloudFileCache.stop(fileUri.getUriFromPath(this.cloudDbPath()), true)
         } catch (_) {}
@@ -619,7 +750,7 @@ export class CloudConfigSyncService {
         this.removeFileIfExists(this.localExportSnapshotPath())
         this.removeFileIfExists(this.localImportSnapshotPath())
 
-        const synced = await this.safeStartFileSync('重置同步文件')
+        const synced = (await this.safeStartFileSync('重置同步文件', true)).completed
         try {
           await this.fileSync.stop()
         } catch (_) {}
