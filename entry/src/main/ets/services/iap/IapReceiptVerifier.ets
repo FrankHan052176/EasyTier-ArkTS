@@ -224,8 +224,10 @@ export async function verifyPurchaseData(purchaseDataJson: string): Promise<Veri
     throw new Error('unsupported IAP JWS header')
   }
   const leaf = await verifyCertificateChain(header.x5c)
+  const keyGenerator = cryptoFramework.createAsyKeyGenerator('ECC256')
+  const keyPair = keyGenerator.convertKeySync(leaf.getPublicKey().getEncoded(), null)
   const verifier = cryptoFramework.createVerify('ECC256|SHA256')
-  await verifier.init(leaf.getPublicKey())
+  await verifier.init(keyPair.pubKey)
   const verified = await verifier.verify({ data: encodeText(`${parts[0]}.${parts[1]}`) }, {
     data: jwsSignatureToDer(decodeBase64(parts[2], true))
   })
