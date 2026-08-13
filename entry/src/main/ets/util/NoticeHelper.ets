@@ -8,13 +8,13 @@ import {
   normalizeBackgroundKeepAliveMode
 } from '../types/runtime/BackgroundKeepAliveTypes';
 import { shouldUseEntryBackgroundKeepAlive } from '../services/runtime/AbilityRuntimePolicy';
+import { LiveViewActivityProgress } from '../services/runtime/LiveViewActivityProgress';
 
 const LIVE_VIEW_MIN_UPDATE_INTERVAL_MS = 5000
 const LIVE_VIEW_UNCHANGED_HEARTBEAT_MS = 30000
-const LIVE_VIEW_ACTIVITY_PROGRESS_STEP = 20
 let lastLiveViewSignature: string = ''
 let lastLiveViewPublishedAt: number = 0
-let liveViewActivityProgress: number = 0
+const liveViewActivityProgress = new LiveViewActivityProgress()
 
 function shouldUseLiveViewNotification(): boolean {
   return shouldUseEntryBackgroundKeepAlive() && normalizeBackgroundKeepAliveMode(AppManager.uiState.background_keep_alive_mode) ===
@@ -56,7 +56,7 @@ export function publishTextNotification(instance_name: string): void {
   })
   lastLiveViewSignature = ''
   lastLiveViewPublishedAt = Date.now()
-  liveViewActivityProgress = 0
+  liveViewActivityProgress.reset()
 }
 
 export async function updateTextNotification(instance_name: string, instanceInfo: InstanceInfo): Promise<void> {
@@ -71,21 +71,14 @@ export async function updateTextNotification(instance_name: string, instanceInfo
   const uploadRate = instanceInfo.getUploadRate()
   const downloadRate = instanceInfo.getDownloadRate()
   const text = `${uploadRate.toFixed(1)}${instanceInfo.getUploadRateUnit()} ↑ ${downloadRate.toFixed(1)}${instanceInfo.getDownloadRateUnit()} ↓`
-  if (uploadRate > 0 || downloadRate > 0) {
-    liveViewActivityProgress += LIVE_VIEW_ACTIVITY_PROGRESS_STEP
-    if (liveViewActivityProgress > 100) {
-      liveViewActivityProgress = LIVE_VIEW_ACTIVITY_PROGRESS_STEP
-    }
-  } else {
-    liveViewActivityProgress = 0
-  }
-  const signature = `${instance_name}:${text}:${liveViewActivityProgress}`
+  const progressValue = liveViewActivityProgress.advance()
+  const signature = `${instance_name}:${text}:${progressValue}`
   if (signature === lastLiveViewSignature && elapsedMs < LIVE_VIEW_UNCHANGED_HEARTBEAT_MS) {
     return
   }
   lastLiveViewSignature = signature
   lastLiveViewPublishedAt = now
-  const updateRequest = buildLiveViewRequest(instance_name, text, liveViewActivityProgress)
+  const updateRequest = buildLiveViewRequest(instance_name, text, progressValue)
   notificationManager.publish(updateRequest, (err: BusinessError) => {
     if (err) {
       Logger.error(`实况窗通知更新失败, nid: ${AppManager.uiState.notificationId}, code: ${err.code}, message:${err.message}`, "NoticeHelper")

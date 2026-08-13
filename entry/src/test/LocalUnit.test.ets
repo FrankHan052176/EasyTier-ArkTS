@@ -40,6 +40,11 @@ import {
   ThirdPartyApiSnapshotPayload,
   ThirdPartyApiValidator
 } from '../main/ets/services/integration/ThirdPartyApiContract';
+import {
+  LIVE_VIEW_ACTIVITY_PROGRESS_EDGE_STEPS,
+  LIVE_VIEW_ACTIVITY_PROGRESS_MAX,
+  LiveViewActivityProgress
+} from '../main/ets/services/runtime/LiveViewActivityProgress';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
@@ -123,6 +128,29 @@ export default function localUnitTest() {
       expect(peer.getRateUnit()).assertEqual('KB/s')
       peer.push(0, 4000)
       expect(peer.getRate()).assertEqual(0)
+    });
+    it('keeps live view activity progress below completion', 0, () => {
+      const progress = new LiveViewActivityProgress()
+      let value = 0
+      for (let index = 0; index < LIVE_VIEW_ACTIVITY_PROGRESS_EDGE_STEPS; index += 1) {
+        value = progress.advance(0.999999)
+      }
+      expect(value).assertEqual(5)
+      expect(progress.advance(0.69)).assertEqual(5.5)
+      expect(progress.advance(0.7)).assertEqual(5)
+
+      for (let index = 0; index < 220 && value < LIVE_VIEW_ACTIVITY_PROGRESS_MAX; index += 1) {
+        const randomValue = value > 80 ? 0.999999 : 0
+        value = progress.advance(randomValue)
+      }
+      expect(value).assertEqual(LIVE_VIEW_ACTIVITY_PROGRESS_MAX)
+
+      for (let index = 0; index < LIVE_VIEW_ACTIVITY_PROGRESS_EDGE_STEPS; index += 1) {
+        value = progress.advance(0)
+      }
+      expect(value).assertEqual(94.5)
+
+      expect(progress.advance(0.999999)).assertEqual(94)
     });
     it('rendersNatTypesAsText', 0, () => {
       expect(natTypeToText(NatTypeValue.OpenInternet)).assertEqual('公网')
