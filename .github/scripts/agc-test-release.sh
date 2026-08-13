@@ -223,14 +223,16 @@ case "$event_name" in
 esac
 test_desc="${test_desc:0:30}"
 need_notify=0
-notify_on_push="${AGC_NOTIFY_ON_PUSH:-0}"
-if ! [[ "$notify_on_push" =~ ^[01]$ ]]; then
-  echo "AGC_NOTIFY_ON_PUSH must be 0 or 1." >&2
+need_notify="${AGC_NEED_NOTIFY:-0}"
+if ! [[ "$need_notify" =~ ^[01]$ ]]; then
+  echo "AGC_NEED_NOTIFY must be 0 or 1." >&2
   exit 1
 fi
-if [[ "$notify_on_push" == "1" && "$event_name" == "push" && "$run_attempt" == "1" ]]; then
-  need_notify=1
+if [[ "$need_notify" == "1" && ( "$event_name" != "push" || "$run_attempt" != "1" ) ]]; then
+  echo "AGC_NEED_NOTIFY=1 is only allowed for the first push attempt." >&2
+  exit 1
 fi
+echo "AGC notification policy: event=$event_name attempt=$run_attempt needNotify=$need_notify"
 
 version_id=""
 if [[ "$AGC_SUBMIT_VERSION" == "1" ]]; then
