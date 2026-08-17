@@ -91,7 +91,9 @@ fetch_group_infos() {
       if [[ -n "$group_id" ]]; then
         group_ids+=("$group_id")
       fi
-    done < <(jq -r '.groups[]?.groupId // empty' <<<"$response")
+    done < <(jq -r \
+      '.groups[]? | select((.groupName // "") | startswith("CI silent ") | not) | .groupId // empty' \
+      <<<"$response")
 
     total_pages=$(jq -er '(.pageInfo.totalPage // empty) | tonumber' <<<"$response") || {
       echo "AGC test-group response did not include pageInfo.totalPage." >&2
@@ -112,6 +114,68 @@ fetch_group_infos() {
     exit 1
   fi
   jq -cn --args '$ARGS.positional | map({groupId: .})' "${group_ids[@]}"
+}
+
+create_silent_group() {
+  local group_name="$1"
+  local response
+
+  response=$(curl --silent --show-error --fail-with-body \
+    --request POST "$api_base/app-test/v1/test-group" \
+    "${api_headers[@]}" \
+    --header "appId: $AGC_APP_ID" \
+    --data "$(jq -cn --arg group_name "$group_name" \
+      '{groupName: $group_name, groupType: 0}')")
+  check_group_list_ret "$response"
+  jq -er '.groupId // empty' <<<"$response"
+}
+
+delete_test_group() {
+  local group_id="$1"
+  local response
+
+  if ! response=$(curl --silent --show-error --fail-with-body \
+    --get \
+    --request DELETE "$api_base/app-test/v1/publish-api/test-group" \
+    "${api_headers[@]}" \
+    --header "appId: $AGC_APP_ID" \
+    --data-urlencode "groupId=$group_id"); then
+    return 1
+  fi
+  jq -e '(.rtnCode | tostring) == "0"' >/dev/null <<<"$response"
+}
+
+rebind_test_groups() {
+  local version_id="$1"
+  local group_infos="$2"
+  local group_ids
+  local response=""
+  local message=""
+  local attempt
+
+  group_ids=$(jq -c '[.[].groupId]' <<<"$group_infos")
+  for ((attempt = 1; attempt <= 12; attempt++)); do
+    if response=$(curl --silent --show-error --fail-with-body \
+      --request PUT "$api_base/publish/v2/test/version/open-test?appId=$app_id_q" \
+      "${api_headers[@]}" \
+      --data "$(jq -cn \
+        --arg version_id "$version_id" \
+        --argjson group_ids "$group_ids" \
+        '{versionId: $version_id, newBindGroupIds: $group_ids}')"); then
+      if jq -e '((.ret.code // "") | tostring) == "0"' >/dev/null <<<"$response"; then
+        return 0
+      fi
+      message=$(jq -r '.ret.msg // .message // "AGC group rebind failed"' <<<"$response")
+    else
+      message="AGC group rebind request failed"
+    fi
+    if (( attempt < 12 )); then
+      sleep 5
+    fi
+  done
+
+  echo "AGC test version was submitted, but real test groups could not be bound: $message" >&2
+  return 1
 }
 
 add_package() {
@@ -175,6 +239,17 @@ api_headers=(
   --header "client_id: $AGC_CLIENT_ID"
   --header 'Content-Type: application/json'
 )
+
+silent_group_id=""
+cleanup_silent_group() {
+  if [[ -n "$silent_group_id" ]]; then
+    if ! delete_test_group "$silent_group_id"; then
+      echo "Warning: failed to remove temporary AGC test group: $silent_group_id" >&2
+    fi
+    silent_group_id=""
+  fi
+}
+trap cleanup_silent_group EXIT
 
 upload_url_response=$(curl --silent --show-error --fail-with-body \
   --get "$api_base/publish/v2/upload-url/for-obs" \
@@ -274,6 +349,17 @@ start_time=$(( $(utc_now_ms) + 60 * 60 * 1000 ))
 end_time=$(( start_time + duration_days * 24 * 60 * 60 * 1000 ))
 group_infos=$(fetch_group_infos)
 group_count=$(jq -er 'length' <<<"$group_infos")
+submission_group_infos="$group_infos"
+silent_rebind=0
+if [[ "$event_name" == "repository_dispatch" ]]; then
+  if [[ "$need_notify" != "0" ]]; then
+    echo "Core repository dispatch must use AGC_NEED_NOTIFY=0." >&2
+    exit 1
+  fi
+  silent_group_id=$(create_silent_group "CI silent ${version_id:0:32}")
+  submission_group_infos=$(jq -cn --arg group_id "$silent_group_id" '[{groupId: $group_id}]')
+  silent_rebind=1
+fi
 
 update_response=$(curl --silent --show-error --fail-with-body \
   --request PUT "$api_base/publish/v2/test/app/version?appId=$app_id_q" \
@@ -284,7 +370,7 @@ update_response=$(curl --silent --show-error --fail-with-body \
     --arg desc "$test_desc" \
     --argjson start_time "$start_time" \
     --argjson end_time "$end_time" \
-    --argjson group_infos "$group_infos" \
+    --argjson group_infos "$submission_group_infos" \
     --argjson need_notify "$need_notify" \
     '{
       versionId: $version_id,
@@ -309,4 +395,9 @@ submit_response=$(curl --silent --show-error --fail-with-body \
   --data "$(jq -cn --arg version_id "$version_id" '{versionId: $version_id}')")
 check_ret "$submit_response"
 
-echo "AGC invitation test version submitted: $version_id (release_package=$release_package_id, groups=$group_count, notify=$need_notify)"
+if [[ "$silent_rebind" == "1" ]]; then
+  rebind_test_groups "$version_id" "$group_infos"
+  cleanup_silent_group
+fi
+
+echo "AGC invitation test version submitted: $version_id (release_package=$release_package_id, groups=$group_count, notify=$need_notify, silent_rebind=$silent_rebind)"
