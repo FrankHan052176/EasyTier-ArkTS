@@ -290,8 +290,6 @@ update_payload=$(jq -cn \
       testDesc: $desc,
       testTaskInfo: {
         groupInfos: $group_infos,
-        displayArea: "1",
-        needShareLink: 0,
         needNotify: $need_notify
       }
     }
