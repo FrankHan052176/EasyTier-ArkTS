@@ -273,32 +273,35 @@ end_time=$(( start_time + duration_days * 24 * 60 * 60 * 1000 ))
 group_infos=$(fetch_group_infos)
 group_count=$(jq -er 'length' <<<"$group_infos")
 
+update_payload=$(jq -cn \
+  --arg version_id "$version_id" \
+  --arg package_id "$release_package_id" \
+  --arg desc "$test_desc" \
+  --argjson start_time "$start_time" \
+  --argjson end_time "$end_time" \
+  --argjson group_infos "$group_infos" \
+  --argjson need_notify "$need_notify" \
+  '{
+    versionId: $version_id,
+    pkgId: $package_id,
+    openTestInfo: {
+      startTime: $start_time,
+      endTime: $end_time,
+      testDesc: $desc,
+      testTaskInfo: {
+        groupInfos: $group_infos,
+        displayArea: "1",
+        needShareLink: 0,
+        needNotify: $need_notify
+      }
+    }
+  }')
+echo "Updating AGC test version info with payload: $update_payload"
 update_response=$(curl --silent --show-error --fail-with-body \
   --request PUT "$api_base/publish/v2/test/app/version?appId=$app_id_q" \
   "${api_headers[@]}" \
-  --data "$(jq -cn \
-    --arg version_id "$version_id" \
-    --arg package_id "$release_package_id" \
-    --arg desc "$test_desc" \
-    --argjson start_time "$start_time" \
-    --argjson end_time "$end_time" \
-    --argjson group_infos "$group_infos" \
-    --argjson need_notify "$need_notify" \
-    '{
-      versionId: $version_id,
-      pkgId: $package_id,
-      openTestInfo: {
-        startTime: $start_time,
-        endTime: $end_time,
-        testDesc: $desc,
-        testTaskInfo: {
-          groupInfos: $group_infos,
-          displayArea: "1",
-          needShareLink: 0,
-          needNotify: $need_notify
-        }
-      }
-    }')")
+  --data "$update_payload")
+echo "AGC test version update response: $update_response"
 check_ret "$update_response"
 
 submit_response=$(curl --silent --show-error --fail-with-body \
