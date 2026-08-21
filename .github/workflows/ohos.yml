@@ -8,6 +8,12 @@ on:
   repository_dispatch:
     types: [core-har-published]
   workflow_dispatch:
+    inputs:
+      notify:
+        description: '是否发送测试邀请通知 (勾选发送通知，默认不勾选为静默发布)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -213,9 +219,10 @@ jobs:
           AGC_APP_FILE: ${{ steps.app.outputs.path }}
           AGC_EVENT_NAME: ${{ github.event_name }}
           AGC_RUN_ATTEMPT: ${{ github.run_attempt }}
-          # Only a first-attempt main push may notify invitation testers. Core
-          # HAR dispatches, manual runs, and retries must remain silent.
-          AGC_NEED_NOTIFY: ${{ github.event_name == 'push' && github.run_attempt == 1 && '1' || '0' }}
+          # Push to main on first attempt notifies testers by default.
+          # workflow_dispatch uses the explicit notify input (default false).
+          # repository_dispatch defaults to silent (notify=false) unless specified in client_payload.
+          AGC_NEED_NOTIFY: ${{ github.event_name == 'workflow_dispatch' && (inputs.notify && '1' || '0') || (github.event_name == 'repository_dispatch' && (github.event.client_payload.notify && '1' || '0') || (github.event_name == 'push' && github.run_attempt == 1 && '1' || '0')) }}
           AGC_SUBMIT_VERSION: ${{ steps.channel.outputs.submit_agc_version }}
           AGC_APP_NAME_PREFIX: EasyTier
           AGC_CORE_HAR_VERSION: ${{ steps.core_har.outputs.package_version }}
