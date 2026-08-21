@@ -290,6 +290,8 @@ update_payload=$(jq -cn \
       testDesc: $desc,
       testTaskInfo: {
         groupInfos: $group_infos,
+        displayArea: "1",
+        needShareLink: 0,
         needNotify: $need_notify
       }
     }
@@ -306,6 +308,7 @@ submit_response=$(curl --silent --show-error --fail-with-body \
   --request POST "$api_base/publish/v2/test/app/version/submit?appId=$app_id_q" \
   "${api_headers[@]}" \
   --data "$(jq -cn --arg version_id "$version_id" '{versionId: $version_id}')")
+echo "AGC test version submit response: $submit_response"
 check_ret "$submit_response"
 
 echo "AGC invitation test version submitted: $version_id (release_package=$release_package_id, groups=$group_count, notify=$need_notify)"
