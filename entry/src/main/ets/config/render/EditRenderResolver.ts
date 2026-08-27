@@ -1,5 +1,5 @@
 import { ConfigField, configFieldRegistry } from '../fields/ConfigFieldRegistry'
-import { EditRenderNode, EditRenderPlan, EditSectionRenderPlan } from './EditRenderNode'
+import { EditRenderNode, EditRenderOption, EditRenderPlan, EditSectionRenderPlan } from './EditRenderNode'
 
 const SUPPORTED_LIST_TYPES: ReadonlySet<string> = new Set([
   'cidr',
@@ -11,6 +11,36 @@ const SUPPORTED_LIST_TYPES: ReadonlySet<string> = new Set([
   'network_name',
   'port_forward'
 ])
+
+const ENCRYPTION_ALGORITHM_OPTIONS: EditRenderOption[] = [
+  { label: 'AES-128-GCM', value: 'aes-gcm' },
+  { label: 'AES-256-GCM', value: 'aes-256-gcm' },
+  { label: 'ChaCha20-Poly1305', value: 'chacha20' },
+  { label: 'XOR', value: 'xor' }
+]
+
+function resolveEnumOptions(field: ConfigField): EditRenderOption[] {
+  if (field.name === 'encryption_algorithm') {
+    return ENCRYPTION_ALGORITHM_OPTIONS
+  }
+  if (field.name === 'data_compress_algo') {
+    const options: EditRenderOption[] = []
+    field.enumOptions.forEach((option) => {
+      if (option.label === 'None') {
+        options.push({ label: 'NONE', value: 'None' })
+      } else if (option.label === 'Zstd') {
+        options.push({ label: 'ZSTD', value: 'Zstd' })
+      }
+    })
+    return options
+  }
+  return (field.enumOptions ?? []).map((option) => {
+    return {
+      label: option.label.length > 0 ? option.label : option.value,
+      value: option.value
+    }
+  })
+}
 
 function isListType(type: string): boolean {
   return type.endsWith('[]')
@@ -51,7 +81,7 @@ function isCidrComposite(children: EditRenderNode[]): boolean {
   return children[0].field.type === 'cidr_ip' && children[1].field.type === 'cidr_mask'
 }
 
-function resolvePrimitiveKind(field: ConfigField): EditRenderNode['kind'] {
+function resolvePrimitiveKind(field: ConfigField, enumOptions: EditRenderOption[]): EditRenderNode['kind'] {
   if (typeof field.type !== 'string') {
     return 'group'
   }
@@ -59,9 +89,9 @@ function resolvePrimitiveKind(field: ConfigField): EditRenderNode['kind'] {
     return 'list'
   }
   if (field.isList) {
-    return 'unsupported'
+    return 'json'
   }
-  if (field.enumOptions.length > 0 || field.type === 'enum' || field.valueKind === 'enum') {
+  if (enumOptions.length > 0 || field.type === 'enum' || field.valueKind === 'enum') {
     return 'enum'
   }
   if (field.type === 'boolean' || field.valueKind === 'boolean') {
@@ -80,10 +110,11 @@ function resolvePrimitiveKind(field: ConfigField): EditRenderNode['kind'] {
 }
 
 export function resolveEditRenderNode(field: ConfigField, layer: number = 0): EditRenderNode {
+  const enumOptions = resolveEnumOptions(field)
   const children = Array.isArray(field.type)
     ? field.type.map((child) => resolveEditRenderNode(child, layer + 1))
     : []
-  let kind: EditRenderNode['kind'] = Array.isArray(field.type) ? 'group' : resolvePrimitiveKind(field)
+  let kind: EditRenderNode['kind'] = Array.isArray(field.type) ? 'group' : resolvePrimitiveKind(field, enumOptions)
   let listType: string | undefined
   let enableNode: EditRenderNode | undefined
 
@@ -93,7 +124,7 @@ export function resolveEditRenderNode(field: ConfigField, layer: number = 0): Ed
       kind = 'list'
       listType = semanticListType
     } else if (field.isList) {
-      kind = 'unsupported'
+      kind = 'json'
     } else if (isCidrComposite(children)) {
       kind = 'cidr'
     } else if (children.length > 0 && children[0].kind === 'boolean' && field.name !== 'flags_switch') {
@@ -112,12 +143,7 @@ export function resolveEditRenderNode(field: ConfigField, layer: number = 0): Ed
     field,
     children,
     listType,
-    enumOptions: (field.enumOptions ?? []).map((option) => {
-      return {
-        label: option.label.length > 0 ? option.label : option.value,
-        value: option.value
-      }
-    }),
+    enumOptions,
     layer,
     enableNode
   }

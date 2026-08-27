@@ -1,0 +1,32 @@
+{
+  "string": [
+    {
+      "name": "managed_credentials",
+      "value": "Managed Credentials"
+    },
+    {
+      "name": "json_format",
+      "value": "JSON"
+    },
+    {
+      "name": "json_invalid",
+      "value": "Invalid JSON"
+    },
+    {
+      "name": "json_array_required",
+      "value": "A JSON array is required"
+    },
+    {
+      "name": "json_object_required",
+      "value": "A JSON object is required"
+    },
+    {
+      "name": "json_save_failed",
+      "value": "Failed to save"
+    },
+    {
+      "name": "json_apply",
+      "value": "Apply JSON"
+    }
+  ]
+}

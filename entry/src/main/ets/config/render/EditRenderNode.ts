@@ -9,6 +9,7 @@ export type EditRenderKind =
   'cidr' |
   'list' |
   'enum' |
+  'json' |
   'unsupported'
 
 export interface EditRenderOption {

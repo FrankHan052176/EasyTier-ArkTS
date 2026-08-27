@@ -14,6 +14,12 @@ export const IGNORED_CONFIG_FIELDS: ReadonlySet<string> = new Set([
   'ipv6_public_addr_prefix',
   'secure_mode',
   'socket_mark',
+  // Core 已改用 vpn_portal_config（WireGuard 监听地址、私钥和命名客户端）。
+  // 旧字段即使启用也会被最新 Core 拒绝，编辑页不再重复展示旧 VPN Portal。
+  'enable_vpn_portal',
+  'vpn_portal_listen_port',
+  'vpn_portal_client_network_addr',
+  'vpn_portal_client_network_len',
   // peer_urls 是当前面向用户的初始节点编辑入口；peers 是 Core 为公钥节点
   // 保留的结构化表示，不能再作为原始 JSON 重复暴露。
   'peers'

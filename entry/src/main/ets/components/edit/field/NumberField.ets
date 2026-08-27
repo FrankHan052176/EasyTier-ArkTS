@@ -36,14 +36,14 @@ function decimalLessThanOrEqual(value: string, maximum: string): boolean {
 }
 
 @Extend(TextInput)
-function fieldTextInput(widthValue: number, maxLengthValue: number) {
+function fieldTextInput(widthValue: number, maxLengthValue: number, alignValue: TextAlign) {
   .padding(0)
   .borderRadius(0)
   .width(widthValue)
   .type(InputType.Number)
   .maxLength(maxLengthValue)
   .backgroundColor(Color.Transparent)
-  .textAlign(TextAlign.Center)
+  .textAlign(alignValue)
   .enableAutoFill(false)
 }
 
@@ -81,7 +81,22 @@ export struct NumberField {
 
   @Computed
   get inputWidth() {
-    return this.isInstanceRecvBpsLimit ? 156 : 72
+    return this.isInstanceRecvBpsLimit ? 136 : 72
+  }
+
+  @Computed
+  get inputTextAlign() {
+    return this.isInstanceRecvBpsLimit ? TextAlign.Start : TextAlign.Center
+  }
+
+  @Computed
+  get inputLeftPadding() {
+    return this.isInstanceRecvBpsLimit ? 8 : 12
+  }
+
+  @Computed
+  get inputRightPadding() {
+    return this.isInstanceRecvBpsLimit ? 10 : 12
   }
 
   @Computed
@@ -171,9 +186,10 @@ export struct NumberField {
     Row() {
       Text(getFieldI18Name(this.field))
         .focusable(false)
+        .margin({ right: this.isInstanceRecvBpsLimit ? 12 : 0 })
       Row({ space: 6 }) {
         TextInput({ text: this.value!!, placeholder: this.placeholder })
-          .fieldTextInput(this.inputWidth, this.inputMaxLength)
+          .fieldTextInput(this.inputWidth, this.inputMaxLength, this.inputTextAlign)
           .onChange((value) => this.change(value))
           .fontColor(this.fontColor)
           .enabled(this.enable)
@@ -191,8 +207,8 @@ export struct NumberField {
         (this.enable ? $r("sys.color.comp_background_secondary") : $r("sys.color.comp_background_tertiary")))
       )
       .padding({
-        left: 12,
-        right: 12,
+        left: this.inputLeftPadding,
+        right: this.inputRightPadding,
         top: 8,
         bottom: 8
       })

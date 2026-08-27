@@ -1,4 +1,5 @@
 import { AppManager } from '../../../AppManager'
+import { ConfigFieldValue } from '../../../config/schema/SchemaConfig'
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil'
 import { EditRenderOption } from '../../../config/render/EditRenderNode'
 import { getFieldI18Name } from '../FieldLabel'
@@ -17,8 +18,18 @@ export struct EnumField {
     return AppManager.easytier.getEditingConfig()
   }
 
+  private defaultValue(): string {
+    if (this.field === 'data_compress_algo') {
+      return 'None'
+    }
+    if (this.field === 'encryption_algorithm') {
+      return 'aes-gcm'
+    }
+    return ''
+  }
+
   private updateFromConfig(): void {
-    this.selectedValue = String(getFieldPathValue(this.config!, this.fieldPath) ?? '')
+    this.selectedValue = String(getFieldPathValue(this.config!, this.fieldPath) ?? this.defaultValue())
   }
 
   aboutToAppear(): void {
@@ -41,9 +52,14 @@ export struct EnumField {
     if (!this.enable) {
       return
     }
+    const previous: ConfigFieldValue = getFieldPathValue(this.config!, this.fieldPath)
+    const next: string | number = this.optionValue(option.value)
     this.selectedValue = option.value
-    setFieldPathValue(this.config!, this.fieldPath, this.optionValue(option.value))
-    syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)
+    setFieldPathValue(this.config!, this.fieldPath, next)
+    if (!syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)) {
+      setFieldPathValue(this.config!, this.fieldPath, previous)
+      this.selectedValue = String(previous ?? '')
+    }
   }
 
   @Builder

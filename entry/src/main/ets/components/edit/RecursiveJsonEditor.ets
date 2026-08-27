@@ -12,6 +12,7 @@ import { CidrField } from './field/CidrField'
 import { EnableField } from './field/EnableField'
 import { EnumField } from './field/EnumField'
 import { ListField } from './field/ListField'
+import { JsonField } from './field/JsonField'
 import { NumberField } from './field/NumberField'
 import { PortField } from './field/PortField'
 import { StringField } from './field/StringField'
@@ -209,6 +210,8 @@ export struct RecursiveJsonEditor {
       EnumField({ field: node.name, fieldPath: node.path, options: node.enumOptions })
     } else if (node.kind === 'list' && node.listType) {
       ListField({ field: node.name, type: node.listType })
+    } else if (node.kind === 'json') {
+      JsonField({ field: node.name, fieldPath: node.path, isList: node.field.isList })
     } else if (node.kind === 'group') {
       RecursiveJsonEditor({ node: node, layer: this.layer + 1 })
     } else {
@@ -254,8 +257,19 @@ export struct RecursiveJsonEditor {
             }
           })
         }
-      } else {
+      } else if (this.node.kind === 'boolean') {
+        // 与 groupChildren() 的布尔字段分支保持一致，不额外增加内边距。
         this.fieldContent(this.node)
+      } else {
+        // 顶层直接字段不像 group 子字段那样经过 groupChildren()，之前因此
+        // 缺少左右内边距，新增的 instance_recv_bps_limit 等字段会贴到卡片
+        // 边缘并把右侧输入框挤出视觉网格。使用与 group 子字段相同的容器
+        // 约束；顶层 list 的 Padding 为 0，保持原有全宽列表布局。
+        Column() {
+          this.fieldContent(this.node)
+        }
+        .width('100%')
+        .padding({ left: this.Padding, right: this.Padding })
       }
     }
   }

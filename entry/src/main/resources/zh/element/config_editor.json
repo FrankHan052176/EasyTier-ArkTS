@@ -1,0 +1,32 @@
+{
+  "string": [
+    {
+      "name": "managed_credentials",
+      "value": "托管凭据"
+    },
+    {
+      "name": "json_format",
+      "value": "JSON"
+    },
+    {
+      "name": "json_invalid",
+      "value": "JSON无效"
+    },
+    {
+      "name": "json_array_required",
+      "value": "请输入JSON数组"
+    },
+    {
+      "name": "json_object_required",
+      "value": "请输入JSON对象"
+    },
+    {
+      "name": "json_save_failed",
+      "value": "保存失败"
+    },
+    {
+      "name": "json_apply",
+      "value": "应用JSON"
+    }
+  ]
+}

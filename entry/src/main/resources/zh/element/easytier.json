@@ -61,16 +61,60 @@
       "value": "子网代理CIDR"
     },
     {
-      "name": "enable_vpn_portal",
-      "value": "启用VPN门户"
+      "name": "vpn_portal_wireguard_listen",
+      "value": "WireGuard 监听地址"
     },
     {
-      "name": "vpn_portal_listen_port",
-      "value": "监听端口"
+      "name": "vpn_portal_wireguard_listen_placeholder",
+      "value": "例如：0.0.0.0:22022"
     },
     {
-      "name": "vpn_portal_client_network",
-      "value": "客户端子网"
+      "name": "vpn_portal_wireguard_private_key",
+      "value": "WireGuard 服务端私钥"
+    },
+    {
+      "name": "vpn_portal_wireguard_private_key_placeholder",
+      "value": "必填 Base64 密钥（可用 wg genkey 生成）"
+    },
+    {
+      "name": "vpn_portal_clients",
+      "value": "WireGuard 客户端"
+    },
+    {
+      "name": "vpn_portal_add_client",
+      "value": "添加客户端"
+    },
+    {
+      "name": "vpn_portal_no_clients",
+      "value": "尚未配置客户端"
+    },
+    {
+      "name": "vpn_portal_client_name",
+      "value": "客户端名称"
+    },
+    {
+      "name": "vpn_portal_client_name_placeholder",
+      "value": "例如：alice-phone"
+    },
+    {
+      "name": "vpn_portal_client_virtual_ip",
+      "value": "虚拟网地址"
+    },
+    {
+      "name": "vpn_portal_client_virtual_ip_placeholder",
+      "value": "例如：10.126.126.10"
+    },
+    {
+      "name": "vpn_portal_client_groups",
+      "value": "ACL 组"
+    },
+    {
+      "name": "vpn_portal_client_groups_placeholder",
+      "value": "选择 ACL 组"
+    },
+    {
+      "name": "vpn_portal_remove_client",
+      "value": "删除客户端"
     },
     {
       "name": "dev_name",
@@ -331,6 +375,66 @@
     {
       "name": "vpn_portal_config",
       "value": "VPN门户配置"
+    },
+    {
+      "name": "vpn_portal_not_configured",
+      "value": "当前节点未配置 VPN 门户"
+    },
+    {
+      "name": "vpn_portal_load_failed",
+      "value": "VPN 门户信息加载失败"
+    },
+    {
+      "name": "vpn_portal_listener",
+      "value": "监听地址"
+    },
+    {
+      "name": "vpn_portal_type",
+      "value": "类型"
+    },
+    {
+      "name": "vpn_portal_state",
+      "value": "状态"
+    },
+    {
+      "name": "vpn_portal_peer_id",
+      "value": "节点 ID"
+    },
+    {
+      "name": "vpn_portal_endpoint",
+      "value": "客户端端点"
+    },
+    {
+      "name": "vpn_portal_tunnel_ip",
+      "value": "客户端隧道地址"
+    },
+    {
+      "name": "vpn_portal_client_config",
+      "value": "客户端配置"
+    },
+    {
+      "name": "vpn_portal_copy_client_config",
+      "value": "复制客户端配置"
+    },
+    {
+      "name": "vpn_portal_state_unspecified",
+      "value": "未知"
+    },
+    {
+      "name": "vpn_portal_state_offline",
+      "value": "离线"
+    },
+    {
+      "name": "vpn_portal_state_connecting",
+      "value": "连接中"
+    },
+    {
+      "name": "vpn_portal_state_online",
+      "value": "在线"
+    },
+    {
+      "name": "vpn_portal_state_error",
+      "value": "错误"
     },
     {
       "name": "show_event_log",

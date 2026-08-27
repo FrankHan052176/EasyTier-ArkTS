@@ -61,16 +61,60 @@
       "value": "Subnet Proxy CIDRs"
     },
     {
-      "name": "enable_vpn_portal",
-      "value": "Enable VPN Portal"
+      "name": "vpn_portal_wireguard_listen",
+      "value": "WireGuard Listen Address"
     },
     {
-      "name": "vpn_portal_listen_port",
-      "value": "VPN Portal Listen Port"
+      "name": "vpn_portal_wireguard_listen_placeholder",
+      "value": "Example: 0.0.0.0:22022"
     },
     {
-      "name": "vpn_portal_client_network",
-      "value": "Client Sub Network"
+      "name": "vpn_portal_wireguard_private_key",
+      "value": "WireGuard Server Private Key"
+    },
+    {
+      "name": "vpn_portal_wireguard_private_key_placeholder",
+      "value": "Required base64 key (generate with wg genkey)"
+    },
+    {
+      "name": "vpn_portal_clients",
+      "value": "WireGuard Clients"
+    },
+    {
+      "name": "vpn_portal_add_client",
+      "value": "Add Client"
+    },
+    {
+      "name": "vpn_portal_no_clients",
+      "value": "No clients configured"
+    },
+    {
+      "name": "vpn_portal_client_name",
+      "value": "Client Name"
+    },
+    {
+      "name": "vpn_portal_client_name_placeholder",
+      "value": "Example: alice-phone"
+    },
+    {
+      "name": "vpn_portal_client_virtual_ip",
+      "value": "Virtual Network Address"
+    },
+    {
+      "name": "vpn_portal_client_virtual_ip_placeholder",
+      "value": "Example: 10.126.126.10"
+    },
+    {
+      "name": "vpn_portal_client_groups",
+      "value": "ACL Groups"
+    },
+    {
+      "name": "vpn_portal_client_groups_placeholder",
+      "value": "Select ACL groups"
+    },
+    {
+      "name": "vpn_portal_remove_client",
+      "value": "Remove Client"
     },
     {
       "name": "dev_name",
@@ -331,6 +375,66 @@
     {
       "name": "vpn_portal_config",
       "value": "VPN Portal Config"
+    },
+    {
+      "name": "vpn_portal_not_configured",
+      "value": "VPN Portal is not configured on this node"
+    },
+    {
+      "name": "vpn_portal_load_failed",
+      "value": "Failed to load VPN Portal information"
+    },
+    {
+      "name": "vpn_portal_listener",
+      "value": "Listener"
+    },
+    {
+      "name": "vpn_portal_type",
+      "value": "Type"
+    },
+    {
+      "name": "vpn_portal_state",
+      "value": "State"
+    },
+    {
+      "name": "vpn_portal_peer_id",
+      "value": "Peer ID"
+    },
+    {
+      "name": "vpn_portal_endpoint",
+      "value": "Client Endpoint"
+    },
+    {
+      "name": "vpn_portal_tunnel_ip",
+      "value": "Client Tunnel Address"
+    },
+    {
+      "name": "vpn_portal_client_config",
+      "value": "Client Config"
+    },
+    {
+      "name": "vpn_portal_copy_client_config",
+      "value": "Copy Client Config"
+    },
+    {
+      "name": "vpn_portal_state_unspecified",
+      "value": "Unknown"
+    },
+    {
+      "name": "vpn_portal_state_offline",
+      "value": "Offline"
+    },
+    {
+      "name": "vpn_portal_state_connecting",
+      "value": "Connecting"
+    },
+    {
+      "name": "vpn_portal_state_online",
+      "value": "Online"
+    },
+    {
+      "name": "vpn_portal_state_error",
+      "value": "Error"
     },
     {
       "name": "show_event_log",
