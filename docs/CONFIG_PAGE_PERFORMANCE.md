@@ -15,9 +15,11 @@ Core 的 Rust crate 拆分用于明确配置功能、内核运行时和 N-API �
 
 - `EditPage` 先解析分区计划，只优先加载并挂载当前可见窗口。
 - 平板三栏 `Swiper` 的可见分区、后续预加载分区、分区行和递归 group 共用一个全页 FIFO 帧调度器。
-- 每次 frame callback 只放行一个工作项，避免多个组件各自拥有“每帧预算”并在同一帧叠加。
+- 调度器使用 `UIContext.createAnimator()` 的 DisplaySync `onFrame` 作为短生命周期驱动，每个 VSync 只放行一个工作项，避免多个组件各自拥有“每帧预算”并在同一帧叠加。
+- 队列短暂为空时保留 6 个空帧再释放 driver，用于跨过父组件 rerender 到递归子组件继续 enqueue 的间隙，避免反复创建 Animator 造成尾部重新起振延迟。
+- 普通行和递归 group 每帧放行 1 个；每行固定两个 BoolField 的 Flags 每帧放行 2 行。正常路径使用 native 文本子树，native 创建失败时仍会回退 ArkTS 文本。
 - 分区行使用 `LazyForEach`；BoolField 行和 `ListItem` 使用确定高度，减少递归内容测量。
-- 离屏 `ListField` 值不进入全局队列。实测离屏节点不产生 dirty frame，会让依赖 `postFrameCallback` 的队列饥饿。
+- 离屏 `ListField` 值不进入全局队列。实测 `postFrameCallback` 会在没有 dirty app frame 时饥饿，连续批次曾产生 200–900 ms 空洞，因此不再用它驱动该 FIFO。
 - 没有保留 timer watchdog 或纯 `onIdle` 调度：设备上 16 ms timer 被节流到约 250 ms；`onIdle` 在页面切换动画期间又会等待约 300 ms 的空闲窗口。
 
 ### Native BoolField
@@ -39,7 +41,7 @@ C++ 仅负责原先每张卡片中的两个 ArkTS `Text` 节点，创建一个 N
 
 ## 真机测量方法
 
-设备分辨率为 2800×1840，构建目标 API 23，使用签名 Debug HAP。采集命令：
+主要 A/B 设备分辨率为 2800×1840；完整加载修正另在 3120×2080 2-in-1 全屏窗口和 1316×2832 真机手机上交叉验证。构建目标 API 23，使用签名 Debug HAP。采集命令：
 
 ```text
 hitrace --trace_begin -b 65536 app ace graphic ability
@@ -59,6 +61,8 @@ hitrace --trace_begin -b 65536 app ace graphic ability
 - `/tmp/easytier-arkts-true-control.trace`
 - `/tmp/easytier-native-width-final.trace`
 - `/tmp/easytier-native-width-toggle.trace`
+- `/tmp/easytier-displaysync-full.trace`
+- `/tmp/easytier-60-idle6.trace`
 
 这些路径是本轮设备采集的本机原始 trace，不是仓库内的发布产物。
 
@@ -91,13 +95,21 @@ hitrace --trace_begin -b 65536 app ace graphic ability
 
 该结果支持“C++ 让 BoolField 构建更快”，但不把其他 `Swiper`/`List` 布局成本归因于 BoolField。整体最大 UI 执行时间仍由外层列表和分区布局决定。
 
+### 整页完成时间修正
+
+原最终 native trace 虽然 UI 执行帧较短，但 20 个 BoolField 从第一个到最后一个仍跨越 913.1 ms，最后一个 BoolField 位于页面导航后 1475.5 ms；原因是 FIFO 依赖 `postFrameCallback`，工作之间存在长时间无 dirty frame 的空洞。
+
+改用 DisplaySync driver 后，3120×2080 2-in-1 全屏验证中共构建 28 个 BoolField：首个在 124.0 ms，最后一个在 810.9 ms，观察到的最后一个 `CustomNode:BuildItem` 位于 834.2 ms；UI `ReceiveVsync` p95 为 12.212 ms、最大值 12.400 ms，系统 page-switch 上报最大帧 12 ms、`jankCount` 全 0。该 run 的 `e2eLatency` 为 727 ms。由于设备和字段数不同，这组数据用于验证“观察到的内容节点在 1 秒内完成且没有用长帧换尾部”，不与前表做百分比 A/B。
+
+1316×2832 手机真机的最终 run 中，当前单栏可见内容最后一个 `CustomNode:BuildItem` 位于 560.8 ms，UI `ReceiveVsync` 最大值 20.950 ms；用户实机操作确认配置页加载不再卡顿。最终验收同时看首个可见内容、page-switch e2e、最长 UI 执行帧和最后一个内容节点，不能只用其中一项代表整页体验。
+
 ## 关于系统 max-frame 数值
 
-部分后续 run 的 `INTERACTION_APP_JANK.maxFrameTime` 报告约 217–478 ms，但相同区间内 UI 线程最长 `ReceiveVsync` 只有约 22–34 ms。trace 显示这些大值是渐进工作之间没有 dirty app frame 的间隔，不是一个持续数百毫秒的 UI 线程任务。因此：
+部分早期 run 的 `INTERACTION_APP_JANK.maxFrameTime` 报告约 217–478 ms，但相同区间内 UI 线程最长 `ReceiveVsync` 只有约 22–34 ms。trace 显示这些大值是渐进工作之间没有 dirty app frame 的间隔，不是一个持续数百毫秒的 UI 线程任务；这些空洞虽然不是 CPU 长任务，仍会让整页完成变慢，因此最终改用 DisplaySync driver 消除对 dirty frame 的依赖。因此：
 
 - 页面级回归同时查看 response/e2e、系统 jank 报告和 UI 线程同步区间；
 - 不用“无 frame 的等待间隔”冒充 C++ 节点构建耗时；
-- 也不因此忽略外层布局真实存在的 30 ms 级峰值。
+- 也不因单帧较短而忽略最后内容完成时间，或忽略外层布局真实存在的 30 ms 级峰值。
 
 ## 兼容与回退
 

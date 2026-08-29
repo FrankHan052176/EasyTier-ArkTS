@@ -20,10 +20,10 @@ const LIST_HORIZONTAL_PADDING = 20
 const DEFAULT_ROWS_PER_FRAME = 1
 
 /**
- * Flag 卡片包含完整的文本、Symbol 和交互状态，三栏首屏时每帧只创建一行
- * （两个 BoolField），避免和另外两栏的构建工作叠在同一帧。
+ * Flag 一行固定含两个 BoolField；DisplaySync 每帧放出两行。
+ * 正常路径使用 native 文本子树，native 创建失败时仍保留 ArkTS 回退。
  */
-const FLAG_ROWS_PER_FRAME = 1
+const FLAG_ROWS_PER_FRAME = 2
 
 /** 字段名 → 资源对象缓存，避免每次构建都做字符串拼接和 Resource 分配 */
 const fieldLabelCache: Map<string, ResourceStr> = new Map()
@@ -137,6 +137,10 @@ class FlagRowDataSource implements IDataSource {
     return this.revealed < this.rows.length
   }
 
+  remainingCount(): number {
+    return this.rows.length - this.revealed
+  }
+
   clear(): void {
     this.rows = []
     this.revealed = 0
@@ -182,7 +186,7 @@ export struct EditSectionView {
   @Param @Require section: EditSectionRenderPlan
   @Param ready: boolean = true
   @Provider() field_width: number = 360
-  @Local flagRevealPending: boolean = false
+  @Local flagRowsRemaining: number = 0
   private dataSource: EditRenderNodeDataSource = new EditRenderNodeDataSource()
   private flagRowDataSource: FlagRowDataSource = new FlagRowDataSource()
   private lastReady: boolean | undefined = undefined
@@ -263,7 +267,9 @@ export struct EditSectionView {
         return
       }
       if (this.usingFlagRows) {
-        this.flagRevealPending = this.flagRowDataSource.revealMore(FLAG_ROWS_PER_FRAME)
+        this.flagRowDataSource.revealMore(FLAG_ROWS_PER_FRAME)
+        // 保存真实剩余数而不是连续为 true 的 hasPending，让加载 footer 每批都更新。
+        this.flagRowsRemaining = this.flagRowDataSource.remainingCount()
       } else {
         this.dataSource.revealMore(DEFAULT_ROWS_PER_FRAME)
       }
@@ -295,7 +301,7 @@ export struct EditSectionView {
     this.lastSectionKey = this.section.key
     if (!this.ready) {
       this.usingFlagRows = false
-      this.flagRevealPending = false
+      this.flagRowsRemaining = 0
       this.dataSource.clear()
       this.flagRowDataSource.clear()
       return
@@ -305,9 +311,9 @@ export struct EditSectionView {
     if (this.usingFlagRows) {
       this.dataSource.clear()
       this.flagRowDataSource.setRows(this.buildFlagRows(flagNodes))
-      this.flagRevealPending = this.flagRowDataSource.hasPending()
+      this.flagRowsRemaining = this.flagRowDataSource.remainingCount()
     } else {
-      this.flagRevealPending = false
+      this.flagRowsRemaining = 0
       this.dataSource.setNodes(this.section.nodes)
       this.flagRowDataSource.clear()
     }
@@ -364,7 +370,7 @@ export struct EditSectionView {
           // List 测量这一行时不必再钻进子树按内容算高。
           .height(boolFieldHeight())
         }, (row: FlagRenderRow) => row.key)
-        if (this.flagRevealPending) {
+        if (this.flagRowsRemaining > 0) {
           ListItem() {
             Row({ space: 8 }) {
               LoadingProgress()
