@@ -122,13 +122,6 @@ function ShareMenu(param: ShareMenuParam) {
  */
 const EDIT_TITLE_SCROLL_EFFECT = true
 
-/**
- * 分组挂载策略开关（用于 A/B 实测）：
- * true  = 每帧挂一个分组，把构建成本摊到进场后的若干帧
- * false = 数据就绪后一次性挂载全部分组（旧行为）
- */
-const STAGGER_SECTION_MOUNT = true
-
 @HMRouter({ pageUrl: "EditPage" })
 @ComponentV2
 export struct EditPage {
@@ -161,7 +154,6 @@ export struct EditPage {
   private sectionLoadTimer: number = -1
   private sectionPreloadTimer: number = -1
   private sectionMountTimer: number = -1
-  private initialSectionLoadTimer: number = -1
   private sectionPreloadQueued: boolean = false
   private sectionMountScheduled: boolean = false
   private sectionLoadGeneration: number = 0
@@ -596,10 +588,6 @@ export struct EditPage {
       clearTimeout(this.sectionMountTimer)
       this.sectionMountTimer = -1
     }
-    if (this.initialSectionLoadTimer >= 0) {
-      clearTimeout(this.initialSectionLoadTimer)
-      this.initialSectionLoadTimer = -1
-    }
     this.allSectionsMounted = false
     this.initialLoadFailed = false
   }
@@ -679,46 +667,6 @@ export struct EditPage {
     }
   }
 
-  private allSectionFields(): string[] {
-    const fields: string[] = []
-    this.renderPlan.sections.forEach((section) => {
-      section.topLevelFields.forEach((field) => {
-        if (field.length > 0 && fields.indexOf(field) < 0) {
-          fields.push(field)
-        }
-      })
-    })
-    return fields
-  }
-
-  private areAllSectionsDataLoaded(): boolean {
-    return this.renderPlan.sections.every((section) => this.dataLoadedSectionKeys.has(section.key))
-  }
-
-  /**
-   * 数据全部就绪，但**不**一次性挂载所有分组。
-   * 进场那一帧如果把 4 个分组的组件树全建出来，实测单帧 136.9ms
-   * （同一帧要 measure 两个 List，内嵌十几次组件构建）。
-   * 这里只标记数据可用，挂载交给 scheduleSectionMount 每帧挂一个，
-   * 把构建成本摊到进场后的若干空闲帧里。
-   */
-  private markAllSectionsReady(): void {
-    this.renderPlan.sections.forEach((section) => {
-      this.dataLoadedSectionKeys.add(section.key)
-      this.loadingSectionKeys.delete(section.key)
-      if (!STAGGER_SECTION_MOUNT) {
-        this.mountedSectionKeys.add(section.key)
-      }
-    })
-    this.sectionLoadQueue = []
-    this.sectionMountRevision++
-    if (STAGGER_SECTION_MOUNT) {
-      this.scheduleSectionMount()
-    } else {
-      this.allSectionsMounted = true
-    }
-  }
-
   /** 全部分组都挂载完之后，才切到短路分支（翻页不再写状态） */
   private syncAllMountedFlag(): void {
     if (this.allSectionsMounted || this.renderPlan.sections.length === 0) {
@@ -731,64 +679,13 @@ export struct EditPage {
     }
   }
 
-  private loadInitialSectionData(delayMs: number = 0): void {
+  private loadInitialSectionData(): void {
     if (!this.active || this.renderPlan.sections.length === 0) {
       return
     }
-    if (delayMs > 0) {
-      if (this.initialSectionLoadTimer >= 0) {
-        clearTimeout(this.initialSectionLoadTimer)
-      }
-      this.initialSectionLoadTimer = setTimeout(() => {
-        this.initialSectionLoadTimer = -1
-        this.loadInitialSectionData()
-      }, delayMs)
-      return
-    }
-    if (this.areAllSectionsDataLoaded()) {
-      this.markAllSectionsReady()
-      this.editingConfigReady = true
-      this.initialLoadFailed = false
-      return
-    }
-    const generation = this.sectionLoadGeneration
-    const fields = this.allSectionFields()
-    this.renderPlan.sections.forEach((section) => {
-      if (!this.dataLoadedSectionKeys.has(section.key)) {
-        this.loadingSectionKeys.add(section.key)
-      }
-    })
-    const initialSpan = new PerfSpan('edit.loadInitialSectionData')
-    ensureEditingFieldsAsync(this.uuid, fields).then(() => {
-      initialSpan.end(`fields=${fields.length}`)
-      if (!this.active || generation !== this.sectionLoadGeneration) {
-        return
-      }
-      this.sectionLoadFailureCounts.clear()
-      this.markAllSectionsReady()
-      this.editingConfigReady = true
-      this.initialLoadFailed = false
-    }).catch(() => {
-      if (!this.active || generation !== this.sectionLoadGeneration) {
-        return
-      }
-      const failureCount = this.sectionLoadFailureCounts.get('__initial__') ?? 0
-      if (failureCount < 2) {
-        this.sectionLoadFailureCounts.set('__initial__', failureCount + 1)
-        this.loadInitialSectionData(300)
-      } else {
-        this.editingConfigReady = false
-        this.initialLoadFailed = true
-        sendToast('读取配置字段失败', $r('sys.symbol.exclamationmark_circle'), 1)
-      }
-    }).finally(() => {
-      if (generation !== this.sectionLoadGeneration) {
-        return
-      }
-      this.renderPlan.sections.forEach((section) => {
-        this.loadingSectionKeys.delete(section.key)
-      })
-    })
+    this.editingConfigReady = true
+    this.initialLoadFailed = false
+    this.enqueueVisibleSectionLoads(this.activePageIndex)
   }
 
   private loadSectionData(index: number): void {
@@ -817,6 +714,10 @@ export struct EditPage {
         this.sectionLoadFailureCounts.set(section.key, failureCount + 1)
         retryDelay = 800
       } else {
+        if (this.isPageInWindow(index, this.activePageIndex)) {
+          this.editingConfigReady = false
+          this.initialLoadFailed = true
+        }
         sendToast('读取配置字段失败', $r('sys.symbol.exclamationmark_circle'), 1)
       }
     }).finally(() => {
