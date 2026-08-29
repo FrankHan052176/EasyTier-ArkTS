@@ -3,7 +3,7 @@ import { deviceInfo, emitter } from '@kit.BasicServicesKit'
 import { HdsNavigation, HdsNavigationTitleMode,
   hdsMaterial,
   TitleBarStyleOptions} from '@kit.UIDesignKit'
-import { ComponentContent, FrameCallback, LengthMetrics } from '@kit.ArkUI'
+import { ComponentContent, LengthMetrics } from '@kit.ArkUI'
 import { AppManager } from '../../AppManager'
 import { HdsMenuButton } from '../Components'
 import { SheetContentBuilder } from '../../components/sheet/Basic'
@@ -34,6 +34,7 @@ import { EditSectionView } from '../../components/edit/EditSectionView'
 import { clearEditValue } from '../../class/config/Basic'
 import { MemoryDiagnosticsService } from '../../services/runtime/MemoryDiagnosticsService'
 import { perfLog, PerfSpan } from '../../services/runtime/PerfTrace'
+import { allocateEditFrameWorkOwner, editFrameWorkScheduler } from '../../services/runtime/EditFrameWorkScheduler'
 import { RemoteManageService } from '../../services/remote/RemoteManageService'
 import { sendToast } from '../../ToastUtil'
 import { setEditingConfigFieldSyncSuspended } from '../../ConfigSyncUtil'
@@ -43,28 +44,6 @@ class ShareMenuParam {
 
   constructor(onQrClick: () => void) {
     this.onQrClick = onQrClick
-  }
-}
-
-class SectionMountFrameCallback extends FrameCallback {
-  private readonly action: () => void
-  private fired: boolean = false
-
-  constructor(action: () => void) {
-    super()
-    this.action = action
-  }
-
-  onFrame(frameTimeInNano: number): void {
-    this.run()
-  }
-
-  private run(): void {
-    if (this.fired) {
-      return
-    }
-    this.fired = true
-    this.action()
   }
 }
 
@@ -153,10 +132,11 @@ export struct EditPage {
   private sectionLoadQueue: number[] = []
   private sectionLoadTimer: number = -1
   private sectionPreloadTimer: number = -1
-  private sectionMountTimer: number = -1
   private sectionPreloadQueued: boolean = false
   private sectionMountScheduled: boolean = false
+  private initialContentScheduled: boolean = false
   private sectionLoadGeneration: number = 0
+  private readonly frameWorkOwner: number = allocateEditFrameWorkOwner()
   private sectionLoadFailureCounts: Map<string, number> = new Map()
   private gesturesShareRegistered: boolean = false
   private knockShareRegistered: boolean = false
@@ -306,7 +286,7 @@ export struct EditPage {
     Swiper() {
       ForEach(this.renderPlan.sections, (section: EditSectionRenderPlan, index: number) => {
         this.pageContent(section, index)
-      }, (section: EditSectionRenderPlan) => section.key)
+      }, (section: EditSectionRenderPlan, _index: number) => section.key)
     }
     .width('100%')
     .height('100%')
@@ -569,13 +549,15 @@ export struct EditPage {
 
   private resetSectionLoading(): void {
     this.sectionLoadGeneration += 1
+    editFrameWorkScheduler.cancel(this.frameWorkOwner)
     this.dataLoadedSectionKeys.clear()
     this.mountedSectionKeys.clear()
     this.loadingSectionKeys.clear()
-	    this.sectionLoadQueue = []
-	    this.sectionPreloadQueued = false
-	    this.sectionMountScheduled = false
-	    this.sectionLoadFailureCounts.clear()
+    this.sectionLoadQueue = []
+    this.sectionPreloadQueued = false
+    this.sectionMountScheduled = false
+    this.initialContentScheduled = false
+    this.sectionLoadFailureCounts.clear()
     if (this.sectionLoadTimer >= 0) {
       clearTimeout(this.sectionLoadTimer)
       this.sectionLoadTimer = -1
@@ -583,10 +565,6 @@ export struct EditPage {
     if (this.sectionPreloadTimer >= 0) {
       clearTimeout(this.sectionPreloadTimer)
       this.sectionPreloadTimer = -1
-    }
-    if (this.sectionMountTimer >= 0) {
-      clearTimeout(this.sectionMountTimer)
-      this.sectionMountTimer = -1
     }
     this.allSectionsMounted = false
     this.initialLoadFailed = false
@@ -683,9 +661,20 @@ export struct EditPage {
     if (!this.active || this.renderPlan.sections.length === 0) {
       return
     }
-    this.editingConfigReady = true
     this.initialLoadFailed = false
     this.enqueueVisibleSectionLoads(this.activePageIndex)
+    if (this.editingConfigReady || this.initialContentScheduled) {
+      return
+    }
+    this.initialContentScheduled = true
+    const generation = this.sectionLoadGeneration
+    editFrameWorkScheduler.enqueue(this.frameWorkOwner, this.getUIContext(), () => {
+      this.initialContentScheduled = false
+      if (!this.active || generation !== this.sectionLoadGeneration) {
+        return
+      }
+      this.editingConfigReady = true
+    })
   }
 
   private loadSectionData(index: number): void {
@@ -753,7 +742,7 @@ export struct EditPage {
     if (!this.active || this.sectionMountScheduled) {
       return
     }
-    if (!this.canMountVisibleWindow() && this.nextPreloadMountIndex() < 0) {
+    if (this.nextVisibleMountIndex() < 0 && this.nextPreloadMountIndex() < 0) {
       return
     }
     this.sectionMountScheduled = true
@@ -765,14 +754,7 @@ export struct EditPage {
       this.sectionMountScheduled = false
       this.mountNextReadySection()
     }
-    try {
-      this.getUIContext().postFrameCallback(new SectionMountFrameCallback(callback))
-    } catch (_) {
-      this.sectionMountTimer = setTimeout(() => {
-        this.sectionMountTimer = -1
-        callback()
-      }, 16)
-    }
+    editFrameWorkScheduler.enqueue(this.frameWorkOwner, this.getUIContext(), callback)
   }
 
   private mountNextReadySection(): void {
@@ -782,39 +764,42 @@ export struct EditPage {
     if (this.animationTargetIndex >= 0) {
       return
     }
-    const visibleStart = this.visibleWindowStart(this.activePageIndex)
-    const visibleCount = this.visiblePageCount()
-    let mounted = false
-    if (this.canMountVisibleWindow()) {
-      for (let offset = 0; offset < visibleCount; offset++) {
-        const index = visibleStart + offset
-        if (this.canMountSection(index)) {
-          const section = this.renderPlan.sections[index]
-          this.mountedSectionKeys.add(section.key)
-          perfLog(`edit.mountVisible index=${index} key=${section.key}`)
-          mounted = true
-        }
-      }
+    let nextIndex = this.nextVisibleMountIndex()
+    if (nextIndex >= 0) {
+      const section = this.renderPlan.sections[nextIndex]
+      this.mountedSectionKeys.add(section.key)
+      perfLog(`edit.mountVisible index=${nextIndex} key=${section.key}`)
     } else {
       // 当前窗口已就绪，利用空闲帧预挂载相邻分组（每帧一个），
       // 这样首次前滑/后滑都能复用现成组件树，不在动画中途构建。
-      const preloadIndex = this.nextPreloadMountIndex()
-      if (preloadIndex >= 0) {
-        this.mountedSectionKeys.add(this.renderPlan.sections[preloadIndex].key)
-        perfLog(`edit.preloadMount index=${preloadIndex} key=${this.renderPlan.sections[preloadIndex].key}`)
-        mounted = true
+      nextIndex = this.nextPreloadMountIndex()
+      if (nextIndex >= 0) {
+        this.mountedSectionKeys.add(this.renderPlan.sections[nextIndex].key)
+        perfLog(`edit.preloadMount index=${nextIndex} key=${this.renderPlan.sections[nextIndex].key}`)
       }
     }
-    if (mounted) {
+    if (nextIndex >= 0) {
       this.sectionMountRevision++
       this.syncAllMountedFlag()
       this.scheduleSectionMount()
     }
   }
 
+  private nextVisibleMountIndex(): number {
+    const visibleStart = this.visibleWindowStart(this.activePageIndex)
+    const visibleCount = this.visiblePageCount()
+    for (let offset = 0; offset < visibleCount; offset++) {
+      const index = visibleStart + offset
+      if (this.canMountSection(index)) {
+        return index
+      }
+    }
+    return -1
+  }
+
   /**
    * 下一个待挂载的分组：先相邻页，再其余任意未挂载分组。
-   * 每帧只返回一个，配合 postFrameCallback 把构建摊到多帧。
+   * 每次只返回一个，配合全页帧预算器把构建摊到多帧。
    */
   private nextPreloadMountIndex(): number {
     const visibleStart = this.visibleWindowStart(this.activePageIndex)
@@ -831,27 +816,6 @@ export struct EditPage {
       }
     }
     return -1
-  }
-
-  private canMountVisibleWindow(): boolean {
-    const visibleStart = this.visibleWindowStart(this.activePageIndex)
-    const visibleCount = this.visiblePageCount()
-    let hasUnmountedVisible = false
-    for (let offset = 0; offset < visibleCount; offset++) {
-      const index = visibleStart + offset
-      if (!this.isValidSectionIndex(index)) {
-        continue
-      }
-      const section = this.renderPlan.sections[index]
-      if (this.mountedSectionKeys.has(section.key)) {
-        continue
-      }
-      hasUnmountedVisible = true
-      if (!this.dataLoadedSectionKeys.has(section.key)) {
-        return false
-      }
-    }
-    return hasUnmountedVisible
   }
 
   private canMountSection(index: number): boolean {

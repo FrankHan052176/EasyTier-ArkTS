@@ -1,6 +1,19 @@
 import { AppManager, Sfp2vp, Svp2fp } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { flagsCategory, flagsSymbol } from '../../../util/FlagsInfo';
+import { NodeContent } from '@kit.ArkUI';
+import nativeUi from 'libeasytier_ui.so';
+
+interface NativeBoolTextModel {
+  category: string
+  text: string
+  width: number
+  height: number
+  categoryColor: number
+  textColor: number
+}
+
+const NATIVE_BOOL_TEXT_ENABLED: boolean = true
 
 /**
  * BoolField 的固定行高（与 build() 里的 .height() 保持一致）。
@@ -25,6 +38,10 @@ export struct BoolField {
   @Consumer('field_width') field_width: number = 0
   @Param text: ResourceStr = $r("app.string.i18_enable");
   @Local button: boolean = true;
+  @Local nativeReady: boolean = NATIVE_BOOL_TEXT_ENABLED
+  private nativeContent: NodeContent = new NodeContent()
+  private nativeCreated: boolean = false
+  private active: boolean = false
 
   @Computed
   get config() {
@@ -55,8 +72,105 @@ export struct BoolField {
     this.button = (getFieldPathValue(this.config!, this.fieldPath) as boolean) || false
   }
 
+  private resolvedText(): string | undefined {
+    if (typeof this.text === 'string') {
+      return this.text
+    }
+    try {
+      return AppManager.content.context!.resourceManager.getStringSync((this.text as Resource).id)
+    } catch (_) {
+      return undefined
+    }
+  }
+
+  private resolvedColor(color: Resource): number | undefined {
+    try {
+      return AppManager.content.context!.resourceManager.getColorSync(color.id) >>> 0
+    } catch (_) {
+      return undefined
+    }
+  }
+
+  private nativeModel(): NativeBoolTextModel | undefined {
+    const text = this.resolvedText()
+    const categoryColor = this.resolvedColor(this.button ?
+      $r("sys.color.font_on_secondary") : $r("sys.color.font_secondary"))
+    const textColor = this.resolvedColor(this.button ?
+      $r("sys.color.font_on_primary") : $r("sys.color.font_primary"))
+    if (text === undefined || categoryColor === undefined || textColor === undefined) {
+      return undefined
+    }
+    return {
+      category: flagsCategory(this.field),
+      text: text,
+      width: this.textWidth,
+      height: Math.max(0, boolFieldHeight() - 24),
+      categoryColor: categoryColor,
+      textColor: textColor
+    }
+  }
+
+  private destroyNativeText(): void {
+    if (!this.nativeCreated) {
+      return
+    }
+    try {
+      nativeUi.destroyBoolText(this.nativeContent)
+    } catch (_) {
+    }
+    this.nativeCreated = false
+  }
+
+  private disableNativeText(): void {
+    this.destroyNativeText()
+    this.nativeReady = false
+  }
+
+  private createNativeText(): void {
+    if (!this.active || !this.nativeReady) {
+      return
+    }
+    const model = this.nativeModel()
+    if (!model) {
+      this.disableNativeText()
+      return
+    }
+    try {
+      this.nativeCreated = nativeUi.createBoolText(this.nativeContent, model)
+      if (!this.nativeCreated) {
+        this.disableNativeText()
+      }
+    } catch (_) {
+      this.disableNativeText()
+    }
+  }
+
+  private updateNativeText(): void {
+    if (!this.active || !this.nativeReady) {
+      return
+    }
+    if (!this.nativeCreated) {
+      this.createNativeText()
+      return
+    }
+    const model = this.nativeModel()
+    if (!model) {
+      this.disableNativeText()
+      return
+    }
+    try {
+      if (!nativeUi.updateBoolText(this.nativeContent, model)) {
+        this.disableNativeText()
+      }
+    } catch (_) {
+      this.disableNativeText()
+    }
+  }
+
   aboutToAppear(): void {
+    this.active = true
     this.updateFromConfig()
+    this.createNativeText()
   }
 
   /**
@@ -64,37 +178,53 @@ export struct BoolField {
    * 这里必须按复用后新的 fieldPath 重新读取真实值，否则开关状态会串行。
    */
   aboutToReuse(): void {
+    this.active = true
+    this.nativeReady = NATIVE_BOOL_TEXT_ENABLED
     this.updateFromConfig()
+    this.updateNativeText()
+  }
+
+  aboutToUpdate(): void {
+    this.updateNativeText()
+  }
+
+  aboutToRecycle(): void {
+    this.active = false
   }
 
   aboutToDisappear(): void {
-    this.button = false
+    this.active = false
+    this.destroyNativeText()
   }
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      Column({ space: 12 }) {
-        Text(flagsCategory(this.field))
-          .fontSize(12)
-          .textAlign(TextAlign.Start)
-          .maxLines(1)
-          .textOverflow({
-            overflow: TextOverflow.Ellipsis
-          })
-          .fontColor(this.button ? $r("sys.color.font_on_secondary") : $r("sys.color.font_secondary"))
-        Text(this.text)
-          .textAlign(TextAlign.Start)
-          .maxLines(1)
-          .textOverflow({
-            overflow: TextOverflow.Ellipsis
-          })
-          .fontColor(this.button ? $r("sys.color.font_on_primary") : $r("sys.color.font_primary"))
+      if (this.nativeReady) {
+        ContentSlot(this.nativeContent)
+      } else {
+        Column({ space: 12 }) {
+          Text(flagsCategory(this.field))
+            .fontSize(12)
+            .textAlign(TextAlign.Start)
+            .maxLines(1)
+            .textOverflow({
+              overflow: TextOverflow.Ellipsis
+            })
+            .fontColor(this.button ? $r("sys.color.font_on_secondary") : $r("sys.color.font_secondary"))
+          Text(this.text)
+            .textAlign(TextAlign.Start)
+            .maxLines(1)
+            .textOverflow({
+              overflow: TextOverflow.Ellipsis
+            })
+            .fontColor(this.button ? $r("sys.color.font_on_primary") : $r("sys.color.font_primary"))
+        }
+        .height('100%')
+        .alignItems(HorizontalAlign.Start)
+        .justifyContent(FlexAlign.SpaceBetween)
+        .width(this.textWidth)
+        .zIndex(2)
       }
-      .height('100%')
-      .alignItems(HorizontalAlign.Start)
-      .justifyContent(FlexAlign.SpaceBetween)
-      .width(this.textWidth)
-      .zIndex(2)
 
       SymbolGlyph(flagsSymbol(this.field))
         .fontSize(this.symbolSize)
@@ -120,6 +250,7 @@ export struct BoolField {
       }, () => {
         this.button = !this.button
         setFieldPathValue(this.config!, this.fieldPath, this.button)
+        this.updateNativeText()
       })
       syncFieldPath(this.config!.instance_id!, this.fieldPath, this.config!)
     })

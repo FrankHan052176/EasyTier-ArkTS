@@ -3,7 +3,7 @@ import { RecursiveJsonEditor } from './RecursiveJsonEditor'
 import { BoolField, boolFieldHeight } from './field/BoolField'
 import { getFieldI18Name } from './FieldLabel'
 import { perfLog, PerfSpan } from '../../services/runtime/PerfTrace'
-import { FrameCallback } from '@kit.ArkUI'
+import { allocateEditFrameWorkOwner, editFrameWorkScheduler } from '../../services/runtime/EditFrameWorkScheduler'
 
 interface FlagRenderRow {
   key: string
@@ -17,27 +17,13 @@ const EDIT_LIST_CHAIN_ANIMATION = true
 const LIST_HORIZONTAL_PADDING = 20
 
 /** 普通 Schema 每帧放出的行数 */
-const DEFAULT_ROWS_PER_FRAME = 3
+const DEFAULT_ROWS_PER_FRAME = 1
 
 /**
  * Flag 卡片包含完整的文本、Symbol 和交互状态，三栏首屏时每帧只创建一行
  * （两个 BoolField），避免和另外两栏的构建工作叠在同一帧。
  */
 const FLAG_ROWS_PER_FRAME = 1
-
-/** postFrameCallback 载体 */
-class RevealFrameCallback extends FrameCallback {
-  private readonly handler: () => void
-
-  constructor(handler: () => void) {
-    super()
-    this.handler = handler
-  }
-
-  onFrame(_frameTimeNanos: number): void {
-    this.handler()
-  }
-}
 
 /** 字段名 → 资源对象缓存，避免每次构建都做字符串拼接和 Resource 分配 */
 const fieldLabelCache: Map<string, ResourceStr> = new Map()
@@ -203,10 +189,10 @@ export struct EditSectionView {
   private lastSectionKey: string = ''
   private buildStartedAt: number = 0
   private revealScheduled: boolean = false
-  private revealTimer: number = -1
   private revealGeneration: number = 0
   private revealActive: boolean = false
   private usingFlagRows: boolean = false
+  private readonly frameWorkOwner: number = allocateEditFrameWorkOwner()
 
   aboutToAppear(): void {
     this.revealActive = true
@@ -253,10 +239,7 @@ export struct EditSectionView {
 
   private cancelReveal(): void {
     this.revealGeneration++
-    if (this.revealTimer >= 0) {
-      clearTimeout(this.revealTimer)
-      this.revealTimer = -1
-    }
+    editFrameWorkScheduler.cancel(this.frameWorkOwner)
     this.revealScheduled = false
   }
 
@@ -279,7 +262,6 @@ export struct EditSectionView {
         return
       }
       this.revealScheduled = false
-      this.revealTimer = -1
       if (this.usingFlagRows) {
         this.flagRevealPending = this.flagRowDataSource.revealMore(FLAG_ROWS_PER_FRAME)
       } else {
@@ -287,11 +269,7 @@ export struct EditSectionView {
       }
       this.scheduleReveal()
     }
-    try {
-      this.getUIContext().postFrameCallback(new RevealFrameCallback(step))
-    } catch (_) {
-      this.revealTimer = setTimeout(step, 16)
-    }
+    editFrameWorkScheduler.enqueue(this.frameWorkOwner, this.getUIContext(), step)
   }
 
   private flagNodes(): EditRenderNode[] {
@@ -347,47 +325,17 @@ export struct EditSectionView {
   }
 
   @Builder
-  skeletonLine(widthValue: string, heightValue: number, radiusValue: number) {
-    Row()
-      .width(widthValue)
-      .height(heightValue)
-      .borderRadius(radiusValue)
-      .backgroundColor($r('sys.color.comp_background_secondary'))
-      .opacity(0.56)
-  }
-
-  @Builder
-  skeletonCard(index: number) {
-    Column({ space: 10 }) {
-      Row() {
-        this.skeletonLine(index % 2 === 0 ? '42%' : '58%', 10, 5)
-        Blank()
-        this.skeletonLine('16%', 10, 5)
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-      this.skeletonLine('100%', 34, 12)
-      Row({ space: 8 }) {
-        this.skeletonLine('28%', 8, 4)
-        this.skeletonLine('20%', 8, 4)
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .padding(16)
-    .borderRadius(18)
-    .backgroundColor($r('sys.color.comp_background_primary'))
-  }
-
-  @Builder
   loadingView() {
-    Column({ space: 14 }) {
+    Column({ space: 12 }) {
       Row()
         .width('100%')
         .height(56)
-      ForEach([0, 1, 2], (index: number) => {
-        this.skeletonCard(index)
-      })
+      Row()
+        .width('100%')
+        .height(96)
+        .borderRadius(18)
+        .backgroundColor($r('sys.color.comp_background_primary'))
+        .opacity(0.72)
     }
     .width('100%')
     .height('100%')

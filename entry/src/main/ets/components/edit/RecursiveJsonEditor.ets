@@ -19,6 +19,9 @@ import { StringField } from './field/StringField'
 import { UnsupportedField } from './field/UnsupportedField'
 import { getFieldI18Name } from './FieldLabel'
 import { PrimaryButton } from '../util/TextButton'
+import { allocateEditFrameWorkOwner, editFrameWorkScheduler } from '../../services/runtime/EditFrameWorkScheduler'
+
+const GROUP_CHILDREN_PER_FRAME = 1
 
 @ComponentV2
 export struct RecursiveJsonEditor {
@@ -30,6 +33,7 @@ export struct RecursiveJsonEditor {
   @Local maskOpacity: number = 1
   @Local blurRadius: number = 40
   @Local nodeReady: boolean = true
+  @Local revealedChildCount: number = 0
   @Consumer("unsafe_status") unsafe: boolean = false
   @Consumer("peep_masked") peepMasked: boolean = false
   @Consumer("peep_dismissed") peepDismissed: boolean = false
@@ -38,6 +42,10 @@ export struct RecursiveJsonEditor {
   private userAuthCallback: userAuth.IAuthCallback | undefined = undefined
   private topLevelFieldNames: string[] = []
   private contentNodeCache: EditRenderNode[] = []
+  private childRevealActive: boolean = false
+  private childRevealScheduled: boolean = false
+  private childRevealGeneration: number = 0
+  private readonly frameWorkOwner: number = allocateEditFrameWorkOwner()
 
   @Computed
   get safe_show() {
@@ -108,6 +116,14 @@ export struct RecursiveJsonEditor {
     return this.hasEnableButton ? Math.max(0, this.node.children.length - 1) : this.node.children.length
   }
 
+  private visibleContentNodes(): EditRenderNode[] {
+    const nodes = this.contentNodes()
+    if (this.node.kind !== 'group' || nodes.length <= GROUP_CHILDREN_PER_FRAME) {
+      return nodes
+    }
+    return nodes.slice(0, this.revealedChildCount)
+  }
+
   private isListNode(node: EditRenderNode): boolean {
     return node.kind === 'list' && node.listType !== undefined
   }
@@ -124,15 +140,67 @@ export struct RecursiveJsonEditor {
   }
 
   aboutToAppear(): void {
+    this.childRevealActive = true
     this.updateNodeReady()
+    this.startChildReveal()
   }
 
   aboutToDisappear(): void {
+    this.childRevealActive = false
+    this.cancelChildReveal()
     this.cancelUserAuth()
     this.topLevelFieldNames = []
     this.contentNodeCache = []
-    this.content_height = 0
-    this.field_width = 0
+  }
+
+  @Monitor('enable')
+  onEnableChange(): void {
+    if (!hasFieldTag(this.node.name, 'hidable')) {
+      return
+    }
+    this.cancelChildReveal()
+    if (this.enable) {
+      this.startChildReveal()
+    } else {
+      this.revealedChildCount = 0
+    }
+  }
+
+  private startChildReveal(): void {
+    const count = this.contentNodeCount()
+    if (!this.nodeReady || this.node.kind !== 'group' || count <= GROUP_CHILDREN_PER_FRAME) {
+      this.revealedChildCount = count
+      return
+    }
+    this.revealedChildCount = Math.min(GROUP_CHILDREN_PER_FRAME, count)
+    this.scheduleChildReveal()
+  }
+
+  private cancelChildReveal(): void {
+    this.childRevealGeneration++
+    this.childRevealScheduled = false
+    editFrameWorkScheduler.cancel(this.frameWorkOwner)
+  }
+
+  private scheduleChildReveal(): void {
+    if (!this.childRevealActive || this.childRevealScheduled ||
+      this.revealedChildCount >= this.contentNodeCount()) {
+      return
+    }
+    this.childRevealScheduled = true
+    const generation = this.childRevealGeneration
+    const step = () => {
+      if (!this.childRevealActive || generation !== this.childRevealGeneration) {
+        return
+      }
+      this.childRevealScheduled = false
+      this.revealedChildCount = Math.min(
+        this.contentNodeCount(),
+        this.revealedChildCount + GROUP_CHILDREN_PER_FRAME
+      )
+      this.scheduleChildReveal()
+    }
+    editFrameWorkScheduler.enqueue(this.frameWorkOwner, this.getUIContext(), step)
   }
 
   @Styles
@@ -276,7 +344,7 @@ export struct RecursiveJsonEditor {
 
   @Builder
   groupChildren() {
-    ForEach(this.contentNodes(), (child: EditRenderNode, index: number) => {
+    ForEach(this.visibleContentNodes(), (child: EditRenderNode, index: number) => {
       if (child.kind === 'boolean') {
         this.fieldContent(child)
       } else {
@@ -297,7 +365,7 @@ export struct RecursiveJsonEditor {
           .width('100%')
           .strokeWidth(3)
       }
-    }, (item: EditRenderNode) => item.renderKey)
+    }, (item: EditRenderNode, _index: number) => item.renderKey)
   }
 
   private cancelUserAuth(): void {
