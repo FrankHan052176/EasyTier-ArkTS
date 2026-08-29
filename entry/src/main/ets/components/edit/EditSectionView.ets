@@ -258,10 +258,10 @@ export struct EditSectionView {
     this.revealScheduled = true
     const generation = this.revealGeneration
     const step = () => {
+      this.revealScheduled = false
       if (!this.revealActive || generation !== this.revealGeneration) {
         return
       }
-      this.revealScheduled = false
       if (this.usingFlagRows) {
         this.flagRevealPending = this.flagRowDataSource.revealMore(FLAG_ROWS_PER_FRAME)
       } else {

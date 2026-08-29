@@ -33,6 +33,7 @@ C++ 仅负责原先每张卡片中的两个 ArkTS `Text` 节点，创建一个 N
 - 每个 N-API `env` 独立保存 native 节点记录；
 - 所有 Native Node 属性写入都检查返回值；
 - 创建或资源解析失败时销毁部分节点并回退到原 ArkTS 文本；
+- `field_width` 变化通过 `@Monitor` 同步到 Native Node，主题变化通过 `onWillApplyTheme` 同步四种文字颜色；
 - 更新和销毁路径分别带有 `ET_BOOL_NATIVE_UPDATE`、`ET_BOOL_NATIVE_DESTROY` trace；
 - Native Node API 没有 `SymbolGlyph`，因此图标刻意保留在 ArkTS。
 
@@ -56,6 +57,10 @@ hitrace --trace_begin -b 65536 app ace graphic ability
 - `/tmp/easytier-global-budget-v3.trace`
 - `/tmp/easytier-native-v7.trace`
 - `/tmp/easytier-arkts-true-control.trace`
+- `/tmp/easytier-native-width-final.trace`
+- `/tmp/easytier-native-width-toggle.trace`
+
+这些路径是本轮设备采集的本机原始 trace，不是仓库内的发布产物。
 
 ## 结果
 
@@ -77,18 +82,18 @@ hitrace --trace_begin -b 65536 app ace graphic ability
 
 | 指标 | 原 ArkTS | C++ 文本子树 | 变化 |
 | --- | ---: | ---: | ---: |
-| BoolField BuildItem 总时间 | 44.427 ms | 28.148 ms | -36.6% |
-| BoolField BuildItem 最大值 | 3.395 ms | 2.405 ms | -29.2% |
-| UI frame p95 | 26.553 ms | 18.663 ms | -29.7% |
-| UI frame 最大执行时间 | 33.686 ms | 34.510 ms | +0.824 ms |
+| BoolField BuildItem 总时间 | 44.427 ms | 21.798 ms | -50.9% |
+| BoolField BuildItem 最大值 | 3.395 ms | 2.738 ms | -19.4% |
+| UI frame p95 | 26.553 ms | 17.678 ms | -33.4% |
+| UI frame 最大执行时间 | 33.686 ms | 21.664 ms | -35.7% |
 
-最终 native run 中，20 次 `ET_BOOL_NATIVE_CREATE` 合计 3.608 ms，中位数 0.163 ms，最大值 0.475 ms。
+最终 native run 中，20 次 `ET_BOOL_NATIVE_CREATE` 合计 3.023 ms，中位数 0.148 ms，最大值 0.209 ms；初次建树后的 20 次响应式颜色/宽度刷新合计 0.237 ms，最大值 0.038 ms。单卡切换的独立 trace 仍只记录 1 次 native update（0.131 ms）。
 
 该结果支持“C++ 让 BoolField 构建更快”，但不把其他 `Swiper`/`List` 布局成本归因于 BoolField。整体最大 UI 执行时间仍由外层列表和分区布局决定。
 
 ## 关于系统 max-frame 数值
 
-部分后续 run 的 `INTERACTION_APP_JANK.maxFrameTime` 报告约 217–220 ms，但相同区间内 UI 线程最长 `ReceiveVsync` 只有约 34 ms。trace 显示这些大值是渐进工作之间没有 dirty app frame 的间隔，不是一个持续 220 ms 的 UI 线程任务。因此：
+部分后续 run 的 `INTERACTION_APP_JANK.maxFrameTime` 报告约 217–478 ms，但相同区间内 UI 线程最长 `ReceiveVsync` 只有约 22–34 ms。trace 显示这些大值是渐进工作之间没有 dirty app frame 的间隔，不是一个持续数百毫秒的 UI 线程任务。因此：
 
 - 页面级回归同时查看 response/e2e、系统 jank 报告和 UI 线程同步区间；
 - 不用“无 frame 的等待间隔”冒充 C++ 节点构建耗时；

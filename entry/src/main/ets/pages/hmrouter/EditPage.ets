@@ -748,10 +748,10 @@ export struct EditPage {
     this.sectionMountScheduled = true
     const generation = this.sectionLoadGeneration
     const callback = () => {
+      this.sectionMountScheduled = false
       if (!this.active || generation !== this.sectionLoadGeneration) {
         return
       }
-      this.sectionMountScheduled = false
       this.mountNextReadySection()
     }
     editFrameWorkScheduler.enqueue(this.frameWorkOwner, this.getUIContext(), callback)

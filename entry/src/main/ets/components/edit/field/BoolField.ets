@@ -1,7 +1,7 @@
 import { AppManager, Sfp2vp, Svp2fp } from '../../../AppManager';
 import { getFieldPathValue, setFieldPathValue, syncFieldPath } from '../../../ConfigSyncUtil';
 import { flagsCategory, flagsSymbol } from '../../../util/FlagsInfo';
-import { NodeContent } from '@kit.ArkUI';
+import { NodeContent, Theme } from '@kit.ArkUI';
 import nativeUi from 'libeasytier_ui.so';
 
 interface NativeBoolTextModel {
@@ -42,6 +42,10 @@ export struct BoolField {
   private nativeContent: NodeContent = new NodeContent()
   private nativeCreated: boolean = false
   private active: boolean = false
+  private themeFontPrimary: ResourceColor | undefined = undefined
+  private themeFontSecondary: ResourceColor | undefined = undefined
+  private themeFontOnPrimary: ResourceColor | undefined = undefined
+  private themeFontOnSecondary: ResourceColor | undefined = undefined
 
   @Computed
   get config() {
@@ -83,9 +87,21 @@ export struct BoolField {
     }
   }
 
-  private resolvedColor(color: Resource): number | undefined {
+  private resolvedColor(color: ResourceColor): number | undefined {
+    if (typeof color === 'number') {
+      return color >>> 0
+    }
+    if (typeof color === 'string') {
+      if (color.startsWith('#') && (color.length === 7 || color.length === 9)) {
+        const parsed = Number.parseInt(color.substring(1), 16)
+        if (!Number.isNaN(parsed)) {
+          return color.length === 7 ? (0xFF000000 | parsed) >>> 0 : parsed >>> 0
+        }
+      }
+      return undefined
+    }
     try {
-      return AppManager.content.context!.resourceManager.getColorSync(color.id) >>> 0
+      return AppManager.content.context!.resourceManager.getColorSync((color as Resource).id) >>> 0
     } catch (_) {
       return undefined
     }
@@ -94,9 +110,11 @@ export struct BoolField {
   private nativeModel(): NativeBoolTextModel | undefined {
     const text = this.resolvedText()
     const categoryColor = this.resolvedColor(this.button ?
-      $r("sys.color.font_on_secondary") : $r("sys.color.font_secondary"))
+      (this.themeFontOnSecondary ?? $r("sys.color.font_on_secondary")) :
+      (this.themeFontSecondary ?? $r("sys.color.font_secondary")))
     const textColor = this.resolvedColor(this.button ?
-      $r("sys.color.font_on_primary") : $r("sys.color.font_primary"))
+      (this.themeFontOnPrimary ?? $r("sys.color.font_on_primary")) :
+      (this.themeFontPrimary ?? $r("sys.color.font_primary")))
     if (text === undefined || categoryColor === undefined || textColor === undefined) {
       return undefined
     }
@@ -173,6 +191,19 @@ export struct BoolField {
     this.createNativeText()
   }
 
+  onWillApplyTheme(theme: Theme): void {
+    this.themeFontPrimary = theme.colors.fontPrimary
+    this.themeFontSecondary = theme.colors.fontSecondary
+    this.themeFontOnPrimary = theme.colors.fontOnPrimary
+    this.themeFontOnSecondary = theme.colors.fontOnSecondary
+    this.updateNativeText()
+  }
+
+  @Monitor('field_width')
+  onFieldWidthChange(): void {
+    this.updateNativeText()
+  }
+
   /**
    * 复用时 @Local 会被重置为初始值（button 会变回 true），
    * 这里必须按复用后新的 fieldPath 重新读取真实值，否则开关状态会串行。
@@ -181,10 +212,6 @@ export struct BoolField {
     this.active = true
     this.nativeReady = NATIVE_BOOL_TEXT_ENABLED
     this.updateFromConfig()
-    this.updateNativeText()
-  }
-
-  aboutToUpdate(): void {
     this.updateNativeText()
   }
 

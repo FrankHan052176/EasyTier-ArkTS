@@ -42,7 +42,7 @@ class EditFrameWorkCallback extends FrameCallback {
  */
 class EditFrameWorkScheduler {
   private queue: EditFrameWork[] = []
-  private scheduled: boolean = false
+  private inFlight: EditFrameWork | undefined = undefined
 
   enqueue(owner: number, uiContext: UIContext, action: () => void): void {
     this.queue.push(new EditFrameWork(owner, uiContext, action))
@@ -51,19 +51,27 @@ class EditFrameWorkScheduler {
 
   cancel(owner: number): void {
     this.queue = this.queue.filter((work: EditFrameWork) => work.owner !== owner)
+    if (this.inFlight?.owner === owner) {
+      // postFrameCallback 没有取消接口；解除全局闩锁，旧 callback 到达时按 identity 直接丢弃。
+      this.inFlight = undefined
+      this.scheduleNext()
+    }
   }
 
   private scheduleNext(): void {
-    if (this.scheduled || this.queue.length === 0) {
+    if (this.inFlight || this.queue.length === 0) {
       return
     }
     const work = this.queue.shift()
     if (!work) {
       return
     }
-    this.scheduled = true
+    this.inFlight = work
     const run = () => {
-      this.scheduled = false
+      if (this.inFlight !== work) {
+        return
+      }
+      this.inFlight = undefined
       try {
         work.action()
       } finally {
@@ -75,10 +83,15 @@ class EditFrameWorkScheduler {
     try {
       work.uiContext.postFrameCallback(new EditFrameWorkCallback(run))
     } catch (_) {
-      // UIContext 已失效时丢弃该 owner 的陈旧工作，避免队列永久停住。
-      this.scheduled = false
-      this.cancel(work.owner)
-      this.scheduleNext()
+      // 注册失败时同步执行这一个有界 action：调用方可清除 scheduled 标记，队列也不会卡死。
+      if (this.inFlight === work) {
+        this.inFlight = undefined
+      }
+      try {
+        work.action()
+      } finally {
+        this.scheduleNext()
+      }
     }
   }
 }

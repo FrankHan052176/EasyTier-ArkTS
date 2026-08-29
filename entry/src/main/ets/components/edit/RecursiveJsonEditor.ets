@@ -190,10 +190,10 @@ export struct RecursiveJsonEditor {
     this.childRevealScheduled = true
     const generation = this.childRevealGeneration
     const step = () => {
+      this.childRevealScheduled = false
       if (!this.childRevealActive || generation !== this.childRevealGeneration) {
         return
       }
-      this.childRevealScheduled = false
       this.revealedChildCount = Math.min(
         this.contentNodeCount(),
         this.revealedChildCount + GROUP_CHILDREN_PER_FRAME
