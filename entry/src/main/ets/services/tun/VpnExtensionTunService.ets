@@ -1,5 +1,4 @@
 import { JSON } from '@kit.ArkTS'
-import { deviceInfo } from '@kit.BasicServicesKit'
 import { vpnExtension } from '@kit.NetworkKit'
 import { isIpAddr } from '../../class/config/IP'
 import { ConfigJson } from '../../config/schema/SchemaConfig'
@@ -7,6 +6,7 @@ import { TunRequestPayload } from '../../infrastructure/bridge/kernel/KernelBrid
 import { normalizeRouteStrings, routeSignature } from '../../infrastructure/bridge/kernel/RouteStore'
 import { Logger } from '../../shared/logging/Logger'
 import { buildTunVpnConfig } from './TunConfigBuilder'
+import { NativeSocketProtectionService } from './NativeSocketProtectionService'
 import { TunSetupRequest, TunSetupScheduler } from './TunSetupScheduler'
 
 const TUN_REQUEST_DEBOUNCE_MS = 500
@@ -30,13 +30,13 @@ export interface VpnExtensionTunServiceOptions {
   settings: VpnExtensionTunSettings
   publishContinuationState: (active: boolean) => void
   setTunFd: (instanceId: string, fd: number) => boolean
+  onProtectionFatal: (error: Error) => void
 }
 
 export class VpnExtensionTunService {
   private readonly context: vpnExtension.VpnExtensionContext
   private readonly logTarget: Object | string
   private readonly instanceId: string
-  private readonly config: ConfigJson | undefined
   private readonly settings: VpnExtensionTunSettings
   private readonly publishContinuationState: (active: boolean) => void
   private readonly setTunFd: (instanceId: string, fd: number) => boolean
@@ -60,15 +60,18 @@ export class VpnExtensionTunService {
   private restartPendingRequest: TunSetupRequest | undefined = undefined
   private setupIdleWaiters: Array<() => void> = []
   private destroying: boolean = false
+  private destroyPromise: Promise<void> | undefined = undefined
+  private readonly socketProtectionService: NativeSocketProtectionService
 
   constructor(options: VpnExtensionTunServiceOptions) {
     this.context = options.context
     this.logTarget = options.logTarget
     this.instanceId = options.instanceId
-    this.config = options.config
     this.settings = options.settings
     this.publishContinuationState = options.publishContinuationState
     this.setTunFd = options.setTunFd
+    this.socketProtectionService = new NativeSocketProtectionService(() => this.vpnConnection, this.logTarget,
+      options.onProtectionFatal)
     this.needTUN = !(options.config?.no_tun ?? false)
     this.tunSetupScheduler = new TunSetupScheduler({
       debounceMs: TUN_REQUEST_DEBOUNCE_MS,
@@ -89,15 +92,14 @@ export class VpnExtensionTunService {
   }
 
   async prepareProtection(): Promise<void> {
-    if (!this.shouldProtectProcessNet()) {
+    if (!this.needTUN) {
       return
     }
     if (!this.vpnConnection) {
       this.vpnConnection = vpnExtension.createVpnConnection(this.context)
-      Logger.debug('vpnConnection created for process protection', this.logTarget)
+      Logger.debug('vpnConnection created for socket protection', this.logTarget)
     }
-    await this.vpnConnection.protectProcessNet()
-    Logger.info('protectProcessNet completed before kernel start', this.logTarget)
+    await this.socketProtectionService.start()
   }
 
   handleKernelTunRequest(payload: TunRequestPayload, trigger: string): void {
@@ -160,6 +162,10 @@ export class VpnExtensionTunService {
   }
 
   async destroy(): Promise<void> {
+    const existingDestroy = this.destroyPromise
+    if (existingDestroy) {
+      return await existingDestroy
+    }
     this.destroying = true
     this.generation++
     this.tunSetupScheduler.clear()
@@ -177,12 +183,30 @@ export class VpnExtensionTunService {
       clearTimeout(this.retryTimer)
       this.retryTimer = -1
     }
+    const destroyPromise = this.finishDestroy()
+    this.destroyPromise = destroyPromise
+    return destroyPromise.then(() => {
+      if (this.destroyPromise === destroyPromise) {
+        this.destroyPromise = undefined
+      }
+    }, (error: Error) => {
+      if (this.destroyPromise === destroyPromise) {
+        this.destroyPromise = undefined
+      }
+      throw error
+    })
+  }
+
+  private async finishDestroy(): Promise<void> {
     await this.waitForSetupCompletion()
+    await this.socketProtectionService.stop()
     const vpnConnection = this.vpnConnection
     this.vpnConnection = undefined
     if (vpnConnection) {
       try {
-        await vpnConnection.destroy()
+        await this.socketProtectionService.runConnectionOperation(async () => {
+          await vpnConnection.destroy()
+        })
       } catch (error) {
         const err = error as Error
         Logger.debug(`vpnConnection destroy failed during shutdown: ${err.message}`, this.logTarget)
@@ -248,10 +272,6 @@ export class VpnExtensionTunService {
     this.tunSetupScheduler.schedule(pendingRequest)
   }
 
-  private shouldProtectProcessNet(): boolean {
-    return deviceInfo.sdkApiVersion >= 22 && this.settings.forceGlobal && (this.config?.exit_nodes?.length ?? 0) > 0
-  }
-
   private buildTunSignature(ip: string, mask: number, magicDNS: boolean, needExitNode: boolean, routes: string[]): string {
     return JSON.stringify({
       ip,
@@ -310,20 +330,31 @@ export class VpnExtensionTunService {
 
     Logger.info(`setupTunWithRoutes calling create seq=${this.tunCreateSeq} trigger=${request.trigger}`, this.logTarget)
     try {
-      await vpnConnection.destroy()
-      if (generation !== this.generation) {
-        return
-      }
-      this.currentTunSignature = ''
-      this.currentTunFd = -1
-      this.currentRoutesSignature = ''
-      const fd = await vpnConnection.create(vpnConfig)
-      if (generation !== this.generation) {
-        await vpnConnection.destroy()
+      const fd = await this.socketProtectionService.runConnectionOperation(async () => {
+        if (this.currentTunFd > 0) {
+          await vpnConnection.destroy()
+          this.currentTunSignature = ''
+          this.currentTunFd = -1
+          this.currentRoutesSignature = ''
+        }
+        if (generation !== this.generation) {
+          return -1
+        }
+        return await vpnConnection.create(vpnConfig)
+      })
+      if (fd <= 0 || generation !== this.generation) {
+        if (fd > 0) {
+          await this.socketProtectionService.runConnectionOperation(async () => {
+            await vpnConnection.destroy()
+          })
+        }
         return
       }
       Logger.info(`vpnConnection.create success instance=${this.instanceId} fd=${fd} seq=${this.tunCreateSeq} trigger=${request.trigger}`, this.logTarget)
       if (!this.setTunFd(this.instanceId, fd)) {
+        await this.socketProtectionService.runConnectionOperation(async () => {
+          await vpnConnection.destroy()
+        })
         throw new Error(`setTunFd rejected instance=${this.instanceId}`)
       }
       this.currentTunSignature = request.signature

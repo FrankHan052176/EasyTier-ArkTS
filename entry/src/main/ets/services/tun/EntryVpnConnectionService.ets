@@ -4,6 +4,7 @@ import { vpnExtension } from '@kit.NetworkKit'
 import { normalizeRouteStrings, routeSignature } from '../../infrastructure/bridge/kernel/RouteStore'
 import { Logger } from '../../shared/logging/Logger'
 import { shouldBuildPreferenceVpnRoutes, buildTunVpnConfig } from './TunConfigBuilder'
+import { NativeSocketProtectionService } from './NativeSocketProtectionService'
 
 export interface EntryVpnSetupRequest {
   ip: string
@@ -25,6 +26,7 @@ export interface EntryVpnConnectionServiceOptions {
   requestVpnPerm: (callback: () => void, errorCallback?: (error: BusinessError) => void) => void
   activateMissionContinue: () => void
   setTunFd: (instanceId: string, fd: number) => boolean
+  onProtectionFatal: (error: Error) => void
 }
 
 /**
@@ -65,6 +67,7 @@ export class EntryVpnConnectionService {
   private setupIdleWaiters: Array<() => void> = []
   private destroying: boolean = false
   private destroyPromise: Promise<void> | undefined = undefined
+  private readonly socketProtectionService: NativeSocketProtectionService
 
   constructor(options: EntryVpnConnectionServiceOptions) {
     this.context = options.context
@@ -72,25 +75,24 @@ export class EntryVpnConnectionService {
     this.requestVpnPerm = options.requestVpnPerm
     this.activateMissionContinue = options.activateMissionContinue
     this.setTunFd = options.setTunFd
+    this.socketProtectionService = new NativeSocketProtectionService(() => this.vpnConnection, this.logTarget,
+      options.onProtectionFatal)
   }
 
-  prepareVpn(shouldProtect: boolean = false, callback: () => void = () => {}): void {
-    this.prepareVpnAsync(shouldProtect).then(callback).catch((error: Error) => {
+  prepareVpn(callback: () => void = () => {}): void {
+    this.prepareVpnAsync().then(callback).catch((error: Error) => {
       Logger.error(`prepare vpn failed: ${error.message}`, this.logTarget)
     })
   }
 
-  async prepareVpnAsync(shouldProtect: boolean = false): Promise<void> {
+  async prepareVpnAsync(): Promise<void> {
     const destroying = this.destroyPromise
     if (destroying) {
       await destroying
     }
     if (this.vpnConnection !== undefined) {
       Logger.info('prepare_vpn reuse existing vpnConnection', this.logTarget)
-      if (shouldProtect) {
-        await this.vpnConnection.protectProcessNet()
-        Logger.info('protectProcessNet completed before kernel start', this.logTarget)
-      }
+      await this.socketProtectionService.start()
       return
     }
     Logger.info('prepare vpn', this.logTarget)
@@ -99,10 +101,7 @@ export class EntryVpnConnectionService {
         try {
           this.vpnConnection = vpnExtension.createVpnConnection(this.context as Object as vpnExtension.VpnExtensionContext)
           Logger.info('vpnConnection created in prepare_vpn', this.logTarget)
-          if (shouldProtect) {
-            await this.vpnConnection?.protectProcessNet()
-            Logger.info('protectProcessNet completed before kernel start', this.logTarget)
-          }
+          await this.socketProtectionService.start()
           resolve()
         } catch (error) {
           reject(error)
@@ -231,24 +230,32 @@ export class EntryVpnConnectionService {
       throw new Error('vpnConnection not found')
     }
     const generation = this.generation
-    if (this.currentTunFd > 0) {
-      await vpnConnection.destroy()
-      this.currentTunFd = -1
-      this.currentTunSignature = ''
-      this.currentRoutesSignature = ''
-      if (generation !== this.generation || this.destroying) {
-        return false
+    const fd = await this.socketProtectionService.runConnectionOperation(async () => {
+      if (this.currentTunFd > 0) {
+        await vpnConnection.destroy()
+        this.currentTunFd = -1
+        this.currentTunSignature = ''
+        this.currentRoutesSignature = ''
       }
-    }
-    Logger.debug('VPN配置:' + JSON.stringify(vpnConfig), this.logTarget)
-    const fd = await vpnConnection.create(vpnConfig)
-    if (generation !== this.generation || this.destroying) {
-      await vpnConnection.destroy()
+      if (generation !== this.generation || this.destroying) {
+        return -1
+      }
+      Logger.debug('VPN配置:' + JSON.stringify(vpnConfig), this.logTarget)
+      return await vpnConnection.create(vpnConfig)
+    })
+    if (fd <= 0 || generation !== this.generation || this.destroying) {
+      if (fd > 0) {
+        await this.socketProtectionService.runConnectionOperation(async () => {
+          await vpnConnection.destroy()
+        })
+      }
       return false
     }
     Logger.info(`vpnConnection.create success instance=${request.instanceId} fd=${fd}`, this.logTarget)
     if (!this.setTunFd(request.instanceId, fd)) {
-      await vpnConnection.destroy()
+      await this.socketProtectionService.runConnectionOperation(async () => {
+        await vpnConnection.destroy()
+      })
       throw new Error(`setTunFd rejected instance=${request.instanceId}`)
     }
     this.currentTunFd = fd
@@ -337,6 +344,7 @@ export class EntryVpnConnectionService {
 
   private async finishDestroyVpnConnection(): Promise<void> {
     await this.waitForSetupCompletion()
+    await this.socketProtectionService.stop()
     this.cancelPendingSetup()
     this.clearRetryState()
     this.kernelRestartRequested = false
@@ -352,7 +360,9 @@ export class EntryVpnConnectionService {
       return
     }
     try {
-      await vpnConnection.destroy()
+      await this.socketProtectionService.runConnectionOperation(async () => {
+        await vpnConnection.destroy()
+      })
       Logger.info('vpnConnection destroyed', this.logTarget)
     } catch (error) {
       const err = error as BusinessError

@@ -102,6 +102,7 @@ export default class EntryAbility extends UIAbility {
   private favoriteCardActions: FavoriteCardActionService = new FavoriteCardActionService()
   private nearbyHostTimer: number | undefined = undefined
   private nearbyHostCommandQueue: Promise<void> = Promise.resolve()
+  private terminating: boolean = false
   private vpnSetupRequestBuilder: EntryVpnSetupRequestBuilder = new EntryVpnSetupRequestBuilder({
     getRuntimeSettings: () => {
       return {
@@ -164,9 +165,39 @@ export default class EntryAbility extends UIAbility {
   }
 
   private terminateApplication(): void {
+    if (this.terminating) {
+      return
+    }
+    this.terminating = true
     this.statusBarIntegrationService?.close()
-    this.context.terminateSelf().catch((error: BusinessError) => {
-      Logger.error(`terminateSelf failed: ${error.code}, ${error.message}`, this)
+    void this.stopEntryRuntimeForTermination().then(() => {
+      return this.context.terminateSelf()
+    }).catch((error: BusinessError) => {
+      Logger.error(`application termination failed: ${error.code ?? 0}, ${error.message}`, this)
+    })
+  }
+
+  private async stopEntryRuntimeForTermination(): Promise<void> {
+    try {
+      await AppManager.easytier.stopAndWait()
+    } catch (error) {
+      Logger.error(`runtime stop before termination failed: ${(error as Error).message}`, this)
+    }
+    try {
+      await this.entryVpnService?.destroyVpnConnection()
+    } catch (error) {
+      Logger.error(`vpn destroy before termination failed: ${(error as Error).message}`, this)
+    }
+  }
+
+  private handleSocketProtectionFatal(error: Error): void {
+    Logger.error(`socket protection fatal error: ${error.message}`, this)
+    void AppManager.easytier.stopAndWait().catch((stopError: Error) => {
+      Logger.error(`runtime stop after socket protection failure failed: ${stopError.message}`, this)
+    }).then(async () => {
+      await this.entryVpnService?.destroyVpnConnection()
+    }).catch((destroyError: Error) => {
+      Logger.error(`vpn destroy after socket protection failure failed: ${destroyError.message}`, this)
     })
   }
 
@@ -256,11 +287,8 @@ export default class EntryAbility extends UIAbility {
           Logger.error(`status bar terminate subscribe failed: ${err.code}, ${err.message}`, this)
           return
         }
-        this.statusBarIntegrationService?.close()
         setTimeout(() => {
-          this.context.terminateSelf().catch((error: BusinessError) => {
-            Logger.error(`terminateSelf after status bar exit failed: ${error.code}, ${error.message}`, this)
-          })
+          this.terminateApplication()
         }, 200)
       })
     }).catch((err: BusinessError) => {
@@ -284,11 +312,6 @@ export default class EntryAbility extends UIAbility {
     void this.entryBackgroundTaskService?.stopContinuousTask().catch((error: Error) => {
       Logger.error(`stop continuous task failed: ${error.message}`, this)
     })
-  }
-
-  private shouldProtectProcessNet(config: ConfigJson): boolean {
-    return deviceInfo.sdkApiVersion >= 22 && AppManager.uiState.force_global &&
-      (config.exit_nodes?.length ?? 0) > 0
   }
 
   private startNearbyHostCommandDrain(): void {
@@ -369,6 +392,9 @@ export default class EntryAbility extends UIAbility {
         const attached = easytier.setTunFd(instanceId, fd)
         Logger.info(`setTunFd sent instance=${instanceId} attached=${attached}`, this)
         return attached
+      },
+      onProtectionFatal: (error: Error) => {
+        this.handleSocketProtectionFatal(error)
       }
     })
     this.entryKernelSocketService = new EntryKernelSocketService({
@@ -396,7 +422,7 @@ export default class EntryAbility extends UIAbility {
         return false
       }
       if (!config.no_tun) {
-        await vpnService.prepareVpnAsync(this.shouldProtectProcessNet(config))
+        await vpnService.prepareVpnAsync()
       }
       this.entryKernelSocketService?.connect(this.context.filesDir + '/' + KERNEL_SOCKET_NAME)
       const started = request.oneShot ? await startOneShotInstance(request.configJson) :
@@ -583,6 +609,11 @@ export default class EntryAbility extends UIAbility {
 
   onDestroy() {
     Logger.debug("onDestroy", this)
+    const vpnService = this.entryVpnService
+    this.entryVpnService = undefined
+    void vpnService?.destroyVpnConnection().catch((error: Error) => {
+      Logger.error(`vpn destroy during ability shutdown failed: ${error.message}`, this)
+    })
     this.thirdPartyApiService?.destroy()
     this.thirdPartyApiService = undefined
     this.networkWatchdog?.stop()

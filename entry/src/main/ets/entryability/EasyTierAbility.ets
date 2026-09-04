@@ -320,6 +320,9 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       },
       setTunFd: (instanceId: string, fd: number) => {
         return easytier.setTunFd(instanceId, fd)
+      },
+      onProtectionFatal: (error: Error) => {
+        this.handleSocketProtectionFatal(error)
       }
     })
     this.transitionTo('starting')
@@ -449,6 +452,48 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   private beginKernelGeneration(): void {
     this.kernelSocketService.close()
     this.bridgeServer.beginRuntimeGeneration()
+  }
+
+  private handleSocketProtectionFatal(error: Error): void {
+    const failedTunService = this.tunService
+    if (!failedTunService) {
+      return
+    }
+    const fatalError = `socket_protection_failed:${error.message}`
+    const operation = this.commandQueue.catch(() => {}).then(async () => {
+      if (this.tunService !== failedTunService) {
+        return
+      }
+      const failedInstanceId = this.currentInstanceId
+      this.transitionTo('stopping', fatalError)
+      this.kernelSocketService.close()
+      this.bridgeServer.beginRuntimeGeneration()
+      stopRuntimeStatsRecording()
+      let stopError = ''
+      try {
+        if (failedInstanceId.length > 0 && !await stopStoredInstances([failedInstanceId])) {
+          stopError = ':kernel_stop_rejected'
+        }
+      } catch (error) {
+        stopError = `:${(error as Error).message}`
+      }
+      try {
+        await failedTunService.destroy()
+      } finally {
+        if (this.tunService === failedTunService) {
+          this.tunService = undefined
+          this.currentInstanceId = ''
+          this.currentOneShotConfigJson = ''
+          this.currentOneShotRequestId = ''
+          this.bridgeServer.publishContinuationState(false)
+        }
+      }
+      this.transitionTo('error', fatalError + stopError)
+    })
+    this.commandQueue = operation.catch((fatalStopError: Error) => {
+      Logger.error(`socket protection fail-stop failed: ${fatalStopError.message}`, 'EasyTierAbility')
+      this.transitionTo('error', `${fatalError}:${fatalStopError.message}`)
+    })
   }
 
   private transitionTo(state: VpnRuntimeStateName, error?: string): void {
