@@ -16,6 +16,7 @@ import { RuntimeStatsService } from '../../services/runtime/RuntimeStatsService'
 import {
   RUNTIME_MODE_AUDIO_PLAYBACK,
   RUNTIME_MODE_DATA_TRANSFER,
+  RUNTIME_MODE_SUBPROCESS,
   RuntimeModeSelectOption,
   runtimeModeFromSettings,
   runtimeModeOptions,
@@ -186,12 +187,30 @@ function iapEntitlementOverrideText(value: string): string {
 }
 
 function runtimeModeValue(): string {
-  return runtimeModeFromSettings(AppManager.uiState.background_keep_alive_mode) === RUNTIME_MODE_AUDIO_PLAYBACK ?
-    RUNTIME_MODE_AUDIO_PLAYBACK :
-    RUNTIME_MODE_DATA_TRANSFER
+  const mode = runtimeModeFromSettings(AppManager.uiState.ext_mode, AppManager.uiState.background_keep_alive_mode)
+  if (mode === RUNTIME_MODE_SUBPROCESS) {
+    return RUNTIME_MODE_SUBPROCESS
+  }
+  if (mode === RUNTIME_MODE_AUDIO_PLAYBACK) {
+    return RUNTIME_MODE_AUDIO_PLAYBACK
+  }
+  return RUNTIME_MODE_DATA_TRANSFER
+}
+
+function runtimeModeHint(): string {
+  return AppManager.easytier.canChangeRuntimeMode() ? '数据传输、音乐或子进程' : '运行时禁止切换'
 }
 
 function applyRuntimeMode(value: string): void {
+  if (!AppManager.easytier.canChangeRuntimeMode()) {
+    sendToast('运行中禁止切换运行方案', $r("sys.symbol.exclamationmark_circle"), 1)
+    return
+  }
+  if (value === RUNTIME_MODE_SUBPROCESS) {
+    AppManager.uiState.ext_mode = true
+    return
+  }
+  AppManager.uiState.ext_mode = false
   AppManager.uiState.background_keep_alive_mode = value === RUNTIME_MODE_AUDIO_PLAYBACK ?
     RUNTIME_MODE_AUDIO_PLAYBACK :
     RUNTIME_MODE_DATA_TRANSFER
@@ -940,9 +959,9 @@ struct SettingHomeSheet {
           title: "运行采样",
           value: AppManager.runtimeStats.snapshotFreshnessText
         })
-        settingVerticalSelectorRow($r("sys.symbol.waveform"), "保活方式",
-          AppManager.easytier.runningNetworks.size > 0 ? "运行时禁止切换" : "数据传输或音乐",
-          runtimeModeValue(), AppManager.easytier.runningNetworks.size == 0, (value: string) => {
+        settingVerticalSelectorRow($r("sys.symbol.waveform"), "运行方案",
+          runtimeModeHint(),
+          runtimeModeValue(), AppManager.easytier.canChangeRuntimeMode(), (value: string) => {
             applyRuntimeMode(value)
           })
         settingMenuRow($r("sys.symbol.cloud"), "云空间同步", formatSyncState(AppManager.cloudSync.syncState), () => {

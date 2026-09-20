@@ -21,6 +21,6 @@ export function supportsStatusBarTray(): boolean {
   return statusBarTraySupported
 }
 
-export function shouldUseEntryBackgroundKeepAlive(): boolean {
-  return true
+export function shouldUseEntryBackgroundKeepAlive(extMode: boolean): boolean {
+  return !extMode
 }

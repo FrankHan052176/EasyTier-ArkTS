@@ -43,7 +43,11 @@ function trimForwardLogs(logs: string[]): string[] {
 export class VpnBridgeServer {
   private readonly logTarget: Object | string
   private server: socket.LocalSocketServer | undefined
+  private socketPath: string = ''
+  private listenPromise: Promise<void> | undefined
+  private closing: boolean = false
   private connections: Map<number, socket.LocalSocketConnection> = new Map()
+  private closingConnections: Promise<void>[] = []
   private continuationActive: boolean = false
   private latestTopologyRaw: string = ''
   private latestTrafficRaw: string = ''
@@ -67,6 +71,8 @@ export class VpnBridgeServer {
   start(socketFilesDir: string, socketName: string): void {
     this.server = socket.constructLocalSocketServerInstance()
     const sandboxPath = `${socketFilesDir}/${socketName}`
+    this.socketPath = sandboxPath
+    this.closing = false
     try {
       fileIo.unlinkSync(sandboxPath)
     } catch (_) {
@@ -75,13 +81,20 @@ export class VpnBridgeServer {
     const listenAddr: socket.LocalAddress = {
       address: sandboxPath
     }
-    this.server.listen(listenAddr).then(() => {
+    this.listenPromise = this.server.listen(listenAddr).then(() => {
       Logger.debug(`VpnServer listening on ${sandboxPath}`, this.logTarget)
     }).catch((err: object) => {
       Logger.error(`VpnServer listen error: ${JSON.stringify(err)}`, this.logTarget)
     })
 
     this.server.on('connect', (connection: socket.LocalSocketConnection) => {
+      if (this.closing) {
+        const closing = connection.close()
+        this.closingConnections.push(closing)
+        // Observe an early rejection now, and propagate it from the shutdown barrier below.
+        void closing.catch(() => {})
+        return
+      }
       let requestBuffer = ''
       Logger.debug('UI process connected to VpnServer', this.logTarget)
       this.connections.set(connection.clientId, connection)
@@ -117,7 +130,6 @@ export class VpnBridgeServer {
       })
       connection.on('error', (err: Object) => {
         Logger.error(`Connection error: ${JSON.stringify(err)}`, this.logTarget)
-        this.dropConnection(connection)
       })
       connection.on('close', () => {
         this.dropConnection(connection)
@@ -125,14 +137,31 @@ export class VpnBridgeServer {
     })
   }
 
-  close(): void {
-    try {
-      this.server?.close()
-    } catch (error) {
-      Logger.error(`VpnServer close error: ${JSON.stringify(error)}`, this.logTarget)
+  async close(): Promise<void> {
+    this.closing = true
+    await this.listenPromise
+    await this.server?.close()
+    const connections = Array.from(this.connections.values())
+    for (const connection of connections) {
+      try {
+        await connection.close()
+      } catch (error) {
+        if (this.connections.has(connection.clientId)) {
+          throw error instanceof Error ? error : new Error(JSON.stringify(error))
+        }
+      }
+    }
+    while (this.closingConnections.length > 0) {
+      const closing = this.closingConnections.splice(0, this.closingConnections.length)
+      await Promise.all(closing)
     }
     this.server = undefined
     this.connections.clear()
+    if (this.socketPath.length > 0 && fileIo.accessSync(this.socketPath)) {
+      fileIo.unlinkSync(this.socketPath)
+    }
+    this.socketPath = ''
+    this.listenPromise = undefined
     this.latestTopologyRaw = ''
     this.latestTrafficRaw = ''
     this.latestCommandResultRaw = ''
@@ -225,7 +254,7 @@ export class VpnBridgeServer {
   private sendRawBridgeMessage(connection: socket.LocalSocketConnection, rawMessage: string): void {
     const uint8Array = buffer.from(rawMessage).buffer
     connection.send({ data: uint8Array }).catch((err: BusinessError) => {
-      this.dropConnection(connection)
+      // Send failure does not close the socket; only the close event releases ownership.
       if (err.code === 2301032) {
         Logger.debug(`VpnServer peer disconnected: ${JSON.stringify(err)}`, this.logTarget)
       } else {

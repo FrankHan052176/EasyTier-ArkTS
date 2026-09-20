@@ -20,6 +20,9 @@ export interface VpnExtensionRuntimeSettings {
 
 export class VpnExtensionSettingsRepository {
   static load(context: Context): VpnExtensionRuntimeSettings {
+    // Each process caches Preferences independently; the UI owns writes and flushes them before start.
+    preferences.removePreferencesFromCacheSync(context, SETTINGS_PREFERENCES_NAME)
+    preferences.removePreferencesFromCacheSync(context, APP_FILTER_PREFERENCES_NAME)
     const settings = preferences.getPreferencesSync(context, { name: SETTINGS_PREFERENCES_NAME })
     return {
       whiteList: settings.getSync('white_list', false).valueOf() as boolean,

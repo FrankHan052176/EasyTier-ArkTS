@@ -2,6 +2,7 @@ import { Want } from '@kit.AbilityKit'
 import { JSON } from '@kit.ArkTS'
 import { VpnExtensionAbility } from '@kit.NetworkKit'
 import { hilog } from '@kit.PerformanceAnalysisKit'
+import { fileIo } from '@kit.CoreFileKit'
 import easytier from 'easytier-ohrs'
 import { ConfigJson } from '../config/schema/SchemaConfig'
 import {
@@ -15,6 +16,7 @@ import { VpnBridgeServer } from '../infrastructure/bridge/kernel/VpnBridgeServer
 import { Logger } from '../shared/logging/Logger'
 import { VPN_EXTENSION_SOCKET_NAME } from '../services/runtime/AbilityRuntimePolicy'
 import {
+  NetworkChangeWatchdog,
   NetworkRestartResult,
   softRestartOneShotInstance,
   softRestartStoredInstances,
@@ -22,6 +24,7 @@ import {
   startStoredInstances,
   stopStoredInstances
 } from '../services/runtime/NetworkChangeWatchdog'
+import { RuntimeHostLease } from '../services/runtime/RuntimeHostLease'
 import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../services/runtime/RuntimeStatsService'
 import { VpnExtensionKernelSocketService } from '../services/runtime/VpnExtensionKernelSocketService'
 import { VpnExtensionSettingsRepository } from '../services/runtime/VpnExtensionSettingsRepository'
@@ -30,6 +33,24 @@ import { VpnExtensionTunService, VpnExtensionTunSettings } from '../services/tun
 const VPN_LIFECYCLE_DOMAIN = 0x9527
 const VPN_LIFECYCLE_TAG = 'ET_VPN_EXT'
 const MAX_PROCESSED_COMMANDS = 64
+
+/**
+ * Core（nearby_management.rs MANAGEMENT_SOCKET_FILE_NAME）在 config_root_dir 下
+ * 绑定的管理宿主 socket。stop 只 take/drop，unlink 在 Drop 中异步完成，
+ * 因此只有观察到路径消失才能认定本进程已真正释放宿主。
+ *
+ * 路径本身不能证明持有者是否还活着（崩溃会残留路径），所以"谁是宿主"由
+ * RuntimeHostLease 的进程间文件锁证明：锁在手里才能调 native start。
+ */
+const NEARBY_MANAGEMENT_SOCKET_NAME = 'easytier-nearby-management.sock'
+const NEARBY_HOST_RELEASE_POLL_MS = 25
+const NEARBY_HOST_RELEASE_TIMEOUT_MS = 5000
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds)
+  })
+}
 
 interface NearbyHostCommandData {
   requestId: string
@@ -78,6 +99,23 @@ export default class EasyTierAbility extends VpnExtensionAbility {
   private commandQueue: Promise<void> = Promise.resolve()
   private processedCommandResults: Map<string, VpnRuntimeCommandResultData> = new Map()
   private processedCommandOrder: string[] = []
+  /**
+   * 本进程是否持有 Core nearby 管理宿主。shutdown 成功后置 false，
+   * finishShutdown 只在仍持有时释放，避免二次 unlink 新的宿主 socket。
+   */
+  private nearbyHostOwned: boolean = false
+  /**
+   * 停过宿主但尚未观察到 socket 路径消失；超时后保持 true，
+   * 后续重新持有宿主前仍必须继续等待，不允许绕过。
+   */
+  private nearbyHostReleasePending: boolean = false
+  /**
+   * nearby 宿主的进程间所有权凭证。configRootDir 确定后建立，覆盖整个生命周期：
+   * native 宿主被证实释放（socket 路径消失）之前绝不解锁。
+   */
+  private nearbyHostLease: RuntimeHostLease | undefined = undefined
+  private networkWatchdog: NetworkChangeWatchdog | undefined = undefined
+  private watchdogRestartSequence: number = 0
 
   onCreate(want: Want): void {
     vpnLifecycleInfo(`onCreate enter parameters=${want.parameters !== undefined}`)
@@ -88,6 +126,12 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     this.configRootDir = parameters?.['config_root_dir'] as string ?? this.context.filesDir
     this.socketFilesDir = parameters?.['socket_files_dir'] as string ?? this.context.filesDir
     const socketName = parameters?.['socket'] as string ?? VPN_EXTENSION_SOCKET_NAME
+    // The lease covers the bridge as well as Core, including initialization failures.
+    this.nearbyHostLease = new RuntimeHostLease(this.configRootDir)
+    if (!this.tryAcquireNearbyHostLease()) {
+      this.transitionTo('error', 'runtime_host_lease_unavailable')
+      return
+    }
 
     try {
       this.bridgeServer.start(this.socketFilesDir, socketName)
@@ -102,6 +146,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     this.processInitialized = this.initializeProcess()
     if (this.processInitialized) {
       this.transitionTo('idle')
+      this.startNetworkWatchdog()
     } else {
       this.transitionTo('error', 'extension_process_initialization_failed')
     }
@@ -124,6 +169,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
         vpnLifecycleError('nearby management host failed to start')
         return false
       }
+      this.nearbyHostOwned = true
       easytier.initPanicHook()
       if (settings.coreLog) {
         easytier.initTracingSubscriber()
@@ -138,14 +184,85 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     }
   }
 
+  private tryAcquireNearbyHostLease(): boolean {
+    const lease = this.nearbyHostLease
+    if (lease === undefined) {
+      return false
+    }
+    return lease.tryAcquire()
+  }
+
+
   private startLogForwarding(): void {
     if (this.timer !== undefined) {
       return
     }
     this.timer = setInterval(() => {
       this.bridgeServer.forwardLogs(easytier.drainLogLines())
-      this.drainNearbyHostCommands()
+      if (this.nearbyHostOwned) {
+        this.drainNearbyHostCommands()
+      }
     }, 500)
+  }
+
+  /**
+   * 内核宿主就在本进程，切网软重启必须在这里完成：网络变化看护器随扩展
+   * 生命周期存在，不依赖 UI 进程；重启事务排入既有 commandQueue，
+   * 与 IPC/近场命令严格串行。
+   */
+  private startNetworkWatchdog(): void {
+    if (this.networkWatchdog) {
+      return
+    }
+    this.networkWatchdog = new NetworkChangeWatchdog({
+      logTarget: 'EasyTierAbility',
+      getRunningIds: () => {
+        if (this.currentInstanceId.length === 0 || this.runtimeState !== 'running') {
+          return []
+        }
+        return [this.currentInstanceId]
+      },
+      restartInstances: (ids: string[]): Promise<NetworkRestartResult> => {
+        return this.enqueueWatchdogRestart(ids)
+      }
+    })
+    this.networkWatchdog.start()
+  }
+
+  private enqueueWatchdogRestart(ids: string[]): Promise<NetworkRestartResult> {
+    const instanceId = this.currentInstanceId
+    if (this.destroyed || instanceId.length === 0 || ids.indexOf(instanceId) < 0) {
+      return Promise.resolve(this.buildWatchdogRestartResult(false, false, true))
+    }
+    const command: VpnRuntimeCommandData = {
+      requestId: `net-watchdog-${++this.watchdogRestartSequence}`,
+      generation: ++this.runtimeStatusGeneration,
+      command: 'restart',
+      instanceId
+    }
+    const operation = this.commandQueue.catch(() => {}).then(async () => {
+      if (this.destroyed || this.currentInstanceId !== instanceId) {
+        return this.buildWatchdogRestartResult(false, false, true)
+      }
+      return this.toWatchdogRestartResult(await this.processRuntimeCommand(command))
+    })
+    this.commandQueue = operation.then(() => {}, (error: Error) => {
+      Logger.error(`network watchdog restart failed: ${error.message}`, 'EasyTierAbility')
+    })
+    return operation
+  }
+
+  private buildWatchdogRestartResult(stopped: boolean, started: boolean, cancelled: boolean): NetworkRestartResult {
+    return {
+      stopped,
+      started,
+      cancelled
+    }
+  }
+
+  private toWatchdogRestartResult(result: VpnRuntimeCommandResultData): NetworkRestartResult {
+    return this.buildWatchdogRestartResult(result.stopped === true, result.started === true,
+      !result.success && result.started !== true)
   }
 
   private drainNearbyHostCommands(): void {
@@ -228,6 +345,13 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       return
     }
     const operation = this.commandQueue.catch(() => {}).then(async () => {
+      const cachedResult = this.processedCommandResults.get(command.requestId)
+      if (cachedResult !== undefined) {
+        // IPC 重连会重发同一 requestId：首个命令还在 await 时重复入队，
+        // 这里在真正执行前再查一次缓存并原样重放，绝不重复执行。
+        this.publishCommandResult(cachedResult)
+        return
+      }
       if (this.destroyed) {
         this.publishCommandResult(this.buildCommandResult(command, false, 'vpn_extension_destroyed'))
         return
@@ -248,7 +372,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     if (command.command === 'start' || command.command === 'restart') {
       return command.instanceId.length > 0
     }
-    return command.command === 'stop' || command.command === 'status'
+    return command.command === 'stop' || command.command === 'status' || command.command === 'shutdown'
   }
 
   private async processRuntimeCommand(command: VpnRuntimeCommandData): Promise<VpnRuntimeCommandResultData> {
@@ -259,12 +383,133 @@ export default class EasyTierAbility extends VpnExtensionAbility {
         return await this.restartRuntime(command)
       case 'stop':
         return await this.stopRuntime(command)
+      case 'shutdown':
+        return await this.shutdownRuntime(command)
       default:
         return this.buildCommandResult(command, true)
     }
   }
 
+  /**
+   * 显式停止（用户停止运行方案）：先停掉实际运行实例，沿用 stop 的
+   * “拒绝即保留运行态”语义；成功后立即交还 nearby 宿主并回 ACK。
+   * 桥在此处保持开启，确保 ACK 能送达发起方。
+   */
+  private async shutdownRuntime(command: VpnRuntimeCommandData): Promise<VpnRuntimeCommandResultData> {
+    const stopCommand: VpnRuntimeCommandData = {
+      requestId: command.requestId,
+      generation: command.generation,
+      command: 'stop',
+      instanceId: this.currentInstanceId
+    }
+    const stopResult = await this.stopRuntime(stopCommand)
+    if (!stopResult.success) {
+      return this.buildCommandResult(command, false, stopResult.error, stopResult.stopped, stopResult.started)
+    }
+    vpnLifecycleInfo('runtime shutdown acknowledged; releasing nearby management host')
+    this.stopOwnedNearbyHost()
+    if (!await this.awaitNearbyHostRelease()) {
+      return this.buildCommandResult(command, false, 'nearby_host_release_unconfirmed', true, false)
+    }
+    return this.buildCommandResult(command, true, undefined, true, false)
+  }
+
+  /**
+   * shutdown 之后宿主交给下一任持有者（通常是重新接管的主进程）；
+   * 只有本进程真正持有过才释放，避免二次 unlink 新宿主的 socket。
+   *
+   * 宿主锁不在这里释放：要等 socket 路径真正消失（finishShutdown）才 release，
+   * 否则主进程的 lease 探测会把仍在清理宿主的扩展当成已退出。
+   */
+  private stopOwnedNearbyHost(): void {
+    if (!this.nearbyHostOwned) {
+      return
+    }
+    this.nearbyHostOwned = false
+    this.nearbyHostReleasePending = true
+    if (!easytier.stopNearbyManagementHost()) {
+      vpnLifecycleError('nearby management host stop was rejected')
+    }
+  }
+
+  private nearbyManagementSocketPath(): string {
+    return this.configRootDir + '/' + NEARBY_MANAGEMENT_SOCKET_NAME
+  }
+
+  private isNearbyManagementSocketPresent(): boolean {
+    try {
+      return fileIo.accessSync(this.nearbyManagementSocketPath())
+    } catch (error) {
+      // 探针失败的保守结论是“仍在”：宁可等待超时，也不误判为已释放。
+      vpnLifecycleError(`nearby management socket probe failed: ${JSON.stringify(error)}`)
+      return true
+    }
+  }
+
+  /**
+   * 有界等待本进程停掉的宿主真正释放（Core Drop 才 unlink）。
+   * 只有观察到路径消失才清 releasePending，超时保持 pending。
+   */
+  private async awaitNearbyHostRelease(): Promise<boolean> {
+    if (!this.nearbyHostReleasePending) {
+      return true
+    }
+    const socketPath = this.nearbyManagementSocketPath()
+    const deadline = Date.now() + NEARBY_HOST_RELEASE_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      if (!this.isNearbyManagementSocketPresent()) {
+        this.nearbyHostReleasePending = false
+        vpnLifecycleInfo('nearby management host released for extension handover')
+        return true
+      }
+      await delay(NEARBY_HOST_RELEASE_POLL_MS)
+    }
+    vpnLifecycleError(`nearby management socket still present after release timeout: ${socketPath}`)
+    return false
+  }
+
+  /**
+   * runtime start 前确保持有宿主：先幂等地重拿自己的 lease（别的进程持有就拒绝，
+   * 绝不启动第二个宿主），再等自家上一任宿主的 socket 真正消失，最后才 native start。
+   * 残留 socket 路径本身不是拒绝理由——锁已经证明没有别的活宿主，native 会清理它。
+   */
+  private async ensureNearbyHostOwned(): Promise<void> {
+    if (this.nearbyHostOwned) {
+      return
+    }
+    if (!this.tryAcquireNearbyHostLease()) {
+      throw new Error('nearby_host_lease_unavailable')
+    }
+    if (!await this.awaitNearbyHostRelease()) {
+      throw new Error('nearby_host_release_unconfirmed')
+    }
+    if (easytier.startNearbyManagementHost()) {
+      this.nearbyHostOwned = true
+      vpnLifecycleInfo('nearby management host reclaimed for extension runtime')
+      return
+    }
+    throw new Error('nearby_host_start_failed')
+  }
+
   private async startRuntime(command: VpnRuntimeCommandData): Promise<VpnRuntimeCommandResultData> {
+    const oneShotConfigJson = command.configJson ?? ''
+    if (oneShotConfigJson.length > 0) {
+      // 带 configJson 的 start 是不落库的一次性实例：只按命令载荷运行，
+      // 并保留配置以便切网软重启时按同一份配置拉起。
+      let oneShotConfig: ConfigJson
+      try {
+        oneShotConfig = JSON.parse(oneShotConfigJson) as ConfigJson
+      } catch (_) {
+        return this.buildCommandResult(command, false, 'one_shot_config_invalid')
+      }
+      if (oneShotConfig.instance_id !== command.instanceId) {
+        return this.buildCommandResult(command, false, 'one_shot_config_instance_mismatch')
+      }
+      const normalizedConfig = JSON.stringify(oneShotConfig)
+      return await this.startRuntimeWithConfig(command, oneShotConfig, async () => {
+        return await startOneShotInstance(normalizedConfig)
+      }, normalizedConfig)
+    }
     const rawConfig = easytier.getConfig(command.instanceId)
     if (!rawConfig) {
       return this.buildCommandResult(command, false, 'stored_config_not_found')
@@ -333,6 +578,7 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       if (this.destroyed || lifecycleGeneration !== this.lifecycleGeneration) {
         throw new Error('runtime_start_cancelled')
       }
+      await this.ensureNearbyHostOwned()
       const started = await startKernel()
       if (!started || this.destroyed || lifecycleGeneration !== this.lifecycleGeneration) {
         if (started) {
@@ -509,11 +755,15 @@ export default class EasyTierAbility extends VpnExtensionAbility {
 
   private buildCommandResult(command: VpnRuntimeCommandData, success: boolean, error?: string,
     stopped?: boolean, started?: boolean): VpnRuntimeCommandResultData {
+    // status 与 shutdown 必须回报本进程实际处理的实例，而不是命令携带的旧值。
+    const reportCurrentInstance = command.command === 'status' || command.command === 'shutdown'
     return {
       requestId: command.requestId,
       generation: command.generation,
+      // 结果产生时的本进程状态代次：调用方用它区分"重放/迟到的旧 ACK"与重连后的新状态。
+      statusGeneration: this.runtimeStatusGeneration,
       command: command.command,
-      instanceId: command.instanceId.length > 0 ? command.instanceId : this.currentInstanceId,
+      instanceId: !reportCurrentInstance && command.instanceId.length > 0 ? command.instanceId : this.currentInstanceId,
       success,
       state: this.runtimeState,
       stopped,
@@ -540,10 +790,14 @@ export default class EasyTierAbility extends VpnExtensionAbility {
     vpnLifecycleInfo('onDestroy enter')
     this.destroyed = true
     this.lifecycleGeneration++
+    this.networkWatchdog?.stop()
+    this.networkWatchdog = undefined
     if (this.timer !== undefined) {
       clearInterval(this.timer)
       this.timer = undefined
     }
+    // 宿主锁的释放必须异步等到 finishShutdown 里 native 宿主真正释放、
+    // 桥也关闭之后：既不能在 stop 之后立刻解锁，也不能把锁永远挂在已停的宿主上。
     const shutdown = this.commandQueue.catch(() => {}).then(async () => {
       await this.finishShutdown()
     })
@@ -570,8 +824,15 @@ export default class EasyTierAbility extends VpnExtensionAbility {
       this.currentOneShotConfigJson = ''
       this.currentOneShotRequestId = ''
       this.bridgeServer.publishContinuationState(false)
-      this.bridgeServer.close()
-      easytier.stopNearbyManagementHost()
+      this.stopOwnedNearbyHost()
+      // 先等 nearby 宿主真正释放，再关闭桥（桥 close 之后不再有可回报的通道）。
+      if (!await this.awaitNearbyHostRelease()) {
+        throw new Error('nearby_host_release_unconfirmed')
+      }
+      await this.bridgeServer.close()
+      // 宿主已释放、桥已关闭：本进程不再是 nearby 宿主，交还宿主锁，让下一任
+      // （重新接管的主进程）可以立即启动 native 宿主；解锁失败/未证实则保持持有。
+      this.nearbyHostLease?.release()
     }
   }
 }

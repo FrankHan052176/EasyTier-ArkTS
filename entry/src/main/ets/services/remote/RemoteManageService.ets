@@ -7,9 +7,10 @@ import { AppManager } from '../../AppManager'
 import { ConfigFieldValue, ConfigJson } from '../../config/schema/SchemaConfig'
 import { RuntimeInstanceState } from '../../types/runtime/RuntimeTypes'
 import {
-  BACKGROUND_KEEP_ALIVE_TASK_KEEPING,
-  normalizeBackgroundKeepAliveMode
-} from '../../types/runtime/BackgroundKeepAliveTypes'
+  normalizeRuntimeMode,
+  RUNTIME_MODE_SUBPROCESS,
+  RUNTIME_MODE_TASK_KEEPING
+} from '../../types/runtime/RuntimeModeTypes'
 import { EventHelper } from '../../util/EventHelper'
 import { Logger } from '../../shared/logging/Logger'
 import {
@@ -51,6 +52,9 @@ const PRIVATE_PACKET_KIND_SETTINGS = 2
 const PRIVATE_REQUEST_TIMEOUT_MS = 5000
 const HOST_PROXY_RETRY_COUNT = 20
 const HOST_PROXY_RETRY_INTERVAL_MS = 100
+// 宿主交接（运行方案切换）的重做上限：只在交接期间运行方案再次变化时才重做，
+// 不做定时轮询式的重复 prepare。
+const HOST_HANDOVER_MAX_ATTEMPTS = 3
 const MAX_BUFFERED_HOST_RPC_PACKETS = 64
 const MAX_REMOTE_MANAGE_HOST_SESSIONS = 8
 const MAX_PENDING_PRIVATE_REQUESTS = 32
@@ -81,6 +85,12 @@ interface RemoteSessionRuntime {
   closed: boolean
   coreReady: boolean
   corePreparing: boolean
+  // native HostProxy 绑定时的运行方案与宿主世代。任一与当前状态不一致，说明绑定
+  // 可能指向已被交接掉的旧宿主，下一次 Core RPC 之前必须重新交接。
+  hostBindingMode: boolean
+  hostGeneration: number
+  // 同一次绑定内是否已因原生拒绝投递而重绕过一次，避免无界重绑。
+  hostPushRerouted: boolean
   pendingCorePackets: Uint8Array[]
   appReady: Promise<void>
   privatePacketQueue: Promise<void>
@@ -179,6 +189,11 @@ class RemoteManageServiceClass {
   private clientConnectGeneration: number = 0
   private clientRuntime: RemoteSessionRuntime | undefined = undefined
   private hostRuntimes: Map<number, RemoteSessionRuntime> = new Map()
+  /**
+   * 宿主世代：原生 nearby 管理宿主被清空（宿主交接、stopRuntime）时递增，使所有
+   * hostRuntimes 的旧 HostProxy 绑定失效，由各自后续 Core RPC 重新绑定。
+   */
+  private hostGeneration: number = 0
   private lastSummary: RemoteSummary | undefined = undefined
   private fieldSaveQueues: Map<string, Promise<void>> = new Map()
   private pendingPrivateRequests: Map<string, RemotePrivatePendingRequest> = new Map()
@@ -381,7 +396,7 @@ class RemoteManageServiceClass {
     }
     this.hostRuntimes.set(sessionId, runtime)
     this.registerSessionEvents(runtime)
-    void this.prepareHostCoreRuntime(context, runtime)
+    void this.prepareHostCoreRuntime(runtime)
     abilityConnectionManager.acceptConnect(sessionId, token).then(() => {
       if (runtime.closed) {
         return
@@ -698,6 +713,9 @@ class RemoteManageServiceClass {
     runtime.closed = false
     runtime.coreReady = role === 'client'
     runtime.corePreparing = false
+    runtime.hostBindingMode = false
+    runtime.hostGeneration = -1
+    runtime.hostPushRerouted = false
     runtime.pendingCorePackets = []
     runtime.appReady = appReady
     runtime.privatePacketQueue = Promise.resolve()
@@ -763,53 +781,160 @@ class RemoteManageServiceClass {
         this.failRuntime(runtime, 'rejected malformed packet')
         return
       }
-      if (runtime.role === 'host' && !runtime.coreReady) {
-        if (runtime.pendingCorePackets.length >= MAX_BUFFERED_HOST_RPC_PACKETS) {
-          Logger.error(`[RemoteManageHost] Core packet buffer is full session=${runtime.sessionId}`,
-            'RemoteManageService')
-          return
-        }
-        const buffered = new Uint8Array(packet.byteLength)
-        buffered.set(packet)
-        runtime.pendingCorePackets.push(buffered)
-        const context = AppManager.content.context
-        if (context) {
-          void this.prepareHostCoreRuntime(context, runtime)
-        }
+      if (runtime.role === 'host') {
+        this.handleHostCorePacket(runtime, packet)
         return
       }
-      this.pushCorePacket(runtime, packet)
+      if (!this.pushCorePacket(runtime, packet)) {
+        this.failRuntime(runtime, 'Core rejected packet')
+      }
     }
     return runtime
   }
 
-  private async prepareHostCoreRuntime(context: Context, runtime: RemoteSessionRuntime): Promise<void> {
-    if (runtime.role !== 'host' || runtime.closed || runtime.coreReady || runtime.corePreparing) {
+  /**
+   * 让本会话的 native HostProxy 绑定到当前运行方案真正持有的宿主。
+   * 交接顺序固定：隔离旧 HostProxy → AppManager.easytier.prepareRuntimeHost()
+   * 完成宿主交接 → 重新 openNearbyManagementSession(sessionKey, true) →
+   * 按原顺序重投缓存包。prepare 或打开失败都走既有 failRuntime，不假装成功。
+   */
+  private async prepareHostCoreRuntime(runtime: RemoteSessionRuntime): Promise<void> {
+    if (runtime.role !== 'host' || runtime.closed || runtime.corePreparing) {
+      return
+    }
+    if (runtime.coreReady && !this.isHostBindingStale(runtime)) {
       return
     }
     runtime.corePreparing = true
     try {
-      if (!easytier.initConfigStore(context.filesDir) || !easytier.startNearbyManagementHost() || runtime.closed) {
+      await this.rebindHostCoreSession(runtime)
+    } catch (error) {
+      const reason = safeErrorText(error as Object)
+      Logger.error(`[RemoteManageHost] prepare Core host failed session=${runtime.sessionId}: ${reason}`,
+        'RemoteManageService')
+      runtime.corePreparing = false
+      this.failRuntime(runtime, `Core 管理宿主不可用: ${reason}`)
+      return
+    }
+    // 先释放 corePreparing：重投过程中绑定若再次失效，新交接必须能启动。
+    runtime.corePreparing = false
+    this.flushBufferedCorePackets(runtime)
+    await this.flushOutboundPackets(runtime)
+  }
+
+  private async rebindHostCoreSession(runtime: RemoteSessionRuntime): Promise<void> {
+    for (let attempt = 0; attempt < HOST_HANDOVER_MAX_ATTEMPTS && !runtime.closed; attempt++) {
+      // 宿主归属由运行方案决定：子进程模式交给扩展进程，主模式才由 UI 持有。
+      // 先摘掉本地 HostProxy，保证缓存包不会落进旧宿主的 socket。
+      this.isolateHostCoreSession(runtime)
+      const generation = this.hostGeneration
+      const modeBefore = AppManager.uiState.ext_mode
+      if (!await AppManager.easytier.prepareRuntimeHost() || runtime.closed) {
         throw new Error('主进程 Core 管理宿主未就绪')
       }
-      for (let retry = 0; retry < HOST_PROXY_RETRY_COUNT && !runtime.closed; retry++) {
-        if (easytier.openNearbyManagementSession(runtime.sessionKey, true)) {
-          runtime.coreReady = true
-          this.flushBufferedCorePackets(runtime)
-          await this.flushOutboundPackets(runtime)
-          return
-        }
-        await delay(HOST_PROXY_RETRY_INTERVAL_MS)
+      if (this.hostGeneration !== generation || AppManager.uiState.ext_mode !== modeBefore) {
+        // 交接期间运行方案或宿主占有情况又变了：本次归属不可信，按最新状态重做。
+        continue
       }
-      throw new Error('Core 管理宿主连接超时')
-    } catch (error) {
-      Logger.error(`[RemoteManageHost] prepare Core host failed session=${runtime.sessionId}: ` +
-        safeErrorText(error as Object), 'RemoteManageService')
-      this.hostRuntimes.delete(runtime.sessionId)
-      this.cleanupRuntime(runtime, true)
-    } finally {
-      runtime.corePreparing = false
+      if (!await this.openHostCoreSession(runtime)) {
+        throw new Error('Core 管理宿主连接超时')
+      }
+      if (this.hostGeneration !== generation || AppManager.uiState.ext_mode !== modeBefore) {
+        continue
+      }
+      runtime.hostBindingMode = modeBefore
+      runtime.hostGeneration = generation
+      runtime.coreReady = true
+      return
     }
+    throw new Error(runtime.closed ? '跨端会话已关闭' : 'Core 管理宿主交接超时')
+  }
+
+  /** 打开指向当前宿主的 native HostProxy，沿用既有重试参数等待管理 socket 就绪。 */
+  private async openHostCoreSession(runtime: RemoteSessionRuntime): Promise<boolean> {
+    for (let retry = 0; retry < HOST_PROXY_RETRY_COUNT && !runtime.closed; retry++) {
+      if (easytier.openNearbyManagementSession(runtime.sessionKey, true)) {
+        return true
+      }
+      await delay(HOST_PROXY_RETRY_INTERVAL_MS)
+    }
+    return false
+  }
+
+  /** 只摘掉 native HostProxy：distributed 会话保持，关闭的是旧 native session。 */
+  private isolateHostCoreSession(runtime: RemoteSessionRuntime): void {
+    runtime.coreReady = false
+    if (easytier.closeNearbyManagementSession(runtime.sessionKey)) {
+      Logger.info(`[RemoteManageHost] detached Core host proxy session=${runtime.sessionId}`,
+        'RemoteManageService')
+    }
+  }
+
+  /**
+   * 绑定记录的运行方案或宿主世代与当前状态不一致时，不得再向该绑定投递。
+   * lib index.d.ts 只提供 open/closeNearbyManagementSession，没有宿主交接或关闭
+   * 事件，因此只能在每次 Core RPC 前对账，不做轮询式的重复 prepare。
+   */
+  private isHostBindingStale(runtime: RemoteSessionRuntime): boolean {
+    return !runtime.coreReady || runtime.hostBindingMode !== AppManager.uiState.ext_mode ||
+      runtime.hostGeneration !== this.hostGeneration
+  }
+
+  /**
+   * Host RPC 入口：先与当前运行方案对账。绑定失效时只缓存数据包，等宿主交接
+   * 完成后再按原顺序重投，绝不把首个包推给旧宿主。
+   */
+  private handleHostCorePacket(runtime: RemoteSessionRuntime, packet: Uint8Array): void {
+    if (this.isHostBindingStale(runtime)) {
+      this.bufferHostCorePacket(runtime, packet)
+      return
+    }
+    if (this.pushCorePacket(runtime, packet)) {
+      runtime.hostPushRerouted = false
+      return
+    }
+    if (this.markHostPushRerouted(runtime)) {
+      this.bufferHostCorePacket(runtime, packet)
+    }
+  }
+
+  private bufferHostCorePacket(runtime: RemoteSessionRuntime, packet: Uint8Array): void {
+    if (runtime.closed) {
+      return
+    }
+    if (runtime.pendingCorePackets.length >= MAX_BUFFERED_HOST_RPC_PACKETS) {
+      Logger.error(`[RemoteManageHost] Core packet buffer is full session=${runtime.sessionId}`,
+        'RemoteManageService')
+      return
+    }
+    const buffered = new Uint8Array(packet.byteLength)
+    buffered.set(packet)
+    runtime.pendingCorePackets.push(buffered)
+    // 上下文未就绪时先缓存数据包，避免在 UI 初始化前抢占运行宿主。
+    if (AppManager.content.context) {
+      void this.prepareHostCoreRuntime(runtime)
+    }
+  }
+
+  /**
+   * 原生拒绝投递说明本地绑定已不可用（原生 stop 会清空所有 HostProxy）：
+   * 作废所有宿主绑定并要求重新交接。同一次绑定只重绕一次，
+   * 第二次仍被拒绝才判定会话失效。
+   */
+  private markHostPushRerouted(runtime: RemoteSessionRuntime): boolean {
+    if (runtime.hostPushRerouted) {
+      this.failRuntime(runtime, 'Core rejected packet')
+      return false
+    }
+    runtime.hostPushRerouted = true
+    this.invalidateHostBindings('native Core session is gone')
+    return true
+  }
+
+  private invalidateHostBindings(reason: string): void {
+    this.hostGeneration += 1
+    Logger.info(`[RemoteManageHost] host binding generation=${this.hostGeneration} (${reason})`,
+      'RemoteManageService')
   }
 
   private flushBufferedCorePackets(runtime: RemoteSessionRuntime): void {
@@ -817,17 +942,33 @@ class RemoteManageServiceClass {
       return
     }
     const packets = runtime.pendingCorePackets.splice(0, runtime.pendingCorePackets.length)
-    for (const packet of packets) {
-      if (!this.pushCorePacket(runtime, packet)) {
-        break
+    for (let index = 0; index < packets.length; index++) {
+      if (runtime.closed) {
+        return
       }
+      if (this.isHostBindingStale(runtime)) {
+        // 交接刚完成后绑定又被作废（另一会话判定原生会话已消失，或运行方案又变了）：
+        // 未投递的包留在缓存，交给下一次交接按原顺序重投。
+        runtime.pendingCorePackets = packets.slice(index).concat(runtime.pendingCorePackets)
+        void this.prepareHostCoreRuntime(runtime)
+        return
+      }
+      if (this.pushCorePacket(runtime, packets[index])) {
+        runtime.hostPushRerouted = false
+        continue
+      }
+      if (!this.markHostPushRerouted(runtime)) {
+        return
+      }
+      // 绑定在重投中途失效：保留尚未投递的包，交给下一次交接按原顺序重投。
+      runtime.pendingCorePackets = packets.slice(index).concat(runtime.pendingCorePackets)
+      void this.prepareHostCoreRuntime(runtime)
+      return
     }
   }
 
   private pushCorePacket(runtime: RemoteSessionRuntime, packet: Uint8Array): boolean {
-    const accepted = easytier.pushNearbyManagementPacket(runtime.sessionKey, packet)
-    if (!accepted) {
-      this.failRuntime(runtime, 'Core rejected packet')
+    if (!easytier.pushNearbyManagementPacket(runtime.sessionKey, packet)) {
       return false
     }
     runtime.pumpEmptyRounds = 0
@@ -915,7 +1056,7 @@ class RemoteManageServiceClass {
 
   private readHostSettings(): RemoteSettingsState {
     return {
-      ext_mode: false,
+      ext_mode: AppManager.uiState.ext_mode,
       background_keep_alive_mode: AppManager.uiState.background_keep_alive_mode,
       dev: AppManager.uiState.dev,
       vpn_routes: AppManager.uiState.vpn_routes,
@@ -934,15 +1075,16 @@ class RemoteManageServiceClass {
       throw new Error('受控设备运行中，请停止实例后再修改设置')
     }
     const key = update.key
-    if (key === 'background_keep_alive_mode') {
-      if (update.valueString === undefined) {
-        throw new Error('保活模式值无效')
+    if (key === 'runtime_mode' || key === 'background_keep_alive_mode') {
+      this.applyHostRuntimeMode(update.valueString)
+      return
+    }
+    if (key === 'ext_mode') {
+      if (update.valueBoolean === undefined) {
+        throw new Error('布尔设置值无效')
       }
-      const mode = normalizeBackgroundKeepAliveMode(update.valueString)
-      if (mode === BACKGROUND_KEEP_ALIVE_TASK_KEEPING && deviceInfo.deviceType.toLowerCase() !== 'tablet') {
-        throw new Error('计算任务保活仅支持平板设备')
-      }
-      AppManager.uiState.background_keep_alive_mode = mode
+      this.applyHostRuntimeMode(update.valueBoolean ?
+        RUNTIME_MODE_SUBPROCESS : AppManager.uiState.background_keep_alive_mode)
       return
     }
     if (key === 'dns') {
@@ -969,6 +1111,31 @@ class RemoteManageServiceClass {
     } else {
       throw new Error('不支持的远端设置项')
     }
+  }
+
+  /**
+   * 运行方案只写偏好，不在这里宣称新宿主已运行：真实宿主交接由下一条 Core RPC
+   * 走 prepareHostCoreRuntime（prepareRuntimeHost + 重新 open HostProxy）完成，
+   * 只有交接成功才会把该 RPC 交给新宿主；本地 Settings 直接改 ext_mode 同样由
+   * 该路径按 hostBindingMode 对账收敛。
+   */
+  private applyHostRuntimeMode(value: string | undefined): void {
+    if (value === undefined) {
+      throw new Error('运行方案值无效')
+    }
+    if (!AppManager.easytier.canChangeRuntimeMode()) {
+      throw new Error('受控设备运行中，请停止实例后再修改运行方案')
+    }
+    const mode = normalizeRuntimeMode(value)
+    if (mode === RUNTIME_MODE_SUBPROCESS) {
+      AppManager.uiState.ext_mode = true
+      return
+    }
+    if (mode === RUNTIME_MODE_TASK_KEEPING && deviceInfo.deviceType.toLowerCase() !== 'tablet') {
+      throw new Error('计算任务保活仅支持平板设备')
+    }
+    AppManager.uiState.ext_mode = false
+    AppManager.uiState.background_keep_alive_mode = mode
   }
 
   private requestPrivate(operation: string, payloadJson: string | undefined,

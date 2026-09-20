@@ -98,11 +98,11 @@
     },
     {
       "name": "vpn_portal_client_virtual_ip",
-      "value": "虚拟网地址"
+      "value": "虚拟网 CIDR"
     },
     {
       "name": "vpn_portal_client_virtual_ip_placeholder",
-      "value": "例如：10.126.126.10"
+      "value": "例如：10.126.126.10/24"
     },
     {
       "name": "vpn_portal_client_groups",
@@ -139,6 +139,10 @@
     {
       "name": "port",
       "value": "端口"
+    },
+    {
+      "name": "path",
+      "value": "路径"
     },
     {
       "name": "rpc_portal_whitelists",
@@ -229,6 +233,54 @@
       "value": "复制失败"
     },
     {
+      "name": "magisk_module_configuration",
+      "value": "EasyTier 模块配置"
+    },
+    {
+      "name": "magisk_status_loading",
+      "value": "正在读取状态"
+    },
+    {
+      "name": "magisk_status_running",
+      "value": "运行中"
+    },
+    {
+      "name": "magisk_status_stopped",
+      "value": "已停止"
+    },
+    {
+      "name": "magisk_status_restarting",
+      "value": "正在重启"
+    },
+    {
+      "name": "magisk_save_restart",
+      "value": "保存并重启"
+    },
+    {
+      "name": "magisk_command_args_warning",
+      "value": "当前启用了启动参数模式，模块会忽略 config.toml。请先删除 config/command_args，才能在此保存配置。"
+    },
+    {
+      "name": "magisk_invalid_module_directory",
+      "value": "KernelSU 返回了无效的模块目录"
+    },
+    {
+      "name": "magisk_load_failed",
+      "value": "加载模块配置失败：{error}"
+    },
+    {
+      "name": "magisk_save_failed",
+      "value": "保存模块配置失败：{error}"
+    },
+    {
+      "name": "magisk_config_saved",
+      "value": "配置已验证并保存，EasyTier 已重新启动"
+    },
+    {
+      "name": "magisk_config_saved_restart_pending",
+      "value": "配置已验证并保存，EasyTier 守护进程仍在启动"
+    },
+    {
       "name": "retain_network_instance",
       "value": "保留网络实例"
     },
@@ -275,6 +327,26 @@
     {
       "name": "logging_copy_dir",
       "value": "复制日志路径"
+    },
+    {
+      "name": "vpn_tile_no_network",
+      "value": "没有已配置的网络"
+    },
+    {
+      "name": "vpn_tile_no_network_description",
+      "value": "请先在 EasyTier 中配置网络，再使用 VPN 快捷磁贴。"
+    },
+    {
+      "name": "vpn_tile_started",
+      "value": "VPN 网络已启动"
+    },
+    {
+      "name": "vpn_tile_stopped",
+      "value": "VPN 网络已停止"
+    },
+    {
+      "name": "vpn_tile_action_failed",
+      "value": "VPN 磁贴操作失败：{error}"
     },
     {
       "name": "disable_auto_launch",
@@ -1467,6 +1539,14 @@
     {
       "name": "mode_rpc_connection_failed",
       "value": "RPC 连接失败：{error}"
+    },
+    {
+      "name": "mode_autostart",
+      "value": "开机自启"
+    },
+    {
+      "name": "mode_autostart_hint",
+      "value": "开机自启由服务模式提供。切换为「服务模式」并保存后，EasyTier 将注册为系统服务，开机自动启动并在后台运行。"
     },
     {
       "name": "config_server_title",

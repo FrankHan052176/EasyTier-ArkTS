@@ -242,17 +242,26 @@ export struct RemoteSettingPage {
 
   private async setRuntimeMode(value: string): Promise<void> {
     try {
-      this.settings = await RemoteManageService.setSetting('background_keep_alive_mode', value, this.remoteSessionId)
+      this.settings = await RemoteManageService.setSetting('runtime_mode', value, this.remoteSessionId)
       if (this.summary) {
         this.summary.settings = this.settings
       }
     } catch (_) {
       sendToast('同步远端运行方案失败', $r('sys.symbol.exclamationmark_circle'), 1)
+      await this.refresh()
     }
   }
 
   private runtimeModeValue(): string {
-    return runtimeModeFromSettings(this.settings?.background_keep_alive_mode)
+    return runtimeModeFromSettings(this.settings?.ext_mode ?? false, this.settings?.background_keep_alive_mode)
+  }
+
+  private includeTaskKeeping(): boolean {
+    return (this.settings?.deviceType ?? '').toLowerCase() === 'tablet'
+  }
+
+  private runtimeModeRowHint(): string {
+    return this.includeTaskKeeping() ? '数据传输、音乐、子进程或计算任务' : '数据传输、音乐或子进程'
   }
 
   private canModify(): boolean {
@@ -330,7 +339,7 @@ export struct RemoteSettingPage {
             .fontColor($r('sys.color.font_primary'))
             .fontSize(14)
             .maxLines(1)
-          Text(hint.length > 0 ? hint : '数据传输或音乐')
+          Text(hint)
             .fontColor($r('sys.color.font_secondary'))
             .fontSize(12)
             .maxLines(1)
@@ -340,7 +349,7 @@ export struct RemoteSettingPage {
         .alignItems(HorizontalAlign.Start)
 
         RemoteRuntimeSelector({
-          options: runtimeModeOptions((this.settings?.deviceType ?? '').toLowerCase() === 'tablet'),
+          options: runtimeModeOptions(this.includeTaskKeeping()),
           selected: selected,
           canSelect: enabled,
           onChange: (value: string) => {
@@ -369,7 +378,7 @@ export struct RemoteSettingPage {
       remoteValueRow('运行时长', this.summary?.runtime.runtimeDurationText ?? '未运行')
       remoteValueRow('内存占用', this.summary?.runtime.memoryUsageText ?? '未记录')
       this.runtimeSelectorRow('运行方案',
-        (this.summary?.runtime.runningCount ?? 0) > 0 ? '运行时禁止切换' : '',
+        this.canModify() ? this.runtimeModeRowHint() : '运行时禁止切换',
         this.runtimeModeValue(),
         this.canModify())
     }

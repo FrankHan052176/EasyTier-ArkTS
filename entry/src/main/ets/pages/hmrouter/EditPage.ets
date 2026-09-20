@@ -24,7 +24,7 @@ import {
   resetEditingConfigStoreRef,
   setEditingConfigStoreRef
 } from '../../services/config/storage/StoredConfigService'
-import { generateBarcode, scanCore } from '@kit.ScanKit'
+import { ConfigQrCodeService, configQrErrorMessage } from '../../services/share/ConfigQrCodeService'
 import { image } from '@kit.ImageKit'
 import { dlpAntiPeep } from '@kit.DeviceSecurityKit';
 import { QRDialog } from '../../components/util/QRImage'
@@ -973,27 +973,19 @@ export struct EditPage {
       if (!this.active || requestId !== this.qrRequestId) {
         return
       }
-      if (content.length === 0) {
-        sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
-        return
-      }
-      let options: generateBarcode.CreateOptions = {
-        scanType: scanCore.ScanType.QR_CODE,
-        height: 400,
-        width: 400
-      }
-      const pixelMap = await generateBarcode.createBarcode(content, options)
+      const pixelMap = await ConfigQrCodeService.create(content)
       if (!this.active || requestId !== this.qrRequestId) {
         pixelMap.release().catch(() => {
         })
         return
       }
       this.openQrDialog(pixelMap)
-    } catch (_) {
+    } catch (error) {
       if (!this.active || requestId !== this.qrRequestId) {
         return
       }
-      sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
+      Logger.error('Configuration QR request failed', 'EditPage')
+      sendToast(configQrErrorMessage(error as Error), $r('sys.symbol.exclamationmark_circle'), 1)
     }
   }
 

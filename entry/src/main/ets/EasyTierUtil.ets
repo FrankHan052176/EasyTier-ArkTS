@@ -6,14 +6,19 @@ import { InstanceInfo } from './class/InstanceInfo'
 import { emitter } from '@kit.BasicServicesKit'
 import { getDefaultConfig } from './config/defaults/ConfigDefaults'
 import { JSON } from '@kit.ArkTS'
+import { fileIo } from '@kit.CoreFileKit'
 import { LogDataSource } from './class/data_source/LogDataSource'
 import { HMRouterMgr } from '@hadss/hmrouter'
 import { syncWholeConfig } from './ConfigSyncUtil'
 import { ConfigJson } from './config/schema/SchemaConfig'
 import { RuntimeAggregateState, RuntimeInstanceState } from './types/runtime/RuntimeTypes'
 import {
+  RuntimeHealthTransportSnapshot,
   RuntimePeerEventPayload,
-  TrafficStatsPayload
+  TrafficStatsPayload,
+  VpnRuntimeCommandResultData,
+  VpnRuntimeStateName,
+  VpnRuntimeStatusData
 } from './infrastructure/bridge/kernel/KernelBridgeTypes'
 import { getEditingConfig as getEditingStoredConfig, getStoredConfig, getStoredConfigLabel, getStoredConfigName, listStoredConfigs as listStoredConfigEntries, StoredConfigMetaLite } from './services/config/storage/StoredConfigService'
 import { getHostname } from './util/Conversion'
@@ -23,10 +28,15 @@ import { findRunningInstance, listRunningInstances } from './services/runtime/Ru
 import { FavoriteCardSignatureState } from './services/runtime/RuntimeNotificationService'
 import { RuntimeStateCoordinator } from './services/runtime/RuntimeStateCoordinator'
 import { RUNTIME_STATS_STALE_AFTER_MS } from './services/runtime/RuntimeStatsService'
+import { VpnExtensionRuntimeClient } from './services/runtime/VpnExtensionRuntimeClient'
+import { RuntimeHostLease } from './services/runtime/RuntimeHostLease'
+import { VpnExtensionAbilityController } from './services/runtime/VpnExtensionAbilityController'
+import { VPN_EXTENSION_SOCKET_NAME } from './services/runtime/AbilityRuntimePolicy'
 import {
   EntryRuntimeStartRequest,
   requestEntryRuntimeStart,
-  requestEntryRuntimeStop
+  requestEntryRuntimeStop,
+  requestEntryRuntimeHostSync
 } from './services/runtime/EntryRuntimeStopBridge'
 import { requestEntryKeepAliveStart, requestEntryKeepAliveStop } from './services/runtime/EntryKeepAliveBridge'
 import {
@@ -42,13 +52,6 @@ import {
 
 const KERNEL_HEARTBEAT_STALE_AFTER_MS = 5000
 
-export interface RuntimeHealthTransportSnapshot {
-  connected: boolean
-  connectedAt: number
-  disconnectedAt: number
-  lastMessageAt: number
-  lastTrafficStatsAt: number
-}
 
 export interface RuntimeHealthSummary {
   state: string
@@ -76,6 +79,35 @@ export class EasyTierUtil {
   private lastBackgroundTopologyAt: number = 0
   private lastBackgroundTrafficAt: number = 0
   private operationQueue: Promise<void> = Promise.resolve()
+  @Trace private operationCount: number = 0
+  @Trace private subprocessStateKnown: boolean = true
+  @Trace private subprocessInstanceId: string = ''
+  @Trace private subprocessShutdownPending: boolean = false
+  private subprocessShutdownAcknowledged: boolean = false
+  private subprocessStatusGeneration: number = -1
+  private subprocessPrepared: boolean = false
+  private subprocessState: VpnRuntimeStateName = 'idle'
+  private hostPreparePromise: Promise<boolean> | undefined = undefined
+  private recoveryPromise: Promise<void> | undefined = undefined
+  private vpnExtensionRuntimeClient: VpnExtensionRuntimeClient = new VpnExtensionRuntimeClient({
+    shouldConnect: () => this.initialized && (AppManager.uiState.ext_mode || this.subprocessPrepared),
+    getSocketPath: (name: string) => AppManager.uiState.getSocketPath(name),
+    onTopology: (snapshot) => this.processRuntimeSnapshot(snapshot, true, false),
+    onTrafficStats: (stats) => this.processTrafficStats(stats, true),
+    onPeerEvent: (event) => this.processRuntimePeerEvent(event, true),
+    onLogs: (logs) => this.processLogs(logs.logs),
+    onRuntimeCommandResult: (result) => {
+      if (!result.success) {
+        Logger.error(`VPN runtime ${result.command} rejected: ${result.error ?? 'unknown'}`, this)
+      }
+    },
+    onRuntimeStatus: (status) => this.applySubprocessStatus(status),
+    onDisconnected: () => {
+      this.subprocessStateKnown = false
+      this.subprocessStatusGeneration = -1
+      this.ensureRuntimeConnection()
+    }
+  })
   private runtimeIntentGeneration: number = 0
   private pendingStartIds: Set<string> = new Set()
   private pendingStopIds: Set<string> = new Set()
@@ -92,8 +124,8 @@ export class EasyTierUtil {
     optimisticRunningUntil: this.optimisticRunningUntil,
     getInstanceName: (uuid: string) => this.getConfigName(uuid) ?? 'N/A',
     getFavoriteState: () => this.buildFavoriteCardState(),
-    isVpnConnected: () => false,
-    isExtMode: () => false
+    isVpnConnected: () => this.vpnExtensionRuntimeClient.isConnected(),
+    isExtMode: () => this.usesSubprocessRuntime()
   })
   private initialized: boolean = false
   private kernelRuntimeTopologyCallback: Callback<emitter.EventData> = (event: emitter.EventData) => {
@@ -113,7 +145,11 @@ export class EasyTierUtil {
   }
 
   private enqueueOperation(action: () => Promise<void>): Promise<void> {
-    const next = this.operationQueue.catch(() => {}).then(action)
+    this.operationCount++
+    const next = this.operationQueue.catch(() => {}).then(action).finally(() => {
+      this.operationCount--
+      this.reconcileSubprocessIdle()
+    })
     this.operationQueue = next
     return next
   }
@@ -129,6 +165,7 @@ export class EasyTierUtil {
     EventHelper.emitterListener(KERNEL_TRAFFIC_STATS_EVENT, this.kernelTrafficStatsCallback)
 
     this.restartLogDrainTimer()
+    this.ensureRuntimeConnection()
 
   }
 
@@ -138,6 +175,13 @@ export class EasyTierUtil {
     }
     this.runtimeIntentGeneration++
     this.initialized = false
+    this.vpnExtensionRuntimeClient.close()
+    this.subprocessPrepared = false
+    this.subprocessInstanceId = ''
+    this.subprocessStateKnown = true
+    this.subprocessShutdownPending = false
+    this.subprocessShutdownAcknowledged = false
+    this.subprocessStatusGeneration = -1
     EventHelper.emitterOff(KERNEL_RUNTIME_TOPOLOGY_EVENT, this.kernelRuntimeTopologyCallback)
     EventHelper.emitterOff(KERNEL_RUNTIME_PEER_EVENT, this.kernelRuntimePeerEventCallback)
     EventHelper.emitterOff(KERNEL_TRAFFIC_STATS_EVENT, this.kernelTrafficStatsCallback)
@@ -169,6 +213,7 @@ export class EasyTierUtil {
     }
     this.restartLogDrainTimer()
     if (foreground) {
+      this.ensureRuntimeConnection()
       this.processLogs(easytier.drainLogLines())
     }
   }
@@ -212,10 +257,16 @@ export class EasyTierUtil {
   }
 
   private processRuntimePeerEvent(peerEvent: RuntimePeerEventPayload, fromVpn: boolean = true): void {
+    if (fromVpn !== this.usesSubprocessRuntime()) {
+      return
+    }
     this.runtimeStateCoordinator.processRuntimePeerEvent(peerEvent, fromVpn)
   }
 
   private processRuntimeSnapshot(snapshot: RuntimeAggregateState, fromVpn: boolean = true, includeTraffic: boolean = true): void {
+    if (fromVpn !== this.usesSubprocessRuntime()) {
+      return
+    }
     const now = Date.now()
     if (!this.uiForeground && now - this.lastBackgroundTopologyAt < BACKGROUND_RUNTIME_REFRESH_INTERVAL_MS) {
       return
@@ -230,13 +281,16 @@ export class EasyTierUtil {
     this.runtimeStateCoordinator.markOptimisticRunning(config, displayName)
   }
 
-  processLogs(logs: string[]) {
+  processLogs(logs: string[]): void {
     logs.forEach((value) => {
       this.appLogs.add(value)
     })
   }
 
   processTrafficStats(stats: TrafficStatsPayload, fromVpn: boolean = true): void {
+    if (fromVpn !== this.usesSubprocessRuntime()) {
+      return
+    }
     const now = Date.now()
     if (!this.uiForeground && now - this.lastBackgroundTrafficAt < BACKGROUND_RUNTIME_REFRESH_INTERVAL_MS) {
       return
@@ -248,16 +302,206 @@ export class EasyTierUtil {
     this.runtimeStateCoordinator.processTrafficStats(stats, fromVpn)
   }
 
+  private usesSubprocessRuntime(): boolean {
+    return AppManager.uiState.ext_mode || this.subprocessPrepared
+  }
+
+  public canChangeRuntimeMode(): boolean {
+    return this.operationCount === 0 && this.subprocessStateKnown && !this.hasActiveOrStartingRuntime()
+  }
+
+  private hasSubprocessSocket(): boolean {
+    try {
+      return fileIo.accessSync(AppManager.uiState.getSocketPath(VPN_EXTENSION_SOCKET_NAME))
+    } catch (_) {
+      return false
+    }
+  }
+
+  private confirmSubprocessAbsent(): boolean {
+    if (this.vpnExtensionRuntimeClient.isConnected() || AppManager.uiState.socketFilesDir.length === 0) {
+      return false
+    }
+    const lease = new RuntimeHostLease(AppManager.uiState.socketFilesDir)
+    if (!lease.tryAcquire()) {
+      return false
+    }
+    try {
+      // No runtime owner remains. Holding the lease makes stale-path cleanup exclusive.
+      const socketPath = AppManager.uiState.getSocketPath(VPN_EXTENSION_SOCKET_NAME)
+      if (fileIo.accessSync(socketPath)) {
+        fileIo.unlinkSync(socketPath)
+      }
+      this.vpnExtensionRuntimeClient.close()
+      this.subprocessStateKnown = true
+      this.subprocessInstanceId = ''
+      this.subprocessState = 'idle'
+      this.subprocessShutdownPending = false
+      this.subprocessShutdownAcknowledged = false
+      this.subprocessStatusGeneration = -1
+      this.reconcileSubprocessIdle()
+      this.subprocessPrepared = false
+      return true
+    } finally {
+      lease.release()
+    }
+  }
+
   public ensureRuntimeConnection(): void {
-    // Main-process runtime uses the in-process kernel socket service.
+    if (!this.initialized || this.recoveryPromise || this.hostPreparePromise ||
+      (!this.subprocessPrepared && !this.hasSubprocessSocket())) {
+      return
+    }
+    if (this.confirmSubprocessAbsent()) {
+      return
+    }
+    this.subprocessPrepared = true
+    this.subprocessStateKnown = false
+    this.vpnExtensionRuntimeClient.connect(VPN_EXTENSION_SOCKET_NAME)
+    this.recoveryPromise = this.vpnExtensionRuntimeClient.requestCommand('status', '').then((result) => {
+      this.applySubprocessResult(result)
+    }).catch((error: Error) => {
+      if (!this.confirmSubprocessAbsent()) {
+        Logger.warn(`VPN runtime recovery remains unconfirmed: ${error.message}`, this)
+      }
+    }).finally(() => {
+      this.recoveryPromise = undefined
+    })
   }
 
   public isVpnExtensionConnected(): boolean {
-    return false
+    return this.vpnExtensionRuntimeClient.isConnected()
+  }
+
+  private applySubprocessResult(result: VpnRuntimeCommandResultData): void {
+    if (result.success) {
+      this.applySubprocessStatus({
+        generation: result.statusGeneration,
+        instanceId: result.command === 'shutdown' || result.command === 'stop' ? '' : result.instanceId,
+        state: result.state,
+        error: result.error
+      })
+    }
+  }
+
+  private applySubprocessStatus(status: VpnRuntimeStatusData): void {
+    if (status.generation < this.subprocessStatusGeneration) {
+      return
+    }
+    this.subprocessStatusGeneration = status.generation
+    this.subprocessStateKnown = true
+    this.subprocessState = status.state
+    this.subprocessInstanceId = status.instanceId
+    if (status.instanceId.length > 0) {
+      this.acceptedRuntimeIds.add(status.instanceId)
+      AppManager.runtimeStats.startLiveRefresh(true)
+    }
+    this.reconcileSubprocessIdle()
+  }
+
+  private reconcileSubprocessIdle(): void {
+    if (this.operationCount !== 0 || !this.subprocessPrepared || !this.subprocessStateKnown ||
+      this.subprocessInstanceId.length > 0 ||
+      (this.subprocessState !== 'idle' && this.subprocessState !== 'error')) {
+      return
+    }
+    AppManager.runtimeStats.stopLiveRefresh()
+    this.acceptedRuntimeIds.clear()
+    this.runtimeStateCoordinator.clearRunningState()
+    this.runtimeStateCoordinator.notifyRuntimeChanged()
+    this.notifyFavoriteCardChanged(true)
+  }
+
+  public prepareRuntimeHost(): Promise<boolean> {
+    if (this.hostPreparePromise) {
+      return this.hostPreparePromise
+    }
+    this.operationCount++
+    const prepare = this.prepareRuntimeHostInternal().finally(() => {
+      this.operationCount--
+      this.hostPreparePromise = undefined
+      this.reconcileSubprocessIdle()
+    })
+    this.hostPreparePromise = prepare
+    return prepare
+  }
+
+  private async prepareRuntimeHostInternal(): Promise<boolean> {
+    if (this.subprocessShutdownPending) {
+      await this.stopSubprocessRuntime()
+    }
+    if (!AppManager.uiState.ext_mode && (this.subprocessPrepared || this.hasSubprocessSocket()) &&
+      !this.confirmSubprocessAbsent()) {
+      this.subprocessPrepared = true
+      this.subprocessStateKnown = false
+      this.vpnExtensionRuntimeClient.connect(VPN_EXTENSION_SOCKET_NAME)
+      const previous = await this.vpnExtensionRuntimeClient.requestCommand('status', '')
+      this.applySubprocessResult(previous)
+      if (!previous.success || !this.subprocessStateKnown || this.subprocessInstanceId.length > 0) {
+        return false
+      }
+      await this.stopSubprocessRuntime()
+    }
+    if (!await requestEntryRuntimeHostSync()) {
+      return false
+    }
+    if (!AppManager.uiState.ext_mode) {
+      return true
+    }
+    const ready = await VpnExtensionAbilityController.start({
+      configRootDir: AppManager.uiState.socketFilesDir,
+      socketFilesDir: AppManager.uiState.socketFilesDir,
+      ensureContinuationSocket: () => requestEntryRuntimeHostSync(),
+      connectToVpnExtension: (name: string) => this.vpnExtensionRuntimeClient.connect(name),
+      isConnected: () => this.vpnExtensionRuntimeClient.isConnected()
+    })
+    if (!ready) {
+      return false
+    }
+    this.subprocessPrepared = true
+    this.subprocessStateKnown = false
+    const status = await this.vpnExtensionRuntimeClient.requestCommand('status', '')
+    this.applySubprocessResult(status)
+    return status.success
+  }
+
+  private async stopSubprocessRuntime(): Promise<void> {
+    if (!this.subprocessPrepared && !this.hasSubprocessSocket()) {
+      return
+    }
+    if (this.confirmSubprocessAbsent()) {
+      return
+    }
+    this.subprocessPrepared = true
+    this.vpnExtensionRuntimeClient.connect(VPN_EXTENSION_SOCKET_NAME)
+    this.subprocessShutdownPending = true
+    try {
+      if (!this.subprocessShutdownAcknowledged) {
+        const result = await this.vpnExtensionRuntimeClient.requestCommand('shutdown', '')
+        if (!result.success) {
+          throw new Error(result.error ?? 'VPN extension shutdown rejected')
+        }
+        this.subprocessShutdownAcknowledged = true
+      }
+      await VpnExtensionAbilityController.stop(AppManager.uiState.socketFilesDir)
+    } catch (error) {
+      this.subprocessStateKnown = false
+      throw error instanceof Error ? error : new Error(JSON.stringify(error))
+    }
+    this.vpnExtensionRuntimeClient.close()
+    this.subprocessPrepared = false
+    this.subprocessStateKnown = true
+    this.subprocessInstanceId = ''
+    this.subprocessState = 'idle'
+    this.subprocessShutdownPending = false
+    this.subprocessShutdownAcknowledged = false
+    this.subprocessStatusGeneration = -1
   }
 
   public getRuntimeHealthSummary(now: number = Date.now()): RuntimeHealthSummary {
-    const bridge: RuntimeHealthTransportSnapshot = {
+    const processName = this.usesSubprocessRuntime() ? '子进程' : '主进程'
+    const bridge: RuntimeHealthTransportSnapshot = this.usesSubprocessRuntime() ?
+      this.vpnExtensionRuntimeClient.getHealthSnapshot() : {
       connected: this.initialized,
       connectedAt: this.initializedAt,
       disconnectedAt: 0,
@@ -265,6 +509,17 @@ export class EasyTierUtil {
       lastTrafficStatsAt: this.lastTrafficStatsAt
     }
     const runtimeStatsUpdatedAt = AppManager.runtimeStats.snapshotUpdatedAt
+    if (this.usesSubprocessRuntime() && (!this.subprocessStateKnown ||
+      (this.hasActiveOrStartingRuntime() && !bridge.connected))) {
+      return {
+        state: 'bridge_disconnected',
+        text: '状态不可确认：正在重新连接子进程',
+        warning: true,
+        checkedAt: now,
+        bridge,
+        runtimeStatsUpdatedAt
+      }
+    }
     if (!this.hasActiveOrStartingRuntime()) {
       return {
         state: 'stopped',
@@ -279,7 +534,7 @@ export class EasyTierUtil {
       now - bridge.connectedAt <= RUNTIME_STATS_STALE_AFTER_MS) {
       return {
         state: 'checking',
-        text: '正在确认主进程与内核运行状态',
+        text: `正在确认${processName}与内核运行状态`,
         warning: false,
         checkedAt: now,
         bridge,
@@ -290,15 +545,15 @@ export class EasyTierUtil {
       const ageSeconds = runtimeStatsUpdatedAt > 0 ? Math.max(0, Math.trunc((now - runtimeStatsUpdatedAt) / 1000)) : 0
       return {
         state: 'runtime_stats_timeout',
-        text: runtimeStatsUpdatedAt > 0 ? `状态不可确认：主进程采样已中断 ${ageSeconds} 秒` :
-          '状态不可确认：尚未收到主进程采样',
+        text: runtimeStatsUpdatedAt > 0 ? `状态不可确认：${processName}采样已中断 ${ageSeconds} 秒` :
+          `状态不可确认：尚未收到${processName}采样`,
         warning: true,
         checkedAt: now,
         bridge,
         runtimeStatsUpdatedAt
       }
     }
-    const heartbeatReference = this.lastTrafficStatsAt > 0 ? this.lastTrafficStatsAt : bridge.connectedAt
+    const heartbeatReference = bridge.lastTrafficStatsAt > 0 ? bridge.lastTrafficStatsAt : bridge.connectedAt
     const heartbeatAgeMs = heartbeatReference > 0 ? now - heartbeatReference : KERNEL_HEARTBEAT_STALE_AFTER_MS + 1
     if (heartbeatAgeMs > KERNEL_HEARTBEAT_STALE_AFTER_MS) {
       return {
@@ -310,7 +565,7 @@ export class EasyTierUtil {
         runtimeStatsUpdatedAt
       }
     }
-    if (this.lastTrafficStatsAt <= 0) {
+    if (bridge.lastTrafficStatsAt <= 0) {
       return {
         state: 'checking',
         text: '正在确认内核运行状态',
@@ -322,7 +577,7 @@ export class EasyTierUtil {
     }
     return {
       state: 'healthy',
-      text: '主进程与内核响应正常',
+      text: `${processName}与内核响应正常`,
       warning: false,
       checkedAt: now,
       bridge,
@@ -364,7 +619,7 @@ export class EasyTierUtil {
       return false
     }
     const displayName = this.getConfigName(uuid) ?? uuid
-    const started = await this.startMainRuntime(config, displayName, false)
+    const started = await this.startRuntime(config, displayName, false)
     if (started) {
       if (!this.getRunningInstance(uuid)) {
         this.markOptimisticRunning(config, displayName)
@@ -376,10 +631,38 @@ export class EasyTierUtil {
     return started
   }
 
-  private async startMainRuntime(config: ConfigJson, displayName: string, oneShot: boolean): Promise<boolean> {
+  private async startRuntime(config: ConfigJson, displayName: string, oneShot: boolean): Promise<boolean> {
     const instanceId = (config.instance_id as string | undefined) ?? ''
     if (instanceId.length === 0) {
       return false
+    }
+    if (!await this.prepareRuntimeHost()) {
+      return false
+    }
+    if (AppManager.uiState.ext_mode) {
+      try {
+        AppManager.preference.preferences?.flushSync()
+        AppManager.preference.black_list_preference?.flushSync()
+        const result = await this.vpnExtensionRuntimeClient.requestCommand('start', instanceId,
+          oneShot ? JSON.stringify(config) : undefined)
+        if (!result.success) {
+          if (this.subprocessInstanceId.length === 0) {
+            await this.stopSubprocessRuntime()
+          }
+          return false
+        }
+        this.applySubprocessResult(result)
+        if (!config.no_tun) {
+          this.needTUN.add(instanceId)
+        }
+        return true
+      } catch (error) {
+        // A lost acknowledgement cannot prove that the remote start did not run.
+        this.subprocessStateKnown = false
+        this.acceptedRuntimeIds.add(instanceId)
+        this.ensureRuntimeConnection()
+        throw error instanceof Error ? error : new Error(JSON.stringify(error))
+      }
     }
     const keepAliveStarted = await requestEntryKeepAliveStart(displayName)
     if (!keepAliveStarted) {
@@ -432,7 +715,7 @@ export class EasyTierUtil {
       return false
     }
     this.temporaryConfigIds.add(instanceId)
-    const started = await this.startMainRuntime(config, name, false)
+    const started = await this.startRuntime(config, name, false)
     if (!started) {
       AppManager.data.delConfig(instanceId)
       this.temporaryConfigIds.delete(instanceId)
@@ -463,14 +746,18 @@ export class EasyTierUtil {
     this.pendingStartIds.add(instanceId)
     let started = false
     return this.enqueueOperation(async () => {
-      started = await this.startMainRuntime(config, displayName, true)
+      this.activeOneShotConfigJson = JSON.stringify(config)
+      this.activeOneShotRequestId = requestId
+      started = await this.startRuntime(config, displayName, true)
       if (started) {
-        this.activeOneShotConfigJson = JSON.stringify(config)
-        this.activeOneShotRequestId = requestId
         this.acceptedRuntimeIds.add(instanceId)
         this.markOptimisticRunning(config, displayName)
         AppManager.runtimeStats.startLiveRefresh(true)
         this.notifyFavoriteCardChanged()
+      }
+      if (!started && !this.acceptedRuntimeIds.has(instanceId)) {
+        this.activeOneShotConfigJson = ''
+        this.activeOneShotRequestId = ''
       }
     }).then(() => started).catch((error: Error) => {
       Logger.error(`nearby one-shot start failed request=${requestId}: ${error.message}`, this)
@@ -524,11 +811,15 @@ export class EasyTierUtil {
   private async stopInternal(): Promise<void> {
     const temporaryRunningIds = Array.from(this.temporaryConfigIds.values())
     const runtimeIds = this.getRuntimeIntentIds()
-    if (runtimeIds.length > 0 && !await requestEntryRuntimeStop(runtimeIds)) {
-      throw new Error('main-process runtime stop failed')
+    if (this.usesSubprocessRuntime()) {
+      await this.stopSubprocessRuntime()
+    } else {
+      if (runtimeIds.length > 0 && !await requestEntryRuntimeStop(runtimeIds)) {
+        throw new Error('main-process runtime stop failed')
+      }
+      await requestEntryKeepAliveStop()
     }
     AppManager.runtimeStats.stopLiveRefresh()
-    await requestEntryKeepAliveStop()
 
     // 底层 stop/destroy 全部结束后才清 UI，下一次 start 不会插入旧销毁事务。
     this.runtimeStateCoordinator.clearRunningState()
@@ -579,7 +870,8 @@ export class EasyTierUtil {
 
   public hasActiveOrStartingRuntime(): boolean {
     return this.runningNetworks.size > 0 || this.acceptedRuntimeIds.size > 0 ||
-      this.pendingStartIds.size > 0 || this.pendingStopIds.size > 0
+      this.pendingStartIds.size > 0 || this.pendingStopIds.size > 0 || this.subprocessInstanceId.length > 0 ||
+      !this.subprocessStateKnown || this.subprocessShutdownPending
   }
 
   public getRunningInstance(uuid?: string): RuntimeInstanceState | undefined {
@@ -646,6 +938,20 @@ export class EasyTierUtil {
         }
       })
       if (intentGeneration !== this.runtimeIntentGeneration || restartIds.length === 0) {
+        return
+      }
+      if (this.usesSubprocessRuntime()) {
+        const response = await this.vpnExtensionRuntimeClient.requestCommand('restart',
+          this.subprocessInstanceId || restartIds[0])
+        result = {
+          stopped: response.stopped ?? false,
+          started: response.started ?? false,
+          cancelled: intentGeneration !== this.runtimeIntentGeneration
+        }
+        if (result.cancelled && result.started) {
+          await this.stopSubprocessRuntime()
+          result.started = false
+        }
         return
       }
       const vpnReady = await beginVpnRestart()

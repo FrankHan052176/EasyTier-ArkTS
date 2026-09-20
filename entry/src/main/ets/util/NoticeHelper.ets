@@ -17,7 +17,7 @@ let lastLiveViewPublishedAt: number = 0
 const liveViewActivityProgress = new LiveViewActivityProgress()
 
 function shouldUseLiveViewNotification(): boolean {
-  return shouldUseEntryBackgroundKeepAlive() && normalizeBackgroundKeepAliveMode(AppManager.uiState.background_keep_alive_mode) ===
+  return shouldUseEntryBackgroundKeepAlive(AppManager.uiState.ext_mode) && normalizeBackgroundKeepAliveMode(AppManager.uiState.background_keep_alive_mode) ===
     BACKGROUND_KEEP_ALIVE_DATA_TRANSFER
 }
 

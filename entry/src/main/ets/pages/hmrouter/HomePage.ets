@@ -14,7 +14,7 @@ import { harmonyShare } from '@kit.ShareKit';
 import { WindowUtil } from '../../WindowUtil';
 import { buildShareData, buildShareUrlSync } from '../../util/ShareUtil';
 import { ConfigJson } from '../../config/schema/SchemaConfig';
-import { generateBarcode, scanCore } from '@kit.ScanKit';
+import { ConfigQrCodeService, configQrErrorMessage } from '../../services/share/ConfigQrCodeService';
 import { image } from '@kit.ImageKit';
 import { QRDialog } from '../../components/util/QRImage';
 import { Favorite } from '../../components/index/Favorite';
@@ -344,27 +344,19 @@ export struct HomePage {
       if (!this.active || requestId !== this.qrRequestId) {
         return
       }
-      if (content.length === 0) {
-        sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
-        return
-      }
-      let options: generateBarcode.CreateOptions = {
-        scanType: scanCore.ScanType.QR_CODE,
-        height: 400,
-        width: 400
-      }
-      const pixelMap = await generateBarcode.createBarcode(content, options)
+      const pixelMap = await ConfigQrCodeService.create(content)
       if (!this.active || requestId !== this.qrRequestId) {
         pixelMap.release().catch(() => {
         })
         return
       }
       this.openQrDialog(pixelMap)
-    } catch (_) {
+    } catch (error) {
       if (!this.active || requestId !== this.qrRequestId) {
         return
       }
-      sendToast('二维码生成失败', $r('sys.symbol.exclamationmark_circle'), 1)
+      Logger.error('Configuration QR request failed', 'HomePage')
+      sendToast(configQrErrorMessage(error as Error), $r('sys.symbol.exclamationmark_circle'), 1)
     }
   }
 

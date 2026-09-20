@@ -2,6 +2,7 @@ import { buffer, util } from '@kit.ArkTS'
 import { socket } from '@kit.NetworkKit'
 import { RuntimeAggregateState } from '../../types/runtime/RuntimeTypes'
 import {
+  RuntimeHealthTransportSnapshot,
   RuntimePeerEventPayload,
   TrafficStatsPayload,
   VpnLogData,
@@ -18,6 +19,14 @@ import {
 } from '../../infrastructure/bridge/kernel/VpnExtensionSocketBridge'
 import { Logger } from '../../shared/logging/Logger'
 
+interface PendingRuntimeCommand {
+  resolve: (result: VpnRuntimeCommandResultData) => void
+  reject: (error: Error) => void
+  timer: number
+}
+
+const RUNTIME_COMMAND_TIMEOUT_MS = 15000
+
 export interface VpnExtensionRuntimeClientOptions {
   shouldConnect: () => boolean
   getSocketPath: (socketName: string) => string
@@ -27,15 +36,9 @@ export interface VpnExtensionRuntimeClientOptions {
   onLogs: (logs: VpnLogData) => void
   onRuntimeCommandResult: (result: VpnRuntimeCommandResultData) => void
   onRuntimeStatus: (status: VpnRuntimeStatusData) => void
+  onDisconnected: () => void
 }
 
-export interface VpnExtensionRuntimeHealthSnapshot {
-  connected: boolean
-  connectedAt: number
-  disconnectedAt: number
-  lastMessageAt: number
-  lastTrafficStatsAt: number
-}
 
 export class VpnExtensionRuntimeClient {
   private readonly options: VpnExtensionRuntimeClientOptions
@@ -48,6 +51,7 @@ export class VpnExtensionRuntimeClient {
   private commandGeneration: number = 0
   private inFlightRequestId: string = ''
   private pendingCommands: VpnRuntimeCommandData[] = []
+  private commandWaiters: Map<string, PendingRuntimeCommand> = new Map()
   private connectedAt: number = 0
   private disconnectedAt: number = 0
   private lastMessageAt: number = 0
@@ -61,7 +65,7 @@ export class VpnExtensionRuntimeClient {
     return this.connected
   }
 
-  getHealthSnapshot(): VpnExtensionRuntimeHealthSnapshot {
+  getHealthSnapshot(): RuntimeHealthTransportSnapshot {
     return {
       connected: this.connected,
       connectedAt: this.connectedAt,
@@ -84,19 +88,28 @@ export class VpnExtensionRuntimeClient {
     this.connectGeneration(this.generation)
   }
 
-  enqueueCommand(command: VpnRuntimeCommandName, instanceId: string): VpnRuntimeCommandData {
+  requestCommand(command: VpnRuntimeCommandName, instanceId: string,
+    configJson?: string): Promise<VpnRuntimeCommandResultData> {
     const request: VpnRuntimeCommandData = {
       requestId: util.generateRandomUUID().toLowerCase(),
       generation: ++this.commandGeneration,
       command,
-      instanceId
+      instanceId,
+      configJson
     }
-    this.pendingCommands.push(request)
-    this.sendNextCommand(this.generation, this.connectionAttempt)
-    return request
+    return new Promise<VpnRuntimeCommandResultData>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.commandWaiters.delete(request.requestId)
+        this.cancelCommand(request.requestId)
+        reject(new Error(`VPN runtime ${command} acknowledgement timed out`))
+      }, RUNTIME_COMMAND_TIMEOUT_MS)
+      this.commandWaiters.set(request.requestId, { resolve, reject, timer })
+      this.pendingCommands.push(request)
+      this.sendNextCommand(this.generation, this.connectionAttempt)
+    })
   }
 
-  cancelCommand(requestId: string): void {
+  private cancelCommand(requestId: string): void {
     const index = this.pendingCommands.findIndex((request: VpnRuntimeCommandData) => {
       return request.requestId === requestId
     })
@@ -138,6 +151,7 @@ export class VpnExtensionRuntimeClient {
         this.connected = false
         this.disconnectedAt = Date.now()
         this.inFlightRequestId = ''
+        this.options.onDisconnected()
       },
       onReconnectRequested: () => {
         this.scheduleReconnect(generation, attempt)
@@ -173,6 +187,12 @@ export class VpnExtensionRuntimeClient {
           this.lastMessageAt = Date.now()
           this.options.onRuntimeCommandResult(result)
           this.acknowledgeCommand(result.requestId)
+          const waiter = this.commandWaiters.get(result.requestId)
+          if (waiter) {
+            clearTimeout(waiter.timer)
+            this.commandWaiters.delete(result.requestId)
+            waiter.resolve(result)
+          }
         }
       },
       onRuntimeStatus: (status: VpnRuntimeStatusData) => {
@@ -238,6 +258,11 @@ export class VpnExtensionRuntimeClient {
     this.generation++
     this.connectionAttempt++
     this.socketName = ''
+    this.commandWaiters.forEach((waiter: PendingRuntimeCommand) => {
+      clearTimeout(waiter.timer)
+      waiter.reject(new Error('VPN runtime connection closed'))
+    })
+    this.commandWaiters.clear()
     if (this.reconnectTimer >= 0) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = -1

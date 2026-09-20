@@ -1,6 +1,6 @@
-export const BUILD_TIME:string = "2026-08-12T13:46:00.357Z"
+export const BUILD_TIME:string = "2026-09-20T14:19:19.274Z"
 export const APP_VERSION:string = "0.0.1"
 export const APP_VERSION_CODE:string = "99999999"
-export const CORE_VERSION:string = "0.0.1"
+export const CORE_VERSION:string = "2.6.4-refactor-ohos-socket-protection-packages-92-3041-1-gb63e3af5"
 export const APP_CHANNEL:string = "development"
 export const APP_RELEASE_DATE:string = ""

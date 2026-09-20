@@ -74,7 +74,7 @@ export interface VpnContinueStateData {
   active: boolean
 }
 
-export type VpnRuntimeCommandName = 'start' | 'restart' | 'stop' | 'status'
+export type VpnRuntimeCommandName = 'start' | 'restart' | 'stop' | 'shutdown' | 'status'
 export type VpnRuntimeStateName = 'idle' | 'starting' | 'running' | 'restarting' | 'stopping' | 'error'
 
 export interface VpnRuntimeCommandData {
@@ -82,11 +82,13 @@ export interface VpnRuntimeCommandData {
   generation: number
   command: VpnRuntimeCommandName
   instanceId: string
+  configJson?: string
 }
 
 export interface VpnRuntimeCommandResultData {
   requestId: string
   generation: number
+  statusGeneration: number
   command: VpnRuntimeCommandName
   instanceId: string
   success: boolean
@@ -101,6 +103,13 @@ export interface VpnRuntimeStatusData {
   instanceId: string
   state: VpnRuntimeStateName
   error?: string
+}
+export interface RuntimeHealthTransportSnapshot {
+  connected: boolean
+  connectedAt: number
+  disconnectedAt: number
+  lastMessageAt: number
+  lastTrafficStatsAt: number
 }
 
 export interface VpnMessage {

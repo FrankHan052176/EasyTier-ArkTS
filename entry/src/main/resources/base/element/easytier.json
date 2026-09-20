@@ -98,11 +98,11 @@
     },
     {
       "name": "vpn_portal_client_virtual_ip",
-      "value": "Virtual Network Address"
+      "value": "Virtual Network CIDR"
     },
     {
       "name": "vpn_portal_client_virtual_ip_placeholder",
-      "value": "Example: 10.126.126.10"
+      "value": "Example: 10.126.126.10/24"
     },
     {
       "name": "vpn_portal_client_groups",
@@ -139,6 +139,10 @@
     {
       "name": "port",
       "value": "Port"
+    },
+    {
+      "name": "path",
+      "value": "Path"
     },
     {
       "name": "rpc_portal_whitelists",
@@ -229,6 +233,54 @@
       "value": "Copy failed"
     },
     {
+      "name": "magisk_module_configuration",
+      "value": "EasyTier Module Configuration"
+    },
+    {
+      "name": "magisk_status_loading",
+      "value": "Loading status"
+    },
+    {
+      "name": "magisk_status_running",
+      "value": "Running"
+    },
+    {
+      "name": "magisk_status_stopped",
+      "value": "Stopped"
+    },
+    {
+      "name": "magisk_status_restarting",
+      "value": "Restarting"
+    },
+    {
+      "name": "magisk_save_restart",
+      "value": "Save and Restart"
+    },
+    {
+      "name": "magisk_command_args_warning",
+      "value": "Startup argument mode is active, so the module ignores config.toml. Remove config/command_args before saving configuration here."
+    },
+    {
+      "name": "magisk_invalid_module_directory",
+      "value": "KernelSU returned an invalid module directory"
+    },
+    {
+      "name": "magisk_load_failed",
+      "value": "Failed to load module configuration: {error}"
+    },
+    {
+      "name": "magisk_save_failed",
+      "value": "Failed to save module configuration: {error}"
+    },
+    {
+      "name": "magisk_config_saved",
+      "value": "Configuration validated and saved; EasyTier restarted"
+    },
+    {
+      "name": "magisk_config_saved_restart_pending",
+      "value": "Configuration validated and saved; the EasyTier supervisor is still starting"
+    },
+    {
       "name": "retain_network_instance",
       "value": "Retain Network Instance"
     },
@@ -275,6 +327,26 @@
     {
       "name": "logging_copy_dir",
       "value": "Copy Log Path"
+    },
+    {
+      "name": "vpn_tile_no_network",
+      "value": "No configured network"
+    },
+    {
+      "name": "vpn_tile_no_network_description",
+      "value": "Configure a network in EasyTier before using the VPN tile."
+    },
+    {
+      "name": "vpn_tile_started",
+      "value": "VPN network started"
+    },
+    {
+      "name": "vpn_tile_stopped",
+      "value": "VPN network stopped"
+    },
+    {
+      "name": "vpn_tile_action_failed",
+      "value": "VPN tile action failed: {error}"
     },
     {
       "name": "disable_auto_launch",
@@ -1467,6 +1539,14 @@
     {
       "name": "mode_rpc_connection_failed",
       "value": "RPC connection failed: {error}"
+    },
+    {
+      "name": "mode_autostart",
+      "value": "Start on Boot"
+    },
+    {
+      "name": "mode_autostart_hint",
+      "value": "Auto-start on boot is provided by service mode. After switching to Service mode and saving, EasyTier will be registered as a system service that starts automatically at boot and keeps running in the background."
     },
     {
       "name": "config_server_title",

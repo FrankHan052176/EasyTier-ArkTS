@@ -3,6 +3,7 @@ import { window } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
 import { Logger, LogLocate } from '../shared/logging/Logger';
 import { BusinessError, commonEventManager, deviceInfo } from '@kit.BasicServicesKit';
+import { fileIo } from '@kit.CoreFileKit';
 import easytier from 'easytier-ohrs';
 import { JSON } from '@kit.ArkTS';
 import { BUILD_TIME } from '../util/info/BuildTime';
@@ -53,6 +54,7 @@ import {
 import { EntryVpnConnectionService } from '../services/tun/EntryVpnConnectionService'
 import { EntryVpnSetupRequestBuilder } from '../services/tun/EntryVpnSetupRequestBuilder'
 import { startRuntimeStatsRecording, stopRuntimeStatsRecording } from '../services/runtime/RuntimeStatsService'
+import { RuntimeHostLease } from '../services/runtime/RuntimeHostLease'
 import { IapService } from '../services/iap/IapService'
 
 interface NearbyHostCommandData {
@@ -69,6 +71,24 @@ interface NearbyHostCommandData {
  */
 const EMULATOR_WINDOW_WIDTH_PX = 722
 const EMULATOR_WINDOW_HEIGHT_PX = 1482
+
+/**
+ * Core（easytier-ohrs nearby_management.rs MANAGEMENT_SOCKET_FILE_NAME）在
+ * config_root_dir 下绑定的管理宿主 socket。停止宿主只做 take/drop，unlink 在
+ * Drop 中异步完成，因此必须观察该路径消失才能认定旧宿主已真正释放。
+ *
+ * 路径本身证明不了持有者是否还活着（进程崩溃会残留路径），所以"谁是宿主"由
+ * RuntimeHostLease 的进程间文件锁证明：锁在手里才允许调 native start。
+ */
+const NEARBY_MANAGEMENT_SOCKET_NAME = 'easytier-nearby-management.sock'
+const NEARBY_HOST_RELEASE_POLL_MS = 25
+const NEARBY_HOST_RELEASE_TIMEOUT_MS = 5000
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds)
+  })
+}
 
 @LogLocate("EntryAbility")
 export default class EntryAbility extends UIAbility {
@@ -87,7 +107,7 @@ export default class EntryAbility extends UIAbility {
   private continuationSocketClient: ContinuationSocketClient = new ContinuationSocketClient({
     socketName: VPN_EXTENSION_SOCKET_NAME,
     logTarget: 'EntryAbility',
-    isExtMode: () => false,
+    isExtMode: () => AppManager.uiState.ext_mode,
     getSocketPath: (name: string) => AppManager.uiState.getSocketPath(name),
     onContinueState: (active: boolean) => {
       if (active) {
@@ -102,6 +122,25 @@ export default class EntryAbility extends UIAbility {
   private favoriteCardActions: FavoriteCardActionService = new FavoriteCardActionService()
   private nearbyHostTimer: number | undefined = undefined
   private nearbyHostCommandQueue: Promise<void> = Promise.resolve()
+  /**
+   * 本进程是否真正持有 Core nearby 管理宿主。只有本进程成功调用过
+   * startNearbyManagementHost() 才允许 stop，避免 remove_file 掉扩展
+   * 进程或下一条生命周期的同名 socket。
+   */
+  private nearbyHostOwned: boolean = false
+  /**
+   * 本进程停过宿主但尚未观察到 socket 路径消失。超时后仍保持为 true，
+   * 使后续取宿主/交接必须继续等待，不会被 owned=false 绕过。
+   */
+  private nearbyHostReleasePending: boolean = false
+  /**
+   * nearby 宿主的进程间所有权凭证。context.filesDir 确定后建立；只有锁在手里才
+   * 允许 native start。锁随持有进程存活（进程崩溃时 OS 释放 fd 锁），因此残留的
+   * socket 路径不再永久挡住冷启动。
+   */
+  private nearbyHostLease: RuntimeHostLease | undefined = undefined
+  private configStoreReady: boolean = false
+  private runtimeHostSyncQueue: Promise<void> = Promise.resolve()
   private terminating: boolean = false
   private vpnSetupRequestBuilder: EntryVpnSetupRequestBuilder = new EntryVpnSetupRequestBuilder({
     getRuntimeSettings: () => {
@@ -331,6 +370,189 @@ export default class EntryAbility extends UIAbility {
     this.nearbyHostTimer = undefined
   }
 
+  private ensureEntryConfigStore(): boolean {
+    if (this.configStoreReady) {
+      return true
+    }
+    if (!easytier.initConfigStore(this.context.filesDir)) {
+      return false
+    }
+    this.configStoreReady = true
+    return true
+  }
+
+  private nearbyManagementSocketPath(): string {
+    return this.context.filesDir + '/' + NEARBY_MANAGEMENT_SOCKET_NAME
+  }
+
+  private isNearbyManagementSocketPresent(): boolean {
+    try {
+      return fileIo.accessSync(this.nearbyManagementSocketPath())
+    } catch (error) {
+      // 探针失败的保守结论是“仍在”，宁可等待超时也不误判为已释放。
+      Logger.debug(`nearby management socket probe failed: ${JSON.stringify(error)}`, this)
+      return true
+    }
+  }
+
+  /**
+   * 有界等待本进程停掉的宿主真正释放：Core 的 stop 只 take/drop，
+   * socket unlink 在 Drop 中异步完成，返回并不代表已删除。
+   * 只有观察到路径消失才清 releasePending；超时保持 pending，
+   * 下一次取宿主仍必须继续等待。
+   */
+  private async awaitNearbyHostRelease(): Promise<boolean> {
+    if (!this.nearbyHostReleasePending) {
+      return true
+    }
+    const socketPath = this.nearbyManagementSocketPath()
+    const deadline = Date.now() + NEARBY_HOST_RELEASE_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      if (!this.isNearbyManagementSocketPresent()) {
+        this.nearbyHostReleasePending = false
+        Logger.info('previous nearby management host released', this)
+        return true
+      }
+      await delay(NEARBY_HOST_RELEASE_POLL_MS)
+    }
+    Logger.error(`nearby management socket still present after release timeout: ${socketPath}`, this)
+    return false
+  }
+
+  /**
+   * 主模式：本进程持有 Core 管理宿主与命令 drain。
+   *
+   * 归属证明是宿主锁而不是 socket 路径是否存在：活着的持有者（UI 或扩展进程）
+   * 一直握着锁，所以拿不到锁就拒绝启动；持有者进程崩溃时 OS 会随 fd 释放锁，
+   * 于是残留路径不再永久挡住冷启动——此时由 native 的
+   * startNearbyManagementHost() 自己清理 stale 路径。
+   */
+  private async ensureOwnedNearbyHost(): Promise<boolean> {
+    if (!this.ensureEntryConfigStore()) {
+      Logger.error('main-process Core config store initialization failed', this)
+      return false
+    }
+    const lease = this.nearbyHostLease
+    if (!lease) {
+      Logger.error('main-process nearby host lease unavailable', this)
+      return false
+    }
+    if (this.nearbyHostOwned) {
+      this.startNearbyHostCommandDrain()
+      return true
+    }
+    // 幂等：本进程已持有锁时直接成功；别的进程持有则绝不启动第二个宿主。
+    if (!lease.tryAcquire()) {
+      Logger.error('main-process nearby management host not acquired: lease held by another process', this)
+      return false
+    }
+    // 锁只证明没有别的活宿主；自家上一任宿主的 socket 还必须观察到真正消失，
+    // 否则 native start 可能与晚到的 Drop unlink 抢同一个路径。
+    if (!await this.awaitNearbyHostRelease()) {
+      return false
+    }
+    if (!easytier.startNearbyManagementHost()) {
+      Logger.error('main-process nearby management host failed to start', this)
+      // native 没起来：不留着自己拿到的锁，否则下一任永远无法接管。
+      lease.release()
+      return false
+    }
+    this.nearbyHostOwned = true
+    this.startNearbyHostCommandDrain()
+    Logger.info('main-process nearby management host ready', this)
+    return true
+  }
+
+  /**
+   * 子进程模式或 UI 生命周期结束：只释放本进程真正持有的宿主。
+   * 扩展进程的宿主由其自身释放，UI 绝不能代为 unlink。
+   *
+   * 宿主锁不在这里释放：必须观察到 socket 路径真正消失之后才 release
+   * （见 applyRuntimeHostMode / releaseNearbyHostLeaseAfterNativeRelease）。
+   */
+  private stopOwnedNearbyHost(): void {
+    this.stopNearbyHostCommandDrain()
+    if (!this.nearbyHostOwned) {
+      return
+    }
+    this.nearbyHostOwned = false
+    this.nearbyHostReleasePending = true
+    if (!easytier.stopNearbyManagementHost()) {
+      Logger.warn('main-process nearby management host stop was rejected', this)
+    }
+  }
+
+  /**
+   * 交还宿主锁：排在 runtimeHostSyncQueue 之后，先重查一次原生宿主是否被在途的
+   * 模式切换拿起来、停掉它，再等 socket 路径真正消失，最后才 release。
+   * 释放未证实则保留锁与 releasePending，让下一任继续拒绝接管。
+   */
+  private releaseNearbyHostLeaseAfterNativeRelease(): void {
+    const lease = this.nearbyHostLease
+    if (!lease) {
+      return
+    }
+    const operation = this.runtimeHostSyncQueue.catch(() => {}).then(async () => {
+      this.stopOwnedNearbyHost()
+      if (!await this.awaitNearbyHostRelease()) {
+        Logger.error('nearby host lease retained: native host release unconfirmed', this)
+        return
+      }
+      lease.release()
+      Logger.info('nearby host lease released after native host release', this)
+    })
+    this.runtimeHostSyncQueue = operation.catch((error: Error) => {
+      Logger.error(`nearby host lease release failed: ${error.message}`, this)
+    })
+  }
+
+  private async releaseEntryVpnConnectionIfIdle(): Promise<void> {
+    if (AppManager.easytier.hasActiveOrStartingRuntime()) {
+      Logger.warn('runtime host sync kept the UI vpn connection: runtime still active', this)
+      return
+    }
+    try {
+      await this.entryVpnService?.destroyVpnConnection()
+    } catch (error) {
+      Logger.error(`vpn destroy during runtime host sync failed: ${(error as Error).message}`, this)
+    }
+  }
+
+  /**
+   * 按 AppManager.uiState.ext_mode 归一化 UI 进程侧的运行宿主：
+   * 子进程模式释放 UI 的 nearby host/命令 drain/内核 socket/空闲 VPN 并等待
+   * 释放被证实，然后才交还宿主锁；主模式确保 UI 持有 nearby host 与命令 drain
+   * （内核 socket 由启动闭包建立）。释放无法证实即返回 false 并保留锁与 pending，
+   * 绝不让下一方在脏路径上启动。
+   */
+  private async applyRuntimeHostMode(): Promise<boolean> {
+    const extMode = AppManager.uiState.ext_mode
+    this.syncContinuationSocket()
+    if (extMode) {
+      this.stopNearbyHostCommandDrain()
+      this.entryKernelSocketService?.close()
+      await this.releaseEntryVpnConnectionIfIdle()
+      this.stopOwnedNearbyHost()
+      // native 宿主释放被证实之前绝不解锁：否则扩展进程/主进程的 lease 探测会把
+      // 仍在清理宿主的本进程当成已退出。
+      if (!await this.awaitNearbyHostRelease()) {
+        return false
+      }
+      this.nearbyHostLease?.release()
+      Logger.info('runtime host released to vpn extension process', this)
+      return true
+    }
+    return await this.ensureOwnedNearbyHost()
+  }
+
+  private syncRuntimeHost(): Promise<boolean> {
+    const operation = this.runtimeHostSyncQueue.catch(() => {}).then(async () => {
+      return await this.applyRuntimeHostMode()
+    })
+    this.runtimeHostSyncQueue = operation.then(() => {}, () => {})
+    return operation
+  }
+
   private drainNearbyHostCommands(): void {
     const commands = easytier.drainNearbyHostCommands() as NearbyHostCommandData[]
     for (const command of commands) {
@@ -399,7 +621,7 @@ export default class EntryAbility extends UIAbility {
     })
     this.entryKernelSocketService = new EntryKernelSocketService({
       logTarget: this,
-      shouldConnect: () => true,
+      shouldConnect: () => !AppManager.uiState.ext_mode,
       buildTunSetupRequest: (payload) => {
         return this.vpnSetupRequestBuilder.buildFromKernelPayload(payload)
       },
@@ -412,6 +634,11 @@ export default class EntryAbility extends UIAbility {
       if (!vpnService) {
         return false
       }
+      if (AppManager.uiState.ext_mode) {
+        // 子进程模式：内核宿主在扩展进程，UI 不建立 VPN 授权/内核 socket。
+        Logger.warn('main-process runtime start rejected: vpn extension mode active', this)
+        return false
+      }
       let config: ConfigJson
       try {
         config = JSON.parse(request.configJson) as ConfigJson
@@ -419,6 +646,9 @@ export default class EntryAbility extends UIAbility {
         return false
       }
       if (config.instance_id !== request.instanceId) {
+        return false
+      }
+      if (!await this.ensureOwnedNearbyHost()) {
         return false
       }
       if (!config.no_tun) {
@@ -435,6 +665,10 @@ export default class EntryAbility extends UIAbility {
       await vpnService.destroyVpnConnection()
       return false
     }, async (instanceIds: string[]): Promise<boolean> => {
+      if (AppManager.uiState.ext_mode) {
+        Logger.warn('main-process runtime stop rejected: vpn extension mode active', this)
+        return false
+      }
       if (instanceIds.length > 0 && !await stopStoredInstances(instanceIds)) {
         return false
       }
@@ -443,6 +677,8 @@ export default class EntryAbility extends UIAbility {
       await this.entryVpnService?.destroyVpnConnection()
       this.deactivateMissionContinue()
       return true
+    }, async (): Promise<boolean> => {
+      return await this.syncRuntimeHost()
     })
     this.entryBackgroundTaskService = new EntryBackgroundTaskService({
       context: this.context,
@@ -494,21 +730,34 @@ export default class EntryAbility extends UIAbility {
     startupMark('ability.crashLog.init')
     easytier.initLogManager(this.context.filesDir, 'ui')
     easytier.configureLogManager(false, false)
-    if (!easytier.initConfigStore(this.context.filesDir)) {
+    // 仅初始化 UI 侧配置读写；运行宿主归属等 preferences 载入后由 syncRuntimeHost 决定，
+    // 子进程模式下 UI 绝不启动 nearby host / 内核 socket。
+    if (!this.ensureEntryConfigStore()) {
       Logger.error('main-process Core config store initialization failed', this)
-    } else if (!easytier.startNearbyManagementHost()) {
-      Logger.error('main-process nearby management host failed to start', this)
-    } else {
-      this.startNearbyHostCommandDrain()
     }
+    // root（context.filesDir）已确定：建立宿主锁对象。真正加锁发生在申请宿主时，
+    // 保证"持有锁"与"持有 native 宿主"始终一致。
+    this.nearbyHostLease = new RuntimeHostLease(this.context.filesDir)
     startupMark('ability.logManager.init')
-    // Main-process runtime owns Core, TUN and physical-network restart transactions.
+    // 主进程运行时持有 Core、TUN 与物理网络重启事务；子进程模式下内核宿主在扩展进程，
+    // 该进程不参与看护（由 EasyTierAbility 自己的 watchdog 负责）。
     this.networkWatchdog = new NetworkChangeWatchdog({
       logTarget: this,
       getRunningIds: () => {
+        if (AppManager.uiState.ext_mode) {
+          return []
+        }
         return AppManager.easytier.getRuntimeIntentIds()
       },
       restartInstances: (ids: string[]) => {
+        if (AppManager.uiState.ext_mode) {
+          const extensionResult: NetworkRestartResult = {
+            stopped: false,
+            started: false,
+            cancelled: true
+          }
+          return Promise.resolve(extensionResult)
+        }
         const vpnService = this.entryVpnService
         if (!vpnService) {
           const cancelledResult: NetworkRestartResult = {
@@ -557,6 +806,16 @@ export default class EntryAbility extends UIAbility {
 
   async initApp() {
     await this.entryAppBootstrapService?.initialize()
+    // preferences 载入后才知晓 ext_mode。主模式不在冷启时抢宿主：可能还活着的
+    // 扩展由 Main 的 prepareRuntimeHost 负责处理；子进程模式只做宿主让位，
+    // 不申请 VPN 授权、不启动扩展。
+    if (!AppManager.uiState.ext_mode) {
+      return
+    }
+    const released = await this.syncRuntimeHost()
+    if (!released) {
+      Logger.error('runtime host release failed for vpn extension mode', this)
+    }
   }
 
   private async startStatusBarThenInitApp(): Promise<void> {
@@ -621,8 +880,12 @@ export default class EntryAbility extends UIAbility {
     MemoryDiagnosticsService.enableSystemLeakWatcher(false)
     void RemoteManageService.disconnect()
     RemoteManageService.destroyHostSessions()
-    this.stopNearbyHostCommandDrain()
-    easytier.stopNearbyManagementHost()
+    // 只释放 UI 本地资源：子进程模式下的扩展宿主与运行实例由扩展进程自己持有，
+    // 这里既不停止子进程、也不写扩展统计。
+    this.stopOwnedNearbyHost()
+    // 宿主锁的释放是异步的：等自家 native 宿主被证实释放（socket 路径消失）之后才
+    // 交还，绝不在 stop 之后立刻 unlock，也不会把锁永远挂在已停的宿主上。
+    this.releaseNearbyHostLeaseAfterNativeRelease()
     AppManager.easytier.destroy()
     this.entryBackgroundTaskService?.stopTaskMonitoring()
     unregisterEntryKeepAliveHandlers()

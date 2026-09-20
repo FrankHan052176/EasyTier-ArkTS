@@ -12,7 +12,14 @@ import {
   BACKGROUND_KEEP_ALIVE_TASK_KEEPING,
   normalizeBackgroundKeepAliveMode
 } from '../main/ets/types/runtime/BackgroundKeepAliveTypes';
-import { runtimeModeOptions } from '../main/ets/types/runtime/RuntimeModeTypes';
+import {
+  normalizeRuntimeMode,
+  RUNTIME_MODE_AUDIO_PLAYBACK,
+  RUNTIME_MODE_SUBPROCESS,
+  RUNTIME_MODE_TASK_KEEPING,
+  runtimeModeFromSettings,
+  runtimeModeOptions
+} from '../main/ets/types/runtime/RuntimeModeTypes';
 import { Url } from '../main/ets/class/config/Url';
 import {
   HOME_LAYOUT_SCHEMA_VERSION,
@@ -225,9 +232,14 @@ export default function localUnitTest() {
       expect(ThirdPartyApiValidator.isSnapshotFresh(snapshot, now + THIRD_PARTY_SNAPSHOT_TTL_MS + 1)).assertFalse()
     });
     it('offersTaskKeepingOnlyWhenRequestedByTabletUi', 0, () => {
-      expect(runtimeModeOptions(false).length).assertEqual(2)
-      expect(runtimeModeOptions(true).length).assertEqual(3)
+      expect(runtimeModeOptions(false).some(option => option.value === RUNTIME_MODE_TASK_KEEPING)).assertFalse()
+      expect(runtimeModeOptions(true).some(option => option.value === RUNTIME_MODE_TASK_KEEPING)).assertTrue()
       expect(normalizeBackgroundKeepAliveMode('taskKeeping')).assertEqual(BACKGROUND_KEEP_ALIVE_TASK_KEEPING)
+    });
+    it('preservesSubprocessSelectionWithoutLosingMainProcessKeepAlive', 0, () => {
+      expect(normalizeRuntimeMode(RUNTIME_MODE_SUBPROCESS)).assertEqual(RUNTIME_MODE_SUBPROCESS)
+      expect(runtimeModeFromSettings(true, RUNTIME_MODE_AUDIO_PLAYBACK)).assertEqual(RUNTIME_MODE_SUBPROCESS)
+      expect(runtimeModeFromSettings(false, RUNTIME_MODE_AUDIO_PLAYBACK)).assertEqual(RUNTIME_MODE_AUDIO_PLAYBACK)
     });
     it('replacesVisibleLegacyCardWithRemoteControl', 0, () => {
       const oldSequence = 'Instances_0_0_2_1|SharedPeers_0_2_2_1|QQ_0_3_1_1'
