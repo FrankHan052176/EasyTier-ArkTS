@@ -123,10 +123,13 @@ export class NativeSocketProtectionService {
         error = (protectError as Error).message
       }
       const completed = easytier.completeSocketProtection(request.requestId, success, error)
-      if (!completed && this.active && this.generation === generation) {
-        Logger.warn(`socket protection acknowledgement rejected request=${request.requestId} purpose=${request.purpose}`,
+      if (!completed) {
+        // Core retains the duplicate FD until this acknowledgement, but the
+        // socket-creation task may already be cancelled. There is no live caller
+        // to receive this result; keep protecting the remaining sockets.
+        Logger.debug(`socket protection requester already released request=${request.requestId} purpose=${request.purpose}`,
           this.logTarget)
-        throw new Error(`socket_protection_acknowledgement_rejected:${request.purpose}`)
+        continue
       }
       if (!success) {
         Logger.error(`socket protection failed request=${request.requestId} purpose=${request.purpose}: ${error ?? ''}`,

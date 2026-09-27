@@ -305,6 +305,21 @@ ohpm install
 hvigorw --mode module -p module=entry@default assembleHap
 ```
 
+### 逐 socket VPN 保护的确认语义
+
+主进程与子进程共用 `NativeSocketProtectionService`，仅对内核选定的 socket 调用
+`VpnConnection.protect()`，不对整个进程启用 VPN 绕过。
+
+`completeSocketProtection()` 的布尔返回值表示内核是否接收了该请求的结果，而不是
+`protect()` 是否成功。socket 创建任务可能在确认前被取消，此时确认返回 `false`；
+保护循环应继续处理其他请求，不能因此停止实例。Core 保留交付的副本 FD 直到确认，
+即使请求方已取消，也必须在平台保护操作完成后发送确认，释放这份 FD。
+具体约定见 [Core 的请求/确认实现](https://github.com/EasyTier/EasyTier/blob/b63e3af581a3ae84b27d8c2d9508f617cec9e29d/easytier-contrib/easytier-ohrs/crates/easytier-ohos-core/src/socket_protection.rs)。
+
+仍有接收方的真实保护失败应通过 `success=false` 回报，并保留实例停机处理；请求流在
+服务运行中意外结束同样属于致命错误。验证时需覆盖已取消请求后仍可保护新 socket、
+真实失败不放行，以及停止时等待在途保护和确认完成。
+
 ### 壳工程开发流程
 
 1. **修改 ArkTS 代码**：主要在 `entry/src/main/ets/` 下开发 UI、服务和 Ability
