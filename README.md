@@ -1,8 +1,8 @@
-# EasyTier for HarmonyOS NEXT
+# EasyTier for HarmonyOS PC / NEXT
 
-> 基于 HarmonyOS 原生壳工程 + EasyTier Rust 内核 HAR 的跨端组网客户端
+> 开源软件移植：复用 EasyTier Rust 组网内核，以 ArkTS / ArkUI 原生应用适配鸿蒙 PC（2in1），同时保留手机和平板支持。
 
-[![HarmonyOS](https://img.shields.io/badge/HarmonyOS-6.0.2%20(API%2022)-8A2BE2)](https://developer.harmonyos.com)
+[![HarmonyOS](https://img.shields.io/badge/HarmonyOS-6.1.0%20(API%2023)-8A2BE2)](https://developer.harmonyos.com)
 [![ArkTS](https://img.shields.io/badge/ArkTS-Native-blue)](https://developer.harmonyos.com)
 [![EasyTier Core](https://img.shields.io/badge/EasyTier-Rust%20HAR-green)](https://github.com/EasyTier/EasyTier)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-yellow)](#许可证)
@@ -13,9 +13,22 @@
 
 - **HarmonyOS 壳工程**：使用 ArkTS、ArkUI、HMRouter 和 HarmonyOS Extension Ability 构建完整客户端界面，负责配置管理、状态展示、系统权限、后台任务、分享、云同步、远端控制和桌面组件等系统集成能力
 - **EasyTier 内核层**：通过 `easytier-ohrs` HAR 集成 Rust 原生网络核心，提供 EasyTier 组网、VPN 隧道、运行状态、日志与配置桥接能力
-- **系统网络能力**：通过 `VpnExtensionAbility` 接入系统 VPN 框架，并结合后台任务、通知、状态栏视图和权限管理，让组网服务可以在鸿蒙设备上稳定运行
+- **系统网络能力**：通过 VPN 扩展入口申请授权，使用 `vpnExtension` 创建系统 TUN 并将 fd 交给 Rust；主进程与扩展进程运行路径按实际运行模式衔接，不把扩展能力声明等同于内核固定运行在扩展进程。
 
 这种架构让 EasyTier 的高性能 Rust 内核能够以原生 HAR 形式嵌入鸿蒙应用，同时让 UI、权限、文件、分享、云同步和设备适配完全走 HarmonyOS 原生能力。
+
+**社区项目仓库：** https://atomgit.com/OpenHarmonyPCDeveloper/ohos_easytier
+
+**Rust 内核适配仓库：** https://atomgit.com/FrankHan2004/EasyTier
+
+**编译运行与 PC 适配说明：** [README.OpenHarmony_CN.md](README.OpenHarmony_CN.md)
+
+### 鸿蒙 PC 完整运行界面
+
+![EasyTier 在鸿蒙 PC 桌面上的完整运行界面](docs/images/harmonyos-pc-runtime.jpeg)
+
+*已有测试记录，原图为 3120×2080，保留系统桌面、任务栏和完整应用窗口，未裁剪或拼接。该截图证明应用已在 PC 桌面启动并展示界面；图中实例尚未启动，不用于证明节点互通或网络性能。*
+
 
 ## 🏗️ 项目结构
 
@@ -126,7 +139,7 @@ EasyTier/
 | 功能 | 说明 |
 |------|------|
 | 🔗 **EasyTier 组网** | 通过 Rust 内核 HAR 启动 EasyTier 网络实例 |
-| 🛡️ **系统 VPN 隧道** | 使用 `VpnExtensionAbility` 接入 HarmonyOS VPN 框架 |
+| 🛡️ **系统 VPN 隧道** | 经 VPN 扩展入口授权，通过 `vpnExtension` 创建系统 TUN 并注入 Rust 内核 |
 | 🧩 **多实例配置管理** | 支持创建、编辑、收藏、重命名和删除多个网络配置 |
 | 📥 **配置导入** | 支持分享链接、文件、剪贴板和二维码导入 |
 | 📤 **配置导出** | 支持系统分享面板、二维码和配置链接导出 |
@@ -143,115 +156,76 @@ EasyTier/
 
 ## 🧭 功能适配情况
 
-> 这里的“未落地”并不是“想做却没做成”，而是基于当前 HarmonyOS 客户端定位、系统能力边界与安全策略做出的主动裁剪。当前版本重点保障“稳定组网、易于配置、可持续运行”，避免把桌面端所有高级网络能力盲目移植到移动端。
+> 迁移复用的是 EasyTier 的 Rust 网络内核，不是直接运行 Windows/Linux 桌面二进制。界面与系统集成采用 HarmonyOS 原生实现。鸿蒙 PC 与普通 Linux 的权限和网络管理方式不同，不能把 raw socket、直接创建 TUN 等桌面假设原样搬过来。以下状态描述仓库的能力边界，不代表每个系统版本、签名和网络环境都已逐项验收。
 
 | 能力 | 状态 | 说明 |
 |------|------|------|
 | EasyTier 基础组网 | ✅ 已支持 | 可通过内核 HAR 启动 EasyTier 实例，建立节点与隧道连接 |
-| 系统 VPN 隧道接入 | ✅ 已支持 | 通过 `VpnExtensionAbility` 接入 HarmonyOS VPN 框架 |
+| 系统 VPN 隧道接入 | ✅ 已支持 | 经系统授权创建 TUN，Rust 接收 fd 并处理数据转发 |
 | 多实例配置管理 | ✅ 已支持 | 支持创建、编辑、收藏、重命名和删除多个网络配置 |
 | 配置导入/导出 | ✅ 已支持 | 支持分享链接、文件、剪贴板和二维码导入导出 |
 | 运行状态与日志 | ✅ 已支持 | 展示虚拟 IP、NAT 类型、TUN 状态、节点信息与运行日志 |
 | 后台运行与通知 | ✅ 已支持 | 支持后台任务、通知提醒和状态栏轻量展示 |
 | 云同步与跨端能力入口 | ✅ 已支持 | 提供配置缓存、上传下载和跨端控制入口 |
 | 高级路由策略与深度系统控制 | ⚠️ 部分支持 | 目前已支持常见的组网场景；其中 `faketcp` 因 `raw socket` 权限限制无法落地，`ping` 代理因 `icmp socket` 权限限制无法落地 |
-| Web 控制台接入 | ❌ 未适配 | 当前版本暂不适配 Web 控制台，原因是 HarmonyOS 端当前只能启动一个 TUN，且实例共享 TUN 的能力在上游主线尚未落地 |
+| Web 控制台接入 | ❌ 未适配 | 当前客户端不接入该控制台；多配置管理不等于支持多个实例各自创建 TUN，不能承诺上游控制台的完整多实例路径 |
 
-## 🧱 T0 / T1 / T2 功能分级说明
+## T0 / T1 / T2：鸿蒙 PC 迁移阶段与能力边界
 
-本项目的适配能力按“可用性、日常使用体验与平台增强”三层进行分级，目标是先把最核心的组网流程做稳，再逐步补齐更丰富的体验能力。
+沿用“基础可用 → 日常核心功能 → PC 平台增强”的三阶段划分。这里的“已支持”指仓库已提供对应实现；完整桌面截图与项目性能记录是已有验证证据，不将其扩展成所有功能的本轮真机验收，也不按条目数量计算迁移完成百分比。
 
-### T0 基础能力（组网主流程）
+### T0 基础能力：能构建、能启动、能进入组网主流程
 
-| 能力 | 状态 | 说明 |
-|------|------|------|
-| HAP 构建与安装 | ✅ 已支持 | 可通过 Hvigor / DevEco 构建并安装 HAP 包 |
-| 应用启动与主界面 | ✅ 已支持 | 安装后可正常启动并进入配置与状态主界面 |
-| 配置创建与导入 | ✅ 已支持 | 支持手动创建、分享链接、文件、剪贴板和二维码导入 |
-| EasyTier 实例启动 | ✅ 已支持 | 可启动组网实例并建立基础隧道连接 |
-| 运行状态展示 | ✅ 已支持 | 展示节点、虚拟 IP、TUN、NAT 等基础状态，且可观测关键运行信息 |
+| 能力 | 状态 | 迁移内容与验收边界 |
+| --- | --- | --- |
+| Rust 内核 HAR 接入 | 已支持 | 仓库携带 arm64 HAR，应用通过 NAPI 加载；构建后检查 HAP 内 Native 库与类型声明匹配 |
+| HAP 构建、安装与启动 | 已支持 | Hvigor / DevEco 构建签名包；PC 启动后的完整桌面截图见上文 |
+| 配置创建与导入 | 已支持 | 手动编辑、链接、文件、剪贴板及二维码入口；验证导入配置与内核语义校验 |
+| 系统 VPN 与 TUN | 已支持 | 系统侧授权及创建 TUN，Rust 接收 fd；需验证授权、挂载和停止清理，不把实例启动等同于 TUN 已就绪 |
+| 节点与运行状态 | 已支持 | 提供虚拟 IP、Peer、NAT、路由及日志；节点互通须在真实组网环境单独验证 |
 
-小结：T0 这一层聚焦“能用”的基础组网流程，当前项目已经覆盖应用可构建、配置可落地、实例可启动与状态可观测。
+T0 验收重点是“签名包可安装 → PC 主界面可见 → 配置可用 → TUN/节点状态可观察”，截图本身只证明启动与窗口化显示。
 
-### T1 核心能力（日常组网）
+### T1 核心能力：日常组网、配置维护与问题诊断
 
-| 能力 | 状态 | 说明 |
-|------|------|------|
-| 多实例管理 | ✅ 已支持 | 支持多配置并存、收藏、重命名和删除 |
-| 配置导出与分享 | ✅ 已支持 | 支持系统分享、二维码和链接导出 |
-| 日志与调试信息 | ✅ 已支持 | 提供内核日志、调试日志和运行统计信息 |
-| 后台运行与通知 | ✅ 已支持 | 保持组网服务可持续运行，并提供状态提醒 |
-| 高级协议能力 | ⚠️ 部分支持 | 目前已覆盖常见组网场景；其中 `faketcp` 与 `ping` 代理因系统权限限制暂不可用 |
+| 能力 | 状态 | 迁移内容与验收边界 |
+| --- | --- | --- |
+| 多配置管理 | 已支持 | 创建、收藏、重命名、复制、删除配置；不等于同时建立多个独立系统 TUN |
+| 配置导出与分享 | 已支持 | 文件、链接、二维码及系统分享；验证导出再导入的配置语义 |
+| 运行状态与日志 | 已支持 | 内核事件、流量统计、运行采样及崩溃日志；过期状态不应当作当前连通性证明 |
+| 切网恢复与启停编排 | 已支持 | 网络变化看护、内核软重启和 TUN 事务衔接；需要切网、连续启停及资源释放回归 |
+| 后台运行与通知 | 已支持 | 根据设备和系统能力选择运行保持方案；不承诺任意系统策略下永久常驻 |
+| 高级协议 | 部分支持 | 常见 TCP/UDP 组网路径可用；`faketcp` 与 `ping` 代理受 raw/ICMP socket 权限限制 |
 
-小结：T1 层覆盖日常组网的核心使用场景，当前项目已实现较完整的配置、运维与可观测体验。
+T1 验收重点是配置读写闭环、正常启停、切网恢复和可诊断性，不能只检查一个“已连接”布尔值。
 
-### T2 增强能力（平台体验与安全取舍）
+### T2 增强能力：PC 窗口、大屏交互与平台集成
 
-| 能能 | 状态 | 说明 |
-|------|------|------|
-| HarmonyOS 原生视觉与交互 | ✅ 已支持 | 采用 ArkTS、ArkUI、HDS 视觉体系与系统原生交互 |
-| 桌面卡片与状态栏入口 | ✅ 已支持 | 提供桌面快捷入口和轻量状态展示 |
-| 可重构首页布局 | ✅ 已支持 | 首页卡片支持拖拽、调整位置和尺寸 |
-| 手势与握持姿态适配 | ✅ 已支持 | 针对单手操作和横竖屏场景进行体验优化 |
-| 云同步与跨端入口 | ✅ 已支持 | 支持配置同步、缓存上传下载和远端控制入口 |
-| Web 控制台接入 | ❌ 未适配 | 由于当前 HarmonyOS 端只能启动一个 TUN，且实例共享 TUN 能力在上游主线尚未落地，暂不进行适配 |
-| 复杂系统级控制能力 | ❌ 未落地 | 当前不提供被控端部署、侵入式路由控制或高风险扩展能力 |
+| 能力 | 状态 | 迁移内容与验收边界 |
+| --- | --- | --- |
+| PC 窗口形态 | 已支持 | 模块声明 `2in1`，支持浮窗、分屏和全屏；窗口尺寸变化更新布局 |
+| 配置页大屏布局 | 已支持 | 按窗口宽度切换一、二、三栏；逐帧加载与 Native BoolField 成本分析见 `docs/CONFIG_PAGE_PERFORMANCE.md` |
+| 首页布局调整 | 已支持 | 卡片拖拽、排序、隐藏、尺寸与位置持久化；PC 鼠标操作与缩放窗口应分别验收 |
+| 桌面入口与轻量状态 | 按能力提供 | 桌面卡片、状态栏和运行保持选项受设备类型、API 与系统能力约束，不保证每种桌面都有相同入口 |
+| 云同步与跨端入口 | 已支持 | 提供对应服务与页面；需要账户、网络、权限及双方设备配合，不由单张 PC 截图证明 |
+| Web 控制台及侵入式系统控制 | 未适配 | 不照搬上游控制台和高权限桌面控制能力；属于当前平台边界 |
 
-小结：T2 层强调平台体验与安全取舍，项目当前已实现较好的 HarmonyOS 原生体验，同时主动回避高风险、易滥用的系统能力。
+T2 验收重点是完整 PC 桌面展示、窗口缩放后布局正确、宽屏加载不卡住，以及平台能力不可用时有明确边界。
 
-## 🚀 构建与运行
+## 构建与运行
 
-### 环境要求
+完整步骤见 [README.OpenHarmony_CN.md](README.OpenHarmony_CN.md)，包括签名、依赖、命令行构建、PC 安装启动和验证清单。
 
-| 工具 | 版本 |
-|------|------|
-| DevEco Studio | 建议使用当前最新版 |
-| HarmonyOS SDK | target `6.0.2(22)`，compatible `6.0.0(20)` |
-| ohpm / hvigor | 使用 DevEco Studio 随附版本 |
-| Node.js | 使用 DevEco/Hvigor 环境要求版本 |
-| EasyTier 内核 HAR | `easytier-ohrs-0.0.1.har` |
+当前 `build-profile.json5` 的 `default` / `publish` 均为 target 与 compatible `6.1.0(23)`；`entry/build-profile.json5` 的 Native ABI 为 `arm64-v8a`。旧的 API 20/22 说明不适用于当前 checkout，也不能用 x86 模拟器代替这份 arm64 产物的 PC 验证。
 
-### 安装依赖
+仓库已携带 `easytier-ohrs-0.0.1.har`，只编译应用不需要重新构建 Rust 内核。安装依赖后，配置自己的外部签名目录，再执行：
 
 ```bash
-cd EasyTier
 ohpm install
+hvigorw assembleApp --mode project -p product=default -p buildMode=debug --no-daemon
 ```
 
-当前项目级依赖中，EasyTier 内核使用项目内本地 HAR：
-
-```json5
-"easytier-ohrs": "file:./easytier-ohrs-0.0.1.har"
-```
-
-### 构建 HAP 包
-
-```bash
-# 在 EasyTier 工程根目录执行
-hvigorw --mode module -p module=entry@default assembleHap
-
-# 产物路径
-entry/build/default/outputs/default/entry-default-signed.hap
-```
-
-也可以在 DevEco Studio 中打开 `EasyTier/` 目录，然后执行：
-
-```text
-Build → Build Hap(s)/APP(s) → Build Hap(s)
-```
-
-### 真机测试
-
-1. 连接 HarmonyOS NEXT 设备或启动模拟器
-2. 在 DevEco Studio 中选择 `entry` 模块运行，或使用命令安装 HAP
-3. 首次启动时按系统提示授予 VPN、通知、位置、分布式数据同步等必要权限
-4. 创建或导入 EasyTier 配置后启动组网
-
-```bash
-hdc install entry/build/default/outputs/default/entry-default-signed.hap
-```
-
-> ⚠️ 首次运行需要确保签名配置正确。VPN 功能会触发系统授权弹窗，用户确认后才能建立隧道。
+预期 Debug HAP：`entry/build/default/outputs/default/entry-default-signed.hap`。命令中的 `hvigorw` 使用已安装 command-line-tools 的 `bin/hvigorw`；本仓库不自带 wrapper。签名从 `EASYTIER_SIGNING_DIR` 注入，未配置签名时不能把无签名产物当作真机可安装包。Debug 使用 `default`，不要以 `publish` 的发布签名包代替 Debug 设备验证。
 
 ## 🧩 EasyTier 内核 HAR 开发说明
 
