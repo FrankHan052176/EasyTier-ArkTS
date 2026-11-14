@@ -1,4 +1,4 @@
-import { AbilityConstant, Configuration, UIAbility, Want, wantConstant } from '@kit.AbilityKit';
+import { AbilityConstant, Configuration, contextConstant, UIAbility, Want, wantConstant } from '@kit.AbilityKit';
 import { window } from '@kit.ArkUI';
 import { EventHelper } from '../util/EventHelper';
 import { Logger, LogLocate } from '../shared/logging/Logger';
@@ -788,6 +788,9 @@ export default class EntryAbility extends UIAbility {
     startupMark('ability.hmrouter.init')
     Logger.info("BuildTime:" + BUILD_TIME, this)
     WindowUtil.colorMode = this.context.config.colorMode ?? -1
+    // 从状态栏/托盘或任务栏重新显示已有实例时不触发 onNewWant：
+    // 这些场景只是把已有窗口拿到前台，重放启动 Want 会再次走一遍接续/导入流程。
+    this.context.setOnNewWantSkipScenarios(contextConstant.Scenarios.SCENARIO_SHOW_ABILITY)
     this.appReadyPromise = this.startStatusBarThenInitApp()
     this.appReadyPromise.then(() => {
       this.thirdPartyApiService?.start()
