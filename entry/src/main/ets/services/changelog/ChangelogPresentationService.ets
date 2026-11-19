@@ -1,6 +1,6 @@
 import { bundleManager } from '@kit.AbilityKit'
 import { AppManager } from '../../AppManager'
-import { CHANGELOG_REVISION } from '../../pages/hmrouter/ChangelogData'
+import { resolveChangelogRevision } from '../../pages/hmrouter/ChangelogData'
 import { Logger } from '../../shared/logging/Logger'
 import { APP_CHANNEL } from '../../util/info/BuildTime'
 
@@ -10,7 +10,7 @@ class ChangelogPresentationServiceClass {
   private currentVersionToken(): string | undefined {
     try {
       const bundleInfo = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT)
-      return `${bundleInfo.versionCode}:${bundleInfo.versionName}:${APP_CHANNEL}:${CHANGELOG_REVISION}`
+      return `${bundleInfo.versionCode}:${bundleInfo.versionName}:${APP_CHANNEL}:${resolveChangelogRevision()}`
     } catch (error) {
       Logger.error(`read current app version failed: ${JSON.stringify(error)}`, 'ChangelogPresentationService')
       return undefined
@@ -36,7 +36,7 @@ class ChangelogPresentationServiceClass {
         return false
       }
       store.putSync(LAST_PRESENTED_VERSION_KEY, currentVersion)
-      store.flushSync()
+      store.flush()
       Logger.info(`present changelog for app version ${currentVersion}`, 'ChangelogPresentationService')
       return true
     } catch (error) {

@@ -47,11 +47,20 @@ import {
   ThirdPartyApiSnapshotPayload,
   ThirdPartyApiValidator
 } from '../main/ets/services/integration/ThirdPartyApiContract';
+import { Want } from '@kit.AbilityKit';
 import {
   LIVE_VIEW_ACTIVITY_PROGRESS_EDGE_STEPS,
   LIVE_VIEW_ACTIVITY_PROGRESS_MAX,
   LiveViewActivityProgress
 } from '../main/ets/services/runtime/LiveViewActivityProgress';
+import { shouldReadSharedWant } from '../main/ets/services/runtime/AbilityRuntimePolicy';
+import {
+  CHANGELOG_REVISION,
+  ChangelogChannel,
+  parseAgcdChangelogEntry,
+  resolveChangelogEntries,
+  resolveChangelogRevision
+} from '../main/ets/pages/hmrouter/ChangelogData';
 
 export default function localUnitTest() {
   describe('localUnitTest', () => {
@@ -338,6 +347,38 @@ export default function localUnitTest() {
       expect(isIapPromotionalJwsInitialTransportError(0, 'create http task error.')).assertTrue()
       expect(isIapPromotionalJwsInitialTransportError(1008210001, 'Network connection error.')).assertFalse()
       expect(isIapPromotionalJwsInitialTransportError(0, 'other client error')).assertFalse()
+    });
+    it('skipsShareKitReadOnLauncherColdStartWant', 0, () => {
+      const launcherHomeWant: Want = { action: 'action.system.home', uri: '' }
+      const emptyWant: Want = {}
+      const sendDataWant: Want = { action: 'ohos.want.action.sendData' }
+      const viewDataWant: Want = { action: 'ohos.want.action.viewData' }
+      const deepLinkWant: Want = { action: 'action.system.home', uri: 'https://easytier.cn/?c=abc' }
+      expect(shouldReadSharedWant(launcherHomeWant)).assertFalse()
+      expect(shouldReadSharedWant(emptyWant)).assertFalse()
+      expect(shouldReadSharedWant(sendDataWant)).assertTrue()
+      expect(shouldReadSharedWant(viewDataWant)).assertTrue()
+      expect(shouldReadSharedWant(deepLinkWant)).assertTrue()
+    });
+    it('parsesCategorizedAgcdChangelogWithoutInterleavingSources', 0, () => {
+      const rawAgcd = '{"projectId":"easytier-arkts","versionName":"2.4.5.13","versionCode":24532313,"releaseDate":"2026-11-19","summary":"EasyTier 鸿蒙原生 v2.4.5.13 更新","mainProject":{"sourceName":"主项目","repo":"FrankHan052176/EasyTier-ArkTS","version":"2.4.5.13","summary":"宿主优化","items":["重构启动链路","移除冗余同步 I/O"]},"upstreams":[{"triggerId":"et-core-job","sourceName":"EasyTier Core HAR","repo":"EasyTier/EasyTier","version":"2.7.1","summary":"","items":["同步 EasyTier Core HAR 2.7.1"]}],"generatedAt":1795068943}'
+      const entry = parseAgcdChangelogEntry(rawAgcd, 'development')
+      expect(entry !== undefined).assertTrue()
+      expect(entry!.channel).assertEqual(ChangelogChannel.DEVELOPMENT)
+      expect(entry!.version).assertEqual('2.4.5.13')
+      expect(entry!.categories.length).assertEqual(2)
+      expect(entry!.categories[0].sourceName).assertEqual('主项目')
+      expect(entry!.categories[0].isUpstream).assertFalse()
+      expect(entry!.categories[0].items.length).assertEqual(2)
+      expect(entry!.categories[1].sourceName).assertEqual('EasyTier Core HAR')
+      expect(entry!.categories[1].isUpstream).assertTrue()
+      expect(entry!.categories[1].version).assertEqual('2.7.1')
+      expect(entry!.categories[1].items[0]).assertEqual('同步 EasyTier Core HAR 2.7.1')
+      expect(resolveChangelogRevision(rawAgcd)).assertEqual('agcd:2.4.5.13:24532313:1795068943')
+
+      const fallbackEntries = resolveChangelogEntries('development', '0.0.1', '', '')
+      expect(fallbackEntries.length >= 2).assertTrue()
+      expect(resolveChangelogRevision('')).assertEqual(CHANGELOG_REVISION)
     });
   });
 }

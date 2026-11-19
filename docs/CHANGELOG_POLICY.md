@@ -18,17 +18,11 @@
 - 正式版页面的获取开发版入口跳转到 AppGallery 测试页：
   `https://appgallery.huawei.com/apptest/2MsGy1dzT1T`。
 
-开发版由 `main` push、Core `repository_dispatch` 或手动 workflow 触发；它们都使用
-`product=publish` 和发布签名，但由构建渠道常量标记为 `development`。
+## AGCD 分类更新日志接入（`agcd-changelog.json`）
 
-## 正式版构建
-
-- 正式版只由 GitHub `release.published` 事件触发，Release tag 必须与正式版版本号一致。
-- 正式版同样使用 `product=publish` 和发布签名，不能用签名类型判断渠道。
-- 构建时直接把顶部最新的开发版记录提升为当前正式版，使用 App 版本号和 Release 发布日期，
-  并在提升后的正式版记录上保留开发版入口；后面的历史正式记录保持不变。
-- Action 会将签名 App 上传到 AGC 并等待包处理成功，但不创建、更新或提交 AGC 测试版本。
-- 正式 AppGallery 版本由发布者在 AGC 中人工创建和提交。
+- 本地 AGCD 构建前会在仓库根目录生成 `agcd-changelog.json`，包含顶层 `versionName`、`versionCode`、`releaseDate`、`summary`，以及严格分类的 `mainProject`（主项目变更）和 `upstreams[]`（如 `et-core-job` 上游 Core HAR 变更）。
+- `hvigorfile.ts` 在构建期读取 `agcd-changelog.json` 并写入 `AgcdChangelog.ets`；应用内 `ChangelogData.ets` 与 `ChangelogPage.ets` 将主项目与各上游变更按独立分组卡片展示，不按时间混排。
+- 普通本地开发未放置 `agcd-changelog.json` 时，自动回退展示 `ChangelogData.ets` 中的静态记录，不影响编译与调试。
 
 ## 正式发布流程
 

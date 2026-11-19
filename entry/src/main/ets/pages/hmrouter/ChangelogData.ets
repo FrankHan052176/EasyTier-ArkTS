@@ -1,6 +1,30 @@
+import { JSON } from '@kit.ArkTS';
+import { AGCD_CHANGELOG_JSON } from '../../util/info/AgcdChangelog';
+
 export enum ChangelogChannel {
   DEVELOPMENT = 'development',
   STABLE = 'stable'
+}
+
+export class ChangelogCategoryGroup {
+  key: string;
+  sourceName: string;
+  repo: string;
+  version: string;
+  summary: string;
+  items: string[];
+  isUpstream: boolean;
+
+  constructor(key: string, sourceName: string, repo: string, version: string,
+    summary: string, items: string[], isUpstream: boolean) {
+    this.key = key;
+    this.sourceName = sourceName;
+    this.repo = repo;
+    this.version = version;
+    this.summary = summary;
+    this.items = items;
+    this.isUpstream = isUpstream;
+  }
 }
 
 export class ChangelogEntry {
@@ -11,9 +35,11 @@ export class ChangelogEntry {
   summary: string;
   changes: string[];
   downloadUrl: string;
+  categories: ChangelogCategoryGroup[];
 
   constructor(channel: ChangelogChannel, version: string, date: string, baseline: string,
-    summary: string, changes: string[], downloadUrl: string = '') {
+    summary: string, changes: string[], downloadUrl: string = '',
+    categories: ChangelogCategoryGroup[] = []) {
     this.channel = channel;
     this.version = version;
     this.date = date;
@@ -21,7 +47,29 @@ export class ChangelogEntry {
     this.summary = summary;
     this.changes = changes;
     this.downloadUrl = downloadUrl;
+    this.categories = categories;
   }
+}
+
+interface AgcdSourceSectionDto {
+  triggerId?: string;
+  sourceName?: string;
+  repo?: string;
+  version?: string;
+  summary?: string;
+  items?: string[];
+}
+
+interface AgcdChangelogDto {
+  projectId?: string;
+  versionName?: string;
+  versionCode?: number;
+  releaseDate?: string;
+  channel?: string;
+  summary?: string;
+  mainProject?: AgcdSourceSectionDto;
+  upstreams?: AgcdSourceSectionDto[];
+  generatedAt?: number;
 }
 
 export const CHANGELOG_REVISION: string = '2026-08-11.2';
@@ -86,4 +134,150 @@ export function buildStableChangelogEntries(version: string, releaseDate: string
     entries.push(entry);
   }
   return entries;
+}
+
+function filterNonEmptyLines(items: string[] | undefined): string[] {
+  const result: string[] = [];
+  if (!items) {
+    return result;
+  }
+  for (let i: number = 0; i < items.length; i++) {
+    const line: string = (items[i] ?? '').trim();
+    if (line.length > 0) {
+      result.push(line);
+    }
+  }
+  return result;
+}
+
+/**
+ * 解析 AGCD 写入的分类更新日志：主项目变更与各上游触发器变更保持各自独立分组，不按时间混排。
+ * 当未注入或内容为空时返回 undefined，调用方自动回退到仓库内置静态记录。
+ */
+export function parseAgcdChangelogEntry(rawJson: string, channelHint: string = 'development'): ChangelogEntry | undefined {
+  const trimmed: string = rawJson.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  try {
+    const dto: AgcdChangelogDto = JSON.parse(trimmed) as AgcdChangelogDto;
+    const categories: ChangelogCategoryGroup[] = [];
+    const flatChanges: string[] = [];
+
+    if (dto.mainProject) {
+      const mainItems: string[] = filterNonEmptyLines(dto.mainProject.items);
+      const mainSummary: string = (dto.mainProject.summary ?? '').trim();
+      if (mainItems.length > 0 || mainSummary.length > 0) {
+        const mainSourceName: string = (dto.mainProject.sourceName ?? '').trim() || '主项目';
+        categories.push(new ChangelogCategoryGroup(
+          'main-project',
+          mainSourceName,
+          (dto.mainProject.repo ?? '').trim(),
+          (dto.mainProject.version ?? '').trim(),
+          mainSummary,
+          mainItems,
+          false
+        ));
+        for (let i: number = 0; i < mainItems.length; i++) {
+          flatChanges.push(`[${mainSourceName}] ${mainItems[i]}`);
+        }
+      }
+    }
+
+    const upstreams: AgcdSourceSectionDto[] = dto.upstreams ?? [];
+    for (let index: number = 0; index < upstreams.length; index++) {
+      const upstream: AgcdSourceSectionDto = upstreams[index];
+      const upstreamItems: string[] = filterNonEmptyLines(upstream.items);
+      const upstreamSummary: string = (upstream.summary ?? '').trim();
+      if (upstreamItems.length === 0 && upstreamSummary.length === 0) {
+        continue;
+      }
+      const sourceName: string = (upstream.sourceName ?? '').trim() ||
+        (upstream.triggerId ?? '').trim() || `上游依赖 ${index + 1}`;
+      const key: string = (upstream.triggerId ?? '').trim() || `upstream-${index}`;
+      categories.push(new ChangelogCategoryGroup(
+        key,
+        sourceName,
+        (upstream.repo ?? '').trim(),
+        (upstream.version ?? '').trim(),
+        upstreamSummary,
+        upstreamItems,
+        true
+      ));
+      for (let j: number = 0; j < upstreamItems.length; j++) {
+        flatChanges.push(`[${sourceName}] ${upstreamItems[j]}`);
+      }
+    }
+
+    const topSummary: string = (dto.summary ?? '').trim();
+    if (categories.length === 0 && topSummary.length === 0) {
+      return undefined;
+    }
+
+    const isStable: boolean = dto.channel === 'stable' || channelHint === 'stable';
+    const channel: ChangelogChannel = isStable ? ChangelogChannel.STABLE : ChangelogChannel.DEVELOPMENT;
+    const versionName: string = (dto.versionName ?? '').trim();
+    const versionText: string = versionName.length > 0 ? versionName : (isStable ? '正式版' : '开发版');
+    const rawDate: string = (dto.releaseDate ?? '').trim();
+    const dateText: string = isStable
+      ? (rawDate.length > 0 ? rawDate : '当前构建')
+      : (rawDate.length > 0 ? `更新至 ${rawDate}` : '当前开发构建');
+    const versionCode: number = dto.versionCode ?? 0;
+    const baselineText: string = versionCode > 0
+      ? `构建号 ${versionCode}`
+      : (isStable ? '当前正式发布' : '本地构建变更');
+    const summaryText: string = topSummary.length > 0
+      ? topSummary
+      : `包含 ${categories.length} 个来源分类变更记录。`;
+
+    return new ChangelogEntry(
+      channel,
+      versionText,
+      dateText,
+      baselineText,
+      summaryText,
+      flatChanges,
+      isStable ? DEVELOPMENT_DOWNLOAD_URL : '',
+      categories
+    );
+  } catch (_) {
+    return undefined;
+  }
+}
+
+export function resolveChangelogEntries(channelHint: string, appVersion: string, releaseDate: string,
+  rawAgcdJson: string = AGCD_CHANGELOG_JSON): ChangelogEntry[] {
+  const agcdEntry: ChangelogEntry | undefined = parseAgcdChangelogEntry(rawAgcdJson, channelHint);
+  if (agcdEntry) {
+    const result: ChangelogEntry[] = [agcdEntry];
+    for (let i: number = 0; i < CHANGELOG_ENTRIES.length; i++) {
+      const item: ChangelogEntry = CHANGELOG_ENTRIES[i];
+      if (item.channel === ChangelogChannel.STABLE && item.version !== agcdEntry.version) {
+        result.push(item);
+      }
+    }
+    return result;
+  }
+  if (channelHint !== 'stable') {
+    return CHANGELOG_ENTRIES;
+  }
+  return buildStableChangelogEntries(appVersion, releaseDate);
+}
+
+export function resolveChangelogRevision(rawAgcdJson: string = AGCD_CHANGELOG_JSON): string {
+  const trimmed: string = rawAgcdJson.trim();
+  if (trimmed.length === 0) {
+    return CHANGELOG_REVISION;
+  }
+  try {
+    const dto: AgcdChangelogDto = JSON.parse(trimmed) as AgcdChangelogDto;
+    const versionName: string = (dto.versionName ?? '').trim();
+    const versionCode: number = dto.versionCode ?? 0;
+    const generatedAt: number = dto.generatedAt ?? 0;
+    if (versionName.length > 0 || versionCode > 0 || generatedAt > 0) {
+      return `agcd:${versionName}:${versionCode}:${generatedAt}`;
+    }
+  } catch (_) {
+  }
+  return CHANGELOG_REVISION;
 }
